@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PICKER
+  CHAMP
+  AREA_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum EmploymentStatus {
+  NEW_HIRE_PENDING
+  ACTIVE
+  RESIGNED
+  TERMINATED
+  ARCHIVED
+}
+
+enum ProfileStatus {
+  INCOMPLETE
+  PENDING_REVIEW
+  COMPLETE
+}
+
+enum BlockStatus {
+  NO_BLOCK
+  TEMPORARY_BLOCK
+  PERMANENT_BLOCK
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNSPECIFIED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ChainStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequestType {
+  NEW_HIRE
+  RESIGNATION
+  TERMINATION
+  TRANSFER
+}
+
+enum RequestStatus {
+  DRAFT
+  PENDING_AREA_MANAGER
+  PENDING_DESTINATION_AREA_MANAGER
+  PENDING_ADMIN
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum ApprovalStep {
+  AREA_MANAGER_APPROVAL
+  SOURCE_AREA_MANAGER_APPROVAL
+  DESTINATION_AREA_MANAGER_APPROVAL
+  ADMIN_FINAL_APPROVAL
+}
+
+model User {
+  id                          String                           @id @default(uuid())
+  ibsId                       String?                          @unique
+  shopperId                   String?                          @unique
+  role                        UserRole
+  nameEn                      String
+  nameAr                      String?
+  phoneNumber                 String                           @unique
+  nationalId                  String?                          @unique
+  address                     String?
+  dateOfBirth                 DateTime?
+  gender                      Gender                           @default(UNSPECIFIED)
+  joiningDate                 DateTime?
+  employmentStatus            EmploymentStatus                 @default(NEW_HIRE_PENDING)
+  resignationDate             DateTime?
+  accountStatus               AccountStatus                    @default(INACTIVE)
+  profileStatus               ProfileStatus                    @default(INCOMPLETE)
+  blockStatus                 BlockStatus                      @default(NO_BLOCK)
+  blockedUntil                DateTime?
+  blockReason                 String?
+  passwordHash                String
+  mustChangePassword          Boolean                          @default(false)
+  temporaryPasswordExpiresAt  DateTime?
+  lastLoginAt                 DateTime?
+  createdAt                   DateTime                         @default(now())
+  updatedAt                   DateTime                         @updatedAt
+  pickerBranchAssignments     PickerBranchAssignment[]         @relation("PickerAssignments")
+  vendorChampAssignments      VendorChampAssignment[]          @relation("VendorChampAssignments")
+  chainAreaManagerAssignments ChainAreaManagerAssignment[]     @relation("ChainAreaManagerAssignments")
+  createdRequests             Request[]                        @relation("RequestCreatedBy")
+  targetedRequests            Request[]                        @relation("RequestTargetUser")
+  approvals                   RequestApproval[]                @relation("RequestApprover")
+  notifications               Notification[]
+  auditLogsAsActor            AuditLog[]                       @relation("AuditActor")
+
+  @@index([role])
+  @@index([accountStatus])
+  @@index([employmentStatus])
+}
+
+model Chain {
+  id                         String                        @id @default(uuid())
+  chainName                  String
+  chainCode                  String                        @unique
+  status                     ChainStatus                   @default(ACTIVE)
+  createdAt                  DateTime                      @default(now())
+  updatedAt                  DateTime                      @updatedAt
+  vendors                    Vendor[]
+  areaManagerAssignments     ChainAreaManagerAssignment[]
+  sourceRequests             Request[]                     @relation("RequestSourceChain")
+  destinationRequests        Request[]                     @relation("RequestDestinationChain")
+}
+
+model Vendor {
+  id                         String                    @id @default(uuid())
+  vendorName                 String
+  vendorCode                 String                    @unique
+  vendorExternalId           String?                   @unique
+  status                     VendorStatus              @default(ACTIVE)
+  chainId                    String
+  address                    String?
+  area                       String?
+  city                       String?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  chain                      Chain                     @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  pickerAssignments          PickerBranchAssignment[]
+  champAssignments           VendorChampAssignment[]
+  sourceRequests             Request[]                 @relation("RequestSourceVendor")
+  destinationRequests        Request[]                 @relation("RequestDestinationVendor")
+
+  @@index([chainId])
+}
+
+model PickerBranchAssignment {
+  id                 String           @id @default(uuid())
+  pickerId           String
+  vendorId           String
+  status             AssignmentStatus @default(ACTIVE)
+  startDate          DateTime         @default(now())
+  endDate            DateTime?
+  createdByRequestId String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  picker             User             @relation("PickerAssignments", fields: [pickerId], references: [id], onDelete: Restrict)
+  vendor             Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  createdByRequest   Request?         @relation("RequestCreatedAssignments", fields: [createdByRequestId], references: [id], onDelete: SetNull)
+
+  @@index([pickerId, status])
+  @@index([vendorId, status])
+}
+
+model VendorChampAssignment {
+  id         String           @id @default(uuid())
+  vendorId    String
+  champId     String
+  status      AssignmentStatus @default(ACTIVE)
+  startDate   DateTime         @default(now())
+  endDate     DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  champ       User             @relation("VendorChampAssignments", fields: [champId], references: [id], onDelete: Restrict)
+
+  @@index([vendorId, status])
+  @@index([champId, status])
+}
+
+model ChainAreaManagerAssignment {
+  id            String           @id @default(uuid())
+  chainId        String
+  areaManagerId  String
+  status         AssignmentStatus @default(ACTIVE)
+  startDate      DateTime         @default(now())
+  endDate        DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  chain          Chain            @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  areaManager    User             @relation("ChainAreaManagerAssignments", fields: [areaManagerId], references: [id], onDelete: Restrict)
+
+  @@index([chainId, status])
+  @@index([areaManagerId, status])
+}
+
+model Request {
+  id                   String                    @id @default(uuid())
+  type                 RequestType
+  status               RequestStatus             @default(DRAFT)
+  createdById          String
+  targetUserId         String?
+  sourceChainId        String?
+  sourceVendorId       String?
+  destinationChainId   String?
+  destinationVendorId  String?
+  payload              Json?
+  currentStep          ApprovalStep?
+  completedAt          DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  createdBy            User                      @relation("RequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  targetUser           User?                     @relation("RequestTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  sourceChain          Chain?                    @relation("RequestSourceChain", fields: [sourceChainId], references: [id], onDelete: SetNull)
+  sourceVendor         Vendor?                   @relation("RequestSourceVendor", fields: [sourceVendorId], references: [id], onDelete: SetNull)
+  destinationChain     Chain?                    @relation("RequestDestinationChain", fields: [destinationChainId], references: [id], onDelete: SetNull)
+  destinationVendor    Vendor?                   @relation("RequestDestinationVendor", fields: [destinationVendorId], references: [id], onDelete: SetNull)
+  approvals            RequestApproval[]
+  createdAssignments   PickerBranchAssignment[]  @relation("RequestCreatedAssignments")
+
+  @@index([status])
+  @@index([type])
+  @@index([createdById])
+  @@index([targetUserId])
+  @@index([sourceVendorId])
+  @@index([destinationVendorId])
+}
+
+model RequestApproval {
+  id           String          @id @default(uuid())
+  requestId     String
+  step          ApprovalStep
+  approverRole  UserRole
+  approverId    String?
+  status        ApprovalStatus @default(PENDING)
+  decisionAt    DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  request       Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver      User?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([approverId, status])
+  @@index([requestId, step])
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId      String
+  type        String
+  title       String
+  body        String
+  payload     Json?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String
+  oldValue     Json?
+  newValue     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+  actor        User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}
