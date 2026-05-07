@@ -100,15 +100,17 @@ Expected local endpoints:
 Web: http://localhost:3000
 API health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
+Admin Chains: http://localhost:3000/admin/chains
+Admin Vendors: http://localhost:3000/admin/vendors
 ```
 
 ## Phase Notes
 
-- `apps/web` includes Phase 1 auth screens and role dashboard placeholders only.
-- `apps/api` exposes foundation modules, `GET /api/health`, and Phase 1 auth endpoints.
+- `apps/web` includes auth screens, role dashboard placeholders, and Phase 2 admin organization pages.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, and Phase 2 Chains/Vendors endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for “one active assignment” rules are documented for later SQL migrations because Prisma cannot model them directly in schema syntax.
-- Request, approval, assignment, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 1.
+- Request, approval, assignment, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 2.
 
 ## Auth Endpoints
 
@@ -121,6 +123,23 @@ GET /api/users/me
 ```
 
 Browser auth uses an HTTP-only JWT cookie. Bearer tokens are accepted by the backend guard for API testing.
+
+## Organization Endpoints
+
+Admin and Super Admin only:
+
+```text
+GET /api/chains
+GET /api/chains/:id
+POST /api/chains
+PATCH /api/chains/:id
+GET /api/vendors
+GET /api/vendors/:id
+POST /api/vendors
+PATCH /api/vendors/:id
+```
+
+Chains and Vendors support pagination, search, and status filters. Vendors must belong to an existing Chain.
 
 ## Reference Docs
 

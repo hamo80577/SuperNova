@@ -1,13 +1,16 @@
 "use client";
 
 import { LogOut, PanelLeft } from "lucide-react";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
-import { ProtectedRoute } from "@/components/auth/protected-route";
 import { useAuth } from "@/components/auth/auth-provider";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getRoleLabel } from "@/lib/auth/role-redirects";
 import type { UserRole } from "@/lib/auth/types";
+import { cn } from "@/lib/utils";
 import { roleNavigation } from "./role-nav";
 
 const dashboardCopy: Record<
@@ -41,28 +44,75 @@ const dashboardCopy: Record<
     title: "Admin Dashboard",
     description: "System administration workspace placeholders.",
     emptyTitle: "Admin workspace is ready for controlled management.",
-    emptyBody: "Users, chains, vendors, requests, and audit views are not built yet."
+    emptyBody: "Users, requests, audit, and settings remain placeholders."
   },
   SUPER_ADMIN: {
     title: "Admin Dashboard",
     description: "System administration workspace placeholders.",
     emptyTitle: "Admin workspace is ready for controlled management.",
-    emptyBody: "Users, chains, vendors, requests, and audit views are not built yet."
+    emptyBody: "Users, requests, audit, and settings remain placeholders."
   }
 };
 
 export function DashboardShell({ role }: { role: UserRole }) {
+  const copy = dashboardCopy[role];
+
   return (
-    <ProtectedRoute allowedRoles={role === "ADMIN" ? ["ADMIN", "SUPER_ADMIN"] : [role]}>
-      <DashboardShellInner role={role} />
+    <DashboardFrame
+      allowedRoles={role === "ADMIN" ? ["ADMIN", "SUPER_ADMIN"] : [role]}
+      description={copy.description}
+      title={copy.title}
+    >
+      <div className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-normal">
+              {copy.emptyTitle}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              {copy.emptyBody}
+            </p>
+          </div>
+          <Badge variant="muted">Phase 1 placeholder</Badge>
+        </div>
+        <DashboardPlaceholderGrid />
+      </div>
+    </DashboardFrame>
+  );
+}
+
+export function DashboardFrame({
+  allowedRoles,
+  children,
+  description,
+  title
+}: {
+  allowedRoles: UserRole[];
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <ProtectedRoute allowedRoles={allowedRoles}>
+      <DashboardFrameInner description={description} title={title}>
+        {children}
+      </DashboardFrameInner>
     </ProtectedRoute>
   );
 }
 
-function DashboardShellInner({ role }: { role: UserRole }) {
+function DashboardFrameInner({
+  children,
+  description,
+  title
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
   const { logout, user } = useAuth();
-  const navItems = roleNavigation[user?.role ?? role];
-  const copy = dashboardCopy[user?.role ?? role];
+  const pathname = usePathname();
+  const navItems = roleNavigation[user?.role ?? "ADMIN"];
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -80,14 +130,18 @@ function DashboardShellInner({ role }: { role: UserRole }) {
           <nav className="grid gap-1 p-3">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const isActive =
+                item.href !== "#" && pathname.startsWith(item.href);
+
               return (
                 <a
-                  aria-disabled={!item.active}
-                  className={
-                    item.active
-                      ? "flex items-center gap-3 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-                      : "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-                  }
+                  aria-disabled={item.href === "#"}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                    isActive
+                      ? "bg-primary font-medium text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
                   href={item.href}
                   key={item.label}
                 >
@@ -104,10 +158,8 @@ function DashboardShellInner({ role }: { role: UserRole }) {
             <div className="flex items-center gap-3">
               <PanelLeft className="h-5 w-5 text-muted-foreground lg:hidden" />
               <div>
-                <p className="text-sm font-semibold">{copy.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {copy.description}
-                </p>
+                <p className="text-sm font-semibold">{title}</p>
+                <p className="text-xs text-muted-foreground">{description}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -118,7 +170,7 @@ function DashboardShellInner({ role }: { role: UserRole }) {
                 </p>
               </div>
               <Badge variant="outline">
-                {user ? getRoleLabel(user.role) : getRoleLabel(role)}
+                {user ? getRoleLabel(user.role) : "Admin"}
               </Badge>
               <Button onClick={() => void logout()} size="sm" variant="outline">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -126,41 +178,31 @@ function DashboardShellInner({ role }: { role: UserRole }) {
               </Button>
             </div>
           </header>
-
-          <div className="p-5">
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-normal">
-                    {copy.emptyTitle}
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {copy.emptyBody}
-                  </p>
-                </div>
-                <Badge variant="muted">Phase 1 placeholder</Badge>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {navItems.slice(1).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div
-                      className="rounded-md border bg-background p-4"
-                      key={item.label}
-                    >
-                      <Icon className="mb-4 h-5 w-5 text-primary" />
-                      <p className="text-sm font-medium">{item.label}</p>
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        Placeholder
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <div className="p-5">{children}</div>
         </section>
       </div>
     </main>
+  );
+}
+
+function DashboardPlaceholderGrid() {
+  const { user } = useAuth();
+  const navItems = roleNavigation[user?.role ?? "ADMIN"];
+
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {navItems.slice(1).map((item) => {
+        const Icon = item.icon;
+        return (
+          <div className="rounded-md border bg-background p-4" key={item.label}>
+            <Icon className="mb-4 h-5 w-5 text-primary" />
+            <p className="text-sm font-medium">{item.label}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {item.href === "#" ? "Placeholder" : "Available"}
+            </p>
+          </div>
+        );
+      })}
+    </div>
   );
 }

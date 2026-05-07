@@ -68,6 +68,16 @@ Vendor -> Chain -> active ChainAreaManagerAssignment -> Area Manager
 
 Phase 0 defines these structures only. It does not implement request orchestration yet.
 
+## Phase 2 Organization Rules
+
+Phase 2 makes `Chain` and `Vendor` operational for Admin/Super Admin management.
+
+- `Vendor.chainId` is required and must reference an existing `Chain`.
+- `Chain.chainCode` stays unique.
+- `Vendor.vendorCode` stays unique.
+- `Vendor.vendorExternalId` stays unique when provided.
+- Chain and Vendor deletion is out of scope for Phase 2.
+
 ## Indexing
 
 The Prisma schema adds baseline indexes for lookup and future scoping:

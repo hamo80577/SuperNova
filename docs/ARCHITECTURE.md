@@ -95,9 +95,20 @@ Role redirects:
 - `ADMIN` -> `/admin/dashboard`
 - `SUPER_ADMIN` -> `/admin/dashboard`
 
-## Phase 1 Scope Guard
+## Organization Management API
 
-Phase 1 establishes auth, user identity, role redirects, and shell placeholders. It does not implement:
+Phase 2 adds Admin/Super Admin CRUD for organization structure only:
+
+- Chains
+- Vendors / Branches
+
+These endpoints use the existing JWT auth guard, roles guard, DTO validation, Prisma services, and audit logging. List endpoints support pagination, search, and filtering. Vendor records must belong to an existing Chain.
+
+Phase 2 does not assign Pickers, Champs, or Area Managers. Assignment tables remain data model foundation only until the assignment engine phase.
+
+## Phase 2 Scope Guard
+
+Phase 2 establishes organization structure management. It does not implement:
 
 - New Hire flow
 - Transfer flow
@@ -105,5 +116,6 @@ Phase 1 establishes auth, user identity, role redirects, and shell placeholders.
 - Request engine
 - Approval engine
 - Assignment engine
+- Picker creation
 - Full role dashboards
 - Approval decision logic

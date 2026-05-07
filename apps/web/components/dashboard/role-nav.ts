@@ -43,19 +43,19 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Requests & Approvals", href: "#", icon: ClipboardList }
   ],
   ADMIN: [
-    { label: "Dashboard", href: "/admin/dashboard", active: true, icon: Home },
+    { label: "Dashboard", href: "/admin/dashboard", icon: Home },
     { label: "Users", href: "#", icon: Users },
-    { label: "Chains", href: "#", icon: GitBranch },
-    { label: "Vendors", href: "#", icon: Store },
+    { label: "Chains", href: "/admin/chains", icon: GitBranch },
+    { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Requests", href: "#", icon: ClipboardList },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
   ],
   SUPER_ADMIN: [
-    { label: "Dashboard", href: "/admin/dashboard", active: true, icon: Home },
+    { label: "Dashboard", href: "/admin/dashboard", icon: Home },
     { label: "Users", href: "#", icon: Users },
-    { label: "Chains", href: "#", icon: GitBranch },
-    { label: "Vendors", href: "#", icon: Store },
+    { label: "Chains", href: "/admin/chains", icon: GitBranch },
+    { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Requests", href: "#", icon: ClipboardList },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
