@@ -29,12 +29,62 @@ For every phase:
 11. Use available plugins/superpowers/skills if present, especially:
     - `ui-ux-pro-max` for frontend UI/UX implementation and review
 12. If a named plugin/skill is unavailable, do not hallucinate. Apply the same quality rules manually.
-13. End with:
+13. For any phase that touches backend, Prisma, database behavior, auth, API routes, protected frontend routes, assignments, requests, approvals, notifications, or audit logs, Codex must run local Docker/PostgreSQL verification.
+14. Do not mark a backend/database/API phase complete unless the real local Docker PostgreSQL database was started, migrated, and used for verification.
+15. End with:
     - Summary
     - Files changed
     - Tests/checks run
+    - Local Docker/PostgreSQL Verification
     - Known risks
     - Whether the phase is complete
+
+## Global Local Docker/PostgreSQL Verification Gate
+
+SuperNova uses PostgreSQL through Docker Compose.
+
+Codex must not treat backend/database work as complete just because TypeScript builds.
+
+For any backend, Prisma, auth, API, protected frontend, assignment, request, approval, notification, or audit phase, Codex must verify against the real local Docker PostgreSQL setup.
+
+Required verification commands where applicable:
+
+```text
+docker compose up -d postgres
+docker compose ps
+docker compose logs postgres --tail=80
+npm run prisma:generate
+npm run prisma:validate
+npm run prisma:migrate
+npm run db:seed
+npm run dev
+```
+
+Alternative app startup is allowed when useful:
+
+```text
+docker compose --profile app up
+```
+
+Required verification evidence in final response:
+
+```text
+Docker compose status summary
+Migration command result
+Seed command result, if applicable
+API health result
+Manual endpoint verification summary
+Manual UI verification summary, if frontend changed
+Any issue that blocked real DB verification
+```
+
+If Docker PostgreSQL was not started, migrations were not applied, or new API/UI behavior was not verified against the local database, the phase status must be:
+
+```text
+NOT COMPLETE
+```
+
+Do not use `prisma db push` as the default path when migrations are expected. Use it only as a clearly explained temporary local fallback.
 
 ---
 
@@ -124,6 +174,8 @@ No business workflows implemented yet.
 Docs lock product direction and architectural constraints.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 1 — Auth, Users, Roles, and App Shell
@@ -194,6 +246,8 @@ Unauthorized dashboard access is blocked by backend and frontend.
 No assignment logic yet.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 2 — Chains and Vendors/Branches
@@ -253,6 +307,24 @@ Frontend forms are validated.
 Backend validates all inputs.
 ```
 
+Local Docker/PostgreSQL verification is required.
+
+Codex must verify:
+
+```text
+PostgreSQL container starts and is healthy.
+Prisma migrations are applied to the Docker database.
+Seed command is run if needed.
+API health endpoint works.
+Admin login still works.
+Chain create/list/update works against the real database.
+Vendor create/list/update works against the real database.
+Duplicate chain/vendor codes return clean conflict errors.
+/admin/chains and /admin/vendors work in the browser.
+```
+
+Phase 2 is NOT COMPLETE if Docker PostgreSQL verification was skipped.
+
 ---
 
 # Phase 3 — Assignment Engine
@@ -303,6 +375,8 @@ Derived manager queries work.
 Assignment history is preserved.
 No direct Picker transfer UI yet.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
 
 ---
 
@@ -386,6 +460,8 @@ Picker sees only own data.
 Admin sees all.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 5 — Generic Request & Approval Engine
@@ -442,6 +518,8 @@ Audit logs are created.
 No specific New Hire/Transfer finalization yet.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 6 — New Hire Workflow
@@ -497,6 +575,8 @@ Picker login with temp password forces change.
 Audit logs exist.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 7 — Profile Completion Workflow
@@ -535,6 +615,8 @@ Required fields are validated.
 Profile status updates to COMPLETE or PENDING_REVIEW.
 Picker cannot access full workspace until required profile data is completed.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
 
 ---
 
@@ -577,6 +659,8 @@ Archived user cannot login.
 Assignment is closed, not deleted.
 Block status is saved.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
 
 ---
 
@@ -632,6 +716,8 @@ Picker new branch is visible after completion.
 Old assignment is inactive/closed.
 ```
 
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
+
 ---
 
 # Phase 10 — Admin Controls, Archive, and Audit Polish
@@ -661,6 +747,8 @@ Admin can view archived users.
 Admin can inspect audit logs.
 Sensitive actions are traceable.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
 
 ---
 
@@ -692,6 +780,8 @@ Champ can see Picker counts.
 Admin can see system-wide counts.
 Reports use real data only.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.
 
 ---
 
@@ -733,3 +823,5 @@ Tests pass where available.
 Production env example is documented.
 Docker deployment is documented.
 ```
+
+Local Docker/PostgreSQL verification must be completed and reported before this phase can be marked COMPLETE.

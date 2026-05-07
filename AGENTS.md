@@ -171,6 +171,41 @@ Approval ownership
 
 Frontend hiding is not security.
 
+## Local Docker and PostgreSQL Verification Rules
+
+Codex must actively verify backend, database, API, and protected UI work against the local Docker PostgreSQL setup.
+
+For any phase that changes backend code, Prisma, database behavior, auth, API routes, protected frontend routes, assignments, requests, approvals, notifications, or audit logs, Codex must:
+
+1. Inspect `docker-compose.yml` and environment example files.
+2. Start PostgreSQL with Docker Compose.
+3. Confirm the PostgreSQL container is healthy.
+4. Run Prisma generate, validate, and migrations against the Docker database.
+5. Run seed commands when the project provides them and the phase needs seeded data.
+6. Start the API and Web apps using project scripts or Docker Compose profiles.
+7. Verify API health.
+8. Manually verify the endpoints and screens added by the phase.
+
+Standard commands to use where applicable:
+
+```text
+docker compose up -d postgres
+docker compose ps
+docker compose logs postgres --tail=80
+npm run prisma:generate
+npm run prisma:validate
+npm run prisma:migrate
+npm run db:seed
+npm run dev
+docker compose --profile app up
+```
+
+Do not use `prisma db push` as the default path when migrations are expected. Use it only as a temporary local fallback and explain why.
+
+A phase that includes backend, database, API, auth, or protected UI behavior must be marked `NOT COMPLETE` if Docker PostgreSQL was not started, migrations were not applied, and the new behavior was not verified against the local database.
+
+Codex must not claim verification passed unless it actually ran the command or manually checked the behavior.
+
 ## Quality Rules
 
 Before changing code:
@@ -182,7 +217,8 @@ Before changing code:
 5. Do not start future phases.
 6. Update or add tests where relevant.
 7. Run typecheck/build/tests where available.
-8. Summarize changed files and risks.
+8. Run local Docker/PostgreSQL verification when the phase touches backend, Prisma, database, auth, API data, or protected UI behavior.
+9. Summarize changed files and risks.
 
 ## UI/UX Rules
 
@@ -224,6 +260,8 @@ Expose temporary passwords except in the Champ notification after final New Hire
 Allow Admin to finalize New Hire without Shopper ID
 Skip audit logs for sensitive actions
 Add payroll, attendance, GPS, order integration, or advanced analytics to MVP unless explicitly requested
+Claim Docker/PostgreSQL verification passed unless it was actually run
+Commit local-only environment values
 ```
 
 ## Final Response Format for Codex
@@ -234,7 +272,19 @@ Always end with:
 Summary
 Files Changed
 Tests/Checks Run
+Local Docker/PostgreSQL Verification
 Known Risks
 Phase Completion Status
 Next Recommended Step
+```
+
+`Local Docker/PostgreSQL Verification` must include:
+
+```text
+Docker compose status summary
+Migration command result
+Seed command result, if applicable
+API health result
+Manual endpoint/UI verification summary
+Any issue that blocked real DB verification
 ```
