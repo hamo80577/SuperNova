@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Post,
   Req,
   Res,
@@ -19,7 +20,7 @@ import type { AuthenticatedUser } from "./types/authenticated-user";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Get("status")
   getStatus() {

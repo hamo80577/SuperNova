@@ -1,10 +1,13 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Inject } from "@nestjs/common";
 
 import { ApprovalsService } from "./approvals.service";
 
 @Controller("approvals")
 export class ApprovalsController {
-  constructor(private readonly approvalsService: ApprovalsService) {}
+  constructor(
+    @Inject(ApprovalsService)
+    private readonly approvalsService: ApprovalsService
+  ) {}
 
   @Get("status")
   getStatus() {

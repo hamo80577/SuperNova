@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -26,7 +27,7 @@ import { UpdateChainDto } from "./dto/update-chain.dto";
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class ChainsController {
-  constructor(private readonly chainsService: ChainsService) {}
+  constructor(@Inject(ChainsService) private readonly chainsService: ChainsService) {}
 
   @Get("status")
   getStatus() {

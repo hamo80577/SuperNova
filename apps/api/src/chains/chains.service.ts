@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -16,7 +17,9 @@ const MAX_PAGE_SIZE = 100;
 @Injectable()
 export class ChainsService {
   constructor(
+    @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(PrismaService)
     private readonly prisma: PrismaService
   ) {}
 

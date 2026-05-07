@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Param,
   Patch,
   Post,
@@ -26,7 +27,7 @@ import { VendorsService } from "./vendors.service";
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class VendorsController {
-  constructor(private readonly vendorsService: VendorsService) {}
+  constructor(@Inject(VendorsService) private readonly vendorsService: VendorsService) {}
 
   @Get("status")
   getStatus() {

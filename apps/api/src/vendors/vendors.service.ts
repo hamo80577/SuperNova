@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -25,7 +26,9 @@ type VendorWithChain = Vendor & {
 @Injectable()
 export class VendorsService {
   constructor(
+    @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(PrismaService)
     private readonly prisma: PrismaService
   ) {}
 

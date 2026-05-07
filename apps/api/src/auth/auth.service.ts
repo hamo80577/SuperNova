@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException
@@ -24,10 +25,15 @@ const PASSWORD_HASH_ROUNDS = 12;
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(AuditService)
     private readonly auditService: AuditService,
+    @Inject(ConfigService)
     private readonly configService: ConfigService,
+    @Inject(JwtService)
     private readonly jwtService: JwtService,
+    @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    @Inject(UsersService)
     private readonly usersService: UsersService
   ) {}
 
