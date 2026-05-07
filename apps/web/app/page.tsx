@@ -1,5 +1,5 @@
-import { OpsShell } from "@/components/ops-shell";
+import { EntryRedirect } from "@/components/auth/entry-redirect";
 
 export default function HomePage() {
-  return <OpsShell />;
+  return <EntryRedirect />;
 }

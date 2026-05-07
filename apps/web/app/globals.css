@@ -5,20 +5,21 @@
 :root {
   --background: 210 40% 98%;
   --foreground: 222.2 47.4% 11.2%;
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 47.4% 11.2%;
   --primary: 196 90% 48%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 215 27% 17%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 18%;
-  --muted-foreground: 215 20% 70%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
   --accent: 28 96% 55%;
-  --accent-foreground: 210 40% 98%;
-  --border: 217 19% 27%;
-  --input: 217 19% 27%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 40.2%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
   --ring: 196 90% 48%;
-  --radius: 1rem;
+  --radius: 0.5rem;
   --font-sans: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
 }
 
@@ -27,13 +28,13 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: hsl(222 47% 7%);
+  background: hsl(var(--background));
   color: hsl(var(--foreground));
 }
 

@@ -49,6 +49,8 @@ Copy-Item apps\api\.env.example apps\api\.env
 Copy-Item apps\web\.env.example apps\web\.env.local
 ```
 
+Set `JWT_SECRET` to a long random value before starting the API. The API requires it and does not provide a production fallback.
+
 2. Install dependencies.
 
 ```powershell
@@ -68,7 +70,25 @@ npm run prisma:generate
 npm run prisma:validate
 ```
 
-5. Start the apps.
+5. Optional local admin seed.
+
+Set these in `.env` before running the seed:
+
+```text
+SEED_ADMIN_PHONE=
+SEED_ADMIN_PASSWORD=
+SEED_ADMIN_NAME=SuperNova Admin
+```
+
+Then run:
+
+```powershell
+npm run db:seed
+```
+
+The seed hashes the password and is intended for local development only.
+
+6. Start the apps.
 
 ```powershell
 npm run dev
@@ -79,19 +99,33 @@ Expected local endpoints:
 ```text
 Web: http://localhost:3000
 API health: http://localhost:4000/api/health
+Login: http://localhost:3000/login
 ```
 
-## Phase 0 Notes
+## Phase Notes
 
-- `apps/web` is a professional placeholder shell only. No dashboards or role workspace implementation yet.
-- `apps/api` exposes foundation modules plus `GET /api/health`. No auth flows or request workflow logic are implemented yet.
+- `apps/web` includes Phase 1 auth screens and role dashboard placeholders only.
+- `apps/api` exposes foundation modules, `GET /api/health`, and Phase 1 auth endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for “one active assignment” rules are documented for later SQL migrations because Prisma cannot model them directly in schema syntax.
+- Request, approval, assignment, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 1.
+
+## Auth Endpoints
+
+```text
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/change-password
+GET /api/auth/me
+GET /api/users/me
+```
+
+Browser auth uses an HTTP-only JWT cookie. Bearer tokens are accepted by the backend guard for API testing.
 
 ## Reference Docs
 
-- [AGENTS.md](/C:/Users/hp/Desktop/SuperNova/AGENTS.md)
-- [IMPLEMENTATION_PHASES.md](/C:/Users/hp/Desktop/SuperNova/IMPLEMENTATION_PHASES.md)
-- [Architecture](/C:/Users/hp/Desktop/SuperNova/docs/ARCHITECTURE.md)
-- [Data Model](/C:/Users/hp/Desktop/SuperNova/docs/DATA_MODEL.md)
-- [Workflows](/C:/Users/hp/Desktop/SuperNova/docs/WORKFLOWS.md)
+- [AGENTS.md](./AGENTS.md)
+- [IMPLEMENTATION_PHASES.md](./IMPLEMENTATION_PHASES.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Data Model](./docs/DATA_MODEL.md)
+- [Workflows](./docs/WORKFLOWS.md)

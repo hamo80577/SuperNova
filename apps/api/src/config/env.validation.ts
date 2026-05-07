@@ -1,5 +1,5 @@
 import { plainToInstance } from "class-transformer";
-import { IsNumberString, IsString, validateSync } from "class-validator";
+import { IsNumberString, IsOptional, IsString, MinLength, validateSync } from "class-validator";
 
 class EnvironmentVariables {
   @IsString()
@@ -7,6 +7,31 @@ class EnvironmentVariables {
 
   @IsNumberString()
   API_PORT!: string;
+
+  @IsString()
+  WEB_ORIGIN!: string;
+
+  @IsString()
+  @MinLength(32)
+  JWT_SECRET!: string;
+
+  @IsString()
+  JWT_EXPIRES_IN!: string;
+
+  @IsString()
+  AUTH_COOKIE_NAME!: string;
+
+  @IsOptional()
+  @IsString()
+  SEED_ADMIN_PHONE?: string;
+
+  @IsOptional()
+  @IsString()
+  SEED_ADMIN_PASSWORD?: string;
+
+  @IsOptional()
+  @IsString()
+  SEED_ADMIN_NAME?: string;
 }
 
 export function validateEnvironment(config: Record<string, unknown>) {

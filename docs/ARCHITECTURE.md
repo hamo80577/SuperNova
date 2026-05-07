@@ -29,7 +29,7 @@ Rationale:
 
 ## Backend Module Boundaries
 
-Phase 0 creates these backend modules only as foundation:
+The backend is organized around these modules:
 
 - `AuthModule`
 - `UsersModule`
@@ -76,13 +76,34 @@ Every backend mutation must eventually validate:
 
 Frontend hiding is not security.
 
-## Phase 0 Scope Guard
+## Auth and Session Design
 
-Phase 0 establishes scaffolding only. It does not implement:
+Phase 1 uses phone-number and password login through the NestJS API.
+
+- Passwords are hashed with bcrypt.
+- Browser sessions use an HTTP-only JWT cookie.
+- Cookie settings use `sameSite=lax`, `httpOnly=true`, and `secure=true` in production.
+- The backend guard also accepts `Authorization: Bearer <token>` for API testing.
+- `JWT_SECRET` is required through environment configuration.
+- Safe user responses must never include `passwordHash` or temporary password material.
+
+Role redirects:
+
+- `PICKER` -> `/picker/dashboard`
+- `CHAMP` -> `/champ/dashboard`
+- `AREA_MANAGER` -> `/area-manager/dashboard`
+- `ADMIN` -> `/admin/dashboard`
+- `SUPER_ADMIN` -> `/admin/dashboard`
+
+## Phase 1 Scope Guard
+
+Phase 1 establishes auth, user identity, role redirects, and shell placeholders. It does not implement:
 
 - New Hire flow
 - Transfer flow
 - Resignation/Termination flow
-- Production auth
-- Full dashboards
+- Request engine
+- Approval engine
+- Assignment engine
+- Full role dashboards
 - Approval decision logic
