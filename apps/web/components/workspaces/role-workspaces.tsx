@@ -10,6 +10,7 @@ import {
   UserRound,
   Users
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -277,24 +278,27 @@ export function AdminWorkspaceDashboard() {
           value={data.totals.activeAreaManagerAssignments}
         />
         <div className="mt-4 flex flex-wrap gap-2">
-          <a
+          <Link
             className={buttonVariants({ size: "sm", variant: "outline" })}
             href="/admin/chains"
+            prefetch
           >
             Manage Chains
-          </a>
-          <a
+          </Link>
+          <Link
             className={buttonVariants({ size: "sm", variant: "outline" })}
             href="/admin/vendors"
+            prefetch
           >
             Manage Vendors
-          </a>
-          <a
+          </Link>
+          <Link
             className={buttonVariants({ size: "sm", variant: "outline" })}
             href="/admin/assignments"
+            prefetch
           >
             Manage Assignments
-          </a>
+          </Link>
         </div>
       </InfoCard>
 

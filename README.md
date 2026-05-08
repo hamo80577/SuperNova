@@ -28,6 +28,13 @@ Sensitive lifecycle changes -> Request -> Approval -> Final Action -> System App
 
 Do not use `User.managerId`, `User.chainId`, or `User.vendorId` as source-of-truth fields. Manager and ownership context must come from assignment tables.
 
+Champ operations are Branch-first. A Champ with one assigned Branch works inside
+that Branch context; a Champ with multiple Branches may see aggregate dashboard
+data, but every mutation/action must start by opening one selected Branch. Future
+New Hire, Transfer, Resignation, and Termination workflow forms must be launched
+from that selected Branch context, and user-facing Champ forms must not ask the
+Champ to manually choose `sourceChainId` or `sourceVendorId`.
+
 ## Stack
 
 ```text
@@ -210,6 +217,10 @@ PATCH /api/notifications/read-all
 ```
 
 Approval completion moves requests to `APPROVED`, not `COMPLETED`. Final action execution is reserved for later workflow phases.
+
+The generic request creation UI is Admin/Super Admin-only and exists for internal
+Phase 5 request engine testing. Real workflow-specific forms for Champs and other
+roles are implemented in later phases from the correct Branch context.
 
 ## Reference Docs
 

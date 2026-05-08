@@ -17,6 +17,17 @@ These actions must stay workflow-based:
 - Picker archive/deactivation
 - Picker assignment changes
 
+## Champ Branch-First Rule
+
+Champ operations are Branch-first. The active operational context for Champ
+actions is the selected Vendor/Branch, not a generic Chain or manually entered
+source identifier.
+
+- If a Champ has one assigned Branch, the Champ should work inside that Branch context.
+- If a Champ has multiple assigned Branches, dashboards may aggregate visibility, but every mutation/action must start by opening one Branch.
+- New Hire, Transfer, Resignation, and Termination must be launched from a selected Branch context in later phases.
+- User-facing Champ workflow forms must not ask the Champ to manually select `sourceChainId` or `sourceVendorId`.
+
 ## New Hire
 
 Target shape for later phases:
@@ -121,6 +132,7 @@ Allowed in Phase 5:
 - move fully approved requests to `APPROVED`
 - create notifications and audit logs for request/approval activity
 - show request lists, details, timelines, and pending approval queues
+- expose an Admin/Super Admin-only internal generic request creation UI for engine testing
 
 Not allowed in Phase 5:
 
@@ -130,3 +142,4 @@ Not allowed in Phase 5:
 - closing old assignments from Transfer approval
 - archiving/deactivating Pickers from Resignation or Termination approval
 - marking requests `COMPLETED`
+- presenting the internal generic request creation form as a real Champ operations workflow

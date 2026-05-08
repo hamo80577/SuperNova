@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut, PanelLeft } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -132,22 +133,36 @@ function DashboardFrameInner({
               const Icon = item.icon;
               const isActive =
                 item.href !== "#" && pathname.startsWith(item.href);
+              const itemClassName = cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
+                isActive
+                  ? "bg-primary font-medium text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              );
+
+              if (item.href === "#") {
+                return (
+                  <span
+                    aria-disabled="true"
+                    className={itemClassName}
+                    key={item.label}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </span>
+                );
+              }
 
               return (
-                <a
-                  aria-disabled={item.href === "#"}
-                  className={cn(
-                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
-                    isActive
-                      ? "bg-primary font-medium text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
+                <Link
+                  className={itemClassName}
                   href={item.href}
                   key={item.label}
+                  prefetch
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </a>
+                </Link>
               );
             })}
           </nav>

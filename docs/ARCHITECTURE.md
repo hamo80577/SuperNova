@@ -63,6 +63,16 @@ Forbidden source-of-truth fields on `User`:
 - `chainId`
 - `vendorId`
 
+## Champ Operational Context
+
+Champ workspaces and future Champ-initiated lifecycle actions are Branch-first.
+Vendor/Branch is the active operational context for Champ actions.
+
+- A Champ with one assigned Branch works inside that Branch context.
+- A Champ with multiple assigned Branches may see aggregate dashboard data, but mutations/actions must begin from one selected Branch.
+- New Hire, Transfer, Resignation, and Termination forms in later phases must be launched from the selected Branch context.
+- User-facing Champ workflow forms must derive `sourceChainId` and `sourceVendorId` from assignment context instead of asking the Champ to choose them manually.
+
 ## Security Boundary
 
 Every backend mutation must eventually validate:
@@ -203,6 +213,10 @@ Approval ownership is enforced in the backend:
 - Transfer approval steps use source and destination Chain context, but approval only moves the request to `APPROVED`.
 
 Phase 5 approval completion never applies final actions. `COMPLETED` remains reserved for later phases where workflow-specific system application is implemented.
+
+The generic request creation UI is internal Admin/Super Admin tooling for testing
+the Phase 5 engine only. It is not a Champ operations form and must not be shown
+as a user-facing workflow launcher for Picker lifecycle actions.
 
 ## Phase 5 Scope Guard
 

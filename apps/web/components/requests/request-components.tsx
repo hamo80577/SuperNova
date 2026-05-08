@@ -47,6 +47,8 @@ const requestStatuses: RequestStatus[] = [
 export function RequestsCenter() {
   const { user } = useAuth();
   const router = useRouter();
+  const canUseInternalRequestEngine =
+    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const [items, setItems] = useState<RequestSummary[]>([]);
   const [status, setStatus] = useState<RequestStatus | "">("");
   const [type, setType] = useState<RequestType | "">("");
@@ -137,12 +139,17 @@ export function RequestsCenter() {
         </div>
       </section>
 
-      {user?.role !== "PICKER" ? (
+      {canUseInternalRequestEngine ? (
         <section className="rounded-lg border bg-card p-5 shadow-sm">
-          <h2 className="text-base font-semibold">Create Generic Request</h2>
+          <Badge variant="muted">Admin only</Badge>
+          <h2 className="mt-3 text-base font-semibold">
+            Internal request engine testing
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            This creates a request record only. It does not create Pickers, move
-            assignments, archive users, or perform final actions.
+            Internal request engine testing. Real workflow forms are implemented
+            in later phases. This creates a request record only; it does not
+            create Pickers, move assignments, archive users, or perform final
+            actions.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">
