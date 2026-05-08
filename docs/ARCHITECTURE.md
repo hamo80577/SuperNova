@@ -155,3 +155,29 @@ Phase 3 establishes assignment hierarchy management. It does not implement:
 - role-scoped dashboards
 - Area Manager operations map
 - Champ "My Pickers" workspace
+
+## Role Workspace Foundation
+
+Phase 4 adds read-only workspace APIs and dashboards for each operational role.
+
+Workspace visibility is still derived from assignment tables:
+
+- Picker workspace reads the current active Picker Branch assignment, then derives Vendor, Chain, Champ, and Area Manager context.
+- Champ workspace reads active Vendor Champ assignments for the authenticated Champ and shows only those branches and active Picker assignments under them.
+- Area Manager workspace reads active Chain Area Manager assignments for the authenticated Area Manager and shows only those Chains, Vendors, Champs, and Pickers under that scope.
+- Admin workspace reads system-wide organization and assignment counts with links to controlled Admin pages.
+
+The frontend consumes role-specific workspace endpoints, but backend role guards and scoped queries enforce the actual security boundary. These endpoints are read-only and do not create requests, approvals, transfers, or lifecycle actions.
+
+## Phase 4 Scope Guard
+
+Phase 4 establishes role workspaces. It does not implement:
+
+- Request engine
+- Approval engine
+- New Hire workflow
+- Transfer workflow
+- Resignation/Termination workflow
+- lifecycle mutation actions from role workspaces
+- direct Picker creation
+- direct Picker branch edits

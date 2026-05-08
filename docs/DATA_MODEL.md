@@ -111,3 +111,14 @@ Required database constraints:
 - one `ACTIVE` `ChainAreaManagerAssignment` per `chainId`
 
 Closed assignment rows remain in place as history. The system must not delete assignment history or overwrite old assignment rows.
+
+## Phase 4 Workspace Reads
+
+Role workspaces do not add new source-of-truth fields. They read the existing data model through assignment-derived scope:
+
+- Picker context comes from the active `PickerBranchAssignment`.
+- Champ branch ownership comes from active `VendorChampAssignment` rows.
+- Area Manager chain ownership comes from active `ChainAreaManagerAssignment` rows.
+- Admin workspace counts read all Chains, Vendors, Users, and active assignment rows.
+
+No `User.managerId`, `User.chainId`, or `User.vendorId` fields are introduced for workspace visibility.

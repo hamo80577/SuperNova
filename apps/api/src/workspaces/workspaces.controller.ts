@@ -1,0 +1,42 @@
+import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
+import { UserRole } from "@prisma/client";
+
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { WorkspacesService } from "./workspaces.service";
+
+@Controller("workspaces")
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class WorkspacesController {
+  constructor(
+    @Inject(WorkspacesService)
+    private readonly workspacesService: WorkspacesService
+  ) {}
+
+  @Get("picker")
+  @Roles(UserRole.PICKER)
+  getPickerWorkspace(@CurrentUser() user: AuthenticatedUser) {
+    return this.workspacesService.getPickerWorkspace(user.id);
+  }
+
+  @Get("champ")
+  @Roles(UserRole.CHAMP)
+  getChampWorkspace(@CurrentUser() user: AuthenticatedUser) {
+    return this.workspacesService.getChampWorkspace(user.id);
+  }
+
+  @Get("area-manager")
+  @Roles(UserRole.AREA_MANAGER)
+  getAreaManagerWorkspace(@CurrentUser() user: AuthenticatedUser) {
+    return this.workspacesService.getAreaManagerWorkspace(user.id);
+  }
+
+  @Get("admin")
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  getAdminWorkspace() {
+    return this.workspacesService.getAdminWorkspace();
+  }
+}

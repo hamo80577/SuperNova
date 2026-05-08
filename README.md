@@ -103,15 +103,18 @@ Login: http://localhost:3000/login
 Admin Chains: http://localhost:3000/admin/chains
 Admin Vendors: http://localhost:3000/admin/vendors
 Admin Assignments: http://localhost:3000/admin/assignments
+Picker Workspace: http://localhost:3000/picker/dashboard
+Champ Workspace: http://localhost:3000/champ/dashboard
+Area Manager Workspace: http://localhost:3000/area-manager/dashboard
 ```
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, role dashboard placeholders, Phase 2 admin organization pages, and Phase 3 admin assignment setup.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, and Phase 3 assignment hierarchy endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, and Phase 4 role-scoped workspace dashboards.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, and Phase 4 workspace endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- Request, approval, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 3.
+- Request, approval, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 4.
 
 ## Auth Endpoints
 
@@ -171,6 +174,19 @@ SEED_DEMO_PASSWORD=
 ```
 
 The demo assignment users are local/dev only and do not implement Picker creation CRUD.
+
+## Workspace Endpoints
+
+Role-specific workspace endpoints are read-only and scoped by the authenticated user:
+
+```text
+GET /api/workspaces/picker
+GET /api/workspaces/champ
+GET /api/workspaces/area-manager
+GET /api/workspaces/admin
+```
+
+These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, New Hire, Transfer, or Resignation/Termination workflows.
 
 ## Reference Docs
 

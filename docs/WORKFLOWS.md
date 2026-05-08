@@ -31,7 +31,7 @@ Champ request
 -> System notifies Champ with temporary credentials
 ```
 
-Phase 3 does not implement this flow.
+Phase 4 does not implement this flow.
 
 ## Resignation / Termination
 
@@ -46,7 +46,7 @@ Champ request
 -> System records block status
 ```
 
-Phase 3 does not implement this flow.
+Phase 4 does not implement this flow.
 
 ## Transfer
 
@@ -67,7 +67,7 @@ Champ request
 -> System transfers Picker
 ```
 
-Phase 3 does not implement this flow.
+Phase 4 does not implement this flow.
 
 ## Phase 3 Assignment Setup Is Not Transfer
 
@@ -99,3 +99,14 @@ Do not add these to MVP unless explicitly requested:
 - Order integration
 - Microservices
 - Advanced analytics
+
+## Phase 4 Role Workspaces Are Read-Only
+
+Phase 4 workspaces expose scoped operational visibility only:
+
+- Picker can view own profile, branch, chain, Champ, and Area Manager context.
+- Champ can view assigned branches and active Pickers under those branches.
+- Area Manager can view assigned Chains, Vendors under those Chains, and assigned users under those Vendors.
+- Admin can view system-wide operational counts and links to existing controlled management pages.
+
+These workspaces must not bypass lifecycle workflows. New Hire, Transfer, Resignation/Termination, Request creation, and Approval decisions remain later phases.
