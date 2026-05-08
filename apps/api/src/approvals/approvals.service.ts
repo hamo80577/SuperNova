@@ -89,6 +89,16 @@ export class ApprovalsService {
 
     const items = [];
     for (const approval of candidates) {
+      const expectedStatus = this.requestsService.statusForStep(approval.step);
+
+      if (
+        approval.status !== ApprovalStatus.PENDING ||
+        approval.request.currentStep !== approval.step ||
+        approval.request.status !== expectedStatus
+      ) {
+        continue;
+      }
+
       if (
         await this.requestsService.userCanActOnStep(
           approval.request,
