@@ -72,6 +72,8 @@ Vendor/Branch is the active operational context for Champ actions.
 - A Champ with multiple assigned Branches may see aggregate dashboard data, but mutations/actions must begin from one selected Branch.
 - New Hire, Transfer, Resignation, and Termination forms in later phases must be launched from the selected Branch context.
 - User-facing Champ workflow forms must derive `sourceChainId` and `sourceVendorId` from assignment context instead of asking the Champ to choose them manually.
+- `/api/workspaces/champ/branches` and `/api/workspaces/champ/branches/:vendorId` are read-only scoped endpoints. They require `CHAMP` role and return only Branches with an active `VendorChampAssignment` for the authenticated Champ.
+- `/champ/dashboard` is an aggregate overview. `/champ/branches/:vendorId` is the operational workspace where future Champ lifecycle forms should start.
 
 ## Security Boundary
 
@@ -174,6 +176,7 @@ Workspace visibility is still derived from assignment tables:
 
 - Picker workspace reads the current active Picker Branch assignment, then derives Vendor, Chain, Champ, and Area Manager context.
 - Champ workspace reads active Vendor Champ assignments for the authenticated Champ and shows only those branches and active Picker assignments under them.
+- Champ Branch workspace detail reads one active Vendor Champ assignment, derives the Branch Chain and Area Manager from assignment tables, and shows branch-local Pickers and request history without mutation behavior.
 - Area Manager workspace reads active Chain Area Manager assignments for the authenticated Area Manager and shows only those Chains, Vendors, Champs, and Pickers under that scope.
 - Admin workspace reads system-wide organization and assignment counts with links to controlled Admin pages.
 

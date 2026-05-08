@@ -4,6 +4,7 @@ import {
   AssignmentStatus,
   ChainStatus,
   Prisma,
+  RequestStatus,
   User,
   VendorStatus
 } from "@prisma/client";
@@ -14,6 +15,7 @@ import {
   toVendorSummary
 } from "../assignments/assignment-response.utils";
 import { PrismaService } from "../prisma/prisma.service";
+import { toRequestSummary } from "../requests/request-response.utils";
 import { toSafeUser } from "../users/dto/safe-user.dto";
 
 const activePickerAssignmentInclude = {
@@ -58,6 +60,29 @@ const areaManagerChainInclude = {
     }
   }
 } satisfies Prisma.ChainAreaManagerAssignmentInclude;
+
+const workspaceRequestInclude = {
+  createdBy: true,
+  targetUser: true,
+  sourceChain: true,
+  sourceVendor: { include: { chain: true } },
+  destinationChain: true,
+  destinationVendor: { include: { chain: true } },
+  approvals: {
+    include: { approver: true },
+    orderBy: { createdAt: "asc" as const }
+  }
+} satisfies Prisma.RequestInclude;
+
+type ChampBranchAssignment = Prisma.VendorChampAssignmentGetPayload<{
+  include: typeof champBranchInclude;
+}>;
+
+const pendingRequestStatuses = [
+  RequestStatus.PENDING_AREA_MANAGER,
+  RequestStatus.PENDING_DESTINATION_AREA_MANAGER,
+  RequestStatus.PENDING_ADMIN
+];
 
 @Injectable()
 export class WorkspacesService {
@@ -111,49 +136,119 @@ export class WorkspacesService {
 
   async getChampWorkspace(userId: string) {
     const user = await this.getUserOrThrow(userId);
+    const branchData = await this.getChampBranches(userId);
+
+    return {
+      champ: toUserSummary(user),
+      branches: branchData.branches,
+      totals: {
+        branches: branchData.branches.length,
+        activePickers: branchData.branches.reduce(
+          (total, branch) => total + branch.activePickerCount,
+          0
+        ),
+        pendingRequests: branchData.totals.pendingRequests,
+        recentRequests: branchData.totals.recentRequests
+      },
+      placeholders: {
+        requests: "Request history is visible here; workflow-specific forms launch from a selected Branch in later phases.",
+        actions: "Lifecycle actions remain request-based and Branch-contextual in later phases."
+      }
+    };
+  }
+
+  async getChampBranches(userId: string) {
+    await this.getUserOrThrow(userId);
     const assignments = await this.prisma.vendorChampAssignment.findMany({
       where: { champId: userId, status: AssignmentStatus.ACTIVE },
       include: champBranchInclude,
       orderBy: { createdAt: "desc" }
     });
 
-    const branches = assignments.map((assignment) => {
-      const pickers = assignment.vendor.pickerAssignments.map((pickerAssignment) => ({
-        assignment: {
-          id: pickerAssignment.id,
-          status: pickerAssignment.status,
-          startDate: pickerAssignment.startDate
-        },
-        picker: toUserSummary(pickerAssignment.picker)
-      }));
-
-      return {
-        assignment: {
-          id: assignment.id,
-          status: assignment.status,
-          startDate: assignment.startDate
-        },
-        vendor: toVendorSummary(assignment.vendor),
-        chain: toChainSummary(assignment.vendor.chain),
-        activePickerCount: pickers.length,
-        pickers
-      };
-    });
+    const branches = await Promise.all(
+      assignments.map((assignment) => this.toChampBranchSummary(assignment, userId))
+    );
 
     return {
-      champ: toUserSummary(user),
       branches,
       totals: {
         branches: branches.length,
         activePickers: branches.reduce(
           (total, branch) => total + branch.activePickerCount,
           0
+        ),
+        pendingRequests: branches.reduce(
+          (total, branch) => total + branch.pendingRequestCount,
+          0
+        ),
+        recentRequests: branches.reduce(
+          (total, branch) => total + branch.recentRequestCount,
+          0
         )
-      },
-      placeholders: {
-        requests: "Request workflows are not implemented in Phase 4.",
-        actions: "Lifecycle actions remain request-based in later phases."
       }
+    };
+  }
+
+  async getChampBranchDetail(userId: string, vendorId: string) {
+    await this.getUserOrThrow(userId);
+    const assignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: { champId: userId, vendorId, status: AssignmentStatus.ACTIVE },
+      include: champBranchInclude
+    });
+
+    if (!assignment) {
+      throw new NotFoundException("Assigned Branch was not found.");
+    }
+
+    const [
+      areaManagerAssignment,
+      recentRequests,
+      recentRequestCount,
+      pendingRequestCount
+    ] = await this.prisma.$transaction([
+      this.prisma.chainAreaManagerAssignment.findFirst({
+        where: {
+          chainId: assignment.vendor.chainId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: { areaManager: true }
+      }),
+      this.prisma.request.findMany({
+        where: { createdById: userId, sourceVendorId: vendorId },
+        include: workspaceRequestInclude,
+        orderBy: { createdAt: "desc" },
+        take: 8
+      }),
+      this.prisma.request.count({
+        where: { createdById: userId, sourceVendorId: vendorId }
+      }),
+      this.prisma.request.count({
+        where: {
+          createdById: userId,
+          sourceVendorId: vendorId,
+          status: { in: pendingRequestStatuses }
+        }
+      })
+    ]);
+
+    const branch = this.mapChampBranchAssignment(assignment);
+
+    return {
+      ...branch,
+      areaManagerAssignment: areaManagerAssignment
+        ? {
+            id: areaManagerAssignment.id,
+            status: areaManagerAssignment.status,
+            startDate: areaManagerAssignment.startDate,
+            endDate: areaManagerAssignment.endDate
+          }
+        : null,
+      areaManager: areaManagerAssignment
+        ? toUserSummary(areaManagerAssignment.areaManager)
+        : null,
+      recentRequests: recentRequests.map(toRequestSummary),
+      recentRequestCount,
+      pendingRequestCount
     };
   }
 
@@ -324,6 +419,55 @@ export class WorkspacesService {
     }
 
     return user;
+  }
+
+  private async toChampBranchSummary(
+    assignment: ChampBranchAssignment,
+    champId: string
+  ) {
+    const [recentRequestCount, pendingRequestCount] = await this.prisma.$transaction([
+      this.prisma.request.count({
+        where: { createdById: champId, sourceVendorId: assignment.vendorId }
+      }),
+      this.prisma.request.count({
+        where: {
+          createdById: champId,
+          sourceVendorId: assignment.vendorId,
+          status: { in: pendingRequestStatuses }
+        }
+      })
+    ]);
+
+    return {
+      ...this.mapChampBranchAssignment(assignment),
+      recentRequestCount,
+      pendingRequestCount
+    };
+  }
+
+  private mapChampBranchAssignment(assignment: ChampBranchAssignment) {
+    const pickers = assignment.vendor.pickerAssignments.map((pickerAssignment) => ({
+      assignment: {
+        id: pickerAssignment.id,
+        status: pickerAssignment.status,
+        startDate: pickerAssignment.startDate,
+        endDate: pickerAssignment.endDate
+      },
+      picker: toUserSummary(pickerAssignment.picker)
+    }));
+
+    return {
+      assignment: {
+        id: assignment.id,
+        status: assignment.status,
+        startDate: assignment.startDate,
+        endDate: assignment.endDate
+      },
+      vendor: toVendorSummary(assignment.vendor),
+      chain: toChainSummary(assignment.vendor.chain),
+      activePickerCount: pickers.length,
+      pickers
+    };
   }
 
   private getProfileCompletion(user: User) {

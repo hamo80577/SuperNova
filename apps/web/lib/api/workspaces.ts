@@ -1,5 +1,6 @@
 import type { SafeUser } from "@/lib/auth/types";
-import { apiRequest } from "./request";
+import type { RequestSummary } from "./requests";
+import { apiGet } from "./request";
 
 export type AssignmentStatus = "ACTIVE" | "CLOSED";
 export type EntityStatus = "ACTIVE" | "INACTIVE";
@@ -69,6 +70,8 @@ export interface ChampBranch {
   vendor: VendorSummary;
   chain: ChainSummary;
   activePickerCount: number;
+  recentRequestCount: number;
+  pendingRequestCount: number;
   pickers: ScopedPicker[];
 }
 
@@ -78,11 +81,24 @@ export interface ChampWorkspace {
   totals: {
     branches: number;
     activePickers: number;
+    pendingRequests: number;
+    recentRequests: number;
   };
   placeholders: {
     requests: string;
     actions: string;
   };
+}
+
+export interface ChampBranchesResponse {
+  branches: ChampBranch[];
+  totals: ChampWorkspace["totals"];
+}
+
+export interface ChampBranchDetail extends ChampBranch {
+  areaManagerAssignment: AssignmentSummary | null;
+  areaManager: UserSummary | null;
+  recentRequests: RequestSummary[];
 }
 
 export interface AreaManagerVendor {
@@ -142,15 +158,21 @@ export interface AdminWorkspace {
 
 export const workspacesApi = {
   picker() {
-    return apiRequest<PickerWorkspace>("/workspaces/picker");
+    return apiGet<PickerWorkspace>("/workspaces/picker");
   },
   champ() {
-    return apiRequest<ChampWorkspace>("/workspaces/champ");
+    return apiGet<ChampWorkspace>("/workspaces/champ");
+  },
+  champBranches() {
+    return apiGet<ChampBranchesResponse>("/workspaces/champ/branches");
+  },
+  champBranchDetail(vendorId: string) {
+    return apiGet<ChampBranchDetail>(`/workspaces/champ/branches/${vendorId}`);
   },
   areaManager() {
-    return apiRequest<AreaManagerWorkspace>("/workspaces/area-manager");
+    return apiGet<AreaManagerWorkspace>("/workspaces/area-manager");
   },
   admin() {
-    return apiRequest<AdminWorkspace>("/workspaces/admin");
+    return apiGet<AdminWorkspace>("/workspaces/admin");
   }
 };

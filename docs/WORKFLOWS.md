@@ -27,6 +27,8 @@ source identifier.
 - If a Champ has multiple assigned Branches, dashboards may aggregate visibility, but every mutation/action must start by opening one Branch.
 - New Hire, Transfer, Resignation, and Termination must be launched from a selected Branch context in later phases.
 - User-facing Champ workflow forms must not ask the Champ to manually select `sourceChainId` or `sourceVendorId`.
+- The selected Branch route is `/champ/branches/:vendorId`; future forms must derive `sourceVendorId` from that route and `sourceChainId` from the Branch Chain returned by the backend.
+- `/champ/dashboard` is for aggregate visibility only and must not present global lifecycle action launchers.
 
 ## New Hire
 

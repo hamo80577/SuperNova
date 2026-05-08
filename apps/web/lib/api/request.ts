@@ -30,3 +30,48 @@ export async function apiRequest<T>(
 
   return response.json() as Promise<T>;
 }
+
+type CacheEntry<T> = {
+  expiresAt: number;
+  promise: Promise<T>;
+};
+
+const getCache = new Map<string, CacheEntry<unknown>>();
+
+export function clearApiCache(pathPrefix?: string) {
+  if (!pathPrefix) {
+    getCache.clear();
+    return;
+  }
+
+  for (const key of getCache.keys()) {
+    if (key.startsWith(pathPrefix)) {
+      getCache.delete(key);
+    }
+  }
+}
+
+export async function apiGet<T>(
+  path: string,
+  options: { staleTime?: number } = {}
+): Promise<T> {
+  const staleTime = options.staleTime ?? 45_000;
+  const cached = getCache.get(path) as CacheEntry<T> | undefined;
+  const now = Date.now();
+
+  if (cached && cached.expiresAt > now) {
+    return cached.promise;
+  }
+
+  const promise = apiRequest<T>(path).catch((error) => {
+    getCache.delete(path);
+    throw error;
+  });
+
+  getCache.set(path, {
+    expiresAt: now + staleTime,
+    promise
+  });
+
+  return promise;
+}

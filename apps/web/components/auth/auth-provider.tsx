@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/auth/api-client";
 import { getUserRedirect } from "@/lib/auth/role-redirects";
 import type { AuthResponse, SafeUser } from "@/lib/auth/types";
+import { clearApiCache } from "@/lib/api/request";
 import { replaceRoute } from "@/lib/navigation";
 
 interface AuthContextValue {
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       async login(phoneNumber, password) {
+        clearApiCache();
         const response = await authApi.login(phoneNumber, password);
         setUser(response.user);
         return response;
@@ -64,11 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await authApi.logout();
         } finally {
+          clearApiCache();
           setUser(null);
           replaceRoute(router, "/login");
         }
       },
       async changePassword(currentPassword, newPassword) {
+        clearApiCache();
         const response = await authApi.changePassword(
           currentPassword,
           newPassword

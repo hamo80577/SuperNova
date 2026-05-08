@@ -29,8 +29,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
   CHAMP: [
     { label: "Dashboard", href: "/champ/dashboard", active: true, icon: Home },
-    { label: "My Branches", href: "#", icon: Store },
-    { label: "My Pickers", href: "#", icon: Users },
+    { label: "My Branches", href: "/champ/branches", icon: Store },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Pending Actions", href: "/approvals", icon: ShieldCheck }
   ],

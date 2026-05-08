@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject, Param, ParseUUIDPipe, UseGuards } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -26,6 +26,21 @@ export class WorkspacesController {
   @Roles(UserRole.CHAMP)
   getChampWorkspace(@CurrentUser() user: AuthenticatedUser) {
     return this.workspacesService.getChampWorkspace(user.id);
+  }
+
+  @Get("champ/branches")
+  @Roles(UserRole.CHAMP)
+  getChampBranches(@CurrentUser() user: AuthenticatedUser) {
+    return this.workspacesService.getChampBranches(user.id);
+  }
+
+  @Get("champ/branches/:vendorId")
+  @Roles(UserRole.CHAMP)
+  getChampBranchDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("vendorId", ParseUUIDPipe) vendorId: string
+  ) {
+    return this.workspacesService.getChampBranchDetail(user.id, vendorId);
   }
 
   @Get("area-manager")

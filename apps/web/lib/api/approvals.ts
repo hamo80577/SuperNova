@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiGet, apiRequest, clearApiCache } from "./request";
 import type { RequestApprovalSummary, RequestSummary } from "./requests";
 
 export interface PendingApproval extends RequestApprovalSummary {
@@ -7,18 +7,32 @@ export interface PendingApproval extends RequestApprovalSummary {
 
 export const approvalsApi = {
   pending() {
-    return apiRequest<{ items: PendingApproval[] }>("/approvals/pending");
+    return apiGet<{ items: PendingApproval[] }>("/approvals/pending");
   },
-  approve(approvalId: string, notes?: string) {
-    return apiRequest<RequestSummary>(`/approvals/${approvalId}/approve`, {
-      method: "POST",
-      body: JSON.stringify({ notes })
-    });
+  async approve(approvalId: string, notes?: string) {
+    const request = await apiRequest<RequestSummary>(
+      `/approvals/${approvalId}/approve`,
+      {
+        method: "POST",
+        body: JSON.stringify({ notes })
+      }
+    );
+    clearApiCache("/approvals");
+    clearApiCache("/requests");
+    clearApiCache("/workspaces");
+    return request;
   },
-  reject(approvalId: string, notes?: string) {
-    return apiRequest<RequestSummary>(`/approvals/${approvalId}/reject`, {
-      method: "POST",
-      body: JSON.stringify({ notes })
-    });
+  async reject(approvalId: string, notes?: string) {
+    const request = await apiRequest<RequestSummary>(
+      `/approvals/${approvalId}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify({ notes })
+      }
+    );
+    clearApiCache("/approvals");
+    clearApiCache("/requests");
+    clearApiCache("/workspaces");
+    return request;
   }
 };

@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ArrowRight,
   GitBranch,
   Inbox,
   Map,
@@ -116,37 +117,79 @@ export function ChampWorkspaceDashboard() {
   }
 
   const data = state.data;
+  const singleBranch = data.branches.length === 1 ? data.branches[0] : null;
 
   return (
     <WorkspaceGrid>
       <HeroCard
         badge="Champ workspace"
-        description="Assigned branches and Pickers are derived from Vendor Champ and Picker Branch assignments."
-        title={data.champ.nameEn}
+        description={`Welcome ${data.champ.nameEn}. Champ operations are Branch-first: open a Branch before starting any future lifecycle action.`}
+        title="Branch Operations"
       />
-      <MetricCard icon={Store} label="My branches" value={data.totals.branches} />
+      <MetricCard icon={Store} label="Assigned branches" value={data.totals.branches} />
       <MetricCard icon={Users} label="Active Pickers" value={data.totals.activePickers} />
-      <PlaceholderCard title="Requests placeholder" value={data.placeholders.requests} />
+      <MetricCard
+        icon={ShieldCheck}
+        label="Pending requests"
+        value={data.totals.pendingRequests}
+      />
+      <MetricCard
+        icon={Inbox}
+        label="Recent branch requests"
+        value={data.totals.recentRequests}
+      />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-4">
         <SectionHeader
-          description="Branches currently assigned to this Champ."
-          title="My Branches"
+          description={
+            singleBranch
+              ? "You have one active Branch. Use it as your primary operations workspace."
+              : "Use the global dashboard for totals only. Open one Branch before taking future workflow actions."
+          }
+          title={singleBranch ? "Primary Branch Workspace" : "Assigned Branches"}
         />
         {data.branches.length ? (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.branches.map((branch) => (
-              <div className="rounded-md border bg-background p-4" key={branch.assignment.id}>
+              <div
+                className={
+                  singleBranch
+                    ? "rounded-lg border border-primary/30 bg-primary/5 p-5 md:col-span-2 xl:col-span-3"
+                    : "rounded-md border bg-background p-4"
+                }
+                key={branch.assignment.id}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium">{branch.vendor.vendorName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {branch.vendor.vendorCode} · {branch.chain.chainName}
+                      {branch.vendor.vendorCode} · {branch.chain.chainName} ·{" "}
+                      {[branch.vendor.area, branch.vendor.city]
+                        .filter(Boolean)
+                        .join(", ") || "No area set"}
                     </p>
                   </div>
-                  <Badge variant="outline">{branch.activePickerCount} Pickers</Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">{branch.activePickerCount} Pickers</Badge>
+                    <Badge variant="muted">
+                      {branch.pendingRequestCount} pending
+                    </Badge>
+                  </div>
                 </div>
-                <PickerList pickers={branch.pickers.map((item) => item.picker)} />
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  Future New Hire, Transfer, Resignation, and Termination actions
+                  will run inside this selected Branch context.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    className={buttonVariants({ size: "sm" })}
+                    href={`/champ/branches/${branch.vendor.id}`}
+                    prefetch
+                  >
+                    {singleBranch ? "Open Branch Workspace" : "Open Branch"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -155,7 +198,8 @@ export function ChampWorkspaceDashboard() {
         )}
       </section>
 
-      <PlaceholderCard title="Actions placeholder" value={data.placeholders.actions} />
+      <PlaceholderCard title="Branch-first requests" value={data.placeholders.requests} />
+      <PlaceholderCard title="Lifecycle actions" value={data.placeholders.actions} />
     </WorkspaceGrid>
   );
 }
@@ -473,23 +517,6 @@ function Definition({ label, value }: { label: string; value: ReactNode }) {
     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0 last:pb-0">
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
-
-function PickerList({ pickers }: { pickers: UserSummary[] }) {
-  if (!pickers.length) {
-    return <EmptyInline message="No active Pickers are assigned to this branch." />;
-  }
-
-  return (
-    <div className="mt-3 grid gap-2 md:grid-cols-2">
-      {pickers.map((picker) => (
-        <div className="rounded-md border bg-card p-3" key={picker.id}>
-          <p className="text-sm font-medium">{picker.nameEn}</p>
-          <p className="text-xs text-muted-foreground">{picker.phoneNumber}</p>
-        </div>
-      ))}
     </div>
   );
 }

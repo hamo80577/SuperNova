@@ -1,5 +1,5 @@
 import type { ChainSummary, UserSummary, VendorSummary } from "@/lib/api/workspaces";
-import { apiRequest } from "./request";
+import { apiGet, apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 
 export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TERMINATION" | "TRANSFER";
@@ -100,7 +100,7 @@ function toQuery(params: Record<string, string | number | undefined>) {
 
 export const requestsApi = {
   list(params: ListRequestsParams = {}) {
-    return apiRequest<PaginatedRequests>(
+    return apiGet<PaginatedRequests>(
       `/requests${toQuery({
         page: params.page,
         pageSize: params.pageSize,
@@ -111,7 +111,7 @@ export const requestsApi = {
     );
   },
   mySubmitted(params: ListRequestsParams = {}) {
-    return apiRequest<PaginatedRequests>(
+    return apiGet<PaginatedRequests>(
       `/requests/my/submitted${toQuery({
         page: params.page,
         pageSize: params.pageSize,
@@ -122,24 +122,35 @@ export const requestsApi = {
     );
   },
   get(id: string) {
-    return apiRequest<RequestDetail>(`/requests/${id}`);
+    return apiGet<RequestDetail>(`/requests/${id}`);
   },
-  create(payload: CreateRequestPayload) {
-    return apiRequest<RequestSummary>("/requests", {
+  async create(payload: CreateRequestPayload) {
+    const created = await apiRequest<RequestSummary>("/requests", {
       method: "POST",
       body: JSON.stringify(payload)
     });
+    clearApiCache("/requests");
+    clearApiCache("/workspaces");
+    return created;
   },
-  submit(id: string) {
-    return apiRequest<RequestSummary>(`/requests/${id}/submit`, {
+  async submit(id: string) {
+    const submitted = await apiRequest<RequestSummary>(`/requests/${id}/submit`, {
       method: "POST",
       body: JSON.stringify({})
     });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return submitted;
   },
-  cancel(id: string, notes?: string) {
-    return apiRequest<RequestSummary>(`/requests/${id}/cancel`, {
+  async cancel(id: string, notes?: string) {
+    const cancelled = await apiRequest<RequestSummary>(`/requests/${id}/cancel`, {
       method: "POST",
       body: JSON.stringify({ notes })
     });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return cancelled;
   }
 };

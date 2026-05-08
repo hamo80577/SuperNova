@@ -295,7 +295,6 @@ export function RequestsCenter() {
 
 export function RequestDetailView() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -397,9 +396,13 @@ export function RequestDetailView() {
                 Cancel
               </Button>
             ) : null}
-            <Button onClick={() => router.push("/requests")} size="sm" type="button" variant="outline">
+            <Link
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+              href="/requests"
+              prefetch
+            >
               Back
-            </Button>
+            </Link>
           </div>
         </div>
       </section>

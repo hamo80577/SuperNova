@@ -112,6 +112,7 @@ Admin Vendors: http://localhost:3000/admin/vendors
 Admin Assignments: http://localhost:3000/admin/assignments
 Picker Workspace: http://localhost:3000/picker/dashboard
 Champ Workspace: http://localhost:3000/champ/dashboard
+Champ Branches: http://localhost:3000/champ/branches
 Area Manager Workspace: http://localhost:3000/area-manager/dashboard
 Requests: http://localhost:3000/requests
 Approvals: http://localhost:3000/approvals
@@ -191,11 +192,19 @@ Role-specific workspace endpoints are read-only and scoped by the authenticated 
 ```text
 GET /api/workspaces/picker
 GET /api/workspaces/champ
+GET /api/workspaces/champ/branches
+GET /api/workspaces/champ/branches/:vendorId
 GET /api/workspaces/area-manager
 GET /api/workspaces/admin
 ```
 
 These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, New Hire, Transfer, or Resignation/Termination workflows.
+
+The Champ Branch endpoints are CHAMP-only and enforce active
+`VendorChampAssignment` scope in the backend. `/champ/dashboard` may aggregate
+assigned Branch totals, while `/champ/branches/:vendorId` is the selected Branch
+context for future Champ actions. Phase 6 New Hire UX must launch from that
+selected Branch route and derive source Vendor/Chain context from it.
 
 ## Request and Approval Endpoints
 
