@@ -31,7 +31,7 @@ Champ request
 -> System notifies Champ with temporary credentials
 ```
 
-Phase 4 does not implement this flow.
+Phase 5 does not implement final New Hire execution. It may create and approve a generic `NEW_HIRE` request, but it does not create a Picker or require Shopper ID finalization.
 
 ## Resignation / Termination
 
@@ -46,7 +46,7 @@ Champ request
 -> System records block status
 ```
 
-Phase 4 does not implement this flow.
+Phase 5 does not implement final Resignation or Termination execution. It may create and approve generic requests, but it does not archive/deactivate users or close assignments.
 
 ## Transfer
 
@@ -67,7 +67,7 @@ Champ request
 -> System transfers Picker
 ```
 
-Phase 4 does not implement this flow.
+Phase 5 does not implement final Transfer execution. It may create and approve a generic `TRANSFER` request, but it does not move Picker assignments.
 
 ## Phase 3 Assignment Setup Is Not Transfer
 
@@ -109,4 +109,24 @@ Phase 4 workspaces expose scoped operational visibility only:
 - Area Manager can view assigned Chains, Vendors under those Chains, and assigned users under those Vendors.
 - Admin can view system-wide operational counts and links to existing controlled management pages.
 
-These workspaces must not bypass lifecycle workflows. New Hire, Transfer, Resignation/Termination, Request creation, and Approval decisions remain later phases.
+These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine, while New Hire, Transfer, and Resignation/Termination final execution remain later phases.
+
+## Phase 5 Generic Engine Is Not Finalization
+
+Allowed in Phase 5:
+
+- create generic lifecycle request records
+- submit requests to generated approval steps
+- approve or reject pending approval steps
+- move fully approved requests to `APPROVED`
+- create notifications and audit logs for request/approval activity
+- show request lists, details, timelines, and pending approval queues
+
+Not allowed in Phase 5:
+
+- creating a Picker after New Hire approval
+- requiring or storing Admin Shopper ID finalization
+- moving a Picker branch after Transfer approval
+- closing old assignments from Transfer approval
+- archiving/deactivating Pickers from Resignation or Termination approval
+- marking requests `COMPLETED`

@@ -181,3 +181,36 @@ Phase 4 establishes role workspaces. It does not implement:
 - lifecycle mutation actions from role workspaces
 - direct Picker creation
 - direct Picker branch edits
+
+## Generic Request and Approval Engine
+
+Phase 5 adds reusable lifecycle request infrastructure without implementing final workflow execution.
+
+The engine owns:
+
+- request creation as `DRAFT`
+- request submission and approval step generation
+- approval ownership checks by role and assignment-derived scope
+- request status transitions
+- request timeline responses from request, approval, and audit data
+- in-app notifications for request and approval events
+- audit logs for request and approval actions
+
+Approval ownership is enforced in the backend:
+
+- Area Manager approval steps require an active `ChainAreaManagerAssignment` for the request Chain context.
+- Admin final approval steps require `ADMIN` or `SUPER_ADMIN`.
+- Transfer approval steps use source and destination Chain context, but approval only moves the request to `APPROVED`.
+
+Phase 5 approval completion never applies final actions. `COMPLETED` remains reserved for later phases where workflow-specific system application is implemented.
+
+## Phase 5 Scope Guard
+
+Phase 5 does not implement:
+
+- Picker creation from New Hire
+- Shopper ID finalization
+- Picker assignment transfer execution
+- Picker archive/deactivation from Resignation or Termination
+- direct assignment mutation from request approval
+- payroll, attendance, GPS, order integration, mobile app, microservices, or analytics warehouse

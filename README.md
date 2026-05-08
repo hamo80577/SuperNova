@@ -106,15 +106,17 @@ Admin Assignments: http://localhost:3000/admin/assignments
 Picker Workspace: http://localhost:3000/picker/dashboard
 Champ Workspace: http://localhost:3000/champ/dashboard
 Area Manager Workspace: http://localhost:3000/area-manager/dashboard
+Requests: http://localhost:3000/requests
+Approvals: http://localhost:3000/approvals
 ```
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, and Phase 4 role-scoped workspace dashboards.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, and Phase 4 workspace endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, and Phase 5 request/approval pages.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, and Phase 5 request/approval/notification endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- Request, approval, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 4.
+- Request and approval infrastructure exists in Phase 5, but transfer execution, resignation/termination finalization, and New Hire finalization are not implemented.
 
 ## Auth Endpoints
 
@@ -187,6 +189,27 @@ GET /api/workspaces/admin
 ```
 
 These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, New Hire, Transfer, or Resignation/Termination workflows.
+
+## Request and Approval Endpoints
+
+Authenticated users:
+
+```text
+GET /api/requests
+GET /api/requests/my/submitted
+GET /api/requests/:id
+POST /api/requests
+POST /api/requests/:id/submit
+POST /api/requests/:id/cancel
+GET /api/approvals/pending
+POST /api/approvals/:approvalId/approve
+POST /api/approvals/:approvalId/reject
+GET /api/notifications
+PATCH /api/notifications/:id/read
+PATCH /api/notifications/read-all
+```
+
+Approval completion moves requests to `APPROVED`, not `COMPLETED`. Final action execution is reserved for later workflow phases.
 
 ## Reference Docs
 

@@ -23,6 +23,7 @@ export interface NavItem {
 export const roleNavigation: Record<UserRole, NavItem[]> = {
   PICKER: [
     { label: "Dashboard", href: "/picker/dashboard", active: true, icon: Home },
+    { label: "My Requests", href: "/requests", icon: ClipboardList },
     { label: "My Profile", href: "#", icon: UserRound },
     { label: "Profile Completion", href: "#", icon: ShieldCheck }
   ],
@@ -30,7 +31,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Dashboard", href: "/champ/dashboard", active: true, icon: Home },
     { label: "My Branches", href: "#", icon: Store },
     { label: "My Pickers", href: "#", icon: Users },
-    { label: "Requests", href: "#", icon: ClipboardList }
+    { label: "Requests", href: "/requests", icon: ClipboardList },
+    { label: "Pending Actions", href: "/approvals", icon: ShieldCheck }
   ],
   AREA_MANAGER: [
     {
@@ -41,7 +43,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     },
     { label: "Operations Map", href: "#", icon: Map },
     { label: "Users Under Me", href: "#", icon: Users },
-    { label: "Requests & Approvals", href: "#", icon: ClipboardList }
+    { label: "Requests", href: "/requests", icon: ClipboardList },
+    { label: "Approvals", href: "/approvals", icon: ShieldCheck }
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: Home },
@@ -49,7 +52,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },
-    { label: "Requests", href: "#", icon: ClipboardList },
+    { label: "Requests", href: "/requests", icon: ClipboardList },
+    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
   ],
@@ -59,7 +63,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },
-    { label: "Requests", href: "#", icon: ClipboardList },
+    { label: "Requests", href: "/requests", icon: ClipboardList },
+    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
   ]

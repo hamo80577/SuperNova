@@ -122,3 +122,14 @@ Role workspaces do not add new source-of-truth fields. They read the existing da
 - Admin workspace counts read all Chains, Vendors, Users, and active assignment rows.
 
 No `User.managerId`, `User.chainId`, or `User.vendorId` fields are introduced for workspace visibility.
+
+## Phase 5 Request Engine Usage
+
+Phase 5 starts using the existing `Request`, `RequestApproval`, `Notification`, and `AuditLog` models.
+
+- `Request` stores generic lifecycle metadata and remains the parent record for approval state.
+- `RequestApproval` stores generated approval steps, approver role, optional specific approver, decision status, decision time, and notes.
+- `Notification` stores in-app notification records for submitted requests, pending approvals, decisions, and cancellations.
+- `AuditLog` records request and approval actions.
+
+`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is reserved for later workflow finalization phases.

@@ -79,6 +79,12 @@ async function seedDemoAssignmentUsers() {
       phoneNumber: process.env.SEED_DEMO_AREA_MANAGER_PHONE ?? "+10000000013",
       nameEn: "Local Demo Area Manager",
       role: UserRole.AREA_MANAGER
+    },
+    {
+      phoneNumber:
+        process.env.SEED_DEMO_OUT_OF_SCOPE_AREA_MANAGER_PHONE ?? "+10000000014",
+      nameEn: "Local Demo Out Of Scope Area Manager",
+      role: UserRole.AREA_MANAGER
     }
   ];
 

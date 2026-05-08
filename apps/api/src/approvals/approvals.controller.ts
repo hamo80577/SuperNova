@@ -1,6 +1,21 @@
-import { Controller, Get, Inject } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards
+} from "@nestjs/common";
 
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
+import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { ApprovalsService } from "./approvals.service";
+import { ApprovalDecisionDto } from "./dto/approval-decision.dto";
 
 @Controller("approvals")
 export class ApprovalsController {
@@ -12,5 +27,41 @@ export class ApprovalsController {
   @Get("status")
   getStatus() {
     return this.approvalsService.getFoundationStatus();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("pending")
+  listPending(@CurrentUser() user: AuthenticatedUser) {
+    return this.approvalsService.listPending(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":approvalId/approve")
+  approve(
+    @Param("approvalId", ParseUUIDPipe) approvalId: string,
+    @Body() dto: ApprovalDecisionDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.approvalsService.approve(approvalId, dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":approvalId/reject")
+  reject(
+    @Param("approvalId", ParseUUIDPipe) approvalId: string,
+    @Body() dto: ApprovalDecisionDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.approvalsService.reject(approvalId, dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
   }
 }

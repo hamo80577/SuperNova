@@ -1,11 +1,374 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
+import {
+  ApprovalStatus,
+  ApprovalStep,
+  Prisma,
+  RequestApproval,
+  RequestStatus,
+  UserRole
+} from "@prisma/client";
+
+import { AuditService } from "../audit/audit.service";
+import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { NotificationsService } from "../notifications/notifications.service";
+import { PrismaService } from "../prisma/prisma.service";
+import {
+  assertRequestTransition
+} from "../requests/request-status-machine";
+import { toApprovalSummary, toRequestSummary } from "../requests/request-response.utils";
+import { RequestsService } from "../requests/requests.service";
+import type { ApprovalDecisionDto } from "./dto/approval-decision.dto";
+
+const approvalInclude = {
+  approver: true,
+  request: {
+    include: {
+      createdBy: true,
+      targetUser: true,
+      sourceChain: true,
+      sourceVendor: { include: { chain: true } },
+      destinationChain: true,
+      destinationVendor: { include: { chain: true } },
+      approvals: {
+        include: { approver: true },
+        orderBy: { createdAt: "asc" as const }
+      }
+    }
+  }
+} satisfies Prisma.RequestApprovalInclude;
+
+type ApprovalWithRequest = Prisma.RequestApprovalGetPayload<{
+  include: typeof approvalInclude;
+}>;
+
+type RequestContext = {
+  actor: AuthenticatedUser;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
 
 @Injectable()
 export class ApprovalsService {
+  constructor(
+    @Inject(AuditService)
+    private readonly auditService: AuditService,
+    @Inject(NotificationsService)
+    private readonly notificationsService: NotificationsService,
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+    @Inject(RequestsService)
+    private readonly requestsService: RequestsService
+  ) {}
+
   getFoundationStatus() {
     return {
       module: "approvals",
-      status: "foundation-only"
+      status: "active",
+      note: "Generic approval decisions are enabled; final workflow execution remains out of scope."
+    };
+  }
+
+  async listPending(currentUser: AuthenticatedUser) {
+    const candidates = await this.prisma.requestApproval.findMany({
+      where: {
+        status: ApprovalStatus.PENDING,
+        ...(currentUser.role === UserRole.ADMIN ||
+        currentUser.role === UserRole.SUPER_ADMIN
+          ? { step: ApprovalStep.ADMIN_FINAL_APPROVAL }
+          : { approverRole: currentUser.role })
+      },
+      include: approvalInclude,
+      orderBy: { createdAt: "asc" }
+    });
+
+    const items = [];
+    for (const approval of candidates) {
+      if (
+        await this.requestsService.userCanActOnStep(
+          approval.request,
+          approval.step,
+          approval.approverId,
+          currentUser
+        )
+      ) {
+        items.push(this.toApprovalResponse(approval));
+      }
+    }
+
+    return { items };
+  }
+
+  async approve(
+    approvalId: string,
+    dto: ApprovalDecisionDto,
+    context: RequestContext
+  ) {
+    const approval = await this.findApprovalOrThrow(approvalId);
+    await this.assertCanDecide(approval, context.actor);
+
+    const pendingApprovals = this.sortApprovals(
+      approval.request.approvals.filter(
+        (item) => item.status === ApprovalStatus.PENDING && item.id !== approval.id
+      )
+    );
+    const nextApproval = pendingApprovals[0] ?? null;
+    const nextStatus = nextApproval
+      ? this.requestsService.statusForStep(nextApproval.step)
+      : RequestStatus.APPROVED;
+    assertRequestTransition(approval.request.status, nextStatus);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.requestApproval.update({
+        where: { id: approval.id },
+        data: {
+          status: ApprovalStatus.APPROVED,
+          decisionAt: new Date(),
+          notes: dto.notes,
+          approverId: approval.approverId ?? context.actor.id
+        }
+      });
+
+      return tx.request.update({
+        where: { id: approval.requestId },
+        data: {
+          status: nextStatus,
+          currentStep: nextApproval?.step ?? null
+        },
+        include: approvalInclude.request.include
+      });
+    });
+
+    await this.auditService.log({
+      actorUserId: context.actor.id,
+      action: "APPROVAL_APPROVED",
+      entityType: "RequestApproval",
+      entityId: approval.id,
+      oldValue: this.toApprovalAuditValue(approval),
+      newValue: {
+        ...this.toApprovalAuditValue(approval),
+        status: ApprovalStatus.APPROVED,
+        notes: dto.notes ?? null
+      },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    await this.notificationsService.create({
+      userId: approval.request.createdById,
+      type: "APPROVAL_APPROVED",
+      title: "Approval completed",
+      body: `${approval.step} was approved.`,
+      payload: { requestId: approval.requestId, approvalId: approval.id }
+    });
+
+    if (nextApproval) {
+      await this.notifyNextApproval(nextApproval, updated.type, updated.id);
+    } else {
+      await this.auditService.log({
+        actorUserId: context.actor.id,
+        action: "REQUEST_APPROVED",
+        entityType: "Request",
+        entityId: updated.id,
+        oldValue: { status: approval.request.status },
+        newValue: { status: updated.status },
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      });
+      await this.notificationsService.create({
+        userId: updated.createdById,
+        type: "REQUEST_APPROVED",
+        title: "Request approved",
+        body: `${updated.type} request was approved. Final action is reserved for later phases.`,
+        payload: { requestId: updated.id }
+      });
+    }
+
+    return toRequestSummary(updated);
+  }
+
+  async reject(
+    approvalId: string,
+    dto: ApprovalDecisionDto,
+    context: RequestContext
+  ) {
+    const approval = await this.findApprovalOrThrow(approvalId);
+    await this.assertCanDecide(approval, context.actor);
+
+    assertRequestTransition(approval.request.status, RequestStatus.REJECTED);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.requestApproval.update({
+        where: { id: approval.id },
+        data: {
+          status: ApprovalStatus.REJECTED,
+          decisionAt: new Date(),
+          notes: dto.notes,
+          approverId: approval.approverId ?? context.actor.id
+        }
+      });
+      await tx.requestApproval.updateMany({
+        where: {
+          requestId: approval.requestId,
+          status: ApprovalStatus.PENDING,
+          id: { not: approval.id }
+        },
+        data: { status: ApprovalStatus.SKIPPED }
+      });
+
+      return tx.request.update({
+        where: { id: approval.requestId },
+        data: {
+          status: RequestStatus.REJECTED,
+          currentStep: null
+        },
+        include: approvalInclude.request.include
+      });
+    });
+
+    await this.auditService.log({
+      actorUserId: context.actor.id,
+      action: "APPROVAL_REJECTED",
+      entityType: "RequestApproval",
+      entityId: approval.id,
+      oldValue: this.toApprovalAuditValue(approval),
+      newValue: {
+        ...this.toApprovalAuditValue(approval),
+        status: ApprovalStatus.REJECTED,
+        notes: dto.notes ?? null
+      },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+    await this.auditService.log({
+      actorUserId: context.actor.id,
+      action: "REQUEST_REJECTED",
+      entityType: "Request",
+      entityId: updated.id,
+      oldValue: { status: approval.request.status },
+      newValue: { status: updated.status },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    await this.notificationsService.create({
+      userId: updated.createdById,
+      type: "REQUEST_REJECTED",
+      title: "Request rejected",
+      body: `${updated.type} request was rejected.`,
+      payload: { requestId: updated.id, approvalId: approval.id }
+    });
+
+    return toRequestSummary(updated);
+  }
+
+  private async findApprovalOrThrow(id: string) {
+    const approval = await this.prisma.requestApproval.findUnique({
+      where: { id },
+      include: approvalInclude
+    });
+
+    if (!approval) {
+      throw new NotFoundException("Approval was not found.");
+    }
+
+    return approval;
+  }
+
+  private async assertCanDecide(
+    approval: ApprovalWithRequest,
+    user: AuthenticatedUser
+  ) {
+    if (approval.status !== ApprovalStatus.PENDING) {
+      throw new BadRequestException("Only PENDING approvals can be decided.");
+    }
+
+    const expectedStatus = this.requestsService.statusForStep(approval.step);
+    if (
+      approval.request.status !== expectedStatus ||
+      approval.request.currentStep !== approval.step
+    ) {
+      throw new BadRequestException(
+        "Approval is not the current pending step for this request."
+      );
+    }
+
+    const canAct = await this.requestsService.userCanActOnStep(
+      approval.request,
+      approval.step,
+      approval.approverId,
+      user
+    );
+
+    if (!canAct) {
+      throw new ForbiddenException("You do not own this approval step.");
+    }
+  }
+
+  private sortApprovals<T extends Pick<RequestApproval, "step" | "createdAt">>(
+    approvals: T[]
+  ) {
+    const priority: Record<ApprovalStep, number> = {
+      [ApprovalStep.AREA_MANAGER_APPROVAL]: 1,
+      [ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL]: 1,
+      [ApprovalStep.DESTINATION_AREA_MANAGER_APPROVAL]: 2,
+      [ApprovalStep.ADMIN_FINAL_APPROVAL]: 3
+    };
+
+    return [...approvals].sort((left, right) => {
+      const byPriority = priority[left.step] - priority[right.step];
+      return byPriority || left.createdAt.getTime() - right.createdAt.getTime();
+    });
+  }
+
+  private async notifyNextApproval(
+    approval: RequestApproval,
+    requestType: string,
+    requestId: string
+  ) {
+    const payload = { requestId, approvalId: approval.id, step: approval.step };
+
+    if (approval.approverId) {
+      await this.notificationsService.create({
+        userId: approval.approverId,
+        type: "APPROVAL_PENDING",
+        title: "Approval pending",
+        body: `${requestType} request requires your approval.`,
+        payload
+      });
+      return;
+    }
+
+    if (approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL) {
+      await this.notificationsService.notifyAdmins({
+        type: "APPROVAL_PENDING",
+        title: "Admin approval pending",
+        body: `${requestType} request requires Admin approval.`,
+        payload
+      });
+    }
+  }
+
+  private toApprovalResponse(approval: ApprovalWithRequest) {
+    return {
+      ...toApprovalSummary(approval),
+      request: toRequestSummary(approval.request)
+    };
+  }
+
+  private toApprovalAuditValue(approval: ApprovalWithRequest) {
+    return {
+      id: approval.id,
+      requestId: approval.requestId,
+      step: approval.step,
+      approverRole: approval.approverRole,
+      approverId: approval.approverId,
+      status: approval.status
     };
   }
 }
