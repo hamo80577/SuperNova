@@ -106,6 +106,28 @@ These endpoints use the existing JWT auth guard, roles guard, DTO validation, Pr
 
 Phase 2 does not assign Pickers, Champs, or Area Managers. Assignment tables remain data model foundation only until the assignment engine phase.
 
+## Assignment Engine Foundation
+
+Phase 3 enables Admin/Super Admin setup for the operational hierarchy:
+
+```text
+Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
+```
+
+The backend derives management context through assignment tables only. It does not read or write `User.managerId`, `User.chainId`, or `User.vendorId`.
+
+Assignment creation preserves history. Admin setup rejects duplicate active assignments instead of auto-closing older rows; automatic close-and-create behavior belongs to future New Hire and Transfer workflows.
+
+The assignment API provides:
+
+- current Picker context with Vendor, Chain, Champ, and Area Manager summaries
+- current Vendor Champ lookup
+- current Chain Area Manager lookup
+- paginated assignment history lists
+- create and close actions with audit logs
+
+Phase 3 access is intentionally Admin/Super Admin only. Picker, Champ, and Area Manager scoped workspaces are prepared by the data model but remain later phases.
+
 ## Phase 2 Scope Guard
 
 Phase 2 establishes organization structure management. It does not implement:
@@ -119,3 +141,17 @@ Phase 2 establishes organization structure management. It does not implement:
 - Picker creation
 - Full role dashboards
 - Approval decision logic
+
+## Phase 3 Scope Guard
+
+Phase 3 establishes assignment hierarchy management. It does not implement:
+
+- New Hire workflow
+- Transfer workflow
+- Resignation/Termination workflow
+- Request engine
+- Approval engine
+- direct Picker creation
+- role-scoped dashboards
+- Area Manager operations map
+- Champ "My Pickers" workspace

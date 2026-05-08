@@ -98,14 +98,16 @@ The Prisma schema adds baseline indexes for lookup and future scoping:
 - `Request.destinationVendorId`
 - `RequestApproval(approverId, status)`
 
-## Partial Unique Index Note
+## Phase 3 Assignment Enforcement
 
-Phase 0 does not fake partial uniqueness with incorrect global unique constraints.
+Phase 3 enforces active assignment rules with PostgreSQL partial unique indexes in a raw SQL Prisma migration.
 
-PostgreSQL partial unique indexes will be needed later for:
+Prisma schema syntax cannot express these partial unique indexes directly, so they live in `prisma/migrations/20260507200500_active_assignment_partial_indexes/migration.sql`.
 
-- one active picker assignment per picker
-- one active champ assignment per vendor
-- one active area manager assignment per chain
+Required database constraints:
 
-These should be added in a future SQL migration once Phase 3 implements the assignment engine.
+- one `ACTIVE` `PickerBranchAssignment` per `pickerId`
+- one `ACTIVE` `VendorChampAssignment` per `vendorId`
+- one `ACTIVE` `ChainAreaManagerAssignment` per `chainId`
+
+Closed assignment rows remain in place as history. The system must not delete assignment history or overwrite old assignment rows.

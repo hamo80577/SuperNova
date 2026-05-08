@@ -31,7 +31,7 @@ Champ request
 -> System notifies Champ with temporary credentials
 ```
 
-Phase 0 does not implement this flow.
+Phase 3 does not implement this flow.
 
 ## Resignation / Termination
 
@@ -46,7 +46,7 @@ Champ request
 -> System records block status
 ```
 
-Phase 0 does not implement this flow.
+Phase 3 does not implement this flow.
 
 ## Transfer
 
@@ -67,7 +67,27 @@ Champ request
 -> System transfers Picker
 ```
 
-Phase 0 does not implement this flow.
+Phase 3 does not implement this flow.
+
+## Phase 3 Assignment Setup Is Not Transfer
+
+Admin assignment management in Phase 3 is setup tooling for the operational hierarchy only.
+
+Allowed in Phase 3:
+
+- create an active Picker -> Vendor assignment when no active Picker assignment exists
+- create an active Vendor -> Champ assignment when no active Vendor Champ assignment exists
+- create an active Chain -> Area Manager assignment when no active Chain Area Manager assignment exists
+- close an active assignment while preserving its history row
+- derive current management context from active assignment rows
+
+Not allowed in Phase 3:
+
+- automatic Picker transfer
+- auto-closing old assignments during create
+- request approval logic
+- direct Picker creation screen
+- lifecycle finalization actions
 
 ## Explicit MVP Exclusions
 

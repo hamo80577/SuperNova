@@ -3,6 +3,7 @@ import {
   GitBranch,
   Home,
   Map,
+  Network,
   Settings,
   ShieldCheck,
   Store,
@@ -47,6 +48,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Users", href: "#", icon: Users },
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
+    { label: "Assignments", href: "/admin/assignments", icon: Network },
     { label: "Requests", href: "#", icon: ClipboardList },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
@@ -56,6 +58,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Users", href: "#", icon: Users },
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
+    { label: "Assignments", href: "/admin/assignments", icon: Network },
     { label: "Requests", href: "#", icon: ClipboardList },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }

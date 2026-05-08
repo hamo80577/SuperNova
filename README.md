@@ -102,15 +102,16 @@ API health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
 Admin Chains: http://localhost:3000/admin/chains
 Admin Vendors: http://localhost:3000/admin/vendors
+Admin Assignments: http://localhost:3000/admin/assignments
 ```
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, role dashboard placeholders, and Phase 2 admin organization pages.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, and Phase 2 Chains/Vendors endpoints.
+- `apps/web` includes auth screens, role dashboard placeholders, Phase 2 admin organization pages, and Phase 3 admin assignment setup.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, and Phase 3 assignment hierarchy endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
-- Partial unique indexes for “one active assignment” rules are documented for later SQL migrations because Prisma cannot model them directly in schema syntax.
-- Request, approval, assignment, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 2.
+- Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
+- Request, approval, transfer, resignation, termination, and New Hire workflows are not implemented in Phase 3.
 
 ## Auth Endpoints
 
@@ -140,6 +141,36 @@ PATCH /api/vendors/:id
 ```
 
 Chains and Vendors support pagination, search, and status filters. Vendors must belong to an existing Chain.
+
+## Assignment Endpoints
+
+Admin and Super Admin only:
+
+```text
+GET /api/assignments/picker/:pickerId/current
+GET /api/assignments/vendor/:vendorId/champ/current
+GET /api/assignments/chain/:chainId/area-manager/current
+GET /api/assignments/pickers
+GET /api/assignments/vendor-champs
+GET /api/assignments/chain-area-managers
+POST /api/assignments/picker-branch
+POST /api/assignments/vendor-champ
+POST /api/assignments/chain-area-manager
+PATCH /api/assignments/picker-branch/:id/close
+PATCH /api/assignments/vendor-champ/:id/close
+PATCH /api/assignments/chain-area-manager/:id/close
+```
+
+Assignment setup preserves history. Creating a new active assignment rejects if the target Picker, Vendor, or Chain already has an active assignment. Transfer and New Hire automation remain later workflow phases.
+
+Optional local verification data:
+
+```text
+SEED_DEMO_ASSIGNMENT_USERS=true
+SEED_DEMO_PASSWORD=
+```
+
+The demo assignment users are local/dev only and do not implement Picker creation CRUD.
 
 ## Reference Docs
 
