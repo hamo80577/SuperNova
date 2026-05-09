@@ -113,18 +113,20 @@ Admin Assignments: http://localhost:3000/admin/assignments
 Picker Workspace: http://localhost:3000/picker/dashboard
 Champ Workspace: http://localhost:3000/champ/dashboard
 Champ Branches: http://localhost:3000/champ/branches
+Branch New Hire: http://localhost:3000/champ/branches/:vendorId/new-hire
 Area Manager Workspace: http://localhost:3000/area-manager/dashboard
 Requests: http://localhost:3000/requests
 Approvals: http://localhost:3000/approvals
+Notifications: http://localhost:3000/notifications
 ```
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, and Phase 5 request/approval pages.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, and Phase 5 request/approval/notification endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, and Phase 6 Branch-first New Hire submission/finalization surfaces.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, and Phase 6 New Hire workflow endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- Request and approval infrastructure exists in Phase 5, but transfer execution, resignation/termination finalization, and New Hire finalization are not implemented.
+- New Hire is implemented as a Branch-first workflow in Phase 6. Transfer execution and resignation/termination finalization remain later phases.
 
 ## Auth Endpoints
 
@@ -183,7 +185,9 @@ SEED_DEMO_ASSIGNMENT_USERS=true
 SEED_DEMO_PASSWORD=
 ```
 
-The demo assignment users are local/dev only and do not implement Picker creation CRUD.
+The demo assignment users are local/dev only. When enabled, the seed also creates
+a local demo Chain, Branch, Champ assignment, and Area Manager assignment for
+workflow verification. This does not implement production Picker creation CRUD.
 
 ## Workspace Endpoints
 
@@ -215,8 +219,10 @@ GET /api/requests
 GET /api/requests/my/submitted
 GET /api/requests/:id
 POST /api/requests
+POST /api/requests/new-hire
 POST /api/requests/:id/submit
 POST /api/requests/:id/cancel
+POST /api/requests/:id/finalize-new-hire
 GET /api/approvals/pending
 POST /api/approvals/:approvalId/approve
 POST /api/approvals/:approvalId/reject
@@ -225,11 +231,16 @@ PATCH /api/notifications/:id/read
 PATCH /api/notifications/read-all
 ```
 
-Approval completion moves requests to `APPROVED`, not `COMPLETED`. Final action execution is reserved for later workflow phases.
+Generic approval completion moves requests to `APPROVED`, not `COMPLETED`. Phase 6
+New Hire Admin finalization is the exception: it requires Shopper ID, creates the
+Picker, creates the source Branch assignment, notifies the Champ with the
+temporary password, and marks that request `COMPLETED`.
 
 The generic request creation UI is Admin/Super Admin-only and exists for internal
 Phase 5 request engine testing. Real workflow-specific forms for Champs and other
-roles are implemented in later phases from the correct Branch context.
+roles are implemented from the correct Branch context. New Hire starts at
+`/champ/branches/:vendorId/new-hire`; Champ-facing New Hire forms do not ask for
+`sourceChainId` or `sourceVendorId`.
 
 ## Reference Docs
 

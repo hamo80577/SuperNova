@@ -11,6 +11,7 @@ import {
   Prisma,
   RequestApproval,
   RequestStatus,
+  RequestType,
   UserRole
 } from "@prisma/client";
 
@@ -121,6 +122,15 @@ export class ApprovalsService {
   ) {
     const approval = await this.findApprovalOrThrow(approvalId);
     await this.assertCanDecide(approval, context.actor);
+
+    if (
+      approval.request.type === RequestType.NEW_HIRE &&
+      approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
+    ) {
+      throw new BadRequestException(
+        "New Hire Admin final approval requires Shopper ID finalization from the request detail page."
+      );
+    }
 
     const pendingApprovals = this.sortApprovals(
       approval.request.approvals.filter(

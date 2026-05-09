@@ -203,7 +203,7 @@ export function ChampBranchWorkspace() {
       {activeTab === "Overview" ? <BranchOverview branch={branch} /> : null}
       {activeTab === "Pickers" ? <BranchPickers pickers={branch.pickers.map((item) => item.picker)} /> : null}
       {activeTab === "Requests" ? <BranchRequests requests={branch.recentRequests} /> : null}
-      {activeTab === "Actions" ? <BranchActions /> : null}
+      {activeTab === "Actions" ? <BranchActions branch={branch} /> : null}
     </div>
   );
 }
@@ -346,7 +346,7 @@ function BranchRequests({ requests }: { requests: RequestSummary[] }) {
   );
 }
 
-function BranchActions() {
+function BranchActions({ branch }: { branch: ChampBranchDetail }) {
   return (
     <div className="grid gap-5">
       <section className="rounded-lg border bg-card p-5 shadow-sm">
@@ -362,10 +362,14 @@ function BranchActions() {
           <UserPlus className="h-6 w-6 text-primary" />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Badge variant="muted">Coming in Phase 6</Badge>
-          <Button disabled type="button">
+          <Badge variant="default">Available</Badge>
+          <Link
+            className={buttonVariants()}
+            href={`/champ/branches/${branch.vendor.id}/new-hire`}
+            prefetch
+          >
             Launch New Hire
-          </Button>
+          </Link>
         </div>
       </section>
 

@@ -32,7 +32,7 @@ source identifier.
 
 ## New Hire
 
-Target shape for later phases:
+Phase 6 implements New Hire end-to-end from the selected Champ Branch context:
 
 ```text
 Champ request
@@ -42,9 +42,18 @@ Champ request
 -> System creates Picker
 -> System assigns Picker to source Vendor
 -> System notifies Champ with temporary credentials
+-> Picker logs in and must change password
 ```
 
-Phase 5 does not implement final New Hire execution. It may create and approve a generic `NEW_HIRE` request, but it does not create a Picker or require Shopper ID finalization.
+Rules:
+
+- Champ starts New Hire from `/champ/branches/:vendorId/new-hire`.
+- Backend verifies the Champ has an active `VendorChampAssignment` for that Branch.
+- Backend derives `sourceVendorId` from the route payload and `sourceChainId` from the Branch Chain.
+- Area Manager approval is scoped to the active `ChainAreaManagerAssignment` for the source Chain.
+- Admin finalization requires Shopper ID and runs the final system action transaction.
+- Temporary password is never stored as plain text on `User`; it appears only in the Champ notification created after finalization.
+- The created Picker has `profileStatus=INCOMPLETE`, `mustChangePassword=true`, and an active `PickerBranchAssignment` to the source Branch.
 
 ## Resignation / Termination
 
@@ -145,3 +154,21 @@ Not allowed in Phase 5:
 - archiving/deactivating Pickers from Resignation or Termination approval
 - marking requests `COMPLETED`
 - presenting the internal generic request creation form as a real Champ operations workflow
+
+## Phase 6 New Hire Is Not Generic CRUD
+
+Allowed in Phase 6:
+
+- Champ submits New Hire only from a selected assigned Branch.
+- Area Manager approves/rejects only when scoped to the Branch Chain.
+- Admin/Super Admin finalizes only with Shopper ID.
+- System creates the Picker and Branch assignment after approvals and finalization.
+- System delivers temporary credentials only through the Champ notification.
+
+Not allowed in Phase 6:
+
+- direct Picker creation screens
+- Transfer execution
+- Resignation/Termination finalization
+- profile completion wizard implementation
+- document uploads, payroll, attendance, GPS, or analytics

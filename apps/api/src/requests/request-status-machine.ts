@@ -29,6 +29,7 @@ const allowedTransitions: Record<RequestStatus, RequestStatus[]> = {
   ],
   [RequestStatus.PENDING_ADMIN]: [
     RequestStatus.APPROVED,
+    RequestStatus.COMPLETED,
     RequestStatus.REJECTED,
     RequestStatus.CANCELLED
   ],

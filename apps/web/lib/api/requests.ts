@@ -86,6 +86,43 @@ export interface CreateRequestPayload {
   payload?: Record<string, unknown>;
 }
 
+export interface CreateNewHirePayload {
+  sourceVendorId: string;
+  nameEn?: string;
+  nameAr?: string;
+  phoneNumber: string;
+  nationalId?: string;
+  address?: string;
+  dateOfBirth?: string;
+  gender?: "MALE" | "FEMALE" | "UNSPECIFIED";
+  notes?: string;
+}
+
+export interface FinalizeNewHireResponse {
+  request: RequestSummary;
+  picker: {
+    id: string;
+    role: "PICKER";
+    nameEn: string;
+    nameAr: string | null;
+    phoneNumber: string;
+    shopperId: string | null;
+    accountStatus: string;
+    employmentStatus: string;
+    profileStatus: string;
+    mustChangePassword: boolean;
+    temporaryPasswordExpiresAt: string | null;
+  };
+  assignment: {
+    id: string;
+    status: string;
+    startDate: string;
+    vendorId: string;
+    pickerId: string;
+    createdByRequestId: string | null;
+  };
+}
+
 function toQuery(params: Record<string, string | number | undefined>) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -132,6 +169,30 @@ export const requestsApi = {
     clearApiCache("/requests");
     clearApiCache("/workspaces");
     return created;
+  },
+  async createNewHire(payload: CreateNewHirePayload) {
+    const created = await apiRequest<RequestSummary>("/requests/new-hire", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return created;
+  },
+  async finalizeNewHire(id: string, shopperId: string) {
+    const finalized = await apiRequest<FinalizeNewHireResponse>(
+      `/requests/${id}/finalize-new-hire`,
+      {
+        method: "POST",
+        body: JSON.stringify({ shopperId })
+      }
+    );
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    clearApiCache("/notifications");
+    return finalized;
   },
   async submit(id: string) {
     const submitted = await apiRequest<RequestSummary>(`/requests/${id}/submit`, {

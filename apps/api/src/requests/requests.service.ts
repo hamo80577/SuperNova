@@ -1,22 +1,31 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
 import {
+  AccountStatus,
   ApprovalStep,
   ApprovalStatus,
   AssignmentStatus,
   Chain,
+  ChainStatus,
+  EmploymentStatus,
+  Gender,
   Prisma,
+  ProfileStatus,
   Request,
   RequestStatus,
   RequestType,
   UserRole,
+  VendorStatus,
   Vendor
 } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 
 import { AuditService } from "../audit/audit.service";
 import { toUserSummary } from "../assignments/assignment-response.utils";
@@ -24,7 +33,9 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CancelRequestDto } from "./dto/cancel-request.dto";
+import type { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
 import type { CreateRequestDto } from "./dto/create-request.dto";
+import type { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import type { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
 import {
   assertRequestTransition,
@@ -33,6 +44,8 @@ import {
 import { toRequestSummary, toTimeline } from "./request-response.utils";
 
 const MAX_PAGE_SIZE = 100;
+const PASSWORD_HASH_ROUNDS = 12;
+const TEMPORARY_PASSWORD_EXPIRY_HOURS = 24;
 
 const requestInclude = {
   createdBy: true,
@@ -62,6 +75,29 @@ type GeneratedApprovalStep = {
   approverRole: UserRole;
   approverId: string | null;
   chainId?: string | null;
+};
+
+type NewHirePayload = {
+  candidate: {
+    nameEn?: string;
+    nameAr?: string;
+    phoneNumber: string;
+    nationalId?: string;
+    address?: string;
+    dateOfBirth?: string;
+    gender: Gender;
+    notes?: string;
+  };
+  source: {
+    vendorId: string;
+    chainId: string;
+  };
+  finalization?: {
+    pickerId: string;
+    assignmentId: string;
+    shopperId: string;
+    completedAt: string;
+  };
 };
 
 @Injectable()
@@ -166,6 +202,457 @@ export class RequestsService {
     });
 
     return toRequestSummary(request);
+  }
+
+  async createNewHire(dto: CreateNewHireRequestDto, context: RequestContext) {
+    if (context.actor.role !== UserRole.CHAMP) {
+      throw new ForbiddenException("Only Champs can submit New Hire requests.");
+    }
+
+    const candidate = this.normalizeNewHireCandidate(dto);
+
+    const assignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: {
+        champId: context.actor.id,
+        vendorId: dto.sourceVendorId,
+        status: AssignmentStatus.ACTIVE
+      },
+      include: {
+        vendor: {
+          include: { chain: true }
+        }
+      }
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException(
+        "You can submit New Hire requests only for assigned active Branches."
+      );
+    }
+
+    if (assignment.vendor.status !== VendorStatus.ACTIVE) {
+      throw new BadRequestException("Selected Branch is not active.");
+    }
+
+    if (assignment.vendor.chain.status !== ChainStatus.ACTIVE) {
+      throw new BadRequestException("Selected Branch Chain is not active.");
+    }
+
+    const areaManagerStep = await this.resolveAreaManagerStep(
+      ApprovalStep.AREA_MANAGER_APPROVAL,
+      assignment.vendor.chainId
+    );
+
+    const payload: NewHirePayload = {
+      candidate,
+      source: {
+        vendorId: assignment.vendorId,
+        chainId: assignment.vendor.chainId
+      }
+    };
+
+    this.assertPayloadSafe(payload as unknown as Record<string, unknown>);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const request = await tx.request.create({
+        data: {
+          type: RequestType.NEW_HIRE,
+          status: RequestStatus.PENDING_AREA_MANAGER,
+          currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
+          createdById: context.actor.id,
+          sourceVendorId: assignment.vendorId,
+          sourceChainId: assignment.vendor.chainId,
+          payload: payload as Prisma.InputJsonValue
+        }
+      });
+
+      await tx.requestApproval.createMany({
+        data: [
+          {
+            requestId: request.id,
+            step: areaManagerStep.step,
+            approverRole: areaManagerStep.approverRole,
+            approverId: areaManagerStep.approverId,
+            status: ApprovalStatus.PENDING
+          },
+          {
+            requestId: request.id,
+            step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+            approverRole: UserRole.ADMIN,
+            approverId: null,
+            status: ApprovalStatus.PENDING
+          }
+        ]
+      });
+
+      await tx.auditLog.createMany({
+        data: [
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_CREATED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              id: request.id,
+              type: request.type,
+              sourceVendorId: request.sourceVendorId,
+              sourceChainId: request.sourceChainId
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_SUBMITTED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              id: request.id,
+              status: request.status,
+              currentStep: request.currentStep
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "APPROVAL_GENERATED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              step: areaManagerStep.step,
+              approverRole: areaManagerStep.approverRole,
+              approverId: areaManagerStep.approverId,
+              chainId: areaManagerStep.chainId ?? null
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "APPROVAL_GENERATED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+              approverRole: UserRole.ADMIN,
+              approverId: null
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        ]
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: context.actor.id,
+          type: "REQUEST_SUBMITTED",
+          title: "New Hire request submitted",
+          body: `New Hire request for ${candidate.phoneNumber} was submitted for Area Manager approval.`,
+          payload: { requestId: request.id }
+        }
+      });
+
+      if (areaManagerStep.approverId) {
+        await tx.notification.create({
+          data: {
+            userId: areaManagerStep.approverId,
+            type: "APPROVAL_PENDING",
+            title: "New Hire approval pending",
+            body: `New Hire request for ${assignment.vendor.vendorName} requires your approval.`,
+            payload: {
+              requestId: request.id,
+              step: areaManagerStep.step
+            }
+          }
+        });
+      }
+
+      return tx.request.findUniqueOrThrow({
+        where: { id: request.id },
+        include: requestInclude
+      });
+    });
+
+    return toRequestSummary(updated);
+  }
+
+  async finalizeNewHire(
+    id: string,
+    dto: FinalizeNewHireDto,
+    context: RequestContext
+  ) {
+    if (!this.isAdmin(context.actor)) {
+      throw new ForbiddenException("Only Admins can finalize New Hire requests.");
+    }
+
+    const request = await this.findRequestOrThrow(id);
+
+    if (request.type !== RequestType.NEW_HIRE) {
+      throw new BadRequestException("Only NEW_HIRE requests can be finalized here.");
+    }
+
+    if (
+      request.status !== RequestStatus.PENDING_ADMIN ||
+      request.currentStep !== ApprovalStep.ADMIN_FINAL_APPROVAL
+    ) {
+      throw new BadRequestException(
+        "New Hire request is not waiting for Admin finalization."
+      );
+    }
+
+    const adminApproval = request.approvals.find(
+      (approval) =>
+        approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL &&
+        approval.status === ApprovalStatus.PENDING
+    );
+
+    if (!adminApproval) {
+      throw new BadRequestException("Pending Admin final approval was not found.");
+    }
+
+    const payload = this.parseNewHirePayload(request.payload);
+    const shopperId = dto.shopperId?.trim();
+
+    if (!shopperId) {
+      throw new BadRequestException("Shopper ID is required.");
+    }
+
+    const [existingShopper, existingPhone, sourceVendor] = await Promise.all([
+      this.prisma.user.findUnique({ where: { shopperId } }),
+      this.prisma.user.findUnique({
+        where: { phoneNumber: payload.candidate.phoneNumber }
+      }),
+      this.prisma.vendor.findUnique({
+        where: { id: payload.source.vendorId },
+        include: { chain: true }
+      })
+    ]);
+
+    if (existingShopper) {
+      throw new ConflictException("Shopper ID is already assigned to another user.");
+    }
+
+    if (existingPhone) {
+      throw new ConflictException("Candidate phone number already belongs to a user.");
+    }
+
+    if (!sourceVendor) {
+      throw new NotFoundException("Source Branch was not found.");
+    }
+
+    if (sourceVendor.status !== VendorStatus.ACTIVE) {
+      throw new BadRequestException("Source Branch is no longer active.");
+    }
+
+    if (sourceVendor.chainId !== payload.source.chainId) {
+      throw new BadRequestException(
+        "Source Branch no longer belongs to the stored source Chain."
+      );
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
+    const temporaryPasswordExpiresAt = new Date(
+      Date.now() + TEMPORARY_PASSWORD_EXPIRY_HOURS * 60 * 60 * 1000
+    );
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const picker = await tx.user.create({
+        data: {
+          role: UserRole.PICKER,
+          nameEn: payload.candidate.nameEn ?? payload.candidate.nameAr ?? "New Picker",
+          nameAr: payload.candidate.nameAr,
+          phoneNumber: payload.candidate.phoneNumber,
+          nationalId: payload.candidate.nationalId,
+          address: payload.candidate.address,
+          dateOfBirth: payload.candidate.dateOfBirth
+            ? new Date(payload.candidate.dateOfBirth)
+            : null,
+          gender: payload.candidate.gender,
+          shopperId,
+          joiningDate: new Date(),
+          accountStatus: AccountStatus.ACTIVE,
+          employmentStatus: EmploymentStatus.ACTIVE,
+          profileStatus: ProfileStatus.INCOMPLETE,
+          passwordHash,
+          mustChangePassword: true,
+          temporaryPasswordExpiresAt
+        }
+      });
+
+      const assignment = await tx.pickerBranchAssignment.create({
+        data: {
+          pickerId: picker.id,
+          vendorId: sourceVendor.id,
+          status: AssignmentStatus.ACTIVE,
+          createdByRequestId: request.id
+        },
+        include: {
+          vendor: { include: { chain: true } },
+          picker: true
+        }
+      });
+
+      await tx.requestApproval.update({
+        where: { id: adminApproval.id },
+        data: {
+          status: ApprovalStatus.APPROVED,
+          decisionAt: new Date(),
+          approverId: context.actor.id,
+          notes: "New Hire finalized with Shopper ID."
+        }
+      });
+
+      const completedPayload: NewHirePayload = {
+        ...payload,
+        finalization: {
+          pickerId: picker.id,
+          assignmentId: assignment.id,
+          shopperId,
+          completedAt: new Date().toISOString()
+        }
+      };
+
+      const completedRequest = await tx.request.update({
+        where: { id: request.id },
+        data: {
+          status: RequestStatus.COMPLETED,
+          currentStep: null,
+          completedAt: new Date(),
+          targetUserId: picker.id,
+          payload: completedPayload as Prisma.InputJsonValue
+        },
+        include: requestInclude
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: request.createdById,
+          type: "NEW_HIRE_COMPLETED",
+          title: "New Hire completed",
+          body: `Picker credentials: phone ${picker.phoneNumber}, temporary password ${temporaryPassword}. The Picker must change this password on first login.`,
+          payload: {
+            requestId: request.id,
+            pickerId: picker.id,
+            phoneNumber: picker.phoneNumber,
+            temporaryPassword,
+            temporaryPasswordExpiresAt: temporaryPasswordExpiresAt.toISOString()
+          }
+        }
+      });
+
+      await tx.auditLog.createMany({
+        data: [
+          {
+            actorUserId: context.actor.id,
+            action: "APPROVAL_APPROVED",
+            entityType: "RequestApproval",
+            entityId: adminApproval.id,
+            oldValue: {
+              status: adminApproval.status,
+              step: adminApproval.step,
+              requestId: request.id
+            },
+            newValue: {
+              status: ApprovalStatus.APPROVED,
+              step: adminApproval.step,
+              requestId: request.id
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "ADMIN_FINALIZED_NEW_HIRE",
+            entityType: "Request",
+            entityId: request.id,
+            oldValue: { status: request.status, currentStep: request.currentStep },
+            newValue: { status: RequestStatus.COMPLETED, shopperId },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "USER_CREATED",
+            entityType: "User",
+            entityId: picker.id,
+            newValue: {
+              role: picker.role,
+              phoneNumber: picker.phoneNumber,
+              shopperId: picker.shopperId,
+              profileStatus: picker.profileStatus,
+              mustChangePassword: picker.mustChangePassword
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "TEMPORARY_PASSWORD_GENERATED",
+            entityType: "User",
+            entityId: picker.id,
+            newValue: {
+              temporaryPasswordExpiresAt: temporaryPasswordExpiresAt.toISOString(),
+              deliveredToUserId: request.createdById
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "PICKER_BRANCH_ASSIGNMENT_CREATED",
+            entityType: "PickerBranchAssignment",
+            entityId: assignment.id,
+            newValue: {
+              pickerId: picker.id,
+              vendorId: sourceVendor.id,
+              createdByRequestId: request.id
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_COMPLETED",
+            entityType: "Request",
+            entityId: request.id,
+            oldValue: { status: request.status },
+            newValue: { status: RequestStatus.COMPLETED, targetUserId: picker.id },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        ]
+      });
+
+      return { completedRequest, picker, assignment };
+    });
+
+    return {
+      request: toRequestSummary(result.completedRequest),
+      picker: {
+        id: result.picker.id,
+        role: result.picker.role,
+        nameEn: result.picker.nameEn,
+        nameAr: result.picker.nameAr,
+        phoneNumber: result.picker.phoneNumber,
+        shopperId: result.picker.shopperId,
+        accountStatus: result.picker.accountStatus,
+        employmentStatus: result.picker.employmentStatus,
+        profileStatus: result.picker.profileStatus,
+        mustChangePassword: result.picker.mustChangePassword,
+        temporaryPasswordExpiresAt: result.picker.temporaryPasswordExpiresAt
+      },
+      assignment: {
+        id: result.assignment.id,
+        status: result.assignment.status,
+        startDate: result.assignment.startDate,
+        vendorId: result.assignment.vendorId,
+        pickerId: result.assignment.pickerId,
+        createdByRequestId: result.assignment.createdByRequestId
+      }
+    };
   }
 
   async submit(id: string, context: RequestContext) {
@@ -601,6 +1088,112 @@ export class RequestsService {
     });
 
     return Boolean(assignment);
+  }
+
+  private normalizeNewHireCandidate(dto: CreateNewHireRequestDto) {
+    const nameEn = dto.nameEn?.trim();
+    const nameAr = dto.nameAr?.trim();
+    const phoneNumber = dto.phoneNumber.trim();
+    const nationalId = dto.nationalId?.trim();
+    const address = dto.address?.trim();
+    const notes = dto.notes?.trim();
+
+    if (!nameEn && !nameAr) {
+      throw new BadRequestException("Candidate English or Arabic name is required.");
+    }
+
+    if (!phoneNumber) {
+      throw new BadRequestException("Candidate phone number is required.");
+    }
+
+    return {
+      ...(nameEn ? { nameEn } : {}),
+      ...(nameAr ? { nameAr } : {}),
+      phoneNumber,
+      ...(nationalId ? { nationalId } : {}),
+      ...(address ? { address } : {}),
+      ...(dto.dateOfBirth ? { dateOfBirth: dto.dateOfBirth } : {}),
+      gender: dto.gender ?? Gender.UNSPECIFIED,
+      ...(notes ? { notes } : {})
+    };
+  }
+
+  private parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new BadRequestException("New Hire request payload is invalid.");
+    }
+
+    const objectPayload = payload as Record<string, unknown>;
+    const candidate = objectPayload.candidate;
+    const source = objectPayload.source;
+
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate) ||
+      !source ||
+      typeof source !== "object" ||
+      Array.isArray(source)
+    ) {
+      throw new BadRequestException("New Hire request payload is incomplete.");
+    }
+
+    const candidatePayload = candidate as Record<string, unknown>;
+    const sourcePayload = source as Record<string, unknown>;
+    const phoneNumber = candidatePayload.phoneNumber;
+    const vendorId = sourcePayload.vendorId;
+    const chainId = sourcePayload.chainId;
+
+    if (
+      typeof phoneNumber !== "string" ||
+      typeof vendorId !== "string" ||
+      typeof chainId !== "string"
+    ) {
+      throw new BadRequestException("New Hire request payload is missing context.");
+    }
+
+    return {
+      candidate: {
+        nameEn:
+          typeof candidatePayload.nameEn === "string"
+            ? candidatePayload.nameEn
+            : undefined,
+        nameAr:
+          typeof candidatePayload.nameAr === "string"
+            ? candidatePayload.nameAr
+            : undefined,
+        phoneNumber,
+        nationalId:
+          typeof candidatePayload.nationalId === "string"
+            ? candidatePayload.nationalId
+            : undefined,
+        address:
+          typeof candidatePayload.address === "string"
+            ? candidatePayload.address
+            : undefined,
+        dateOfBirth:
+          typeof candidatePayload.dateOfBirth === "string"
+            ? candidatePayload.dateOfBirth
+            : undefined,
+        gender:
+          typeof candidatePayload.gender === "string" &&
+          Object.values(Gender).includes(candidatePayload.gender as Gender)
+            ? (candidatePayload.gender as Gender)
+            : Gender.UNSPECIFIED,
+        notes:
+          typeof candidatePayload.notes === "string"
+            ? candidatePayload.notes
+            : undefined
+      },
+      source: {
+        vendorId,
+        chainId
+      }
+    };
+  }
+
+  private generateTemporaryPassword() {
+    return `SN-${randomBytes(12).toString("base64url")}`;
   }
 
   private assertPayloadSafe(payload?: Record<string, unknown>) {

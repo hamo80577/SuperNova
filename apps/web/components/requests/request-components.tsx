@@ -6,7 +6,9 @@ import {
   Clock,
   FileText,
   Inbox,
+  KeyRound,
   Send,
+  UserPlus,
   XCircle
 } from "lucide-react";
 import Link from "next/link";
@@ -22,6 +24,7 @@ import { approvalsApi, type PendingApproval } from "@/lib/api/approvals";
 import {
   requestsApi,
   type CreateRequestPayload,
+  type FinalizeNewHireResponse,
   type RequestDetail,
   type RequestStatus,
   type RequestSummary,
@@ -41,7 +44,8 @@ const requestStatuses: RequestStatus[] = [
   "PENDING_ADMIN",
   "APPROVED",
   "REJECTED",
-  "CANCELLED"
+  "CANCELLED",
+  "COMPLETED"
 ];
 
 export function RequestsCenter() {
@@ -294,6 +298,7 @@ export function RequestsCenter() {
 }
 
 export function RequestDetailView() {
+  const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -440,6 +445,18 @@ export function RequestDetailView() {
         </InfoCard>
       </section>
 
+      {request.type === "NEW_HIRE" &&
+      request.status === "PENDING_ADMIN" &&
+      request.currentStep === "ADMIN_FINAL_APPROVAL" &&
+      (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") ? (
+        <FinalizeNewHirePanel
+          onFinalized={async () => {
+            await loadRequest();
+          }}
+          requestId={request.id}
+        />
+      ) : null}
+
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="text-base font-semibold">Timeline</h2>
         <div className="mt-4 grid gap-3">
@@ -534,49 +551,15 @@ export function ApprovalsCenter() {
       ) : items.length ? (
         <div className="grid gap-3">
           {items.map((approval) => (
-            <section className="rounded-lg border bg-card p-5 shadow-sm" key={approval.id}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <Badge variant="outline">{formatEnum(approval.request.type)}</Badge>
-                  <h2 className="mt-3 text-base font-semibold">
-                    {formatEnum(approval.step)}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Submitted by {approval.request.createdBy.nameEn}
-                  </p>
-                </div>
-                <RequestStatusBadge status={approval.request.status} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Button
-                  disabled={isPending}
-                  onClick={() => {
-                    setDecision({ action: "approve", approval });
-                    setDecisionNotes("");
-                  }}
-                  type="button"
-                >
-                  Approve
-                </Button>
-                <Button
-                  disabled={isPending}
-                  onClick={() => {
-                    setDecision({ action: "reject", approval });
-                    setDecisionNotes("");
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  Reject
-                </Button>
-              </div>
-              <Link
-                className="mt-4 inline-flex text-sm font-medium text-primary"
-                href={`/requests/${approval.request.id}`}
-              >
-                View request detail
-              </Link>
-            </section>
+            <ApprovalQueueCard
+              approval={approval}
+              isPending={isPending}
+              key={approval.id}
+              onDecision={(action) => {
+                setDecision({ action, approval });
+                setDecisionNotes("");
+              }}
+            />
           ))}
         </div>
       ) : (
@@ -594,8 +577,8 @@ export function ApprovalsCenter() {
               {formatEnum(decision.approval.step)}
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              This records the approval decision only. Final workflow execution is
-              reserved for later phases.
+              This records the approval decision. New Hire Admin final approval
+              requires Shopper ID finalization from the request detail page.
             </p>
             <label className="mt-4 grid gap-1 text-sm font-medium">
               Decision notes
@@ -624,6 +607,156 @@ export function ApprovalsCenter() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ApprovalQueueCard({
+  approval,
+  isPending,
+  onDecision
+}: {
+  approval: PendingApproval;
+  isPending: boolean;
+  onDecision: (action: "approve" | "reject") => void;
+}) {
+  const requiresNewHireFinalization =
+    approval.request.type === "NEW_HIRE" &&
+    approval.step === "ADMIN_FINAL_APPROVAL";
+
+  return (
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Badge variant="outline">{formatEnum(approval.request.type)}</Badge>
+          <h2 className="mt-3 text-base font-semibold">
+            {formatEnum(approval.step)}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Submitted by {approval.request.createdBy.nameEn}
+          </p>
+        </div>
+        <RequestStatusBadge status={approval.request.status} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {requiresNewHireFinalization ? (
+          <Link
+            className={buttonVariants({ size: "sm" })}
+            href={`/requests/${approval.request.id}`}
+            prefetch
+          >
+            <KeyRound className="mr-2 h-4 w-4" />
+            Finalize with Shopper ID
+          </Link>
+        ) : (
+          <Button
+            disabled={isPending}
+            onClick={() => onDecision("approve")}
+            type="button"
+          >
+            Approve
+          </Button>
+        )}
+        <Button
+          disabled={isPending}
+          onClick={() => onDecision("reject")}
+          type="button"
+          variant="outline"
+        >
+          Reject
+        </Button>
+      </div>
+      <Link
+        className="mt-4 inline-flex text-sm font-medium text-primary"
+        href={`/requests/${approval.request.id}`}
+      >
+        View request detail
+      </Link>
+    </section>
+  );
+}
+
+function FinalizeNewHirePanel({
+  onFinalized,
+  requestId
+}: {
+  onFinalized: () => Promise<void>;
+  requestId: string;
+}) {
+  const [shopperId, setShopperId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<FinalizeNewHireResponse | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function finalize() {
+    if (!shopperId.trim()) {
+      setError("Shopper ID is required to finalize New Hire.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        const finalized = await requestsApi.finalizeNewHire(requestId, shopperId);
+        setResult(finalized);
+        await onFinalized();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to finalize New Hire."
+        );
+      }
+    });
+  }
+
+  return (
+    <section className="rounded-lg border border-primary/30 bg-card p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Badge variant="outline">Admin finalization</Badge>
+          <h2 className="mt-3 text-base font-semibold">Finalize New Hire</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Shopper ID is required. SuperNova will create the Picker, assign the
+            Picker to the source Branch, generate temporary credentials, notify
+            the Champ, and mark the request completed in one backend transaction.
+          </p>
+        </div>
+        <UserPlus className="h-6 w-6 text-primary" />
+      </div>
+
+      {result ? (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-medium">New Hire completed.</p>
+          <p className="mt-1">
+            Picker {result.picker.nameEn} was created with phone{" "}
+            {result.picker.phoneNumber} and assigned to the selected Branch.
+          </p>
+          <p className="mt-1">
+            Temporary credentials are available only in the Champ notification.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+          <Field label="Shopper ID">
+            <Input
+              onChange={(event) => setShopperId(event.target.value)}
+              placeholder="Required unique Shopper ID"
+              value={shopperId}
+            />
+          </Field>
+          <div className="flex items-end">
+            <Button disabled={isPending} onClick={finalize} type="button">
+              {isPending ? "Finalizing..." : "Finalize New Hire"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {error ? (
+        <div className="mt-4">
+          <ErrorState message={error} />
+        </div>
+      ) : null}
+    </section>
   );
 }
 

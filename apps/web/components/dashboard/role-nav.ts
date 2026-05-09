@@ -1,5 +1,6 @@
 import {
   ClipboardList,
+  Bell,
   GitBranch,
   Home,
   Map,
@@ -31,7 +32,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Dashboard", href: "/champ/dashboard", active: true, icon: Home },
     { label: "My Branches", href: "/champ/branches", icon: Store },
     { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Pending Actions", href: "/approvals", icon: ShieldCheck }
+    { label: "Pending Actions", href: "/approvals", icon: ShieldCheck },
+    { label: "Notifications", href: "/notifications", icon: Bell }
   ],
   AREA_MANAGER: [
     {
@@ -43,7 +45,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Operations Map", href: "#", icon: Map },
     { label: "Users Under Me", href: "#", icon: Users },
     { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Approvals", href: "/approvals", icon: ShieldCheck }
+    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
+    { label: "Notifications", href: "/notifications", icon: Bell }
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: Home },
@@ -53,6 +56,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Assignments", href: "/admin/assignments", icon: Network },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Approvals", href: "/approvals", icon: ShieldCheck },
+    { label: "Notifications", href: "/notifications", icon: Bell },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
   ],
@@ -64,6 +68,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Assignments", href: "/admin/assignments", icon: Network },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Approvals", href: "/approvals", icon: ShieldCheck },
+    { label: "Notifications", href: "/notifications", icon: Bell },
     { label: "Audit Log", href: "#", icon: ShieldCheck },
     { label: "Settings", href: "#", icon: Settings }
   ]

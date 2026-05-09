@@ -1,9 +1,12 @@
 import {
   AccountStatus,
+  AssignmentStatus,
+  ChainStatus,
   EmploymentStatus,
   PrismaClient,
   ProfileStatus,
-  UserRole
+  UserRole,
+  VendorStatus
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
@@ -88,8 +91,10 @@ async function seedDemoAssignmentUsers() {
     }
   ];
 
+  const seededUsers = new Map<string, { id: string }>();
+
   for (const user of demoUsers) {
-    await prisma.user.upsert({
+    const seededUser = await prisma.user.upsert({
       where: { phoneNumber: user.phoneNumber },
       update: {
         nameEn: user.nameEn,
@@ -112,9 +117,84 @@ async function seedDemoAssignmentUsers() {
         mustChangePassword: false
       }
     });
+
+    seededUsers.set(user.phoneNumber, seededUser);
+  }
+
+  const chain = await prisma.chain.upsert({
+    where: { chainCode: process.env.SEED_DEMO_CHAIN_CODE ?? "LOCAL-DEMO-CHAIN" },
+    update: {
+      chainName: process.env.SEED_DEMO_CHAIN_NAME ?? "Local Demo Chain",
+      status: ChainStatus.ACTIVE
+    },
+    create: {
+      chainName: process.env.SEED_DEMO_CHAIN_NAME ?? "Local Demo Chain",
+      chainCode: process.env.SEED_DEMO_CHAIN_CODE ?? "LOCAL-DEMO-CHAIN",
+      status: ChainStatus.ACTIVE
+    }
+  });
+
+  const vendor = await prisma.vendor.upsert({
+    where: { vendorCode: process.env.SEED_DEMO_VENDOR_CODE ?? "LOCAL-DEMO-BRANCH" },
+    update: {
+      vendorName: process.env.SEED_DEMO_VENDOR_NAME ?? "Local Demo Branch",
+      status: VendorStatus.ACTIVE,
+      chainId: chain.id,
+      area: process.env.SEED_DEMO_VENDOR_AREA ?? "Nasr City",
+      city: process.env.SEED_DEMO_VENDOR_CITY ?? "Cairo"
+    },
+    create: {
+      vendorName: process.env.SEED_DEMO_VENDOR_NAME ?? "Local Demo Branch",
+      vendorCode: process.env.SEED_DEMO_VENDOR_CODE ?? "LOCAL-DEMO-BRANCH",
+      status: VendorStatus.ACTIVE,
+      chainId: chain.id,
+      area: process.env.SEED_DEMO_VENDOR_AREA ?? "Nasr City",
+      city: process.env.SEED_DEMO_VENDOR_CITY ?? "Cairo"
+    }
+  });
+
+  const champ = seededUsers.get(process.env.SEED_DEMO_CHAMP_PHONE ?? "+10000000012");
+  const areaManager = seededUsers.get(
+    process.env.SEED_DEMO_AREA_MANAGER_PHONE ?? "+10000000013"
+  );
+
+  if (!champ || !areaManager) {
+    throw new Error("Demo Champ and Area Manager users were not seeded.");
+  }
+
+  const activeChampAssignment = await prisma.vendorChampAssignment.findFirst({
+    where: { vendorId: vendor.id, status: AssignmentStatus.ACTIVE }
+  });
+
+  if (!activeChampAssignment) {
+    await prisma.vendorChampAssignment.create({
+      data: {
+        vendorId: vendor.id,
+        champId: champ.id,
+        status: AssignmentStatus.ACTIVE
+      }
+    });
+  }
+
+  const activeAreaManagerAssignment =
+    await prisma.chainAreaManagerAssignment.findFirst({
+      where: { chainId: chain.id, status: AssignmentStatus.ACTIVE }
+    });
+
+  if (!activeAreaManagerAssignment) {
+    await prisma.chainAreaManagerAssignment.create({
+      data: {
+        chainId: chain.id,
+        areaManagerId: areaManager.id,
+        status: AssignmentStatus.ACTIVE
+      }
+    });
   }
 
   console.log("Seeded local demo assignment users.");
+  console.log(
+    `Seeded local demo Chain/Branch context: ${chain.chainCode} / ${vendor.vendorCode}.`
+  );
 }
 
 main()

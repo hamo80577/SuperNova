@@ -231,3 +231,26 @@ Phase 5 does not implement:
 - Picker archive/deactivation from Resignation or Termination
 - direct assignment mutation from request approval
 - payroll, attendance, GPS, order integration, mobile app, microservices, or analytics warehouse
+
+## New Hire Workflow
+
+Phase 6 adds the first workflow-specific system application path while preserving
+the request and approval architecture.
+
+Backend responsibilities:
+
+- `POST /api/requests/new-hire` is CHAMP-only and validates active Branch scope through `VendorChampAssignment`.
+- The API derives source Chain from the selected Branch and assigns the Area Manager approval from `ChainAreaManagerAssignment`.
+- `POST /api/requests/:id/finalize-new-hire` is Admin/Super Admin-only and requires Shopper ID.
+- Finalization runs in one Prisma transaction: approve Admin final step, create Picker, create active `PickerBranchAssignment`, complete the request, notify the Champ, and write audit logs.
+- Temporary passwords are hashed on `User`; the plain temporary password is only written to the Champ notification after successful finalization.
+
+Frontend responsibilities:
+
+- Champ launches New Hire only from `/champ/branches/:vendorId/new-hire`.
+- The form shows read-only Branch, Chain, and Area Manager context and does not expose source IDs.
+- Admin finalization appears on the request detail page only when the request is a New Hire at the Admin final step.
+- The approval queue routes New Hire Admin final approvals to request detail instead of allowing generic approval bypass.
+
+Phase 6 still does not implement Transfer, Resignation/Termination finalization,
+or the Picker profile completion wizard.
