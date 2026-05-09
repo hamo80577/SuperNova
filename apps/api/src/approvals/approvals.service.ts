@@ -71,7 +71,7 @@ export class ApprovalsService {
     return {
       module: "approvals",
       status: "active",
-      note: "Generic approval decisions are enabled; final workflow execution remains out of scope."
+      note: "Generic approval decisions are enabled. New Hire finalization uses the Branch-first request detail flow; Transfer and Resignation/Termination final actions remain later phases."
     };
   }
 
@@ -204,7 +204,7 @@ export class ApprovalsService {
         userId: updated.createdById,
         type: "REQUEST_APPROVED",
         title: "Request approved",
-        body: `${updated.type} request was approved. Final action is reserved for later phases.`,
+        body: `${updated.type} request was approved. Transfer and Resignation/Termination final actions are reserved for later phases.`,
         payload: { requestId: updated.id }
       });
     }

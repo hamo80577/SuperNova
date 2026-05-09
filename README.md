@@ -30,10 +30,11 @@ Do not use `User.managerId`, `User.chainId`, or `User.vendorId` as source-of-tru
 
 Champ operations are Branch-first. A Champ with one assigned Branch works inside
 that Branch context; a Champ with multiple Branches may see aggregate dashboard
-data, but every mutation/action must start by opening one selected Branch. Future
-New Hire, Transfer, Resignation, and Termination workflow forms must be launched
-from that selected Branch context, and user-facing Champ forms must not ask the
-Champ to manually choose `sourceChainId` or `sourceVendorId`.
+data, but every mutation/action must start by opening one selected Branch. New
+Hire is launched from the selected Branch context; future Transfer,
+Resignation, and Termination workflow forms must follow the same pattern.
+User-facing Champ forms must not ask the Champ to manually choose
+`sourceChainId` or `sourceVendorId`.
 
 ## Stack
 
@@ -202,7 +203,7 @@ GET /api/workspaces/area-manager
 GET /api/workspaces/admin
 ```
 
-These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, New Hire, Transfer, or Resignation/Termination workflows.
+These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, or lifecycle finalization; workflow mutations live in the Requests and Approvals modules.
 
 The Champ Branch endpoints are CHAMP-only and enforce active
 `VendorChampAssignment` scope in the backend. `/champ/dashboard` may aggregate

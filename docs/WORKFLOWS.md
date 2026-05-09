@@ -25,7 +25,7 @@ source identifier.
 
 - If a Champ has one assigned Branch, the Champ should work inside that Branch context.
 - If a Champ has multiple assigned Branches, dashboards may aggregate visibility, but every mutation/action must start by opening one Branch.
-- New Hire, Transfer, Resignation, and Termination must be launched from a selected Branch context in later phases.
+- New Hire is launched from a selected Branch context. Transfer, Resignation, and Termination must use the same Branch-first launch pattern in later phases.
 - User-facing Champ workflow forms must not ask the Champ to manually select `sourceChainId` or `sourceVendorId`.
 - The selected Branch route is `/champ/branches/:vendorId`; future forms must derive `sourceVendorId` from that route and `sourceChainId` from the Branch Chain returned by the backend.
 - `/champ/dashboard` is for aggregate visibility only and must not present global lifecycle action launchers.
@@ -131,7 +131,7 @@ Phase 4 workspaces expose scoped operational visibility only:
 - Area Manager can view assigned Chains, Vendors under those Chains, and assigned users under those Vendors.
 - Admin can view system-wide operational counts and links to existing controlled management pages.
 
-These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine, while New Hire, Transfer, and Resignation/Termination final execution remain later phases.
+These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine. New Hire final execution is implemented in Phase 6, while Transfer and Resignation/Termination final execution remain later phases.
 
 ## Phase 5 Generic Engine Is Not Finalization
 
@@ -154,6 +154,7 @@ Not allowed in Phase 5:
 - archiving/deactivating Pickers from Resignation or Termination approval
 - marking requests `COMPLETED`
 - presenting the internal generic request creation form as a real Champ operations workflow
+- creating `NEW_HIRE` through the generic Admin request endpoint; New Hire must use the Branch-first endpoint
 
 ## Phase 6 New Hire Is Not Generic CRUD
 

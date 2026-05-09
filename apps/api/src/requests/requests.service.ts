@@ -115,7 +115,7 @@ export class RequestsService {
     return {
       module: "requests",
       status: "active",
-      note: "Generic request infrastructure is enabled; workflow finalization remains out of scope."
+      note: "Generic request infrastructure is enabled. New Hire finalization is implemented through the Branch-first workflow; Transfer and Resignation/Termination finalization remain later phases."
     };
   }
 
@@ -171,6 +171,12 @@ export class RequestsService {
   async create(dto: CreateRequestDto, context: RequestContext) {
     if (context.actor.role === UserRole.PICKER) {
       throw new ForbiddenException("Pickers cannot create lifecycle requests.");
+    }
+
+    if (dto.type === RequestType.NEW_HIRE) {
+      throw new BadRequestException(
+        "Use the Branch-first New Hire workflow endpoint."
+      );
     }
 
     const normalized = await this.normalizeAndValidateCreateDto(dto);

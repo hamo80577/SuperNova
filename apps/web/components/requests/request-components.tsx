@@ -32,7 +32,6 @@ import {
 } from "@/lib/api/requests";
 
 const requestTypes: RequestType[] = [
-  "NEW_HIRE",
   "RESIGNATION",
   "TERMINATION",
   "TRANSFER"
@@ -61,7 +60,7 @@ export function RequestsCenter() {
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
-    type: "NEW_HIRE" as RequestType,
+    type: "RESIGNATION" as RequestType,
     sourceChainId: "",
     sourceVendorId: "",
     destinationChainId: "",
@@ -130,8 +129,9 @@ export function RequestsCenter() {
             <Badge variant="outline">Phase 5 engine</Badge>
             <h1 className="mt-3 text-xl font-semibold">Requests</h1>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Generic lifecycle request records and approval state. Final workflow
-              execution is intentionally reserved for later phases.
+              Lifecycle request records and approval state. Branch-first New Hire
+              finalization is implemented; Transfer and Resignation/Termination
+              finalization remain later phases.
             </p>
           </div>
           <Link
@@ -150,10 +150,10 @@ export function RequestsCenter() {
             Internal request engine testing
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Internal request engine testing. Real workflow forms are implemented
-            in later phases. This creates a request record only; it does not
-            create Pickers, move assignments, archive users, or perform final
-            actions.
+            Internal request engine testing for non-New Hire request records.
+            New Hire must use the Branch-first workflow. This tool does not move
+            assignments, archive users, or perform Transfer or
+            Resignation/Termination final actions.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">

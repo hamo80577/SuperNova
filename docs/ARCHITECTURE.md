@@ -70,7 +70,7 @@ Vendor/Branch is the active operational context for Champ actions.
 
 - A Champ with one assigned Branch works inside that Branch context.
 - A Champ with multiple assigned Branches may see aggregate dashboard data, but mutations/actions must begin from one selected Branch.
-- New Hire, Transfer, Resignation, and Termination forms in later phases must be launched from the selected Branch context.
+- New Hire is launched from the selected Branch context. Transfer, Resignation, and Termination forms must follow the same Branch-first pattern in later phases.
 - User-facing Champ workflow forms must derive `sourceChainId` and `sourceVendorId` from assignment context instead of asking the Champ to choose them manually.
 - `/api/workspaces/champ/branches` and `/api/workspaces/champ/branches/:vendorId` are read-only scoped endpoints. They require `CHAMP` role and return only Branches with an active `VendorChampAssignment` for the authenticated Champ.
 - `/champ/dashboard` is an aggregate overview. `/champ/branches/:vendorId` is the operational workspace where future Champ lifecycle forms should start.
@@ -197,7 +197,7 @@ Phase 4 establishes role workspaces. It does not implement:
 
 ## Generic Request and Approval Engine
 
-Phase 5 adds reusable lifecycle request infrastructure without implementing final workflow execution.
+Phase 5 adds reusable lifecycle request infrastructure. Phase 6 adds New Hire finalization on top of that engine; Transfer and Resignation/Termination final execution remain later phases.
 
 The engine owns:
 
@@ -215,7 +215,7 @@ Approval ownership is enforced in the backend:
 - Admin final approval steps require `ADMIN` or `SUPER_ADMIN`.
 - Transfer approval steps use source and destination Chain context, but approval only moves the request to `APPROVED`.
 
-Phase 5 approval completion never applies final actions. `COMPLETED` remains reserved for later phases where workflow-specific system application is implemented.
+Generic approval completion does not apply final actions. New Hire reaches `COMPLETED` only through the Phase 6 Admin finalization endpoint; Transfer and Resignation/Termination still stop before system application until later phases.
 
 The generic request creation UI is internal Admin/Super Admin tooling for testing
 the Phase 5 engine only. It is not a Champ operations form and must not be shown
@@ -223,10 +223,8 @@ as a user-facing workflow launcher for Picker lifecycle actions.
 
 ## Phase 5 Scope Guard
 
-Phase 5 does not implement:
+Phase 5 by itself does not implement:
 
-- Picker creation from New Hire
-- Shopper ID finalization
 - Picker assignment transfer execution
 - Picker archive/deactivation from Resignation or Termination
 - direct assignment mutation from request approval
