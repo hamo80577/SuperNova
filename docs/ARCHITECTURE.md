@@ -41,6 +41,7 @@ The backend is organized around these modules:
 - `NotificationsModule`
 - `AuditModule`
 - `AdminModule`
+- `ReportsModule`
 
 These modules should stay inside a single NestJS application unless a future scaling problem proves otherwise.
 
@@ -367,3 +368,34 @@ Frontend responsibilities:
 Phase 10 must not add direct buttons for Picker creation, Picker transfer,
 Picker archive/deactivation, or Picker assignment changes. Those remain
 workflow-based only.
+
+## Reporting and Operational Counts
+
+Phase 11 adds read-only reporting over existing operational data. It is not a
+new workflow, not production hardening, and not an analytics warehouse.
+
+Backend responsibilities:
+
+- `GET /api/reports/admin/overview` returns system-wide counts for Admin/Super
+  Admin users.
+- `GET /api/reports/area-manager/overview` returns only data under the
+  authenticated Area Manager's active `ChainAreaManagerAssignment` rows.
+- `GET /api/reports/champ/overview` returns only data under the authenticated
+  Champ's active `VendorChampAssignment` rows.
+- Active Picker counts are based on active `PickerBranchAssignment` rows whose
+  Picker user is active and employed.
+- Request, approval, profile completion, archive, and block summaries are
+  derived from existing rows and shaped into safe aggregate responses.
+
+Frontend responsibilities:
+
+- `/admin/reports` shows system overview, workforce status, requests, profile
+  completion, archive/block, pending actions, and top Chain/Branch counts.
+- `/area-manager/reports` shows Chain-scoped manpower, Branch counts, request
+  summaries, pending approvals, and profile completion.
+- `/champ/reports` shows assigned Branch counts, Picker profile completion,
+  submitted request summaries, and workflow outcomes.
+
+Reports must not expose secrets, raw temporary passwords, direct Picker creation,
+direct transfer controls, direct archive/deactivation controls, or direct
+assignment-edit controls.

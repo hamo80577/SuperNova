@@ -199,3 +199,23 @@ Phase 10 reuses existing tables and does not add schema:
 These reads do not create direct lifecycle mutation paths.
 - The PostgreSQL partial unique index for one active Picker assignment enforces that a Picker cannot end up with two active Branch assignments.
 - The request is marked `COMPLETED` only after the final approval update, old assignment closure, new assignment creation, notifications, and audit logs complete in one transaction.
+
+## Phase 11 Reporting Reads
+
+Phase 11 does not add reporting tables or stored summary totals. Reports read
+existing normalized data:
+
+- Admin system counts read `Chain`, `Vendor`, `User`, `Request`,
+  `RequestApproval`, and active `PickerBranchAssignment` rows.
+- Area Manager report scope comes from active `ChainAreaManagerAssignment`
+  rows, then reads Vendors, Pickers, Champs, Requests, and Approvals within
+  those Chains.
+- Champ report scope comes from active `VendorChampAssignment` rows, then reads
+  Branch Pickers and requests submitted by that Champ.
+- Active manpower is counted only from active `PickerBranchAssignment` rows
+  where the Picker user is `ACTIVE` and employment status is `ACTIVE`.
+- Archived/deactivated and block summaries read existing `User.accountStatus`,
+  `employmentStatus`, `blockStatus`, `blockedUntil`, and `blockReason` fields.
+
+Reports must not introduce `User.managerId`, `User.chainId`, or `User.vendorId`,
+and must not expose password hashes, temporary passwords, or raw secret payloads.

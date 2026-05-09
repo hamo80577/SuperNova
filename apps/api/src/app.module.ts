@@ -12,6 +12,7 @@ import { ChainsModule } from "./chains/chains.module";
 import { HealthModule } from "./health/health.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { ReportsModule } from "./reports/reports.module";
 import { RequestsModule } from "./requests/requests.module";
 import { UsersModule } from "./users/users.module";
 import { VendorsModule } from "./vendors/vendors.module";
@@ -38,6 +39,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     NotificationsModule,
     AuditModule,
     AdminModule,
+    ReportsModule,
     WorkspacesModule
   ]
 })

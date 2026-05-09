@@ -293,3 +293,23 @@ Not allowed in Phase 10:
 - new workflow types
 - reporting/count dashboards beyond small action/control cards
 - payroll, attendance, GPS, order integration, documents upload, or analytics
+
+## Phase 11 Reporting Is Read-Only Operational Visibility
+
+Allowed in Phase 11:
+
+- Admin/Super Admin system-wide operational counts from real database data.
+- Area Manager Chain-scoped manpower, request, approval, and profile completion
+  counts derived from active `ChainAreaManagerAssignment` scope.
+- Champ Branch-scoped Picker, profile completion, submitted request, and
+  workflow outcome counts derived from active `VendorChampAssignment` scope.
+- Open action and pending approval counts that match existing request/approval
+  state.
+
+Not allowed in Phase 11:
+
+- new lifecycle workflows
+- direct Picker creation, transfer, archive/deactivation, or assignment edits
+- storing denormalized reporting totals as source of truth
+- heavy BI, realtime analytics, exports, payroll, attendance, GPS, order
+  integration, documents upload, or Phase 12 hardening/refactor work
