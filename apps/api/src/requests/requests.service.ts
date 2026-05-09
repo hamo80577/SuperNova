@@ -33,6 +33,7 @@ import { toUserSummary } from "../assignments/assignment-response.utils";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { findSensitiveJsonKey } from "../security/sensitive-data.utils";
 import type { CancelRequestDto } from "./dto/cancel-request.dto";
 import type { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
 import type { CreateOffboardingRequestDto } from "./dto/create-offboarding-request.dto";
@@ -1233,8 +1234,7 @@ export class RequestsService {
         accountStatus: result.picker.accountStatus,
         employmentStatus: result.picker.employmentStatus,
         profileStatus: result.picker.profileStatus,
-        mustChangePassword: result.picker.mustChangePassword,
-        temporaryPasswordExpiresAt: result.picker.temporaryPasswordExpiresAt
+        mustChangePassword: result.picker.mustChangePassword
       },
       assignment: {
         id: result.assignment.id,
@@ -2769,26 +2769,11 @@ export class RequestsService {
       return;
     }
 
-    const unsafeKeys = ["password", "secret", "token", "credential"];
-    const stack: unknown[] = [payload];
-
-    while (stack.length) {
-      const value = stack.pop();
-      if (!value || typeof value !== "object") {
-        continue;
-      }
-
-      for (const [key, nested] of Object.entries(value)) {
-        if (unsafeKeys.some((unsafe) => key.toLowerCase().includes(unsafe))) {
-          throw new BadRequestException(
-            "Request payload must not contain passwords, secrets, tokens, or credentials."
-          );
-        }
-
-        if (nested && typeof nested === "object") {
-          stack.push(nested);
-        }
-      }
+    const sensitiveKey = findSensitiveJsonKey(payload);
+    if (sensitiveKey) {
+      throw new BadRequestException(
+        `Request payload must not contain passwords, secrets, tokens, credentials, or session material. Remove field "${sensitiveKey}".`
+      );
     }
   }
 

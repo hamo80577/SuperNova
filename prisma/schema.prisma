@@ -131,6 +131,9 @@ model User {
   auditLogsAsActor            AuditLog[]                       @relation("AuditActor")
 
   @@index([role])
+  @@index([role, accountStatus])
+  @@index([role, employmentStatus])
+  @@index([role, profileStatus])
   @@index([accountStatus])
   @@index([employmentStatus])
 }
@@ -185,6 +188,7 @@ model PickerBranchAssignment {
 
   @@index([pickerId, status])
   @@index([vendorId, status])
+  @@index([createdByRequestId])
 }
 
 model VendorChampAssignment {
@@ -244,11 +248,16 @@ model Request {
   createdAssignments   PickerBranchAssignment[]  @relation("RequestCreatedAssignments")
 
   @@index([status])
+  @@index([status, currentStep])
   @@index([type])
+  @@index([type, status])
   @@index([createdById])
   @@index([targetUserId])
+  @@index([sourceChainId, status])
   @@index([sourceVendorId])
+  @@index([destinationChainId, status])
   @@index([destinationVendorId])
+  @@index([createdAt])
 }
 
 model RequestApproval {
@@ -266,7 +275,10 @@ model RequestApproval {
   approver      User?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@index([approverId, status])
+  @@index([approverId, status, step])
+  @@index([status, step])
   @@index([requestId, step])
+  @@index([requestId, status])
 }
 
 model Notification {
@@ -281,6 +293,7 @@ model Notification {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 model AuditLog {
@@ -298,4 +311,7 @@ model AuditLog {
 
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@index([entityType, action, createdAt])
+  @@index([createdAt])
 }

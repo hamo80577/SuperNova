@@ -164,8 +164,8 @@ export class WorkspacesService {
         recentRequests: branchData.totals.recentRequests
       },
       placeholders: {
-        requests: "Request history is visible here; workflow-specific forms launch from a selected Branch in later phases.",
-        actions: "Lifecycle actions remain request-based and Branch-contextual in later phases."
+        requests: "Request history is visible here; lifecycle forms launch from a selected Branch context.",
+        actions: "New Hire, Offboarding, and Transfer remain request-based and Branch-contextual."
       }
     };
   }
@@ -349,8 +349,8 @@ export class WorkspacesService {
         )
       },
       placeholders: {
-        requests: "Request and approval queues are not implemented in Phase 4.",
-        approvals: "Approval ownership remains a later workflow phase."
+        requests: "Request visibility is scoped to assigned Chains.",
+        approvals: "Approval ownership is derived from active Chain Area Manager assignments."
       }
     };
   }
@@ -419,7 +419,7 @@ export class WorkspacesService {
       },
       placeholders: {
         pendingAdminActions:
-          "Pending admin lifecycle actions start after request workflows are implemented."
+          "Pending Admin lifecycle actions are available from /admin/pending-actions."
       }
     };
   }

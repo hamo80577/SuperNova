@@ -399,3 +399,29 @@ Frontend responsibilities:
 Reports must not expose secrets, raw temporary passwords, direct Picker creation,
 direct transfer controls, direct archive/deactivation controls, or direct
 assignment-edit controls.
+
+## Phase 12 Hardening and Production Readiness
+
+Phase 12 is the MVP hardening phase. It does not add workflows or new product
+modules.
+
+Hardening boundaries:
+
+- SuperNova remains a modular monolith.
+- Lifecycle mutations still require request-specific backend services and
+  approval ownership checks.
+- Generic request creation cannot create `NEW_HIRE`, `RESIGNATION`,
+  `TERMINATION`, or `TRANSFER` records.
+- Admin assignment endpoints are setup-only hierarchy controls. They are guarded
+  by Admin/Super Admin roles, reject duplicate active assignments, preserve
+  history, and must not be presented as lifecycle workflow shortcuts.
+- Auth rejects non-active accounts and active block states.
+- General safe-user responses do not include password hashes, temporary password
+  values, temporary password expiry metadata, or block reason text.
+- Request payloads and Admin audit log JSON are redacted before returning to the
+  frontend.
+
+Deployment readiness uses Docker Compose and Prisma migrations. `prisma db push`
+is not the normal deployment path. Production secrets must be provided through
+environment variables, and the public `WEB_ORIGIN`/`NEXT_PUBLIC_API_URL` values
+must match the HTTPS origins served through the VPS reverse proxy.

@@ -25,33 +25,33 @@ const dashboardCopy: Record<
 > = {
   PICKER: {
     title: "Picker Dashboard",
-    description: "Profile and branch workspace placeholders.",
-    emptyTitle: "Picker workspace is ready for scoped data.",
-    emptyBody: "Profile completion and branch visibility are later phases."
+    description: "Profile, Branch context, and operational request visibility.",
+    emptyTitle: "Picker workspace is active.",
+    emptyBody: "Your profile status and current Branch context are enforced by backend scope."
   },
   CHAMP: {
     title: "Champ Dashboard",
-    description: "Branch, picker, and request workspace placeholders.",
-    emptyTitle: "Champ workspace is ready for assigned branches.",
-    emptyBody: "Requests remain placeholders until workflow phases begin."
+    description: "Branch-first operations, Pickers, requests, and reports.",
+    emptyTitle: "Champ workspace is active.",
+    emptyBody: "Lifecycle actions start from a selected Branch and continue through approvals."
   },
   AREA_MANAGER: {
     title: "Area Manager Dashboard",
-    description: "Chain-level operations and approval workspace placeholders.",
-    emptyTitle: "Area Manager workspace is ready for scoped operations.",
-    emptyBody: "Scope-aware chains, users, and approvals are later phases."
+    description: "Chain-scoped workforce visibility and approval ownership.",
+    emptyTitle: "Area Manager workspace is active.",
+    emptyBody: "Approvals and reports are scoped from active Chain assignments."
   },
   ADMIN: {
     title: "Admin Dashboard",
-    description: "System administration workspace placeholders.",
-    emptyTitle: "Admin workspace is ready for controlled management.",
-    emptyBody: "Users, requests, audit, and settings remain placeholders."
+    description: "Controlled setup, final actions, audit, and reporting.",
+    emptyTitle: "Admin control workspace is active.",
+    emptyBody: "Lifecycle changes remain workflow-based; Admin surfaces expose visibility and finalization only."
   },
   SUPER_ADMIN: {
     title: "Admin Dashboard",
-    description: "System administration workspace placeholders.",
-    emptyTitle: "Admin workspace is ready for controlled management.",
-    emptyBody: "Users, requests, audit, and settings remain placeholders."
+    description: "Controlled setup, final actions, audit, and reporting.",
+    emptyTitle: "Admin control workspace is active.",
+    emptyBody: "Lifecycle changes remain workflow-based; Super Admin surfaces expose visibility and finalization only."
   }
 };
 
@@ -74,7 +74,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
               {copy.emptyBody}
             </p>
           </div>
-          <Badge variant="muted">Phase 1 placeholder</Badge>
+          <Badge variant="muted">MVP ready</Badge>
         </div>
         <DashboardPlaceholderGrid />
       </div>
@@ -131,8 +131,7 @@ function DashboardFrameInner({
           <nav className="grid gap-1 p-3">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                item.href !== "#" && pathname.startsWith(item.href);
+              const isActive = item.href ? pathname.startsWith(item.href) : false;
               const itemClassName = cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
                 isActive
@@ -140,7 +139,7 @@ function DashboardFrameInner({
                   : "text-muted-foreground hover:bg-muted"
               );
 
-              if (item.href === "#") {
+              if (!item.href || item.disabled) {
                 return (
                   <span
                     aria-disabled="true"
@@ -213,7 +212,7 @@ function DashboardPlaceholderGrid() {
             <Icon className="mb-4 h-5 w-5 text-primary" />
             <p className="text-sm font-medium">{item.label}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {item.href === "#" ? "Placeholder" : "Available"}
+              {item.href ? "Available" : "Planned control surface"}
             </p>
           </div>
         );

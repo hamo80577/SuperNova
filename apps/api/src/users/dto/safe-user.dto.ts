@@ -27,9 +27,7 @@ export interface SafeUserDto {
   profileStatus: ProfileStatus;
   blockStatus: BlockStatus;
   blockedUntil: Date | null;
-  blockReason: string | null;
   mustChangePassword: boolean;
-  temporaryPasswordExpiresAt: Date | null;
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -55,9 +53,7 @@ export function toSafeUser(user: User): SafeUserDto {
     profileStatus: user.profileStatus,
     blockStatus: user.blockStatus,
     blockedUntil: user.blockedUntil,
-    blockReason: user.blockReason,
     mustChangePassword: user.mustChangePassword,
-    temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt

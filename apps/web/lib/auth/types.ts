@@ -35,9 +35,7 @@ export interface SafeUser {
   profileStatus: ProfileStatus;
   blockStatus: BlockStatus;
   blockedUntil: string | null;
-  blockReason: string | null;
   mustChangePassword: boolean;
-  temporaryPasswordExpiresAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -12,6 +12,7 @@ import {
   toUserSummary,
   toVendorSummary
 } from "../assignments/assignment-response.utils";
+import { redactJson } from "../security/sensitive-data.utils";
 
 type RequestWithRelations = Request & {
   createdBy: User;
@@ -29,7 +30,7 @@ export function toRequestSummary(request: RequestWithRelations) {
     type: request.type,
     status: request.status,
     currentStep: request.currentStep,
-    payload: request.payload,
+    payload: redactJson(request.payload),
     completedAt: request.completedAt,
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,

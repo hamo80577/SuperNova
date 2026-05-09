@@ -130,7 +130,6 @@ export interface FinalizeNewHireResponse {
     employmentStatus: string;
     profileStatus: string;
     mustChangePassword: boolean;
-    temporaryPasswordExpiresAt: string | null;
   };
   assignment: {
     id: string;

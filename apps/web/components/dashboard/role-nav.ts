@@ -19,8 +19,9 @@ import type { UserRole } from "@/lib/auth/types";
 
 export interface NavItem {
   label: string;
-  href: string;
+  href?: string;
   active?: boolean;
+  disabled?: boolean;
   icon: typeof Home;
 }
 
@@ -28,7 +29,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
   PICKER: [
     { label: "Dashboard", href: "/picker/dashboard", active: true, icon: Home },
     { label: "My Requests", href: "/requests", icon: ClipboardList },
-    { label: "My Profile", href: "#", icon: UserRound },
+    { label: "My Profile", disabled: true, icon: UserRound },
     {
       label: "Profile Completion",
       href: "/picker/profile-completion",
@@ -50,8 +51,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       active: true,
       icon: Home
     },
-    { label: "Operations Map", href: "#", icon: Map },
-    { label: "Users Under Me", href: "#", icon: Users },
+    { label: "Operations Map", disabled: true, icon: Map },
+    { label: "Users Under Me", disabled: true, icon: Users },
     { label: "Reports", href: "/area-manager/reports", icon: BarChart3 },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Approvals", href: "/approvals", icon: ShieldCheck },
@@ -59,7 +60,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: Home },
-    { label: "Users", href: "#", icon: Users },
+    { label: "Users", disabled: true, icon: Users },
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },
@@ -74,7 +75,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: Home },
-    { label: "Users", href: "#", icon: Users },
+    { label: "Users", disabled: true, icon: Users },
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },

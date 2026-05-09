@@ -466,6 +466,8 @@ export class ReportsService {
         by: ["profileStatus"],
         where: {
           role: UserRole.PICKER,
+          accountStatus: AccountStatus.ACTIVE,
+          employmentStatus: EmploymentStatus.ACTIVE,
           pickerBranchAssignments: {
             some: {
               vendorId: { in: vendorIds },

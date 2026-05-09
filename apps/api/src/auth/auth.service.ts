@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { AccountStatus, ProfileStatus, User, UserRole } from "@prisma/client";
+import { ProfileStatus, User, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import type { Response } from "express";
 import type { StringValue } from "ms";
@@ -16,6 +16,7 @@ import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { toSafeUser } from "../users/dto/safe-user.dto";
 import { UsersService } from "../users/users.service";
+import { getAccountAccessFailure } from "./account-access.utils";
 import type { ChangePasswordDto } from "./dto/change-password.dto";
 import type { LoginDto } from "./dto/login.dto";
 import type { AuthenticatedUser, JwtPayload } from "./types/authenticated-user";
@@ -61,9 +62,10 @@ export class AuthService {
       throw new UnauthorizedException("Invalid phone number or password.");
     }
 
-    if (user.accountStatus !== AccountStatus.ACTIVE) {
+    const accessFailure = getAccountAccessFailure(user);
+    if (accessFailure) {
       await this.logFailedLogin(phoneNumber, context, user.id);
-      throw new UnauthorizedException("User account is not active.");
+      throw new UnauthorizedException(accessFailure);
     }
 
     if (this.hasExpiredTemporaryPassword(user)) {

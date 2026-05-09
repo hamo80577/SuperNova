@@ -15,6 +15,7 @@ import {
   toVendorSummary
 } from "../assignments/assignment-response.utils";
 import { PrismaService } from "../prisma/prisma.service";
+import { redactJson } from "../security/sensitive-data.utils";
 import type {
   AdminPageQueryDto,
   ListArchivedUsersQueryDto,
@@ -22,7 +23,6 @@ import type {
 } from "./dto/list-admin-query.dto";
 
 const MAX_PAGE_SIZE = 100;
-const SECRET_KEY_PARTS = ["password", "secret", "token", "credential"];
 
 const adminRequestInclude = {
   createdBy: true,
@@ -341,27 +341,4 @@ export class AdminService {
       totalPages: Math.max(1, Math.ceil(total / pageSize))
     };
   }
-}
-
-function redactJson(value: Prisma.JsonValue | null): unknown {
-  if (value === null) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item): unknown => redactJson(item));
-  }
-
-  if (typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, nested]): [string, unknown] => [
-      key,
-      SECRET_KEY_PARTS.some((part) => key.toLowerCase().includes(part))
-        ? "[REDACTED]"
-        : redactJson(nested as Prisma.JsonValue)
-    ])
-  );
 }

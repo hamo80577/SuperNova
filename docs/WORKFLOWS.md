@@ -313,3 +313,22 @@ Not allowed in Phase 11:
 - storing denormalized reporting totals as source of truth
 - heavy BI, realtime analytics, exports, payroll, attendance, GPS, order
   integration, documents upload, or Phase 12 hardening/refactor work
+
+## Phase 12 Hardening Is Not a New Workflow
+
+Allowed in Phase 12:
+
+- tighten guards, validation, redaction, indexes, and deployment documentation
+- keep workflow-specific endpoints as the only paths for New Hire,
+  Resignation/Termination, and Transfer creation/application
+- keep Admin assignment management as setup-only hierarchy tooling
+- verify existing workflows through Docker/PostgreSQL regression checks
+
+Not allowed in Phase 12:
+
+- new workflow types
+- direct Picker creation outside New Hire finalization
+- direct Picker transfer or assignment editing outside Transfer finalization
+- direct Picker archive/deactivation outside Offboarding finalization
+- payroll, attendance, GPS, order integration, realtime messaging, exports,
+  advanced analytics, or microservices

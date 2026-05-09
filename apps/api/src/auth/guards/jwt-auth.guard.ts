@@ -7,9 +7,9 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { AccountStatus } from "@prisma/client";
 
 import { UsersService } from "../../users/users.service";
+import { getAccountAccessFailure } from "../account-access.utils";
 import type { AuthenticatedRequest } from "../types/authenticated-request";
 import type { JwtPayload } from "../types/authenticated-user";
 
@@ -44,8 +44,13 @@ export class JwtAuthGuard implements CanActivate {
 
     const user = await this.usersService.findById(payload.sub);
 
-    if (!user || user.accountStatus !== AccountStatus.ACTIVE) {
-      throw new UnauthorizedException("Authenticated user is not active.");
+    if (!user) {
+      throw new UnauthorizedException("User account is not active.");
+    }
+
+    const accessFailure = getAccountAccessFailure(user);
+    if (accessFailure) {
+      throw new UnauthorizedException(accessFailure);
     }
 
     request.user = {

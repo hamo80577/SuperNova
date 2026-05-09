@@ -307,6 +307,61 @@ active `ChainAreaManagerAssignment` scope. Champ reports are limited to active
 `VendorChampAssignment` Branch scope. Active manpower counts come from active
 `PickerBranchAssignment` rows whose Picker user is active.
 
+## Phase 12 Hardening Notes
+
+Phase 12 keeps SuperNova as a modular monolith and does not add new product
+features. The hardening baseline is:
+
+- Authentication rejects inactive, archived, suspended, permanently blocked, and
+  currently temporarily blocked accounts.
+- General safe-user responses do not expose `passwordHash`, temporary password
+  values, temporary password expiry metadata, or block reason text.
+- Request payload responses and Admin audit log JSON are redacted for password,
+  secret, token, credential, cookie, session, JWT, and authorization keys.
+- Generic `POST /api/requests` remains blocked for `NEW_HIRE`, `RESIGNATION`,
+  `TERMINATION`, and `TRANSFER`; workflow-specific Branch-first endpoints are
+  the only valid creation paths for those lifecycle actions.
+- Admin assignment endpoints are setup-only hierarchy tools. They reject
+  duplicate active assignments, preserve history, and must not be used to bypass
+  New Hire, Transfer, or Offboarding workflows.
+- Additive Prisma indexes support request queues, approval queues, scoped
+  reports, notifications, and audit log filtering.
+
+## Docker Compose and VPS Deployment Notes
+
+Local development uses `docker-compose.yml` with PostgreSQL plus the optional
+`app` profile:
+
+```powershell
+$env:JWT_SECRET='replace-with-a-long-random-local-secret'
+$env:WEB_ORIGIN='http://localhost:3000'
+$env:NEXT_PUBLIC_API_URL='http://localhost:4000'
+docker compose up -d postgres
+npm run prisma:migrate
+npm run db:seed
+docker compose --profile app up -d --force-recreate api web
+```
+
+For a VPS deployment, keep the startup order simple and explicit:
+
+1. Provision PostgreSQL storage.
+2. Set production environment variables outside git.
+3. Run `npm run prisma:migrate` against the production database.
+4. Start the API and Web containers.
+5. Check `GET /api/health`.
+6. Put Cloudflare or another HTTPS reverse proxy in front of the VPS.
+
+Production requirements:
+
+- `JWT_SECRET` must be a long random secret and must never be committed.
+- `WEB_ORIGIN` must match the HTTPS web origin used by the browser.
+- `NEXT_PUBLIC_API_URL` must point to the public API origin.
+- Use Prisma migrations, not `prisma db push`, for schema changes.
+- Run the seed command only for controlled local/dev bootstrap users unless a
+  production bootstrap procedure is explicitly approved.
+- Keep `.env`, runtime logs, generated database files, and local credentials out
+  of git.
+
 ## Reference Docs
 
 - [AGENTS.md](./AGENTS.md)

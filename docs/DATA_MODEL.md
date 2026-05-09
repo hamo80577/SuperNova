@@ -219,3 +219,28 @@ existing normalized data:
 
 Reports must not introduce `User.managerId`, `User.chainId`, or `User.vendorId`,
 and must not expose password hashes, temporary passwords, or raw secret payloads.
+
+## Phase 12 Hardening Indexes
+
+Phase 12 adds non-destructive indexes for production query paths:
+
+- `User(role, accountStatus)`
+- `User(role, employmentStatus)`
+- `User(role, profileStatus)`
+- `PickerBranchAssignment(createdByRequestId)`
+- `Request(status, currentStep)`
+- `Request(type, status)`
+- `Request(sourceChainId, status)`
+- `Request(destinationChainId, status)`
+- `Request(createdAt)`
+- `RequestApproval(approverId, status, step)`
+- `RequestApproval(status, step)`
+- `RequestApproval(requestId, status)`
+- `Notification(userId, createdAt)`
+- `AuditLog(action, createdAt)`
+- `AuditLog(entityType, action, createdAt)`
+- `AuditLog(createdAt)`
+
+These indexes support scoped reports, pending final actions, approval queues,
+notification lists, and audit filtering. They do not add denormalized reporting
+tables and do not introduce shortcut ownership fields on `User`.
