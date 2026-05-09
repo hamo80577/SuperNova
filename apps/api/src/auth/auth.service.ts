@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { AccountStatus, User, UserRole } from "@prisma/client";
+import { AccountStatus, ProfileStatus, User, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import type { Response } from "express";
 import type { StringValue } from "ms";
@@ -102,7 +102,8 @@ export class AuthService {
       user: toSafeUser(updatedUser),
       redirectTo: this.getRoleRedirect(
         updatedUser.role,
-        updatedUser.mustChangePassword
+        updatedUser.mustChangePassword,
+        updatedUser.profileStatus
       ),
       mustChangePassword: updatedUser.mustChangePassword
     };
@@ -204,7 +205,8 @@ export class AuthService {
       user: toSafeUser(updatedUser),
       redirectTo: this.getRoleRedirect(
         updatedUser.role,
-        updatedUser.mustChangePassword
+        updatedUser.mustChangePassword,
+        updatedUser.profileStatus
       ),
       mustChangePassword: updatedUser.mustChangePassword
     };
@@ -219,14 +221,26 @@ export class AuthService {
 
     return {
       user: toSafeUser(user),
-      redirectTo: this.getRoleRedirect(user.role, user.mustChangePassword),
+      redirectTo: this.getRoleRedirect(
+        user.role,
+        user.mustChangePassword,
+        user.profileStatus
+      ),
       mustChangePassword: user.mustChangePassword
     };
   }
 
-  getRoleRedirect(role: UserRole, mustChangePassword = false) {
+  getRoleRedirect(
+    role: UserRole,
+    mustChangePassword = false,
+    profileStatus?: ProfileStatus
+  ) {
     if (mustChangePassword) {
       return "/change-password";
+    }
+
+    if (role === UserRole.PICKER && profileStatus === ProfileStatus.INCOMPLETE) {
+      return "/picker/profile-completion";
     }
 
     const redirects: Record<UserRole, string> = {

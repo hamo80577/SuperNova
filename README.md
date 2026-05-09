@@ -112,6 +112,7 @@ Admin Chains: http://localhost:3000/admin/chains
 Admin Vendors: http://localhost:3000/admin/vendors
 Admin Assignments: http://localhost:3000/admin/assignments
 Picker Workspace: http://localhost:3000/picker/dashboard
+Picker Profile Completion: http://localhost:3000/picker/profile-completion
 Champ Workspace: http://localhost:3000/champ/dashboard
 Champ Branches: http://localhost:3000/champ/branches
 Branch New Hire: http://localhost:3000/champ/branches/:vendorId/new-hire
@@ -123,11 +124,11 @@ Notifications: http://localhost:3000/notifications
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, and Phase 6 Branch-first New Hire submission/finalization surfaces.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, and Phase 6 New Hire workflow endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, and Phase 7 Picker profile completion.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, and Phase 7 Picker profile completion endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- New Hire is implemented as a Branch-first workflow in Phase 6. Transfer execution and resignation/termination finalization remain later phases.
+- New Hire is implemented as a Branch-first workflow in Phase 6. Phase 7 lets the created Picker complete safe profile fields after forced password change. Transfer execution and resignation/termination finalization remain later phases.
 
 ## Auth Endpoints
 
@@ -137,9 +138,16 @@ POST /api/auth/logout
 POST /api/auth/change-password
 GET /api/auth/me
 GET /api/users/me
+GET /api/users/me/profile-completion
+PATCH /api/users/me/profile-completion
 ```
 
 Browser auth uses an HTTP-only JWT cookie. Bearer tokens are accepted by the backend guard for API testing.
+
+Picker profile completion is PICKER-only. It accepts only safe self-service fields
+(`nameEn`, `nameAr`, `nationalId`, `address`, `dateOfBirth`, `gender`,
+`joiningDate`) and cannot change role, account status, employment status,
+Shopper ID, passwords, assignments, or lifecycle state.
 
 ## Organization Endpoints
 
@@ -177,7 +185,7 @@ PATCH /api/assignments/vendor-champ/:id/close
 PATCH /api/assignments/chain-area-manager/:id/close
 ```
 
-Assignment setup preserves history. Creating a new active assignment rejects if the target Picker, Vendor, or Chain already has an active assignment. Transfer and New Hire automation remain later workflow phases.
+Assignment setup preserves history. Creating a new active assignment rejects if the target Picker, Vendor, or Chain already has an active assignment. New Hire creates the initial Picker Branch assignment through the Phase 6 workflow; Transfer automation remains a later workflow phase.
 
 Optional local verification data:
 

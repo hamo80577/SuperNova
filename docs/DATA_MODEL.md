@@ -133,3 +133,26 @@ Phase 5 starts using the existing `Request`, `RequestApproval`, `Notification`, 
 - `AuditLog` records request and approval actions.
 
 `APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is reserved for later workflow finalization phases.
+
+## Phase 7 Profile Completion Usage
+
+Phase 7 uses existing `User` fields only. It does not add new profile tables or
+document storage.
+
+Profile completion updates safe Picker-owned profile fields:
+
+- `nameEn`
+- `nameAr`
+- `nationalId`
+- `address`
+- `dateOfBirth`
+- `gender`
+- `joiningDate`
+
+Required completion fields are `nationalId`, `address`, `dateOfBirth`, and
+`joiningDate`. `profileStatus` moves to `COMPLETE` after validation succeeds.
+
+Forbidden profile completion updates include `role`, `accountStatus`,
+`employmentStatus`, `blockStatus`, `shopperId`, `ibsId`, password fields, and
+assignment relationships. Age is never stored; it must be derived from
+`dateOfBirth` when needed.

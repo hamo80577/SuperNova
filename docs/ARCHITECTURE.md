@@ -250,5 +250,37 @@ Frontend responsibilities:
 - Admin finalization appears on the request detail page only when the request is a New Hire at the Admin final step.
 - The approval queue routes New Hire Admin final approvals to request detail instead of allowing generic approval bypass.
 
-Phase 6 still does not implement Transfer, Resignation/Termination finalization,
-or the Picker profile completion wizard.
+Phase 6 still does not implement Transfer or Resignation/Termination
+finalization. The created Picker is intentionally left with
+`profileStatus=INCOMPLETE` for Phase 7 onboarding.
+
+## Picker Profile Completion
+
+Phase 7 adds the onboarding step after New Hire finalization and forced
+password change.
+
+Flow:
+
+```text
+Picker login with temporary password
+-> forced password change
+-> profile completion
+-> full Picker workspace
+```
+
+Backend responsibilities:
+
+- `GET /api/users/me/profile-completion` returns safe Picker profile completion state.
+- `PATCH /api/users/me/profile-completion` is PICKER-only and updates only safe self-service fields.
+- Required fields are `nationalId`, `address`, `dateOfBirth`, and `joiningDate`.
+- The endpoint sets `profileStatus=COMPLETE` when required fields are valid.
+- The endpoint writes `PICKER_PROFILE_COMPLETED` audit logs.
+
+Security boundaries:
+
+- Pickers cannot update `role`, `accountStatus`, `employmentStatus`, `blockStatus`, `shopperId`, `ibsId`, password fields, assignment fields, or lifecycle request fields through profile completion.
+- `mustChangePassword` has routing priority over profile completion.
+- Incomplete Pickers are redirected to `/picker/profile-completion` before the full Picker workspace.
+
+Phase 7 does not implement document upload storage, Admin profile review,
+Transfer, Resignation, or Termination.

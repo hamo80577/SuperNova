@@ -11,6 +11,10 @@ export function getUserRedirect(user: SafeUser) {
     return "/change-password";
   }
 
+  if (user.role === "PICKER" && user.profileStatus === "INCOMPLETE") {
+    return "/picker/profile-completion";
+  }
+
   return getRoleRedirect(user.role);
 }
 

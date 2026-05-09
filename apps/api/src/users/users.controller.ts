@@ -1,9 +1,12 @@
 import {
+  Body,
   Controller,
   Get,
   Inject,
   NotFoundException,
+  Patch,
   Query,
+  Req,
   UseGuards
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
@@ -12,8 +15,10 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
+import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
+import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -42,5 +47,26 @@ export class UsersController {
     }
 
     return currentUser;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PICKER)
+  @Get("me/profile-completion")
+  getProfileCompletion(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getProfileCompletion(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PICKER)
+  @Patch("me/profile-completion")
+  updateProfileCompletion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProfileCompletionDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.updateProfileCompletion(user.id, dto, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
   }
 }

@@ -55,6 +55,28 @@ Rules:
 - Temporary password is never stored as plain text on `User`; it appears only in the Champ notification created after finalization.
 - The created Picker has `profileStatus=INCOMPLETE`, `mustChangePassword=true`, and an active `PickerBranchAssignment` to the source Branch.
 
+## Picker Profile Completion
+
+Phase 7 implements the post-New Hire onboarding step for newly created Pickers:
+
+```text
+Picker logs in with temporary password
+-> Picker changes password
+-> Picker completes required profile fields
+-> profileStatus becomes COMPLETE
+-> Picker opens full workspace
+```
+
+Rules:
+
+- `mustChangePassword` always comes before profile completion.
+- Pickers with `profileStatus=INCOMPLETE` are routed to `/picker/profile-completion`.
+- Required fields are `nationalId`, `address`, `dateOfBirth`, and `joiningDate`.
+- Age is not stored; any age display must be derived from `dateOfBirth`.
+- Profile completion can update only safe profile fields: `nameEn`, `nameAr`, `nationalId`, `address`, `dateOfBirth`, `gender`, and `joiningDate`.
+- Profile completion cannot change role, account status, employment status, block status, Shopper ID, IBS ID, passwords, assignments, or lifecycle request state.
+- Documents are not uploaded or stored in Phase 7.
+
 ## Resignation / Termination
 
 Target shape for later phases:
@@ -171,5 +193,21 @@ Not allowed in Phase 6:
 - direct Picker creation screens
 - Transfer execution
 - Resignation/Termination finalization
-- profile completion wizard implementation
 - document uploads, payroll, attendance, GPS, or analytics
+
+## Phase 7 Profile Completion Is Not Lifecycle Finalization
+
+Allowed in Phase 7:
+
+- Picker-only safe self-service profile completion.
+- Redirecting incomplete Pickers away from the full Picker workspace after password change.
+- Updating `profileStatus` to `COMPLETE` after required fields validate.
+- Audit logging profile completion submission.
+
+Not allowed in Phase 7:
+
+- Transfer execution
+- Resignation/Termination finalization
+- document upload storage
+- Admin profile review workflow
+- direct Picker assignment changes

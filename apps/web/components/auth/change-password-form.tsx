@@ -74,7 +74,8 @@ function ChangePasswordFormInner() {
     <form className="space-y-5" onSubmit={handleSubmit}>
       {user?.role === "PICKER" && user.profileStatus === "INCOMPLETE" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Profile completion remains a later phase.
+          After changing this temporary password, complete your operational
+          Picker profile before opening the full workspace.
         </div>
       ) : null}
 

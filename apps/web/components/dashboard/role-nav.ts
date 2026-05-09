@@ -26,7 +26,11 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Dashboard", href: "/picker/dashboard", active: true, icon: Home },
     { label: "My Requests", href: "/requests", icon: ClipboardList },
     { label: "My Profile", href: "#", icon: UserRound },
-    { label: "Profile Completion", href: "#", icon: ShieldCheck }
+    {
+      label: "Profile Completion",
+      href: "/picker/profile-completion",
+      icon: ShieldCheck
+    }
   ],
   CHAMP: [
     { label: "Dashboard", href: "/champ/dashboard", active: true, icon: Home },

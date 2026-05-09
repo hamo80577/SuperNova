@@ -33,6 +33,16 @@ export function ProtectedRoute({
       return;
     }
 
+    if (
+      user.role === "PICKER" &&
+      user.profileStatus === "INCOMPLETE" &&
+      pathname !== "/change-password" &&
+      pathname !== "/picker/profile-completion"
+    ) {
+      replaceRoute(router, "/picker/profile-completion");
+      return;
+    }
+
     if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
       replaceRoute(router, redirectForUser(user));
     }
@@ -48,6 +58,15 @@ export function ProtectedRoute({
 
   if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
     return <FullPageStatus label="Redirecting" />;
+  }
+
+  if (
+    user.role === "PICKER" &&
+    user.profileStatus === "INCOMPLETE" &&
+    pathname !== "/change-password" &&
+    pathname !== "/picker/profile-completion"
+  ) {
+    return <FullPageStatus label="Opening profile completion" />;
   }
 
   return <>{children}</>;

@@ -1,5 +1,5 @@
 import type { SafeUser, UserRole } from "@/lib/auth/types";
-import { apiRequest } from "./request";
+import { apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 
 export type UserLookupStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ARCHIVED";
@@ -15,6 +15,27 @@ export interface ListUsersParams {
   role?: UserRole;
   status?: UserLookupStatus;
   q?: string;
+}
+
+export interface ProfileCompletionResponse {
+  user: SafeUser;
+  profileCompletion: {
+    status: SafeUser["profileStatus"];
+    requiredFields: string[];
+    missingFields: string[];
+    complete: boolean;
+  };
+  allowedFields: string[];
+}
+
+export interface UpdateProfileCompletionInput {
+  nameEn?: string;
+  nameAr?: string;
+  nationalId?: string;
+  address?: string;
+  dateOfBirth?: string;
+  gender?: SafeUser["gender"];
+  joiningDate?: string;
 }
 
 function toQuery(params: Record<string, string | number | undefined>) {
@@ -41,5 +62,19 @@ export const usersApi = {
         q: params.q
       })}`
     );
+  },
+  profileCompletion() {
+    return apiRequest<ProfileCompletionResponse>("/users/me/profile-completion");
+  },
+  async updateProfileCompletion(input: UpdateProfileCompletionInput) {
+    const response = await apiRequest<ProfileCompletionResponse>(
+      "/users/me/profile-completion",
+      {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      }
+    );
+    clearApiCache("/workspaces/picker");
+    return response;
   }
 };
