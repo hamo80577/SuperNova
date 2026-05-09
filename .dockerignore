@@ -1,0 +1,17 @@
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+.next
+apps/*/.next
+dist
+apps/*/dist
+packages/*/dist
+coverage
+test-results
+.git
+.env
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo
+prisma/generated
