@@ -1,0 +1,25 @@
+
+> @supernova/web@0.1.0 dev
+> next dev --port 3000
+
+   ▲ Next.js 15.5.16
+   - Local:        http://localhost:3000
+   - Network:      http://172.29.48.1:3000
+
+ ✓ Starting...
+ ✓ Ready in 7.1s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 15.9s (588 modules)
+ GET /login 200 in 17932ms
+ GET /login 200 in 2075ms
+ GET /login 200 in 247ms
+ ○ Compiling /champ/branches/[vendorId] ...
+ ✓ Compiled /champ/branches/[vendorId] in 13s (718 modules)
+ ✓ Compiled in 5.7s (291 modules)
+ GET /login 200 in 5634ms
+ GET /login 200 in 5652ms
+ GET /login 200 in 7281ms
+ GET /login 200 in 7293ms
+ GET /champ/branches/c5e915e9-b1a7-47f1-a532-c7c50d284d02 200 in 32105ms
+ GET /login 200 in 218ms
+ GET /login 200 in 214ms
