@@ -430,6 +430,9 @@ export function RequestDetailView() {
           />
           <Definition label="Target User" value={request.targetUser?.nameEn ?? "None"} />
         </InfoCard>
+        <InfoCard title="Workflow State">
+          <WorkflowStateSummary request={request} />
+        </InfoCard>
         {request.type === "RESIGNATION" || request.type === "TERMINATION" ? (
           <InfoCard title="Offboarding Context">
             <OffboardingContext payload={request.payload} />
@@ -1145,6 +1148,91 @@ function InfoCard({ children, title }: { children: ReactNode; title: string }) {
   );
 }
 
+function WorkflowStateSummary({ request }: { request: RequestDetail }) {
+  const finalAction =
+    request.status === "PENDING_ADMIN" &&
+    request.currentStep === "ADMIN_FINAL_APPROVAL"
+      ? request.type === "NEW_HIRE"
+        ? "Admin must enter Shopper ID and finalize New Hire."
+        : request.type === "RESIGNATION" || request.type === "TERMINATION"
+          ? "Admin must confirm offboarding and block status."
+          : "Admin review is pending."
+      : request.status === "COMPLETED"
+        ? "Workflow has been completed by the backend."
+        : request.currentStep
+          ? `${formatEnum(request.currentStep)} is the current actionable step.`
+          : "No final action is currently required.";
+
+  return (
+    <>
+      <Definition label="Workflow type" value={formatEnum(request.type)} />
+      <Definition label="Current state" value={formatEnum(request.status)} />
+      <Definition
+        label="Current step"
+        value={request.currentStep ? formatEnum(request.currentStep) : "None"}
+      />
+      <Definition label="Final action needed" value={finalAction} />
+      {request.status === "COMPLETED" ? (
+        <WorkflowResultSummary request={request} />
+      ) : null}
+    </>
+  );
+}
+
+function WorkflowResultSummary({ request }: { request: RequestDetail }) {
+  if (request.type === "NEW_HIRE") {
+    const context = parseNewHirePayload(request.payload);
+    return (
+      <>
+        <Definition
+          label="New Hire result"
+          value={
+            context?.finalization
+              ? `Picker ${context.finalization.pickerId} created and assigned.`
+              : "Completed result is not available in payload."
+          }
+        />
+        <Definition
+          label="Shopper ID"
+          value={context?.finalization?.shopperId ?? "Not available"}
+        />
+      </>
+    );
+  }
+
+  if (request.type === "RESIGNATION" || request.type === "TERMINATION") {
+    const context = parseOffboardingPayload(request.payload);
+    return (
+      <Definition
+        label="Offboarding result"
+        value={
+          context?.finalizedAt
+            ? `Picker archived; assignment ${context.pickerAssignmentId} closed with ${formatEnum(
+                context.blockStatus ?? "NO_BLOCK"
+              )}.`
+            : "Completed result is not available in payload."
+        }
+      />
+    );
+  }
+
+  if (request.type === "TRANSFER") {
+    const context = parseTransferPayload(request.payload);
+    return (
+      <Definition
+        label="Transfer result"
+        value={
+          context?.completedAt
+            ? `Old assignment ${context.oldAssignmentId} closed; new assignment ${context.newAssignmentId} opened.`
+            : "Completed result is not available in payload."
+        }
+      />
+    );
+  }
+
+  return null;
+}
+
 function Definition({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0">
@@ -1278,6 +1366,61 @@ function parseOffboardingPayload(payload: unknown) {
       typeof finalizationPayload?.blockStatus === "string"
         ? finalizationPayload.blockStatus
         : undefined
+  };
+}
+
+function parseNewHirePayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const objectPayload = payload as Record<string, unknown>;
+  const candidate = objectPayload.candidate;
+  const source = objectPayload.source;
+  const finalization = objectPayload.finalization;
+
+  if (
+    !candidate ||
+    typeof candidate !== "object" ||
+    Array.isArray(candidate) ||
+    !source ||
+    typeof source !== "object" ||
+    Array.isArray(source)
+  ) {
+    return null;
+  }
+
+  const candidatePayload = candidate as Record<string, unknown>;
+  const finalizationPayload =
+    finalization && typeof finalization === "object" && !Array.isArray(finalization)
+      ? (finalization as Record<string, unknown>)
+      : null;
+
+  return {
+    candidatePhone:
+      typeof candidatePayload.phoneNumber === "string"
+        ? candidatePayload.phoneNumber
+        : "Not available",
+    finalization: finalizationPayload
+      ? {
+          pickerId:
+            typeof finalizationPayload.pickerId === "string"
+              ? finalizationPayload.pickerId
+              : "Not available",
+          assignmentId:
+            typeof finalizationPayload.assignmentId === "string"
+              ? finalizationPayload.assignmentId
+              : "Not available",
+          shopperId:
+            typeof finalizationPayload.shopperId === "string"
+              ? finalizationPayload.shopperId
+              : "Not available",
+          completedAt:
+            typeof finalizationPayload.completedAt === "string"
+              ? finalizationPayload.completedAt
+              : undefined
+        }
+      : null
   };
 }
 

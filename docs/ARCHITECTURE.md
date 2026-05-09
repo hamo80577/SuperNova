@@ -40,6 +40,7 @@ The backend is organized around these modules:
 - `ApprovalsModule`
 - `NotificationsModule`
 - `AuditModule`
+- `AdminModule`
 
 These modules should stay inside a single NestJS application unless a future scaling problem proves otherwise.
 
@@ -336,3 +337,33 @@ Frontend responsibilities:
 
 Phase 9 does not add direct Picker assignment edit screens, Admin polish,
 reporting, payroll, attendance, GPS, document uploads, or analytics.
+
+## Admin Controls, Archive, and Audit Polish
+
+Phase 10 adds Admin visibility over workflows already implemented in Phases 6,
+8, and 9. It does not add a new workflow and does not change lifecycle mutation
+rules.
+
+Backend responsibilities:
+
+- `GET /api/admin/pending-actions` returns Admin/Super Admin finalization work,
+  including New Hire Shopper ID entry and Offboarding block/deactivation
+  confirmation.
+- `GET /api/admin/archived-users` returns safe archived/deactivated user rows
+  with block status, latest offboarding request context, and closed assignment
+  history.
+- `GET /api/admin/audit-logs` returns paginated audit history with actor,
+  entity, IP/user-agent, and redacted JSON old/new values.
+- All Admin endpoints require authenticated `ADMIN` or `SUPER_ADMIN`.
+
+Frontend responsibilities:
+
+- `/admin/pending-actions` links Admins to request detail finalization panels.
+- `/admin/archived-users` shows block state and closed assignment context.
+- `/admin/audit-logs` shows paginated, filterable sensitive action history.
+- `/admin/settings` is a read-only placeholder; no production setting mutation
+  is enabled in Phase 10.
+
+Phase 10 must not add direct buttons for Picker creation, Picker transfer,
+Picker archive/deactivation, or Picker assignment changes. Those remain
+workflow-based only.

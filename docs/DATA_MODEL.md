@@ -180,5 +180,22 @@ new shortcut fields are added to `User`.
 - Cross-chain Transfer creates `SOURCE_AREA_MANAGER_APPROVAL` and `DESTINATION_AREA_MANAGER_APPROVAL` steps.
 - Applying Transfer closes the old active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
 - Applying Transfer creates a new active `PickerBranchAssignment` for the destination Branch with `createdByRequestId` set to the Transfer request.
+
+## Phase 10 Admin Control Reads
+
+Phase 10 reuses existing tables and does not add schema:
+
+- Pending final actions are read from `Request` rows at `PENDING_ADMIN` with
+  `currentStep=ADMIN_FINAL_APPROVAL` and pending Admin approval rows.
+- Archived users are read from `User` rows with non-active account state or
+  resigned/terminated/archived employment state.
+- Block detail is read from `User.blockStatus`, `blockedUntil`, and
+  `blockReason`, plus the latest offboarding `Request` for context.
+- Closed assignment history is read from `PickerBranchAssignment` rows with
+  `status=CLOSED`; assignment history is never deleted.
+- Audit tables are read through paginated Admin endpoints with redaction of
+  secret-like JSON keys.
+
+These reads do not create direct lifecycle mutation paths.
 - The PostgreSQL partial unique index for one active Picker assignment enforces that a Picker cannot end up with two active Branch assignments.
 - The request is marked `COMPLETED` only after the final approval update, old assignment closure, new assignment creation, notifications, and audit logs complete in one transaction.

@@ -273,3 +273,23 @@ Not allowed in Phase 9:
 - using static `User.managerId`, `User.chainId`, or `User.vendorId`
 - Admin finalization for Transfer
 - payroll, attendance, GPS, order integration, documents upload, analytics, or reporting polish
+
+## Phase 10 Admin Controls Are Visibility, Not Lifecycle Bypass
+
+Allowed in Phase 10:
+
+- Admin/Super Admin can view pending final actions for workflows that already exist.
+- Admin/Super Admin can view archived/deactivated users and block status.
+- Admin/Super Admin can inspect audit logs with pagination and filtering.
+- Request detail can show clearer workflow state, approval timeline, audit
+  timeline, and completed result summaries.
+- Settings can exist as read-only placeholders.
+
+Not allowed in Phase 10:
+
+- direct Picker creation outside New Hire finalization
+- direct Picker transfer or assignment editing outside Transfer workflow
+- direct Picker archive/deactivation outside Offboarding finalization
+- new workflow types
+- reporting/count dashboards beyond small action/control cards
+- payroll, attendance, GPS, order integration, documents upload, or analytics

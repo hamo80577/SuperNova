@@ -111,6 +111,10 @@ Login: http://localhost:3000/login
 Admin Chains: http://localhost:3000/admin/chains
 Admin Vendors: http://localhost:3000/admin/vendors
 Admin Assignments: http://localhost:3000/admin/assignments
+Admin Pending Actions: http://localhost:3000/admin/pending-actions
+Admin Archived Users: http://localhost:3000/admin/archived-users
+Admin Audit Logs: http://localhost:3000/admin/audit-logs
+Admin Settings: http://localhost:3000/admin/settings
 Picker Workspace: http://localhost:3000/picker/dashboard
 Picker Profile Completion: http://localhost:3000/picker/profile-completion
 Champ Workspace: http://localhost:3000/champ/dashboard
@@ -127,8 +131,8 @@ Notifications: http://localhost:3000/notifications
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, Phase 7 Picker profile completion, Phase 8 Branch-first Resignation/Termination surfaces, and Phase 9 Branch-first Transfer surfaces.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, Phase 7 Picker profile completion endpoints, Phase 8 Offboarding workflow endpoints, and Phase 9 Transfer workflow endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, Phase 7 Picker profile completion, Phase 8 Branch-first Resignation/Termination surfaces, Phase 9 Branch-first Transfer surfaces, and Phase 10 Admin control/audit surfaces.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, Phase 7 Picker profile completion endpoints, Phase 8 Offboarding workflow endpoints, Phase 9 Transfer workflow endpoints, and Phase 10 Admin control endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
 - New Hire is implemented as a Branch-first workflow in Phase 6. Phase 7 lets the created Picker complete safe profile fields after forced password change. Phase 8 implements Branch-first Resignation/Termination finalization. Phase 9 implements Branch-first Transfer execution.
@@ -267,6 +271,21 @@ roles are implemented from the correct Branch context. New Hire starts at
 `/champ/branches/:vendorId/resignation` and
 `/champ/branches/:vendorId/termination`. Champ-facing workflow forms do not ask
 for `sourceChainId` or `sourceVendorId`.
+
+## Admin Control Endpoints
+
+Admin and Super Admin only:
+
+```text
+GET /api/admin/pending-actions
+GET /api/admin/archived-users
+GET /api/admin/audit-logs
+```
+
+Phase 10 Admin controls are visibility and final-action navigation surfaces only.
+They expose pending final actions, archived/deactivated users with block context,
+and paginated audit logs. They do not add direct Picker creation, archive,
+transfer, or assignment-edit bypasses.
 
 ## Reference Docs
 

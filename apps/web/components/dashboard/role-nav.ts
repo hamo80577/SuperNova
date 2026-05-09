@@ -1,6 +1,8 @@
 import {
+  Archive,
   ClipboardList,
   Bell,
+  FileSearch,
   GitBranch,
   Home,
   Map,
@@ -58,11 +60,13 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },
+    { label: "Pending Actions", href: "/admin/pending-actions", icon: ShieldCheck },
+    { label: "Archived Users", href: "/admin/archived-users", icon: Archive },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Approvals", href: "/approvals", icon: ShieldCheck },
     { label: "Notifications", href: "/notifications", icon: Bell },
-    { label: "Audit Log", href: "#", icon: ShieldCheck },
-    { label: "Settings", href: "#", icon: Settings }
+    { label: "Audit Logs", href: "/admin/audit-logs", icon: FileSearch },
+    { label: "Settings", href: "/admin/settings", icon: Settings }
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: Home },
@@ -70,10 +74,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: "Chains", href: "/admin/chains", icon: GitBranch },
     { label: "Vendors", href: "/admin/vendors", icon: Store },
     { label: "Assignments", href: "/admin/assignments", icon: Network },
+    { label: "Pending Actions", href: "/admin/pending-actions", icon: ShieldCheck },
+    { label: "Archived Users", href: "/admin/archived-users", icon: Archive },
     { label: "Requests", href: "/requests", icon: ClipboardList },
     { label: "Approvals", href: "/approvals", icon: ShieldCheck },
     { label: "Notifications", href: "/notifications", icon: Bell },
-    { label: "Audit Log", href: "#", icon: ShieldCheck },
-    { label: "Settings", href: "#", icon: Settings }
+    { label: "Audit Logs", href: "/admin/audit-logs", icon: FileSearch },
+    { label: "Settings", href: "/admin/settings", icon: Settings }
   ]
 };

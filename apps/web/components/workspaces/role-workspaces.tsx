@@ -3,9 +3,13 @@
 import {
   AlertCircle,
   ArrowRight,
+  Archive,
+  ClipboardCheck,
+  FileSearch,
   GitBranch,
   Inbox,
   Map,
+  Settings,
   ShieldCheck,
   Store,
   UserRound,
@@ -371,7 +375,33 @@ export function AdminWorkspaceDashboard() {
       </InfoCard>
 
       <InfoCard title="Pending Admin Actions">
-        <EmptyInline message={data.placeholders.pendingAdminActions} />
+        <AdminControlLink
+          description="Review New Hire Shopper ID and offboarding finalization work."
+          href="/admin/pending-actions"
+          icon={ClipboardCheck}
+          label="Open pending final actions"
+        />
+      </InfoCard>
+
+      <InfoCard title="Archive & Audit">
+        <AdminControlLink
+          description="Inspect archived/deactivated users and block status."
+          href="/admin/archived-users"
+          icon={Archive}
+          label="View archived users"
+        />
+        <AdminControlLink
+          description="Review workflow, approval, assignment, and account audit events."
+          href="/admin/audit-logs"
+          icon={FileSearch}
+          label="View audit logs"
+        />
+        <AdminControlLink
+          description="Read-only Phase 10 placeholders for future system settings."
+          href="/admin/settings"
+          icon={Settings}
+          label="Open settings placeholders"
+        />
       </InfoCard>
     </WorkspaceGrid>
   );
@@ -492,6 +522,34 @@ function PlaceholderCard({ title, value }: { title: string; value: string }) {
       <p className="mt-4 text-sm font-medium">{title}</p>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{value}</p>
     </section>
+  );
+}
+
+function AdminControlLink({
+  description,
+  href,
+  icon: Icon,
+  label
+}: {
+  description: string;
+  href: string;
+  icon: typeof Users;
+  label: string;
+}) {
+  return (
+    <Link
+      className="flex items-start gap-3 rounded-md border bg-background p-3 transition-colors hover:bg-muted"
+      href={href}
+      prefetch
+    >
+      <Icon className="mt-0.5 h-4 w-4 text-primary" />
+      <span>
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+          {description}
+        </span>
+      </span>
+    </Link>
   );
 }
 

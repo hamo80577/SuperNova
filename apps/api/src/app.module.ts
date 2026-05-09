@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 
 import { ApprovalsModule } from "./approvals/approvals.module";
 import { AssignmentsModule } from "./assignments/assignments.module";
+import { AdminModule } from "./admin/admin.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import configuration from "./config/configuration";
@@ -36,6 +37,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     ApprovalsModule,
     NotificationsModule,
     AuditModule,
+    AdminModule,
     WorkspacesModule
   ]
 })
