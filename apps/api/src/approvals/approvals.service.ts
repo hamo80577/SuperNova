@@ -71,7 +71,7 @@ export class ApprovalsService {
     return {
       module: "approvals",
       status: "active",
-      note: "Generic approval decisions are enabled. New Hire and Offboarding finalization use Branch-first request detail flows; Transfer finalization remains a later phase."
+      note: "Generic approval decisions are enabled. New Hire and Offboarding finalization use Branch-first request detail flows; Transfer applies automatically after the required Area Manager approvals."
     };
   }
 
@@ -139,6 +139,14 @@ export class ApprovalsService {
     ) {
       throw new BadRequestException(
         "Offboarding Admin final approval requires block status and deactivation confirmation from the request detail page."
+      );
+    }
+
+    if (approval.request.type === RequestType.TRANSFER) {
+      return this.requestsService.approveTransferApproval(
+        approval.id,
+        dto.notes,
+        context
       );
     }
 
@@ -214,7 +222,7 @@ export class ApprovalsService {
         userId: updated.createdById,
         type: "REQUEST_APPROVED",
         title: "Request approved",
-        body: `${updated.type} request was approved. Transfer final action is reserved for a later phase when applicable.`,
+        body: `${updated.type} request was approved.`,
         payload: { requestId: updated.id }
       });
     }

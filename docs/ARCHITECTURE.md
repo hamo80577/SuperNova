@@ -70,7 +70,7 @@ Vendor/Branch is the active operational context for Champ actions.
 
 - A Champ with one assigned Branch works inside that Branch context.
 - A Champ with multiple assigned Branches may see aggregate dashboard data, but mutations/actions must begin from one selected Branch.
-- New Hire, Resignation, and Termination are launched from the selected Branch context. Transfer forms must follow the same Branch-first pattern in its later phase.
+- New Hire, Transfer, Resignation, and Termination are launched from the selected Branch context.
 - User-facing Champ workflow forms must derive `sourceChainId` and `sourceVendorId` from assignment context instead of asking the Champ to choose them manually.
 - `/api/workspaces/champ/branches` and `/api/workspaces/champ/branches/:vendorId` are read-only scoped endpoints. They require `CHAMP` role and return only Branches with an active `VendorChampAssignment` for the authenticated Champ.
 - `/champ/dashboard` is an aggregate overview. `/champ/branches/:vendorId` is the operational workspace where future Champ lifecycle forms should start.
@@ -128,7 +128,7 @@ Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
 
 The backend derives management context through assignment tables only. It does not read or write `User.managerId`, `User.chainId`, or `User.vendorId`.
 
-Assignment creation preserves history. Admin setup rejects duplicate active assignments instead of auto-closing older rows; automatic close-and-create behavior belongs to future New Hire and Transfer workflows.
+Assignment creation preserves history. Admin setup rejects duplicate active assignments instead of auto-closing older rows; automatic close-and-create behavior belongs to New Hire and Transfer workflows.
 
 The assignment API provides:
 
@@ -197,7 +197,7 @@ Phase 4 establishes role workspaces. It does not implement:
 
 ## Generic Request and Approval Engine
 
-Phase 5 adds reusable lifecycle request infrastructure. Phase 6 adds New Hire finalization on top of that engine. Phase 8 adds Resignation/Termination finalization. Transfer final execution remains a later phase.
+Phase 5 adds reusable lifecycle request infrastructure. Phase 6 adds New Hire finalization on top of that engine. Phase 8 adds Resignation/Termination finalization. Phase 9 adds Transfer execution.
 
 The engine owns:
 
@@ -213,9 +213,9 @@ Approval ownership is enforced in the backend:
 
 - Area Manager approval steps require an active `ChainAreaManagerAssignment` for the request Chain context.
 - Admin final approval steps require `ADMIN` or `SUPER_ADMIN`.
-- Transfer approval steps use source and destination Chain context, but approval only moves the request to `APPROVED`.
+- Transfer approval steps use source and destination Chain context. The final required Transfer approval applies the assignment move and completes the request.
 
-Generic approval completion does not apply final actions. New Hire reaches `COMPLETED` only through the Phase 6 Admin finalization endpoint. Resignation/Termination reach `COMPLETED` only through the Phase 8 Admin offboarding finalization endpoint. Transfer still stops before system application until a later phase.
+Generic approval completion does not apply final actions. New Hire reaches `COMPLETED` only through the Phase 6 Admin finalization endpoint. Resignation/Termination reach `COMPLETED` only through the Phase 8 Admin offboarding finalization endpoint. Transfer reaches `COMPLETED` only when the Phase 9 approval path applies the old-assignment close and new-assignment create transaction.
 
 The generic request creation UI is internal Admin/Super Admin tooling for testing
 the Phase 5 engine only. It is not a Champ operations form and must not be shown
@@ -225,7 +225,6 @@ as a user-facing workflow launcher for Picker lifecycle actions.
 
 Phase 5 by itself does not implement:
 
-- Picker assignment transfer execution
 - Picker archive/deactivation from Resignation or Termination
 - direct assignment mutation from request approval
 - payroll, attendance, GPS, order integration, mobile app, microservices, or analytics warehouse
@@ -312,3 +311,28 @@ Frontend responsibilities:
 Phase 8 still does not implement Transfer execution, direct Picker archive tools,
 reporting, payroll, attendance, GPS, order integrations, document uploads, or
 analytics.
+
+## Transfer Workflow
+
+Phase 9 adds Branch-first Picker transfer execution while preserving assignment
+history.
+
+Backend responsibilities:
+
+- `POST /api/requests/transfer` is CHAMP-only and validates active source Branch scope through `VendorChampAssignment`.
+- The source Branch is derived from the selected Branch route context; Champ-facing forms do not expose `sourceVendorId` or `sourceChainId` as manual choices.
+- The API limits the target Picker to active `PickerBranchAssignment` rows for the selected source Branch.
+- The API validates the destination Branch is active, different from the source Branch, and derives destination Chain from the Vendor.
+- Duplicate pending Transfer requests and pending offboarding requests for the same Picker are rejected.
+- Same-chain Transfer creates only `SOURCE_AREA_MANAGER_APPROVAL`; cross-chain Transfer creates source and destination Area Manager approval steps.
+- The final required approval runs one Prisma transaction: close the old active `PickerBranchAssignment`, create the new active `PickerBranchAssignment`, complete the request, notify the Champ and Picker, and write audit logs.
+
+Frontend responsibilities:
+
+- Champ launches Transfer from `/champ/branches/:vendorId/transfer`.
+- The form shows selected source Branch/Chain context and limits Picker selection to active Pickers returned by the scoped Branch workspace endpoint.
+- Destination Branch selection uses active Vendors and previews same-chain versus cross-chain approval path.
+- Request detail shows source/destination Branch and Chain context plus assignment finalization IDs after completion.
+
+Phase 9 does not add direct Picker assignment edit screens, Admin polish,
+reporting, payroll, attendance, GPS, document uploads, or analytics.

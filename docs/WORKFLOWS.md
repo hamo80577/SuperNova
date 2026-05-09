@@ -25,9 +25,9 @@ source identifier.
 
 - If a Champ has one assigned Branch, the Champ should work inside that Branch context.
 - If a Champ has multiple assigned Branches, dashboards may aggregate visibility, but every mutation/action must start by opening one Branch.
-- New Hire, Resignation, and Termination are launched from a selected Branch context. Transfer must use the same Branch-first launch pattern in its later phase.
+- New Hire, Transfer, Resignation, and Termination are launched from a selected Branch context.
 - User-facing Champ workflow forms must not ask the Champ to manually select `sourceChainId` or `sourceVendorId`.
-- The selected Branch route is `/champ/branches/:vendorId`; future forms must derive `sourceVendorId` from that route and `sourceChainId` from the Branch Chain returned by the backend.
+- The selected Branch route is `/champ/branches/:vendorId`; workflow forms must derive `sourceVendorId` from that route and `sourceChainId` from the Branch Chain returned by the backend.
 - `/champ/dashboard` is for aggregate visibility only and must not present global lifecycle action launchers.
 
 ## New Hire
@@ -105,6 +105,8 @@ Rules:
 
 ## Transfer
 
+Phase 9 implements Transfer end-to-end from the selected Champ Branch context.
+
 Same chain:
 
 ```text
@@ -122,7 +124,21 @@ Champ request
 -> System transfers Picker
 ```
 
-Phase 5 does not implement final Transfer execution. It may create and approve a generic `TRANSFER` request, but it does not move Picker assignments.
+Rules:
+
+- Champ starts Transfer from `/champ/branches/:vendorId/transfer`.
+- Backend verifies the Champ has an active `VendorChampAssignment` for the source Branch.
+- Backend limits the target Picker to active `PickerBranchAssignment` rows for that selected source Branch.
+- Backend derives source Chain from the selected source Branch and destination Chain from the selected destination Branch.
+- Destination Branch must be active and different from the source Branch.
+- A duplicate pending Transfer request for the same Picker is rejected.
+- A pending Resignation or Termination request blocks Transfer for the same Picker.
+- Same-chain Transfer requires only source Chain Area Manager approval.
+- Cross-chain Transfer requires source Chain Area Manager approval, then destination Chain Area Manager approval.
+- Transfer is applied only after all required approvals complete.
+- Applying Transfer closes the old active Picker Branch assignment and creates a new active Picker Branch assignment in one transaction.
+- Rejected or cancelled Transfer requests do not move the Picker.
+- The generic Admin request endpoint must not be used to create Transfer requests.
 
 ## Phase 3 Assignment Setup Is Not Transfer
 
@@ -164,7 +180,7 @@ Phase 4 workspaces expose scoped operational visibility only:
 - Area Manager can view assigned Chains, Vendors under those Chains, and assigned users under those Vendors.
 - Admin can view system-wide operational counts and links to existing controlled management pages.
 
-These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine. New Hire final execution is implemented in Phase 6, Resignation/Termination final execution is implemented in Phase 8, and Transfer final execution remains a later phase.
+These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine. New Hire final execution is implemented in Phase 6, Resignation/Termination final execution is implemented in Phase 8, and Transfer execution is implemented in Phase 9.
 
 ## Phase 5 Generic Engine Is Not Finalization
 
@@ -182,13 +198,12 @@ Not allowed in Phase 5:
 
 - creating a Picker after New Hire approval
 - requiring or storing Admin Shopper ID finalization
-- moving a Picker branch after Transfer approval
-- closing old assignments from Transfer approval
 - archiving/deactivating Pickers from Resignation or Termination approval
 - marking requests `COMPLETED`
 - presenting the internal generic request creation form as a real Champ operations workflow
 - creating `NEW_HIRE` through the generic Admin request endpoint; New Hire must use the Branch-first endpoint
 - creating `RESIGNATION` or `TERMINATION` through the generic Admin request endpoint; Offboarding must use the Branch-first endpoint
+- creating `TRANSFER` through the generic Admin request endpoint; Transfer must use the Branch-first endpoint
 
 ## Phase 6 New Hire Is Not Generic CRUD
 
@@ -240,3 +255,21 @@ Not allowed in Phase 8:
 - deleting Picker users or assignment rows
 - direct Picker assignment edits
 - payroll, attendance, GPS, order integration, documents upload, or analytics
+
+## Phase 9 Transfer Is Not Direct Assignment Editing
+
+Allowed in Phase 9:
+
+- Champ submits Transfer only from a selected assigned source Branch.
+- Source Area Manager approves/rejects only when scoped to the source Branch Chain.
+- Destination Area Manager approves/rejects only for cross-chain Transfer and only when scoped to the destination Branch Chain.
+- System closes the old Picker Branch assignment and creates the new active assignment after the final required approval.
+- System preserves assignment history and writes audit logs.
+
+Not allowed in Phase 9:
+
+- direct Picker assignment edit screens
+- deleting old assignment rows
+- using static `User.managerId`, `User.chainId`, or `User.vendorId`
+- Admin finalization for Transfer
+- payroll, attendance, GPS, order integration, documents upload, analytics, or reporting polish

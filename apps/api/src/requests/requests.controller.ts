@@ -22,6 +22,7 @@ import { CancelRequestDto } from "./dto/cancel-request.dto";
 import { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
 import { CreateOffboardingRequestDto } from "./dto/create-offboarding-request.dto";
 import { CreateRequestDto } from "./dto/create-request.dto";
+import { CreateTransferRequestDto } from "./dto/create-transfer-request.dto";
 import { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
@@ -88,6 +89,20 @@ export class RequestsController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.requestsService.createOffboarding(dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("transfer")
+  createTransfer(
+    @Body() dto: CreateTransferRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.createTransfer(dto, {
       actor: user,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

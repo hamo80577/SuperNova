@@ -25,7 +25,7 @@ import {
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   type ChampBranch,
@@ -250,7 +250,7 @@ function BranchOverview({ branch }: { branch: ChampBranchDetail }) {
       />
       <InfoCard title="Branch operating rule">
         <p className="text-sm leading-6 text-muted-foreground">
-          This Branch is the source context for future Champ lifecycle actions.
+          This Branch is the source context for Champ lifecycle actions.
           User-facing forms must derive `sourceVendorId` from this Branch and
           `sourceChainId` from its Chain.
         </p>
@@ -299,7 +299,7 @@ function BranchRequests({ requests }: { requests: RequestSummary[] }) {
       <p className="mt-1 text-sm text-muted-foreground">
         These are Branch-scoped request records created by this Champ for the
         selected Branch. New Hire and Offboarding have finalization flows;
-        Transfer execution remains a later phase.
+        Transfer applies assignment movement after the required approvals.
       </p>
       {requests.length ? (
         <div className="mt-4 overflow-x-auto">
@@ -387,10 +387,14 @@ function BranchActions({ branch }: { branch: ChampBranchDetail }) {
           <MoveRight className="h-6 w-6 text-muted-foreground" />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Badge variant="muted">Later phase</Badge>
-          <Button disabled type="button" variant="outline">
+          <Badge variant="default">Available</Badge>
+          <Link
+            className={buttonVariants({ variant: "outline" })}
+            href={`/champ/branches/${branch.vendor.id}/transfer`}
+            prefetch
+          >
             Plan Transfer
-          </Button>
+          </Link>
         </div>
       </section>
 

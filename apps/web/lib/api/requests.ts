@@ -108,6 +108,15 @@ export interface CreateOffboardingPayload {
   notes?: string;
 }
 
+export interface CreateTransferPayload {
+  sourceVendorId: string;
+  targetUserId: string;
+  destinationVendorId: string;
+  reason: string;
+  requestedTransferDate?: string;
+  notes?: string;
+}
+
 export interface FinalizeNewHireResponse {
   request: RequestSummary;
   picker: {
@@ -227,6 +236,16 @@ export const requestsApi = {
   },
   async createOffboarding(payload: CreateOffboardingPayload) {
     const created = await apiRequest<RequestSummary>("/requests/offboarding", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return created;
+  },
+  async createTransfer(payload: CreateTransferPayload) {
+    const created = await apiRequest<RequestSummary>("/requests/transfer", {
       method: "POST",
       body: JSON.stringify(payload)
     });

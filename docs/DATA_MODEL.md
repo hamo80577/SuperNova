@@ -132,7 +132,7 @@ Phase 5 starts using the existing `Request`, `RequestApproval`, `Notification`, 
 - `Notification` stores in-app notification records for submitted requests, pending approvals, decisions, and cancellations.
 - `AuditLog` records request and approval actions.
 
-`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is used only by workflow-specific finalization endpoints such as New Hire and Offboarding; Transfer remains unfinalized until its later phase.
+`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is used only by workflow-specific finalization paths such as New Hire, Offboarding, and Transfer.
 
 ## Phase 7 Profile Completion Usage
 
@@ -168,3 +168,17 @@ Chain, or Vendor shortcut fields are added to `User`.
 - Admin finalization closes the active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
 - The request is marked `COMPLETED` only after the user update, assignment closure, Admin approval update, notifications, and audit logs complete in one transaction.
 - Offboarding does not add `User.managerId`, `User.chainId`, or `User.vendorId`.
+
+## Phase 9 Transfer Usage
+
+Phase 9 uses the existing `Request`, `RequestApproval`, `Notification`,
+`AuditLog`, `User`, `Vendor`, `Chain`, and `PickerBranchAssignment` models. No
+new shortcut fields are added to `User`.
+
+- Transfer requests store Branch-first context in `Request.sourceVendorId`, `Request.sourceChainId`, `Request.destinationVendorId`, `Request.destinationChainId`, `Request.targetUserId`, and structured `payload`.
+- Same-chain Transfer creates one `SOURCE_AREA_MANAGER_APPROVAL` step.
+- Cross-chain Transfer creates `SOURCE_AREA_MANAGER_APPROVAL` and `DESTINATION_AREA_MANAGER_APPROVAL` steps.
+- Applying Transfer closes the old active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
+- Applying Transfer creates a new active `PickerBranchAssignment` for the destination Branch with `createdByRequestId` set to the Transfer request.
+- The PostgreSQL partial unique index for one active Picker assignment enforces that a Picker cannot end up with two active Branch assignments.
+- The request is marked `COMPLETED` only after the final approval update, old assignment closure, new assignment creation, notifications, and audit logs complete in one transaction.

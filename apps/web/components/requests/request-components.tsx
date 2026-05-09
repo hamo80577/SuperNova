@@ -7,6 +7,7 @@ import {
   FileText,
   Inbox,
   KeyRound,
+  MoveRight,
   Send,
   ShieldAlert,
   UserPlus,
@@ -39,7 +40,7 @@ const requestTypes: RequestType[] = [
   "TERMINATION",
   "TRANSFER"
 ];
-const internalRequestEngineTypes: RequestType[] = ["TRANSFER"];
+const internalRequestEngineTypes: RequestType[] = [];
 const requestStatuses: RequestStatus[] = [
   "DRAFT",
   "PENDING_AREA_MANAGER",
@@ -55,7 +56,8 @@ export function RequestsCenter() {
   const { user } = useAuth();
   const router = useRouter();
   const canUseInternalRequestEngine =
-    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+    (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") &&
+    internalRequestEngineTypes.length > 0;
   const [items, setItems] = useState<RequestSummary[]>([]);
   const [status, setStatus] = useState<RequestStatus | "">("");
   const [type, setType] = useState<RequestType | "">("");
@@ -133,9 +135,9 @@ export function RequestsCenter() {
             <Badge variant="outline">Phase 5 engine</Badge>
             <h1 className="mt-3 text-xl font-semibold">Requests</h1>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Lifecycle request records and approval state. Branch-first New Hire
-              finalization is implemented; Transfer and Resignation/Termination
-              finalization remain later phases.
+              Lifecycle request records and approval state. Branch-first New Hire,
+              Offboarding, and Transfer workflows apply system changes through
+              backend-controlled finalization paths.
             </p>
           </div>
           <Link
@@ -154,10 +156,8 @@ export function RequestsCenter() {
             Internal request engine testing
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Internal request engine testing for non-New Hire request records.
-            New Hire and Offboarding must use Branch-first workflows. This tool
-            does not move assignments, archive users, or perform Transfer final
-            actions.
+            Internal request engine testing for generic request records. New
+            Hire, Offboarding, and Transfer must use Branch-first workflows.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">
@@ -433,6 +433,11 @@ export function RequestDetailView() {
         {request.type === "RESIGNATION" || request.type === "TERMINATION" ? (
           <InfoCard title="Offboarding Context">
             <OffboardingContext payload={request.payload} />
+          </InfoCard>
+        ) : null}
+        {request.type === "TRANSFER" ? (
+          <InfoCard title="Transfer Context">
+            <TransferContext payload={request.payload} request={request} />
           </InfoCard>
         ) : null}
         <InfoCard title="Approval Steps">
@@ -979,6 +984,75 @@ function FinalizeOffboardingPanel({
   );
 }
 
+function TransferContext({
+  payload,
+  request
+}: {
+  payload: unknown;
+  request: RequestDetail;
+}) {
+  const context = parseTransferPayload(payload);
+
+  if (!context) {
+    return <EmptyState message="No Transfer context is available." compact />;
+  }
+
+  return (
+    <>
+      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+        <MoveRight className="h-4 w-4 text-primary" />
+        {context.approvalPath === "CROSS_CHAIN"
+          ? "Cross-chain Transfer"
+          : "Same-chain Transfer"}
+      </div>
+      <Definition
+        label="Picker"
+        value={request.targetUser?.nameEn ?? context.pickerId}
+      />
+      <Definition
+        label="Source Branch"
+        value={request.sourceVendor?.vendorName ?? context.sourceVendorId}
+      />
+      <Definition
+        label="Source Chain"
+        value={request.sourceChain?.chainName ?? context.sourceChainId}
+      />
+      <Definition
+        label="Destination Branch"
+        value={
+          request.destinationVendor?.vendorName ?? context.destinationVendorId
+        }
+      />
+      <Definition
+        label="Destination Chain"
+        value={
+          request.destinationChain?.chainName ?? context.destinationChainId
+        }
+      />
+      <Definition label="Reason" value={context.reason} />
+      <Definition
+        label="Requested transfer date"
+        value={context.requestedTransferDate ?? "Not set"}
+      />
+      <Definition label="Notes" value={context.notes ?? "None"} />
+      <Definition
+        label="Approval path"
+        value={
+          context.approvalPath === "CROSS_CHAIN"
+            ? "Source Area Manager, then destination Area Manager"
+            : "Source Area Manager only"
+        }
+      />
+      {context.completedAt ? (
+        <Definition
+          label="Transfer applied"
+          value={`${new Date(context.completedAt).toLocaleString()} · old ${context.oldAssignmentId} · new ${context.newAssignmentId}`}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function OffboardingContext({ payload }: { payload: unknown }) {
   const context = parseOffboardingPayload(payload);
 
@@ -1204,6 +1278,98 @@ function parseOffboardingPayload(payload: unknown) {
       typeof finalizationPayload?.blockStatus === "string"
         ? finalizationPayload.blockStatus
         : undefined
+  };
+}
+
+function parseTransferPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const objectPayload = payload as Record<string, unknown>;
+  const transfer = objectPayload.transfer;
+  const source = objectPayload.source;
+  const destination = objectPayload.destination;
+  const target = objectPayload.target;
+  const finalization = objectPayload.finalization;
+
+  if (
+    !transfer ||
+    typeof transfer !== "object" ||
+    Array.isArray(transfer) ||
+    !source ||
+    typeof source !== "object" ||
+    Array.isArray(source) ||
+    !destination ||
+    typeof destination !== "object" ||
+    Array.isArray(destination) ||
+    !target ||
+    typeof target !== "object" ||
+    Array.isArray(target)
+  ) {
+    return null;
+  }
+
+  const transferPayload = transfer as Record<string, unknown>;
+  const sourcePayload = source as Record<string, unknown>;
+  const destinationPayload = destination as Record<string, unknown>;
+  const targetPayload = target as Record<string, unknown>;
+  const finalizationPayload =
+    finalization && typeof finalization === "object" && !Array.isArray(finalization)
+      ? (finalization as Record<string, unknown>)
+      : null;
+  const approvalPath = transferPayload.approvalPath;
+
+  if (approvalPath !== "SAME_CHAIN" && approvalPath !== "CROSS_CHAIN") {
+    return null;
+  }
+
+  return {
+    approvalPath,
+    reason:
+      typeof transferPayload.reason === "string"
+        ? transferPayload.reason
+        : "Not provided",
+    notes:
+      typeof transferPayload.notes === "string"
+        ? transferPayload.notes
+        : undefined,
+    requestedTransferDate:
+      typeof transferPayload.requestedTransferDate === "string"
+        ? transferPayload.requestedTransferDate
+        : undefined,
+    sourceVendorId:
+      typeof sourcePayload.vendorId === "string"
+        ? sourcePayload.vendorId
+        : "Not available",
+    sourceChainId:
+      typeof sourcePayload.chainId === "string"
+        ? sourcePayload.chainId
+        : "Not available",
+    destinationVendorId:
+      typeof destinationPayload.vendorId === "string"
+        ? destinationPayload.vendorId
+        : "Not available",
+    destinationChainId:
+      typeof destinationPayload.chainId === "string"
+        ? destinationPayload.chainId
+        : "Not available",
+    pickerId:
+      typeof targetPayload.pickerId === "string"
+        ? targetPayload.pickerId
+        : "Not available",
+    completedAt:
+      typeof finalizationPayload?.completedAt === "string"
+        ? finalizationPayload.completedAt
+        : undefined,
+    oldAssignmentId:
+      typeof finalizationPayload?.oldAssignmentId === "string"
+        ? finalizationPayload.oldAssignmentId
+        : "Not available",
+    newAssignmentId:
+      typeof finalizationPayload?.newAssignmentId === "string"
+        ? finalizationPayload.newAssignmentId
+        : "Not available"
   };
 }
 
