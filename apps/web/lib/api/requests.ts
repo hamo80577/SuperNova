@@ -98,6 +98,16 @@ export interface CreateNewHirePayload {
   notes?: string;
 }
 
+export interface CreateOffboardingPayload {
+  type: "RESIGNATION" | "TERMINATION";
+  sourceVendorId: string;
+  targetUserId: string;
+  reason: string;
+  resignationDate?: string;
+  terminationDate?: string;
+  notes?: string;
+}
+
 export interface FinalizeNewHireResponse {
   request: RequestSummary;
   picker: {
@@ -117,6 +127,41 @@ export interface FinalizeNewHireResponse {
     id: string;
     status: string;
     startDate: string;
+    vendorId: string;
+    pickerId: string;
+    createdByRequestId: string | null;
+  };
+}
+
+export interface FinalizeOffboardingPayload {
+  blockStatus: "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK";
+  blockedUntil?: string;
+  blockReason?: string;
+  confirmInternalDeactivation: boolean;
+  notes?: string;
+}
+
+export interface FinalizeOffboardingResponse {
+  request: RequestSummary;
+  picker: {
+    id: string;
+    role: "PICKER";
+    nameEn: string;
+    nameAr: string | null;
+    phoneNumber: string;
+    shopperId: string | null;
+    accountStatus: string;
+    employmentStatus: string;
+    profileStatus: string;
+    blockStatus: string;
+    blockedUntil: string | null;
+    blockReason: string | null;
+  };
+  assignment: {
+    id: string;
+    status: string;
+    startDate: string;
+    endDate: string | null;
     vendorId: string;
     pickerId: string;
     createdByRequestId: string | null;
@@ -180,12 +225,36 @@ export const requestsApi = {
     clearApiCache("/workspaces");
     return created;
   },
+  async createOffboarding(payload: CreateOffboardingPayload) {
+    const created = await apiRequest<RequestSummary>("/requests/offboarding", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return created;
+  },
   async finalizeNewHire(id: string, shopperId: string) {
     const finalized = await apiRequest<FinalizeNewHireResponse>(
       `/requests/${id}/finalize-new-hire`,
       {
         method: "POST",
         body: JSON.stringify({ shopperId })
+      }
+    );
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    clearApiCache("/notifications");
+    return finalized;
+  },
+  async finalizeOffboarding(id: string, payload: FinalizeOffboardingPayload) {
+    const finalized = await apiRequest<FinalizeOffboardingResponse>(
+      `/requests/${id}/finalize-offboarding`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
       }
     );
     clearApiCache("/requests");

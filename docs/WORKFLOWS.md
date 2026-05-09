@@ -25,7 +25,7 @@ source identifier.
 
 - If a Champ has one assigned Branch, the Champ should work inside that Branch context.
 - If a Champ has multiple assigned Branches, dashboards may aggregate visibility, but every mutation/action must start by opening one Branch.
-- New Hire is launched from a selected Branch context. Transfer, Resignation, and Termination must use the same Branch-first launch pattern in later phases.
+- New Hire, Resignation, and Termination are launched from a selected Branch context. Transfer must use the same Branch-first launch pattern in its later phase.
 - User-facing Champ workflow forms must not ask the Champ to manually select `sourceChainId` or `sourceVendorId`.
 - The selected Branch route is `/champ/branches/:vendorId`; future forms must derive `sourceVendorId` from that route and `sourceChainId` from the Branch Chain returned by the backend.
 - `/champ/dashboard` is for aggregate visibility only and must not present global lifecycle action launchers.
@@ -79,7 +79,7 @@ Rules:
 
 ## Resignation / Termination
 
-Target shape for later phases:
+Phase 8 implements Resignation and Termination end-to-end from the selected Champ Branch context:
 
 ```text
 Champ request
@@ -90,7 +90,18 @@ Champ request
 -> System records block status
 ```
 
-Phase 5 does not implement final Resignation or Termination execution. It may create and approve generic requests, but it does not archive/deactivate users or close assignments.
+Rules:
+
+- Champ starts Resignation from `/champ/branches/:vendorId/resignation`.
+- Champ starts Termination from `/champ/branches/:vendorId/termination`.
+- Backend verifies the Champ has an active `VendorChampAssignment` for that Branch.
+- Backend limits the target Picker to active `PickerBranchAssignment` rows for that selected Branch.
+- Backend derives `sourceChainId` from the selected Branch Chain and assigns Area Manager approval from the active `ChainAreaManagerAssignment`.
+- A duplicate pending Resignation or Termination request for the same Picker is rejected.
+- Admin finalization requires block status and explicit internal deactivation confirmation.
+- Finalization archives the Picker account, disables login by making the account non-active, closes the active Picker Branch assignment, saves block status, completes the request, notifies the Champ, and writes audit logs.
+- Rejected or cancelled requests do not deactivate the Picker and do not close assignments.
+- The generic Admin request endpoint must not be used to create Resignation or Termination requests.
 
 ## Transfer
 
@@ -153,7 +164,7 @@ Phase 4 workspaces expose scoped operational visibility only:
 - Area Manager can view assigned Chains, Vendors under those Chains, and assigned users under those Vendors.
 - Admin can view system-wide operational counts and links to existing controlled management pages.
 
-These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine. New Hire final execution is implemented in Phase 6, while Transfer and Resignation/Termination final execution remain later phases.
+These workspaces must not bypass lifecycle workflows. Request creation and approval decisions are introduced by the Phase 5 generic engine. New Hire final execution is implemented in Phase 6, Resignation/Termination final execution is implemented in Phase 8, and Transfer final execution remains a later phase.
 
 ## Phase 5 Generic Engine Is Not Finalization
 
@@ -177,6 +188,7 @@ Not allowed in Phase 5:
 - marking requests `COMPLETED`
 - presenting the internal generic request creation form as a real Champ operations workflow
 - creating `NEW_HIRE` through the generic Admin request endpoint; New Hire must use the Branch-first endpoint
+- creating `RESIGNATION` or `TERMINATION` through the generic Admin request endpoint; Offboarding must use the Branch-first endpoint
 
 ## Phase 6 New Hire Is Not Generic CRUD
 
@@ -207,7 +219,24 @@ Allowed in Phase 7:
 Not allowed in Phase 7:
 
 - Transfer execution
-- Resignation/Termination finalization
 - document upload storage
 - Admin profile review workflow
 - direct Picker assignment changes
+
+## Phase 8 Offboarding Is Not Transfer
+
+Allowed in Phase 8:
+
+- Champ submits Resignation or Termination only from a selected assigned Branch.
+- Area Manager approves/rejects only when scoped to the source Branch Chain.
+- Admin/Super Admin finalizes with block status and internal deactivation confirmation.
+- System archives the Picker account and closes the active Branch assignment after approvals and finalization.
+- System preserves User and assignment history and writes audit logs.
+
+Not allowed in Phase 8:
+
+- Transfer execution
+- direct Picker archive/deactivation outside the workflow
+- deleting Picker users or assignment rows
+- direct Picker assignment edits
+- payroll, attendance, GPS, order integration, documents upload, or analytics

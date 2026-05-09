@@ -3,6 +3,7 @@ import {
   AccountStatus,
   AssignmentStatus,
   ChainStatus,
+  EmploymentStatus,
   Prisma,
   RequestStatus,
   User,
@@ -31,7 +32,13 @@ const champBranchInclude = {
     include: {
       chain: true,
       pickerAssignments: {
-        where: { status: AssignmentStatus.ACTIVE },
+        where: {
+          status: AssignmentStatus.ACTIVE,
+          picker: {
+            accountStatus: AccountStatus.ACTIVE,
+            employmentStatus: EmploymentStatus.ACTIVE
+          }
+        },
         include: { picker: true },
         orderBy: { createdAt: "desc" as const }
       }
@@ -46,7 +53,13 @@ const areaManagerChainInclude = {
         orderBy: { createdAt: "desc" as const },
         include: {
           pickerAssignments: {
-            where: { status: AssignmentStatus.ACTIVE },
+            where: {
+              status: AssignmentStatus.ACTIVE,
+              picker: {
+                accountStatus: AccountStatus.ACTIVE,
+                employmentStatus: EmploymentStatus.ACTIVE
+              }
+            },
             include: { picker: true },
             orderBy: { createdAt: "desc" as const }
           },

@@ -31,8 +31,8 @@ Do not use `User.managerId`, `User.chainId`, or `User.vendorId` as source-of-tru
 Champ operations are Branch-first. A Champ with one assigned Branch works inside
 that Branch context; a Champ with multiple Branches may see aggregate dashboard
 data, but every mutation/action must start by opening one selected Branch. New
-Hire is launched from the selected Branch context; future Transfer,
-Resignation, and Termination workflow forms must follow the same pattern.
+Hire, Resignation, and Termination are launched from the selected Branch
+context; future Transfer workflow forms must follow the same pattern.
 User-facing Champ forms must not ask the Champ to manually choose
 `sourceChainId` or `sourceVendorId`.
 
@@ -116,6 +116,8 @@ Picker Profile Completion: http://localhost:3000/picker/profile-completion
 Champ Workspace: http://localhost:3000/champ/dashboard
 Champ Branches: http://localhost:3000/champ/branches
 Branch New Hire: http://localhost:3000/champ/branches/:vendorId/new-hire
+Branch Resignation: http://localhost:3000/champ/branches/:vendorId/resignation
+Branch Termination: http://localhost:3000/champ/branches/:vendorId/termination
 Area Manager Workspace: http://localhost:3000/area-manager/dashboard
 Requests: http://localhost:3000/requests
 Approvals: http://localhost:3000/approvals
@@ -124,11 +126,11 @@ Notifications: http://localhost:3000/notifications
 
 ## Phase Notes
 
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, and Phase 7 Picker profile completion.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, and Phase 7 Picker profile completion endpoints.
+- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, Phase 7 Picker profile completion, and Phase 8 Branch-first Resignation/Termination surfaces.
+- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, Phase 7 Picker profile completion endpoints, and Phase 8 Offboarding workflow endpoints.
 - `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
 - Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- New Hire is implemented as a Branch-first workflow in Phase 6. Phase 7 lets the created Picker complete safe profile fields after forced password change. Transfer execution and resignation/termination finalization remain later phases.
+- New Hire is implemented as a Branch-first workflow in Phase 6. Phase 7 lets the created Picker complete safe profile fields after forced password change. Phase 8 implements Branch-first Resignation/Termination finalization. Transfer execution remains a later phase.
 
 ## Auth Endpoints
 
@@ -229,9 +231,11 @@ GET /api/requests/my/submitted
 GET /api/requests/:id
 POST /api/requests
 POST /api/requests/new-hire
+POST /api/requests/offboarding
 POST /api/requests/:id/submit
 POST /api/requests/:id/cancel
 POST /api/requests/:id/finalize-new-hire
+POST /api/requests/:id/finalize-offboarding
 GET /api/approvals/pending
 POST /api/approvals/:approvalId/approve
 POST /api/approvals/:approvalId/reject
@@ -240,16 +244,21 @@ PATCH /api/notifications/:id/read
 PATCH /api/notifications/read-all
 ```
 
-Generic approval completion moves requests to `APPROVED`, not `COMPLETED`. Phase 6
-New Hire Admin finalization is the exception: it requires Shopper ID, creates the
-Picker, creates the source Branch assignment, notifies the Champ with the
-temporary password, and marks that request `COMPLETED`.
+Generic approval completion moves requests to `APPROVED`, not `COMPLETED`. New
+Hire and Offboarding have workflow-specific Admin finalization endpoints.
+New Hire requires Shopper ID, creates the Picker, creates the source Branch
+assignment, notifies the Champ with the temporary password, and marks the
+request `COMPLETED`. Offboarding requires block status and deactivation
+confirmation, archives the Picker account, closes the active Branch assignment,
+notifies the Champ, and marks the request `COMPLETED`.
 
 The generic request creation UI is Admin/Super Admin-only and exists for internal
 Phase 5 request engine testing. Real workflow-specific forms for Champs and other
 roles are implemented from the correct Branch context. New Hire starts at
-`/champ/branches/:vendorId/new-hire`; Champ-facing New Hire forms do not ask for
-`sourceChainId` or `sourceVendorId`.
+`/champ/branches/:vendorId/new-hire`; Resignation and Termination start at
+`/champ/branches/:vendorId/resignation` and
+`/champ/branches/:vendorId/termination`. Champ-facing workflow forms do not ask
+for `sourceChainId` or `sourceVendorId`.
 
 ## Reference Docs
 

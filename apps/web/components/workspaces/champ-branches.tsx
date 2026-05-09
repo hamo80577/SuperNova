@@ -297,8 +297,9 @@ function BranchRequests({ requests }: { requests: RequestSummary[] }) {
     <section className="rounded-lg border bg-card p-5 shadow-sm">
       <h2 className="text-base font-semibold">Recent Branch requests</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        These are generic Phase 5 request records created by this Champ for the
-        selected Branch. Final execution remains later-phase work.
+        These are Branch-scoped request records created by this Champ for the
+        selected Branch. New Hire and Offboarding have finalization flows;
+        Transfer execution remains a later phase.
       </p>
       {requests.length ? (
         <div className="mt-4 overflow-x-auto">
@@ -408,14 +409,16 @@ function BranchActions({ branch }: { branch: ChampBranchDetail }) {
           <AlertTriangle className="h-6 w-6 text-destructive" />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <ActionStub
+          <ActionLink
+            href={`/champ/branches/${branch.vendor.id}/resignation`}
             label="Resignation"
-            phase="Later phase"
+            phase="Available"
             text="Record a Picker resignation request through approvals."
           />
-          <ActionStub
+          <ActionLink
+            href={`/champ/branches/${branch.vendor.id}/termination`}
             label="Termination"
-            phase="Later phase"
+            phase="Available"
             text="Record a termination request through approvals and final system application."
           />
         </div>
@@ -424,11 +427,13 @@ function BranchActions({ branch }: { branch: ChampBranchDetail }) {
   );
 }
 
-function ActionStub({
+function ActionLink({
+  href,
   label,
   phase,
   text
 }: {
+  href: string;
   label: string;
   phase: string;
   text: string;
@@ -442,9 +447,13 @@ function ActionStub({
         </div>
         <Badge variant="muted">{phase}</Badge>
       </div>
-      <Button className="mt-4" disabled type="button" variant="outline">
-        Not available yet
-      </Button>
+      <Link
+        className={cn(buttonVariants({ size: "sm", variant: "outline" }), "mt-4")}
+        href={href}
+        prefetch
+      >
+        Start {label}
+      </Link>
     </article>
   );
 }

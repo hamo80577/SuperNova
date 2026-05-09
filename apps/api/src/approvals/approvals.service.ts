@@ -71,7 +71,7 @@ export class ApprovalsService {
     return {
       module: "approvals",
       status: "active",
-      note: "Generic approval decisions are enabled. New Hire finalization uses the Branch-first request detail flow; Transfer and Resignation/Termination final actions remain later phases."
+      note: "Generic approval decisions are enabled. New Hire and Offboarding finalization use Branch-first request detail flows; Transfer finalization remains a later phase."
     };
   }
 
@@ -129,6 +129,16 @@ export class ApprovalsService {
     ) {
       throw new BadRequestException(
         "New Hire Admin final approval requires Shopper ID finalization from the request detail page."
+      );
+    }
+
+    if (
+      (approval.request.type === RequestType.RESIGNATION ||
+        approval.request.type === RequestType.TERMINATION) &&
+      approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
+    ) {
+      throw new BadRequestException(
+        "Offboarding Admin final approval requires block status and deactivation confirmation from the request detail page."
       );
     }
 
@@ -204,7 +214,7 @@ export class ApprovalsService {
         userId: updated.createdById,
         type: "REQUEST_APPROVED",
         title: "Request approved",
-        body: `${updated.type} request was approved. Transfer and Resignation/Termination final actions are reserved for later phases.`,
+        body: `${updated.type} request was approved. Transfer final action is reserved for a later phase when applicable.`,
         payload: { requestId: updated.id }
       });
     }

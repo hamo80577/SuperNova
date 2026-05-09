@@ -20,8 +20,10 @@ import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { CancelRequestDto } from "./dto/cancel-request.dto";
 import { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
+import { CreateOffboardingRequestDto } from "./dto/create-offboarding-request.dto";
 import { CreateRequestDto } from "./dto/create-request.dto";
 import { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
+import { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
 import { RequestsService } from "./requests.service";
 
@@ -78,6 +80,20 @@ export class RequestsController {
     });
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post("offboarding")
+  createOffboarding(
+    @Body() dto: CreateOffboardingRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.createOffboarding(dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Post(":id/finalize-new-hire")
@@ -88,6 +104,22 @@ export class RequestsController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.requestsService.finalizeNewHire(id, dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Post(":id/finalize-offboarding")
+  finalizeOffboarding(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: FinalizeOffboardingDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.finalizeOffboarding(id, dto, {
       actor: user,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

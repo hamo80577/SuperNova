@@ -8,6 +8,7 @@ import {
   Inbox,
   KeyRound,
   Send,
+  ShieldAlert,
   UserPlus,
   XCircle
 } from "lucide-react";
@@ -24,6 +25,7 @@ import { approvalsApi, type PendingApproval } from "@/lib/api/approvals";
 import {
   requestsApi,
   type CreateRequestPayload,
+  type FinalizeOffboardingResponse,
   type FinalizeNewHireResponse,
   type RequestDetail,
   type RequestStatus,
@@ -32,10 +34,12 @@ import {
 } from "@/lib/api/requests";
 
 const requestTypes: RequestType[] = [
+  "NEW_HIRE",
   "RESIGNATION",
   "TERMINATION",
   "TRANSFER"
 ];
+const internalRequestEngineTypes: RequestType[] = ["TRANSFER"];
 const requestStatuses: RequestStatus[] = [
   "DRAFT",
   "PENDING_AREA_MANAGER",
@@ -60,7 +64,7 @@ export function RequestsCenter() {
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
-    type: "RESIGNATION" as RequestType,
+    type: "TRANSFER" as RequestType,
     sourceChainId: "",
     sourceVendorId: "",
     destinationChainId: "",
@@ -151,9 +155,9 @@ export function RequestsCenter() {
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Internal request engine testing for non-New Hire request records.
-            New Hire must use the Branch-first workflow. This tool does not move
-            assignments, archive users, or perform Transfer or
-            Resignation/Termination final actions.
+            New Hire and Offboarding must use Branch-first workflows. This tool
+            does not move assignments, archive users, or perform Transfer final
+            actions.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">
@@ -167,7 +171,7 @@ export function RequestsCenter() {
                 }
                 value={form.type}
               >
-                {requestTypes.map((value) => (
+                {internalRequestEngineTypes.map((value) => (
                   <option key={value} value={value}>
                     {formatEnum(value)}
                   </option>
@@ -426,6 +430,11 @@ export function RequestDetailView() {
           />
           <Definition label="Target User" value={request.targetUser?.nameEn ?? "None"} />
         </InfoCard>
+        {request.type === "RESIGNATION" || request.type === "TERMINATION" ? (
+          <InfoCard title="Offboarding Context">
+            <OffboardingContext payload={request.payload} />
+          </InfoCard>
+        ) : null}
         <InfoCard title="Approval Steps">
           {request.approvals.length ? (
             request.approvals.map((approval) => (
@@ -454,6 +463,19 @@ export function RequestDetailView() {
             await loadRequest();
           }}
           requestId={request.id}
+        />
+      ) : null}
+
+      {(request.type === "RESIGNATION" || request.type === "TERMINATION") &&
+      request.status === "PENDING_ADMIN" &&
+      request.currentStep === "ADMIN_FINAL_APPROVAL" &&
+      (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") ? (
+        <FinalizeOffboardingPanel
+          onFinalized={async () => {
+            await loadRequest();
+          }}
+          requestId={request.id}
+          type={request.type}
         />
       ) : null}
 
@@ -579,6 +601,8 @@ export function ApprovalsCenter() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               This records the approval decision. New Hire Admin final approval
               requires Shopper ID finalization from the request detail page.
+              Offboarding Admin final approval requires block status and internal
+              deactivation confirmation from the request detail page.
             </p>
             <label className="mt-4 grid gap-1 text-sm font-medium">
               Decision notes
@@ -622,6 +646,10 @@ function ApprovalQueueCard({
   const requiresNewHireFinalization =
     approval.request.type === "NEW_HIRE" &&
     approval.step === "ADMIN_FINAL_APPROVAL";
+  const requiresOffboardingFinalization =
+    (approval.request.type === "RESIGNATION" ||
+      approval.request.type === "TERMINATION") &&
+    approval.step === "ADMIN_FINAL_APPROVAL";
 
   return (
     <section className="rounded-lg border bg-card p-5 shadow-sm">
@@ -646,6 +674,19 @@ function ApprovalQueueCard({
           >
             <KeyRound className="mr-2 h-4 w-4" />
             Finalize with Shopper ID
+          </Link>
+        ) : requiresOffboardingFinalization ? (
+          <Link
+            className={buttonVariants({
+              size: "sm",
+              className:
+                "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            })}
+            href={`/requests/${approval.request.id}`}
+            prefetch
+          >
+            <ShieldAlert className="mr-2 h-4 w-4" />
+            Finalize Offboarding
           </Link>
         ) : (
           <Button
@@ -757,6 +798,212 @@ function FinalizeNewHirePanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function FinalizeOffboardingPanel({
+  onFinalized,
+  requestId,
+  type
+}: {
+  onFinalized: () => Promise<void>;
+  requestId: string;
+  type: "RESIGNATION" | "TERMINATION";
+}) {
+  const [form, setForm] = useState({
+    blockStatus: "NO_BLOCK" as "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK",
+    blockedUntil: "",
+    blockReason: "",
+    notes: "",
+    confirmInternalDeactivation: false
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<FinalizeOffboardingResponse | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function finalize() {
+    if (!form.confirmInternalDeactivation) {
+      setError("Internal deactivation confirmation is required.");
+      return;
+    }
+
+    if (form.blockStatus === "TEMPORARY_BLOCK" && !form.blockedUntil) {
+      setError("Blocked until date is required for a temporary block.");
+      return;
+    }
+
+    if (
+      (form.blockStatus === "TEMPORARY_BLOCK" ||
+        form.blockStatus === "PERMANENT_BLOCK") &&
+      !form.blockReason.trim()
+    ) {
+      setError("Block reason is required for temporary or permanent blocks.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        const finalized = await requestsApi.finalizeOffboarding(requestId, {
+          blockStatus: form.blockStatus,
+          confirmInternalDeactivation: form.confirmInternalDeactivation,
+          ...(form.blockedUntil ? { blockedUntil: form.blockedUntil } : {}),
+          ...(form.blockReason ? { blockReason: form.blockReason } : {}),
+          ...(form.notes ? { notes: form.notes } : {})
+        });
+        setResult(finalized);
+        await onFinalized();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to finalize offboarding."
+        );
+      }
+    });
+  }
+
+  return (
+    <section className="rounded-lg border border-destructive/30 bg-destructive/5 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Badge className="border-destructive/40 text-destructive" variant="outline">
+            Admin finalization
+          </Badge>
+          <h2 className="mt-3 text-base font-semibold">
+            Finalize {formatEnum(type)}
+          </h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            This applies irreversible operational offboarding: the Picker account
+            is archived, login is disabled, block status is saved, and the active
+            Branch assignment is closed in one backend transaction.
+          </p>
+        </div>
+        <ShieldAlert className="h-6 w-6 text-destructive" />
+      </div>
+
+      {result ? (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-medium">Offboarding completed.</p>
+          <p className="mt-1">
+            Picker {result.picker.nameEn} is now {formatEnum(result.picker.accountStatus)}
+            ; assignment {result.assignment.id} is {formatEnum(result.assignment.status)}.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-4">
+          <Field label="Block status">
+            <select
+              className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  blockStatus: event.target.value as typeof form.blockStatus
+                }))
+              }
+              value={form.blockStatus}
+            >
+              <option value="NO_BLOCK">No block</option>
+              <option value="TEMPORARY_BLOCK">Temporary block</option>
+              <option value="PERMANENT_BLOCK">Permanent block</option>
+            </select>
+          </Field>
+          {form.blockStatus === "TEMPORARY_BLOCK" ? (
+            <Field label="Blocked until">
+              <Input
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    blockedUntil: event.target.value
+                  }))
+                }
+                type="date"
+                value={form.blockedUntil}
+              />
+            </Field>
+          ) : null}
+          {form.blockStatus !== "NO_BLOCK" ? (
+            <Field label="Block reason">
+              <Input
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    blockReason: event.target.value
+                  }))
+                }
+                placeholder="Required for temporary or permanent block"
+                value={form.blockReason}
+              />
+            </Field>
+          ) : null}
+          <Field label="Admin notes">
+            <Input
+              onChange={(event) =>
+                setForm((current) => ({ ...current, notes: event.target.value }))
+              }
+              placeholder="Optional"
+              value={form.notes}
+            />
+          </Field>
+          <label className="flex items-start gap-2 rounded-md border bg-background p-3 text-sm">
+            <input
+              checked={form.confirmInternalDeactivation}
+              className="mt-1"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  confirmInternalDeactivation: event.target.checked
+                }))
+              }
+              type="checkbox"
+            />
+            I confirm SuperNova should archive this Picker account, disable
+            login, and close the active Branch assignment.
+          </label>
+          <Button
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={isPending}
+            onClick={finalize}
+            type="button"
+          >
+            {isPending ? "Finalizing..." : "Finalize Offboarding"}
+          </Button>
+        </div>
+      )}
+      {error ? (
+        <div className="mt-4">
+          <ErrorState message={error} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function OffboardingContext({ payload }: { payload: unknown }) {
+  const context = parseOffboardingPayload(payload);
+
+  if (!context) {
+    return <EmptyState message="No offboarding context is available." compact />;
+  }
+
+  return (
+    <>
+      <Definition label="Reason" value={context.reason} />
+      <Definition
+        label={context.type === "RESIGNATION" ? "Resignation date" : "Termination date"}
+        value={context.effectiveDate ?? "Not set"}
+      />
+      <Definition label="Notes" value={context.notes ?? "None"} />
+      <Definition label="Picker assignment" value={context.pickerAssignmentId} />
+      {context.finalizedAt ? (
+        <Definition
+          label="Finalized"
+          value={`${new Date(context.finalizedAt).toLocaleString()} · ${formatEnum(
+            context.blockStatus ?? "NO_BLOCK"
+          )}`}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -892,6 +1139,72 @@ function EmptyState({
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
+}
+
+function parseOffboardingPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const objectPayload = payload as Record<string, unknown>;
+  const offboarding = objectPayload.offboarding;
+  const target = objectPayload.target;
+  const finalization = objectPayload.finalization;
+
+  if (
+    !offboarding ||
+    typeof offboarding !== "object" ||
+    Array.isArray(offboarding) ||
+    !target ||
+    typeof target !== "object" ||
+    Array.isArray(target)
+  ) {
+    return null;
+  }
+
+  const offboardingPayload = offboarding as Record<string, unknown>;
+  const targetPayload = target as Record<string, unknown>;
+  const finalizationPayload =
+    finalization && typeof finalization === "object" && !Array.isArray(finalization)
+      ? (finalization as Record<string, unknown>)
+      : null;
+  const type = offboardingPayload.type;
+
+  if (type !== "RESIGNATION" && type !== "TERMINATION") {
+    return null;
+  }
+
+  return {
+    type,
+    reason:
+      typeof offboardingPayload.reason === "string"
+        ? offboardingPayload.reason
+        : "Not provided",
+    notes:
+      typeof offboardingPayload.notes === "string"
+        ? offboardingPayload.notes
+        : undefined,
+    effectiveDate:
+      type === "RESIGNATION"
+        ? typeof offboardingPayload.resignationDate === "string"
+          ? offboardingPayload.resignationDate
+          : undefined
+        : typeof offboardingPayload.terminationDate === "string"
+          ? offboardingPayload.terminationDate
+          : undefined,
+    pickerAssignmentId:
+      typeof targetPayload.pickerAssignmentId === "string"
+        ? targetPayload.pickerAssignmentId
+        : "Not available",
+    finalizedAt:
+      typeof finalizationPayload?.completedAt === "string"
+        ? finalizationPayload.completedAt
+        : undefined,
+    blockStatus:
+      typeof finalizationPayload?.blockStatus === "string"
+        ? finalizationPayload.blockStatus
+        : undefined
+  };
 }
 
 function formatEnum(value: string) {

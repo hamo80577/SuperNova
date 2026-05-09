@@ -132,7 +132,7 @@ Phase 5 starts using the existing `Request`, `RequestApproval`, `Notification`, 
 - `Notification` stores in-app notification records for submitted requests, pending approvals, decisions, and cancellations.
 - `AuditLog` records request and approval actions.
 
-`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is reserved for later workflow finalization phases.
+`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is used only by workflow-specific finalization endpoints such as New Hire and Offboarding; Transfer remains unfinalized until its later phase.
 
 ## Phase 7 Profile Completion Usage
 
@@ -156,3 +156,15 @@ Forbidden profile completion updates include `role`, `accountStatus`,
 `employmentStatus`, `blockStatus`, `shopperId`, `ibsId`, password fields, and
 assignment relationships. Age is never stored; it must be derived from
 `dateOfBirth` when needed.
+
+## Phase 8 Offboarding Usage
+
+Phase 8 uses the existing `Request`, `RequestApproval`, `Notification`,
+`AuditLog`, `User`, and `PickerBranchAssignment` models. No new direct manager,
+Chain, or Vendor shortcut fields are added to `User`.
+
+- Resignation and Termination requests store Branch-first context in `Request.sourceVendorId`, `Request.sourceChainId`, `Request.targetUserId`, and structured `payload`.
+- Admin finalization updates the target `User.accountStatus` to `ARCHIVED`, sets `employmentStatus` to `RESIGNED` or `TERMINATED`, saves `blockStatus`, `blockedUntil`, and `blockReason`, and clears temporary password state.
+- Admin finalization closes the active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
+- The request is marked `COMPLETED` only after the user update, assignment closure, Admin approval update, notifications, and audit logs complete in one transaction.
+- Offboarding does not add `User.managerId`, `User.chainId`, or `User.vendorId`.

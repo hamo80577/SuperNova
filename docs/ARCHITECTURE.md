@@ -70,7 +70,7 @@ Vendor/Branch is the active operational context for Champ actions.
 
 - A Champ with one assigned Branch works inside that Branch context.
 - A Champ with multiple assigned Branches may see aggregate dashboard data, but mutations/actions must begin from one selected Branch.
-- New Hire is launched from the selected Branch context. Transfer, Resignation, and Termination forms must follow the same Branch-first pattern in later phases.
+- New Hire, Resignation, and Termination are launched from the selected Branch context. Transfer forms must follow the same Branch-first pattern in its later phase.
 - User-facing Champ workflow forms must derive `sourceChainId` and `sourceVendorId` from assignment context instead of asking the Champ to choose them manually.
 - `/api/workspaces/champ/branches` and `/api/workspaces/champ/branches/:vendorId` are read-only scoped endpoints. They require `CHAMP` role and return only Branches with an active `VendorChampAssignment` for the authenticated Champ.
 - `/champ/dashboard` is an aggregate overview. `/champ/branches/:vendorId` is the operational workspace where future Champ lifecycle forms should start.
@@ -197,7 +197,7 @@ Phase 4 establishes role workspaces. It does not implement:
 
 ## Generic Request and Approval Engine
 
-Phase 5 adds reusable lifecycle request infrastructure. Phase 6 adds New Hire finalization on top of that engine; Transfer and Resignation/Termination final execution remain later phases.
+Phase 5 adds reusable lifecycle request infrastructure. Phase 6 adds New Hire finalization on top of that engine. Phase 8 adds Resignation/Termination finalization. Transfer final execution remains a later phase.
 
 The engine owns:
 
@@ -215,7 +215,7 @@ Approval ownership is enforced in the backend:
 - Admin final approval steps require `ADMIN` or `SUPER_ADMIN`.
 - Transfer approval steps use source and destination Chain context, but approval only moves the request to `APPROVED`.
 
-Generic approval completion does not apply final actions. New Hire reaches `COMPLETED` only through the Phase 6 Admin finalization endpoint; Transfer and Resignation/Termination still stop before system application until later phases.
+Generic approval completion does not apply final actions. New Hire reaches `COMPLETED` only through the Phase 6 Admin finalization endpoint. Resignation/Termination reach `COMPLETED` only through the Phase 8 Admin offboarding finalization endpoint. Transfer still stops before system application until a later phase.
 
 The generic request creation UI is internal Admin/Super Admin tooling for testing
 the Phase 5 engine only. It is not a Champ operations form and must not be shown
@@ -284,3 +284,31 @@ Security boundaries:
 
 Phase 7 does not implement document upload storage, Admin profile review,
 Transfer, Resignation, or Termination.
+
+## Resignation / Termination Workflow
+
+Phase 8 adds Branch-first offboarding finalization while preserving the request
+and approval architecture.
+
+Backend responsibilities:
+
+- `POST /api/requests/offboarding` is CHAMP-only and validates active Branch scope through `VendorChampAssignment`.
+- The API accepts only `RESIGNATION` or `TERMINATION`, derives source Chain from the selected Branch, and limits the target Picker to active `PickerBranchAssignment` rows for that Branch.
+- Duplicate pending offboarding requests for the same Picker are rejected.
+- Area Manager approval is scoped through the source Chain `ChainAreaManagerAssignment`.
+- `POST /api/requests/:id/finalize-offboarding` is Admin/Super Admin-only and requires block status plus explicit internal deactivation confirmation.
+- Finalization runs in one Prisma transaction: approve Admin final step, archive the Picker account, save employment and block status, close the active `PickerBranchAssignment`, complete the request, notify the Champ, and write audit logs.
+- Archived Pickers cannot log in because auth rejects non-`ACTIVE` accounts.
+
+Frontend responsibilities:
+
+- Champ launches Resignation from `/champ/branches/:vendorId/resignation`.
+- Champ launches Termination from `/champ/branches/:vendorId/termination`.
+- Forms show read-only Branch, Chain, and Area Manager context and do not expose source IDs.
+- Picker selection is limited to active Pickers returned by the scoped Branch workspace endpoint.
+- Admin finalization appears on the request detail page only when the request is a Resignation or Termination at the Admin final step.
+- The approval queue routes Admin final offboarding approvals to request detail instead of allowing generic approval bypass.
+
+Phase 8 still does not implement Transfer execution, direct Picker archive tools,
+reporting, payroll, attendance, GPS, order integrations, document uploads, or
+analytics.
