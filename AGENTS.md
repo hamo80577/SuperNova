@@ -1,140 +1,85 @@
 # AGENTS.md — SuperNova
 
-## Project
+## Current Mission
 
 SuperNova is a Talabat-style Partner Workforce Operations System.
 
-It manages:
+It is not a generic HR ERP.
 
-```text
-Chains
-Vendors/Branches
-Pickers
-Champs
-Area Managers
-Admins
-Assignments
-Requests
-Approvals
-Notifications
-Audit Logs
-```
-
-This is not a generic HR ERP.
-
-The product should be described as:
+The current product is:
 
 ```text
 Assignments + Requests + Approvals + Role-based Workspaces
 ```
 
-## Required Stack
+The MVP backend logic and core workflows are complete. The next major workstream is page-by-page UI/UX improvement without changing workflow logic.
 
-Use:
+## Current Stack
 
 ```text
 Frontend: Next.js + TypeScript + Tailwind CSS + shadcn/ui
 Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
-Forms: React Hook Form + Zod
-Deployment: Docker Compose
+Forms/validation: React Hook Form + Zod on frontend, DTO validation on backend
+Deployment: Docker Compose / VPS-ready structure
+Architecture: modular monolith
 ```
-
-## Architecture Rule
-
-Use a modular monolith.
 
 Do not introduce microservices.
 
-Do not put backend domain logic in frontend code.
-
-Backend domain logic belongs in NestJS services/modules.
-
-Prefer monorepo structure:
+## Core Hierarchy
 
 ```text
-apps/web
-apps/api
-packages/shared
-prisma
-docs
+Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
 ```
 
-## Core Product Rule
+Rules:
 
-Sensitive lifecycle operations must be request-based.
+- Picker active manager context is derived from active branch assignment.
+- A Branch/Vendor is assigned to a Champ through `VendorChampAssignment`.
+- A Chain is assigned to an Area Manager through `ChainAreaManagerAssignment`.
+- A Champ can manage branches across multiple Chains.
+- A Champ can therefore have different Area Managers depending on branch/chain context.
+- Do not store `managerId`, `vendorId`, or `chainId` as source-of-truth fields on `User`.
 
-Do not implement direct manual edits for:
-
-```text
-Picker creation
-Picker transfer
-Picker archive
-Picker assignment changes
-```
-
-Correct:
-
-```text
-Request → Approval → System applies change
-```
-
-## Hierarchy Rule
-
-The hierarchy is:
-
-```text
-Picker → Vendor/Branch → Champ → Chain → Area Manager
-```
-
-Do not store `managerId` in User as the source of truth.
-
-Derive managers from assignment tables.
-
-## User Model Rule
-
-Do not store these in User:
-
-```text
-chainId
-vendorId
-managerId
-```
-
-Use:
-
-```text
-PickerBranchAssignment
-VendorChampAssignment
-ChainAreaManagerAssignment
-```
-
-## Workflow Rules
+## Completed MVP Workflows
 
 ### New Hire
 
 ```text
-Champ request
-→ Area Manager approval
-→ Admin approval
-→ Admin enters Shopper ID
-→ System creates Picker
-→ System assigns Picker to source Vendor
-→ System sends temp credentials to Champ
-→ Picker changes password
-→ Picker completes profile
+Champ submits New Hire from selected Branch
+-> Area Manager approves/rejects
+-> Admin finalizes with Shopper ID
+-> System creates Picker
+-> System creates active PickerBranchAssignment
+-> System notifies Champ with phone + temporary password
+-> Picker logs in
+-> Picker changes password
+-> Picker completes profile
+```
+
+### Picker Profile Completion
+
+```text
+Picker logs in
+-> mustChangePassword is handled first
+-> incomplete profile redirects to profile completion
+-> Picker fills allowed safe fields only
+-> profileStatus becomes COMPLETE
+-> Picker can access workspace
 ```
 
 ### Resignation / Termination
 
 ```text
-Champ request
-→ Area Manager approval
-→ Admin approval
-→ System archives/deactivates Picker
-→ System closes active assignment
-→ System saves block status
+Champ submits from selected Branch
+-> Area Manager approves/rejects
+-> Admin finalizes with block status
+-> System archives/deactivates Picker
+-> System closes active PickerBranchAssignment
+-> System disables login
+-> Audit logs are created
 ```
 
 ### Transfer
@@ -142,51 +87,122 @@ Champ request
 Same Chain:
 
 ```text
-Champ request
-→ Source Chain Area Manager approval
-→ System transfers Picker
+Champ submits from selected Branch
+-> Source Chain Area Manager approves
+-> System closes old active assignment
+-> System creates new active assignment
 ```
 
 Cross Chain:
 
 ```text
-Champ request
-→ Source Chain Area Manager approval
-→ Destination Chain Area Manager approval
-→ System transfers Picker
+Champ submits from selected Branch
+-> Source Chain Area Manager approves
+-> Destination Chain Area Manager approves
+-> System closes old active assignment
+-> System creates new active assignment
 ```
+
+## Hard Product Rules
+
+Never add direct manual edits for:
+
+```text
+Picker creation
+Picker transfer
+Picker archive/deactivation
+Picker active branch assignment change
+```
+
+Sensitive lifecycle changes must stay:
+
+```text
+Request -> Approval -> System applies change
+```
+
+Generic request creation must not bypass Branch-first workflow rules.
 
 ## Security Rules
 
-Every backend action must validate:
+Every protected backend mutation must validate:
 
 ```text
-Auth
+Authentication
 Role
-Scope
+Operational scope
 Entity state
 Request state
-Approval ownership
+Approval step ownership
+Audit logging
 ```
 
 Frontend hiding is not security.
 
-## Local Docker and PostgreSQL Verification Rules
+## UI/UX Redesign Rules
 
-Codex must actively verify backend, database, API, and protected UI work against the local Docker PostgreSQL setup.
+Future UI work must be page-by-page.
 
-For any phase that changes backend code, Prisma, database behavior, auth, API routes, protected frontend routes, assignments, requests, approvals, notifications, or audit logs, Codex must:
+Do not ask Codex to "improve the UI" globally.
 
-1. Inspect `docker-compose.yml` and environment example files.
-2. Start PostgreSQL with Docker Compose.
-3. Confirm the PostgreSQL container is healthy.
-4. Run Prisma generate, validate, and migrations against the Docker database.
-5. Run seed commands when the project provides them and the phase needs seeded data.
-6. Start the API and Web apps using project scripts or Docker Compose profiles.
-7. Verify API health.
-8. Manually verify the endpoints and screens added by the phase.
+For every page redesign:
 
-Standard commands to use where applicable:
+1. Inspect the existing page and related components.
+2. Produce a short UI/UX audit.
+3. Produce a specific page layout plan.
+4. Change only the target page and shared components that are necessary.
+5. Do not change backend logic.
+6. Do not change workflow behavior.
+7. Do not add new product features.
+8. Run checks.
+9. Provide before/after summary and known risks.
+
+The product owner decides the final visual direction page by page.
+
+## Current UI/UX Direction
+
+SuperNova should feel like a professional operations control system:
+
+- Branch-first operations.
+- Dense but clean admin control surfaces.
+- Clear workflow status.
+- Serious operational dashboards.
+- Tables, cards, filters, badges, timelines.
+- No toy HR app look.
+- No generic SaaS template look.
+- No random colors.
+- No fake numbers.
+
+## Forbidden
+
+Do not:
+
+```text
+Use SQLite for production architecture
+Introduce microservices
+Add payroll, attendance, GPS, order integration, or generic ERP modules unless explicitly requested
+Create fake flows that bypass approvals
+Allow direct Picker branch edits
+Store age instead of dateOfBirth
+Store raw passwords
+Expose temporary passwords except in the Champ notification after New Hire finalization
+Expose passwordHash in any API response
+Allow Admin to finalize New Hire without Shopper ID
+Skip audit logs for sensitive lifecycle actions
+Commit local-only environment values
+Claim Docker/PostgreSQL verification passed unless it was actually run
+```
+
+## Verification Rules
+
+For UI-only work:
+
+```text
+npm run typecheck
+npm run lint
+npm run build
+```
+
+For backend, Prisma, auth, API, database, protected route, assignment, request, approval, notification, audit, admin, or report changes:
 
 ```text
 docker compose up -d postgres
@@ -196,95 +212,59 @@ npm run prisma:generate
 npm run prisma:validate
 npm run prisma:migrate
 npm run db:seed
-npm run dev
-docker compose --profile app up
+docker compose --profile app build --progress=plain
+docker compose --profile app up -d --force-recreate api web
+GET http://localhost:4000/api/health
+GET http://localhost:3000/login
 ```
 
-Do not use `prisma db push` as the default path when migrations are expected. Use it only as a temporary local fallback and explain why.
+Do not use `prisma db push` as the normal path.
 
-A phase that includes backend, database, API, auth, or protected UI behavior must be marked `NOT COMPLETE` if Docker PostgreSQL was not started, migrations were not applied, and the new behavior was not verified against the local database.
-
-Codex must not claim verification passed unless it actually ran the command or manually checked the behavior.
-
-## Quality Rules
-
-Before changing code:
-
-1. Inspect the existing repo.
-2. Identify current architecture.
-3. Make a short implementation plan.
-4. Keep changes inside the requested phase.
-5. Do not start future phases.
-6. Update or add tests where relevant.
-7. Run typecheck/build/tests where available.
-8. Run local Docker/PostgreSQL verification when the phase touches backend, Prisma, database, auth, API data, or protected UI behavior.
-9. Summarize changed files and risks.
-
-## UI/UX Rules
-
-Use professional operations dashboard design.
-
-Use:
+## Current Main Workstream
 
 ```text
-shadcn/ui
-Tailwind
-Lucide icons
-Clean cards
-Data tables
-Status badges
-Timelines
-Clear forms
+Page-by-page UI/UX redesign
 ```
 
-When frontend work is requested, use available UI/UX tools/plugins/superpowers if present, especially:
+Current recommended order:
+
+1. Login page
+2. Admin dashboard
+3. Champ Branch Detail
+4. Request Detail
+5. New Hire Form
+6. Transfer Form
+7. Offboarding Forms
+8. Area Manager Dashboard
+9. Reports Pages
+10. Picker Dashboard / Profile Completion
+
+## Required Final Response Format for Codex
+
+For UI/UX work:
 
 ```text
-ui-ux-pro-max
+Summary
+Files Changed
+UI/UX Audit Findings
+Design Decisions
+Tests/Checks Run
+Manual UI Verification
+Known Risks
+Completion Status
+Next Page Recommendation
 ```
 
-If unavailable, do not fake tool usage. Apply equivalent standards manually.
-
-## Forbidden
-
-Do not:
-
-```text
-Use SQLite for production architecture
-Introduce microservices
-Create fake flows that bypass approvals
-Allow direct Picker branch edits
-Store age instead of dateOfBirth
-Store raw passwords
-Expose temporary passwords except in the Champ notification after final New Hire approval
-Allow Admin to finalize New Hire without Shopper ID
-Skip audit logs for sensitive actions
-Add payroll, attendance, GPS, order integration, or advanced analytics to MVP unless explicitly requested
-Claim Docker/PostgreSQL verification passed unless it was actually run
-Commit local-only environment values
-```
-
-## Final Response Format for Codex
-
-Always end with:
+For backend or full-stack work:
 
 ```text
 Summary
 Files Changed
 Tests/Checks Run
 Local Docker/PostgreSQL Verification
+Manual Regression Verification
+Security/Hardening Review
 Known Risks
-Phase Completion Status
+Completion Status
 Next Recommended Step
-```
-
-`Local Docker/PostgreSQL Verification` must include:
-
-```text
-Docker compose status summary
-Migration command result
-Seed command result, if applicable
-API health result
-Manual endpoint/UI verification summary
-Any issue that blocked real DB verification
 ```

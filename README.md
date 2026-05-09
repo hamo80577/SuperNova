@@ -1,6 +1,64 @@
 # SuperNova
 
-SuperNova is a Talabat-style Partner Workforce Operations System. The MVP is centered on assignments, request-driven lifecycle changes, approvals, auditability, and role-scoped workspaces. It is not a generic HR ERP.
+SuperNova is a Talabat-style Partner Workforce Operations System.
+
+It manages partner workforce operations through:
+
+```text
+Assignments + Requests + Approvals + Role-based Workspaces
+```
+
+It is not a generic HR ERP.
+
+## Current MVP Status
+
+The MVP core is complete.
+
+Implemented:
+
+- Authentication, roles, protected workspaces.
+- Chains and Vendors/Branches.
+- Picker/Champ/Area Manager assignment hierarchy.
+- Request and approval engine.
+- Branch-first New Hire workflow.
+- Picker Profile Completion workflow.
+- Branch-first Resignation / Termination workflow.
+- Branch-first Transfer workflow.
+- Admin controls for pending final actions, archived users, and audit logs.
+- Operational reports for Admin, Area Manager, and Champ.
+- Security/hardening pass with access checks, redaction, and query indexes.
+
+The current active workstream is page-by-page UI/UX redesign.
+
+## Product Model
+
+```text
+Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
+```
+
+Important rules:
+
+- Do not store `managerId`, `vendorId`, or `chainId` on `User` as source of truth.
+- Operational context is derived from assignment tables.
+- Lifecycle actions are workflow-based.
+- No direct manual Picker creation, transfer, archive, or active assignment change.
+
+Correct lifecycle pattern:
+
+```text
+Request -> Approval -> System applies change
+```
+
+## Stack
+
+```text
+Frontend: Next.js + TypeScript + Tailwind CSS + shadcn/ui
+Backend: NestJS + TypeScript
+Database: PostgreSQL
+ORM: Prisma
+Architecture: modular monolith
+Deployment: Docker Compose / VPS-ready
+```
 
 ## Repository Shape
 
@@ -15,41 +73,94 @@ supernova/
   docs/
   docker-compose.yml
   AGENTS.md
-  IMPLEMENTATION_PHASES.md
   README.md
 ```
 
-## Product Rules
+## Main Routes
 
 ```text
-Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
-Sensitive lifecycle changes -> Request -> Approval -> Final Action -> System Applies Change
+Login: /login
+
+Picker:
+  /picker/dashboard
+  /picker/profile-completion
+
+Champ:
+  /champ/dashboard
+  /champ/branches
+  /champ/branches/:vendorId
+  /champ/branches/:vendorId/new-hire
+  /champ/branches/:vendorId/transfer
+  /champ/branches/:vendorId/resignation
+  /champ/branches/:vendorId/termination
+  /champ/reports
+
+Area Manager:
+  /area-manager/dashboard
+  /area-manager/reports
+  /approvals
+  /requests
+
+Admin / Super Admin:
+  /admin/dashboard
+  /admin/chains
+  /admin/vendors
+  /admin/assignments
+  /admin/pending-actions
+  /admin/archived-users
+  /admin/audit-logs
+  /admin/reports
+  /admin/settings
 ```
 
-Do not use `User.managerId`, `User.chainId`, or `User.vendorId` as source-of-truth fields. Manager and ownership context must come from assignment tables.
-
-Champ operations are Branch-first. A Champ with one assigned Branch works inside
-that Branch context; a Champ with multiple Branches may see aggregate dashboard
-data, but every mutation/action must start by opening one selected Branch. New
-Hire, Transfer, Resignation, and Termination are launched from the selected
-Branch context.
-User-facing Champ forms must not ask the Champ to manually choose
-`sourceChainId` or `sourceVendorId`.
-
-## Stack
+## API Highlights
 
 ```text
-Frontend: Next.js + TypeScript + Tailwind CSS + shadcn/ui-compatible structure
-Backend: NestJS + TypeScript
-Database: PostgreSQL
-ORM: Prisma
-Architecture: modular monolith
-Deployment: Docker Compose
+GET  /api/health
+
+Auth:
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/change-password
+GET  /api/auth/me
+
+Workspaces:
+GET /api/workspaces/picker
+GET /api/workspaces/champ
+GET /api/workspaces/champ/branches
+GET /api/workspaces/champ/branches/:vendorId
+GET /api/workspaces/area-manager
+GET /api/workspaces/admin
+
+Requests:
+GET  /api/requests
+GET  /api/requests/my/submitted
+GET  /api/requests/:id
+POST /api/requests/new-hire
+POST /api/requests/offboarding
+POST /api/requests/transfer
+POST /api/requests/:id/finalize-new-hire
+POST /api/requests/:id/finalize-offboarding
+
+Approvals:
+GET  /api/approvals/pending
+POST /api/approvals/:approvalId/approve
+POST /api/approvals/:approvalId/reject
+
+Admin:
+GET /api/admin/pending-actions
+GET /api/admin/archived-users
+GET /api/admin/audit-logs
+
+Reports:
+GET /api/reports/admin/overview
+GET /api/reports/area-manager/overview
+GET /api/reports/champ/overview
 ```
 
-## Local Setup
+## Local Development
 
-1. Copy environment examples.
+1. Copy environment files.
 
 ```powershell
 Copy-Item .env.example .env
@@ -57,44 +168,31 @@ Copy-Item apps\api\.env.example apps\api\.env
 Copy-Item apps\web\.env.example apps\web\.env.local
 ```
 
-Set `JWT_SECRET` to a long random value before starting the API. The API requires it and does not provide a production fallback.
-
 2. Install dependencies.
 
 ```powershell
 npm install
 ```
 
-3. Start PostgreSQL with Docker Compose.
+3. Start PostgreSQL.
 
 ```powershell
 docker compose up -d postgres
 ```
 
-4. Generate Prisma client and validate the schema.
+4. Run Prisma.
 
 ```powershell
 npm run prisma:generate
 npm run prisma:validate
+npm run prisma:migrate
 ```
 
-5. Optional local admin seed.
-
-Set these in `.env` before running the seed:
-
-```text
-SEED_ADMIN_PHONE=
-SEED_ADMIN_PASSWORD=
-SEED_ADMIN_NAME=SuperNova Admin
-```
-
-Then run:
+5. Seed local development data.
 
 ```powershell
 npm run db:seed
 ```
-
-The seed hashes the password and is intended for local development only.
 
 6. Start the apps.
 
@@ -102,270 +200,41 @@ The seed hashes the password and is intended for local development only.
 npm run dev
 ```
 
-Expected local endpoints:
+Expected:
 
 ```text
 Web: http://localhost:3000
-API health: http://localhost:4000/api/health
+API: http://localhost:4000
+Health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
-Admin Chains: http://localhost:3000/admin/chains
-Admin Vendors: http://localhost:3000/admin/vendors
-Admin Assignments: http://localhost:3000/admin/assignments
-Admin Pending Actions: http://localhost:3000/admin/pending-actions
-Admin Archived Users: http://localhost:3000/admin/archived-users
-Admin Audit Logs: http://localhost:3000/admin/audit-logs
-Admin Reports: http://localhost:3000/admin/reports
-Admin Settings: http://localhost:3000/admin/settings
-Picker Workspace: http://localhost:3000/picker/dashboard
-Picker Profile Completion: http://localhost:3000/picker/profile-completion
-Champ Workspace: http://localhost:3000/champ/dashboard
-Champ Branches: http://localhost:3000/champ/branches
-Champ Reports: http://localhost:3000/champ/reports
-Branch New Hire: http://localhost:3000/champ/branches/:vendorId/new-hire
-Branch Transfer: http://localhost:3000/champ/branches/:vendorId/transfer
-Branch Resignation: http://localhost:3000/champ/branches/:vendorId/resignation
-Branch Termination: http://localhost:3000/champ/branches/:vendorId/termination
-Area Manager Workspace: http://localhost:3000/area-manager/dashboard
-Area Manager Reports: http://localhost:3000/area-manager/reports
-Requests: http://localhost:3000/requests
-Approvals: http://localhost:3000/approvals
-Notifications: http://localhost:3000/notifications
 ```
 
-## Phase Notes
-
-- `apps/web` includes auth screens, Phase 2 admin organization pages, Phase 3 admin assignment setup, Phase 4 role-scoped workspace dashboards, Phase 5 request/approval pages, Phase 6 Branch-first New Hire submission/finalization surfaces, Phase 7 Picker profile completion, Phase 8 Branch-first Resignation/Termination surfaces, Phase 9 Branch-first Transfer surfaces, Phase 10 Admin control/audit surfaces, and Phase 11 operational reporting pages.
-- `apps/api` exposes foundation modules, `GET /api/health`, Phase 1 auth endpoints, Phase 2 Chains/Vendors endpoints, Phase 3 assignment hierarchy endpoints, Phase 4 workspace endpoints, Phase 5 request/approval/notification endpoints, Phase 6 New Hire workflow endpoints, Phase 7 Picker profile completion endpoints, Phase 8 Offboarding workflow endpoints, Phase 9 Transfer workflow endpoints, Phase 10 Admin control endpoints, and Phase 11 scoped reporting endpoints.
-- `prisma/schema.prisma` defines the core data model and indexes for future assignment, request, and approval work.
-- Partial unique indexes for "one active assignment" rules are implemented in SQL migrations because Prisma cannot model them directly in schema syntax.
-- New Hire is implemented as a Branch-first workflow in Phase 6. Phase 7 lets the created Picker complete safe profile fields after forced password change. Phase 8 implements Branch-first Resignation/Termination finalization. Phase 9 implements Branch-first Transfer execution.
-
-## Auth Endpoints
-
-```text
-POST /api/auth/login
-POST /api/auth/logout
-POST /api/auth/change-password
-GET /api/auth/me
-GET /api/users/me
-GET /api/users/me/profile-completion
-PATCH /api/users/me/profile-completion
-```
-
-Browser auth uses an HTTP-only JWT cookie. Bearer tokens are accepted by the backend guard for API testing.
-
-Picker profile completion is PICKER-only. It accepts only safe self-service fields
-(`nameEn`, `nameAr`, `nationalId`, `address`, `dateOfBirth`, `gender`,
-`joiningDate`) and cannot change role, account status, employment status,
-Shopper ID, passwords, assignments, or lifecycle state.
-
-## Organization Endpoints
-
-Admin and Super Admin only:
-
-```text
-GET /api/chains
-GET /api/chains/:id
-POST /api/chains
-PATCH /api/chains/:id
-GET /api/vendors
-GET /api/vendors/:id
-POST /api/vendors
-PATCH /api/vendors/:id
-```
-
-Chains and Vendors support pagination, search, and status filters. Vendors must belong to an existing Chain.
-
-## Assignment Endpoints
-
-Admin and Super Admin only:
-
-```text
-GET /api/assignments/picker/:pickerId/current
-GET /api/assignments/vendor/:vendorId/champ/current
-GET /api/assignments/chain/:chainId/area-manager/current
-GET /api/assignments/pickers
-GET /api/assignments/vendor-champs
-GET /api/assignments/chain-area-managers
-POST /api/assignments/picker-branch
-POST /api/assignments/vendor-champ
-POST /api/assignments/chain-area-manager
-PATCH /api/assignments/picker-branch/:id/close
-PATCH /api/assignments/vendor-champ/:id/close
-PATCH /api/assignments/chain-area-manager/:id/close
-```
-
-Assignment setup preserves history. Creating a new active assignment rejects if the target Picker, Vendor, or Chain already has an active assignment. New Hire creates the initial Picker Branch assignment through the Phase 6 workflow; Transfer automation closes the old Picker Branch assignment and creates a new active assignment only through the Phase 9 workflow.
-
-Optional local verification data:
-
-```text
-SEED_DEMO_ASSIGNMENT_USERS=true
-SEED_DEMO_PASSWORD=
-```
-
-The demo assignment users are local/dev only. When enabled, the seed also creates
-a local demo Chain, Branch, Champ assignment, and Area Manager assignment for
-workflow verification. This does not implement production Picker creation CRUD.
-
-## Workspace Endpoints
-
-Role-specific workspace endpoints are read-only and scoped by the authenticated user:
-
-```text
-GET /api/workspaces/picker
-GET /api/workspaces/champ
-GET /api/workspaces/champ/branches
-GET /api/workspaces/champ/branches/:vendorId
-GET /api/workspaces/area-manager
-GET /api/workspaces/admin
-```
-
-These endpoints derive visibility from assignment tables. They do not implement request creation, approval decisions, or lifecycle finalization; workflow mutations live in the Requests and Approvals modules.
-
-The Champ Branch endpoints are CHAMP-only and enforce active
-`VendorChampAssignment` scope in the backend. `/champ/dashboard` may aggregate
-assigned Branch totals, while `/champ/branches/:vendorId` is the selected Branch
-context for Champ lifecycle actions. Workflow forms launch from that selected
-Branch route and derive source Vendor/Chain context from it.
-
-## Request and Approval Endpoints
-
-Authenticated users:
-
-```text
-GET /api/requests
-GET /api/requests/my/submitted
-GET /api/requests/:id
-POST /api/requests
-POST /api/requests/new-hire
-POST /api/requests/offboarding
-POST /api/requests/transfer
-POST /api/requests/:id/submit
-POST /api/requests/:id/cancel
-POST /api/requests/:id/finalize-new-hire
-POST /api/requests/:id/finalize-offboarding
-GET /api/approvals/pending
-POST /api/approvals/:approvalId/approve
-POST /api/approvals/:approvalId/reject
-GET /api/notifications
-PATCH /api/notifications/:id/read
-PATCH /api/notifications/read-all
-```
-
-Generic approval completion moves non-finalized request records to `APPROVED`,
-not `COMPLETED`. New Hire and Offboarding have workflow-specific Admin
-finalization endpoints.
-New Hire requires Shopper ID, creates the Picker, creates the source Branch
-assignment, notifies the Champ with the temporary password, and marks the
-request `COMPLETED`. Offboarding requires block status and deactivation
-confirmation, archives the Picker account, closes the active Branch assignment,
-notifies the Champ, and marks the request `COMPLETED`. Transfer uses
-workflow-specific Branch-first request creation and applies the assignment move
-automatically after the required Area Manager approvals; same-chain Transfer
-requires source Chain Area Manager approval only, while cross-chain Transfer
-requires source and destination Chain Area Manager approvals.
-
-The generic request creation UI is Admin/Super Admin-only and exists for internal
-Phase 5 request engine testing. Real workflow-specific forms for Champs and other
-roles are implemented from the correct Branch context. New Hire starts at
-`/champ/branches/:vendorId/new-hire`; Transfer starts at
-`/champ/branches/:vendorId/transfer`; Resignation and Termination start at
-`/champ/branches/:vendorId/resignation` and
-`/champ/branches/:vendorId/termination`. Champ-facing workflow forms do not ask
-for `sourceChainId` or `sourceVendorId`.
-
-## Admin Control Endpoints
-
-Admin and Super Admin only:
-
-```text
-GET /api/admin/pending-actions
-GET /api/admin/archived-users
-GET /api/admin/audit-logs
-```
-
-Phase 10 Admin controls are visibility and final-action navigation surfaces only.
-They expose pending final actions, archived/deactivated users with block context,
-and paginated audit logs. They do not add direct Picker creation, archive,
-transfer, or assignment-edit bypasses.
-
-## Reporting Endpoints
-
-Phase 11 reporting endpoints are read-only operational visibility surfaces.
-They use live database counts and assignment-derived scope; they do not store
-summary totals, add lifecycle mutation paths, or introduce a BI warehouse.
-
-```text
-GET /api/reports/admin/overview
-GET /api/reports/area-manager/overview
-GET /api/reports/champ/overview
-```
-
-Admin/Super Admin reports are system-wide. Area Manager reports are limited to
-active `ChainAreaManagerAssignment` scope. Champ reports are limited to active
-`VendorChampAssignment` Branch scope. Active manpower counts come from active
-`PickerBranchAssignment` rows whose Picker user is active.
-
-## Phase 12 Hardening Notes
-
-Phase 12 keeps SuperNova as a modular monolith and does not add new product
-features. The hardening baseline is:
-
-- Authentication rejects inactive, archived, suspended, permanently blocked, and
-  currently temporarily blocked accounts.
-- General safe-user responses do not expose `passwordHash`, temporary password
-  values, temporary password expiry metadata, or block reason text.
-- Request payload responses and Admin audit log JSON are redacted for password,
-  secret, token, credential, cookie, session, JWT, and authorization keys.
-- Generic `POST /api/requests` remains blocked for `NEW_HIRE`, `RESIGNATION`,
-  `TERMINATION`, and `TRANSFER`; workflow-specific Branch-first endpoints are
-  the only valid creation paths for those lifecycle actions.
-- Admin assignment endpoints are setup-only hierarchy tools. They reject
-  duplicate active assignments, preserve history, and must not be used to bypass
-  New Hire, Transfer, or Offboarding workflows.
-- Additive Prisma indexes support request queues, approval queues, scoped
-  reports, notifications, and audit log filtering.
-
-## Docker Compose and VPS Deployment Notes
-
-Local development uses `docker-compose.yml` with PostgreSQL plus the optional
-`app` profile:
+## Docker App Profile
 
 ```powershell
-$env:JWT_SECRET='replace-with-a-long-random-local-secret'
-$env:WEB_ORIGIN='http://localhost:3000'
-$env:NEXT_PUBLIC_API_URL='http://localhost:4000'
-docker compose up -d postgres
-npm run prisma:migrate
-npm run db:seed
+docker compose --profile app build --progress=plain
 docker compose --profile app up -d --force-recreate api web
+docker compose ps
 ```
 
-For a VPS deployment, keep the startup order simple and explicit:
+## Documentation Map
 
-1. Provision PostgreSQL storage.
-2. Set production environment variables outside git.
-3. Run `npm run prisma:migrate` against the production database.
-4. Start the API and Web containers.
-5. Check `GET /api/health`.
-6. Put Cloudflare or another HTTPS reverse proxy in front of the VPS.
-
-Production requirements:
-
-- `JWT_SECRET` must be a long random secret and must never be committed.
-- `WEB_ORIGIN` must match the HTTPS web origin used by the browser.
-- `NEXT_PUBLIC_API_URL` must point to the public API origin.
-- Use Prisma migrations, not `prisma db push`, for schema changes.
-- Run the seed command only for controlled local/dev bootstrap users unless a
-  production bootstrap procedure is explicitly approved.
-- Keep `.env`, runtime logs, generated database files, and local credentials out
-  of git.
-
-## Reference Docs
-
-- [AGENTS.md](./AGENTS.md)
-- [IMPLEMENTATION_PHASES.md](./IMPLEMENTATION_PHASES.md)
+- [Agent Rules](./AGENTS.md)
+- [Current Product State](./docs/CURRENT_PRODUCT_STATE.md)
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Data Model](./docs/DATA_MODEL.md)
 - [Workflows](./docs/WORKFLOWS.md)
+- [UI/UX Direction](./docs/UI_UX_DIRECTION.md)
+- [UI/UX Page Redesign Plan](./docs/UI_UX_PAGE_REDESIGN_PLAN.md)
+- [UI/UX Component Rules](./docs/UI_UX_COMPONENT_RULES.md)
+- [Technical Guardrails](./docs/TECHNICAL_GUARDRAILS.md)
+- [Deployment Runbook](./docs/DEPLOYMENT_RUNBOOK.md)
+- [MVP Release Review](./docs/MVP_RELEASE_REVIEW.md)
+
+## Current Known Technical Debt
+
+- `requests.service.ts` is large and should be split carefully later.
+- Automated tests are limited.
+- Docker app profile currently targets development flow.
+- Next/PostCSS moderate audit warnings may remain until safe dependency updates are available.
+- UI/UX needs page-by-page redesign.

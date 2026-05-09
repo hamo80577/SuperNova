@@ -1,246 +1,301 @@
-# SuperNova Data Model Foundation
+# Data Model — SuperNova
 
-## Core Rule
-
-The database foundation exists to support assignment-derived hierarchy and request-based lifecycle operations. SuperNova should not model manager ownership directly on `User`.
-
-## Core Models
-
-- `User`
-- `Chain`
-- `Vendor`
-- `PickerBranchAssignment`
-- `VendorChampAssignment`
-- `ChainAreaManagerAssignment`
-- `Request`
-- `RequestApproval`
-- `Notification`
-- `AuditLog`
-
-## User Rules
-
-The `User` model includes identity, lifecycle, and access posture fields such as:
-
-- `ibsId`
-- `shopperId`
-- `role`
-- `phoneNumber`
-- `dateOfBirth`
-- `employmentStatus`
-- `accountStatus`
-- `profileStatus`
-- `blockStatus`
-- `passwordHash`
-- `mustChangePassword`
-
-Forbidden user fields as source of truth:
-
-- `age`
-- `chainId`
-- `vendorId`
-- `managerId`
-
-## Assignment-Derived Ownership
-
-Operational ownership is derived through these paths:
+## Core Entities
 
 ```text
-Picker -> active PickerBranchAssignment -> Vendor
-Vendor -> active VendorChampAssignment -> Champ
-Vendor -> Chain -> active ChainAreaManagerAssignment -> Area Manager
+User
+Chain
+Vendor
+PickerBranchAssignment
+VendorChampAssignment
+ChainAreaManagerAssignment
+Request
+RequestApproval
+Notification
+AuditLog
 ```
 
-## Request and Approval Foundation
+## User
 
-`Request` stores lifecycle metadata for:
+Represents Pickers, Champs, Area Managers, Admins, and Super Admins.
 
-- `NEW_HIRE`
-- `RESIGNATION`
-- `TERMINATION`
-- `TRANSFER`
+Important fields:
 
-`RequestApproval` stores step-level approvals, including:
+```text
+id
+ibsId
+shopperId
+role
+nameEn
+nameAr
+phoneNumber
+nationalId
+address
+dateOfBirth
+gender
+joiningDate
+employmentStatus
+resignationDate
+accountStatus
+profileStatus
+blockStatus
+blockedUntil
+blockReason
+passwordHash
+mustChangePassword
+temporaryPasswordExpiresAt
+lastLoginAt
+createdAt
+updatedAt
+```
 
-- `AREA_MANAGER_APPROVAL`
-- `SOURCE_AREA_MANAGER_APPROVAL`
-- `DESTINATION_AREA_MANAGER_APPROVAL`
-- `ADMIN_FINAL_APPROVAL`
+Rules:
 
-Phase 0 defines these structures only. It does not implement request orchestration yet.
+- Do not store age. Calculate from `dateOfBirth`.
+- Do not store `chainId`, `vendorId`, or `managerId`.
+- Do not expose `passwordHash`.
+- Do not expose temporary password values.
+- Temporary password expiry metadata should not be included in broad safe-user responses.
 
-## Phase 2 Organization Rules
+## Chain
 
-Phase 2 makes `Chain` and `Vendor` operational for Admin/Super Admin management.
+Represents a partner chain.
 
-- `Vendor.chainId` is required and must reference an existing `Chain`.
-- `Chain.chainCode` stays unique.
-- `Vendor.vendorCode` stays unique.
-- `Vendor.vendorExternalId` stays unique when provided.
-- Chain and Vendor deletion is out of scope for Phase 2.
+Important fields:
 
-## Indexing
+```text
+id
+chainName
+chainCode
+status
+createdAt
+updatedAt
+```
 
-The Prisma schema adds baseline indexes for lookup and future scoping:
+## Vendor
 
-- `User.phoneNumber` via unique constraint
-- `User.role`
-- `User.accountStatus`
-- `User.employmentStatus`
-- `Vendor.chainId`
-- `PickerBranchAssignment(pickerId, status)`
-- `VendorChampAssignment(vendorId, status)`
-- `ChainAreaManagerAssignment(chainId, status)`
-- `Request.status`
-- `Request.type`
-- `Request.createdById`
-- `Request.targetUserId`
-- `Request.sourceVendorId`
-- `Request.destinationVendorId`
-- `RequestApproval(approverId, status)`
+Represents a Branch/Vendor under a Chain.
 
-## Phase 3 Assignment Enforcement
+Important fields:
 
-Phase 3 enforces active assignment rules with PostgreSQL partial unique indexes in a raw SQL Prisma migration.
+```text
+id
+vendorName
+vendorCode
+vendorExternalId
+status
+chainId
+address
+area
+city
+createdAt
+updatedAt
+```
 
-Prisma schema syntax cannot express these partial unique indexes directly, so they live in `prisma/migrations/20260507200500_active_assignment_partial_indexes/migration.sql`.
+## PickerBranchAssignment
 
-Required database constraints:
+Represents Picker assignment to Branch.
 
-- one `ACTIVE` `PickerBranchAssignment` per `pickerId`
-- one `ACTIVE` `VendorChampAssignment` per `vendorId`
-- one `ACTIVE` `ChainAreaManagerAssignment` per `chainId`
+Important fields:
 
-Closed assignment rows remain in place as history. The system must not delete assignment history or overwrite old assignment rows.
+```text
+id
+pickerId
+vendorId
+status
+startDate
+endDate
+createdByRequestId
+createdAt
+updatedAt
+```
 
-## Phase 4 Workspace Reads
+Rules:
 
-Role workspaces do not add new source-of-truth fields. They read the existing data model through assignment-derived scope:
+- One active Branch assignment per Picker.
+- Old assignments are closed, not deleted.
+- New Hire creates the first active assignment.
+- Transfer closes old assignment and creates new assignment.
 
-- Picker context comes from the active `PickerBranchAssignment`.
-- Champ branch ownership comes from active `VendorChampAssignment` rows.
-- Area Manager chain ownership comes from active `ChainAreaManagerAssignment` rows.
-- Admin workspace counts read all Chains, Vendors, Users, and active assignment rows.
+## VendorChampAssignment
 
-No `User.managerId`, `User.chainId`, or `User.vendorId` fields are introduced for workspace visibility.
+Represents Champ responsibility for a Branch.
 
-## Phase 5 Request Engine Usage
+Important fields:
 
-Phase 5 starts using the existing `Request`, `RequestApproval`, `Notification`, and `AuditLog` models.
+```text
+id
+vendorId
+champId
+status
+startDate
+endDate
+createdAt
+updatedAt
+```
 
-- `Request` stores generic lifecycle metadata and remains the parent record for approval state.
-- `RequestApproval` stores generated approval steps, approver role, optional specific approver, decision status, decision time, and notes.
-- `Notification` stores in-app notification records for submitted requests, pending approvals, decisions, and cancellations.
-- `AuditLog` records request and approval actions.
+Rules:
 
-`APPROVED` means all generic approval steps are complete. It does not mean the lifecycle change has been applied. `COMPLETED` is used only by workflow-specific finalization paths such as New Hire, Offboarding, and Transfer.
+- One active Champ assignment per Vendor.
+- A Champ may manage many Vendors.
+- A Champ may manage Vendors across different Chains.
 
-## Phase 7 Profile Completion Usage
+## ChainAreaManagerAssignment
 
-Phase 7 uses existing `User` fields only. It does not add new profile tables or
-document storage.
+Represents Area Manager responsibility for a Chain.
 
-Profile completion updates safe Picker-owned profile fields:
+Important fields:
 
-- `nameEn`
-- `nameAr`
-- `nationalId`
-- `address`
-- `dateOfBirth`
-- `gender`
-- `joiningDate`
+```text
+id
+chainId
+areaManagerId
+status
+startDate
+endDate
+createdAt
+updatedAt
+```
 
-Required completion fields are `nationalId`, `address`, `dateOfBirth`, and
-`joiningDate`. `profileStatus` moves to `COMPLETE` after validation succeeds.
+Rules:
 
-Forbidden profile completion updates include `role`, `accountStatus`,
-`employmentStatus`, `blockStatus`, `shopperId`, `ibsId`, password fields, and
-assignment relationships. Age is never stored; it must be derived from
-`dateOfBirth` when needed.
+- One active Area Manager assignment per Chain.
+- Area Manager scope is derived from active Chain assignments.
 
-## Phase 8 Offboarding Usage
+## Request
 
-Phase 8 uses the existing `Request`, `RequestApproval`, `Notification`,
-`AuditLog`, `User`, and `PickerBranchAssignment` models. No new direct manager,
-Chain, or Vendor shortcut fields are added to `User`.
+Represents workflow request.
 
-- Resignation and Termination requests store Branch-first context in `Request.sourceVendorId`, `Request.sourceChainId`, `Request.targetUserId`, and structured `payload`.
-- Admin finalization updates the target `User.accountStatus` to `ARCHIVED`, sets `employmentStatus` to `RESIGNED` or `TERMINATED`, saves `blockStatus`, `blockedUntil`, and `blockReason`, and clears temporary password state.
-- Admin finalization closes the active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
-- The request is marked `COMPLETED` only after the user update, assignment closure, Admin approval update, notifications, and audit logs complete in one transaction.
-- Offboarding does not add `User.managerId`, `User.chainId`, or `User.vendorId`.
+Request types:
 
-## Phase 9 Transfer Usage
+```text
+NEW_HIRE
+RESIGNATION
+TERMINATION
+TRANSFER
+```
 
-Phase 9 uses the existing `Request`, `RequestApproval`, `Notification`,
-`AuditLog`, `User`, `Vendor`, `Chain`, and `PickerBranchAssignment` models. No
-new shortcut fields are added to `User`.
+Statuses:
 
-- Transfer requests store Branch-first context in `Request.sourceVendorId`, `Request.sourceChainId`, `Request.destinationVendorId`, `Request.destinationChainId`, `Request.targetUserId`, and structured `payload`.
-- Same-chain Transfer creates one `SOURCE_AREA_MANAGER_APPROVAL` step.
-- Cross-chain Transfer creates `SOURCE_AREA_MANAGER_APPROVAL` and `DESTINATION_AREA_MANAGER_APPROVAL` steps.
-- Applying Transfer closes the old active `PickerBranchAssignment` by setting `status=CLOSED` and `endDate`; it does not delete assignment history.
-- Applying Transfer creates a new active `PickerBranchAssignment` for the destination Branch with `createdByRequestId` set to the Transfer request.
+```text
+DRAFT
+PENDING_AREA_MANAGER
+PENDING_DESTINATION_AREA_MANAGER
+PENDING_ADMIN
+APPROVED
+REJECTED
+CANCELLED
+COMPLETED
+```
 
-## Phase 10 Admin Control Reads
+Important fields:
 
-Phase 10 reuses existing tables and does not add schema:
+```text
+id
+type
+status
+createdById
+targetUserId
+sourceChainId
+sourceVendorId
+destinationChainId
+destinationVendorId
+payload
+currentStep
+completedAt
+createdAt
+updatedAt
+```
 
-- Pending final actions are read from `Request` rows at `PENDING_ADMIN` with
-  `currentStep=ADMIN_FINAL_APPROVAL` and pending Admin approval rows.
-- Archived users are read from `User` rows with non-active account state or
-  resigned/terminated/archived employment state.
-- Block detail is read from `User.blockStatus`, `blockedUntil`, and
-  `blockReason`, plus the latest offboarding `Request` for context.
-- Closed assignment history is read from `PickerBranchAssignment` rows with
-  `status=CLOSED`; assignment history is never deleted.
-- Audit tables are read through paginated Admin endpoints with redaction of
-  secret-like JSON keys.
+Rules:
 
-These reads do not create direct lifecycle mutation paths.
-- The PostgreSQL partial unique index for one active Picker assignment enforces that a Picker cannot end up with two active Branch assignments.
-- The request is marked `COMPLETED` only after the final approval update, old assignment closure, new assignment creation, notifications, and audit logs complete in one transaction.
+- Payload must not store secrets.
+- API responses redact sensitive payload keys.
+- Workflow-specific requests must be created through workflow-specific endpoints.
 
-## Phase 11 Reporting Reads
+## RequestApproval
 
-Phase 11 does not add reporting tables or stored summary totals. Reports read
-existing normalized data:
+Represents approval step ownership and decision.
 
-- Admin system counts read `Chain`, `Vendor`, `User`, `Request`,
-  `RequestApproval`, and active `PickerBranchAssignment` rows.
-- Area Manager report scope comes from active `ChainAreaManagerAssignment`
-  rows, then reads Vendors, Pickers, Champs, Requests, and Approvals within
-  those Chains.
-- Champ report scope comes from active `VendorChampAssignment` rows, then reads
-  Branch Pickers and requests submitted by that Champ.
-- Active manpower is counted only from active `PickerBranchAssignment` rows
-  where the Picker user is `ACTIVE` and employment status is `ACTIVE`.
-- Archived/deactivated and block summaries read existing `User.accountStatus`,
-  `employmentStatus`, `blockStatus`, `blockedUntil`, and `blockReason` fields.
+Steps:
 
-Reports must not introduce `User.managerId`, `User.chainId`, or `User.vendorId`,
-and must not expose password hashes, temporary passwords, or raw secret payloads.
+```text
+AREA_MANAGER_APPROVAL
+SOURCE_AREA_MANAGER_APPROVAL
+DESTINATION_AREA_MANAGER_APPROVAL
+ADMIN_FINAL_APPROVAL
+```
 
-## Phase 12 Hardening Indexes
+Statuses:
 
-Phase 12 adds non-destructive indexes for production query paths:
+```text
+PENDING
+APPROVED
+REJECTED
+SKIPPED
+```
 
-- `User(role, accountStatus)`
-- `User(role, employmentStatus)`
-- `User(role, profileStatus)`
-- `PickerBranchAssignment(createdByRequestId)`
-- `Request(status, currentStep)`
-- `Request(type, status)`
-- `Request(sourceChainId, status)`
-- `Request(destinationChainId, status)`
-- `Request(createdAt)`
-- `RequestApproval(approverId, status, step)`
-- `RequestApproval(status, step)`
-- `RequestApproval(requestId, status)`
-- `Notification(userId, createdAt)`
-- `AuditLog(action, createdAt)`
-- `AuditLog(entityType, action, createdAt)`
-- `AuditLog(createdAt)`
+Rules:
 
-These indexes support scoped reports, pending final actions, approval queues,
-notification lists, and audit filtering. They do not add denormalized reporting
-tables and do not introduce shortcut ownership fields on `User`.
+- Approvers can act only on owned pending steps.
+- Out-of-scope approvers must get 403.
+- Rejection must not apply lifecycle change.
+- Cancellation must not apply lifecycle change.
+
+## Notification
+
+Represents in-app notification.
+
+Important use:
+
+- New Hire credential handoff to Champ.
+- Workflow state updates.
+- Approval/finalization messages.
+
+Temporary password may appear only in the Champ notification after successful New Hire finalization.
+
+## AuditLog
+
+Represents sensitive action history.
+
+Important actions include:
+
+```text
+LOGIN_SUCCESS
+LOGIN_FAILED
+PASSWORD_CHANGED
+FORCED_PASSWORD_CHANGED
+PICKER_PROFILE_COMPLETED
+REQUEST_CREATED
+REQUEST_SUBMITTED
+REQUEST_CANCELLED
+APPROVAL_APPROVED
+APPROVAL_REJECTED
+ADMIN_FINALIZED_NEW_HIRE
+ADMIN_FINALIZED_OFFBOARDING
+TRANSFER_APPLIED
+PICKER_BRANCH_ASSIGNMENT_CREATED
+PICKER_BRANCH_ASSIGNMENT_CLOSED
+REQUEST_COMPLETED
+```
+
+Rules:
+
+- Do not log raw passwords.
+- Do not log raw temporary passwords.
+- Audit API responses must redact secret-like JSON keys.
+
+## Indexing Direction
+
+Indexes should support:
+
+- auth lookup by phone
+- user role/status summaries
+- active assignments
+- request queues
+- approval queues
+- audit filtering
+- notification lookups
+- scoped reporting
+
+Partial unique active-assignment constraints are implemented through SQL migrations where Prisma schema cannot express them directly.
