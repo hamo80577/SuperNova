@@ -3,10 +3,7 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export default function LoginPage() {
   return (
-    <AuthCard
-      subtitle="Use your assigned SuperNova credentials."
-      title="Sign in"
-    >
+    <AuthCard title="Log in to SuperNova" variant="login">
       <LoginForm />
     </AuthCard>
   );

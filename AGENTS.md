@@ -144,6 +144,30 @@ Future UI work must be page-by-page.
 
 Do not ask Codex to "improve the UI" globally.
 
+SuperNova UI must be designed mobile-first because most users are Pickers and Champs using phones.
+
+Mobile-first rules:
+
+- Design for 360px-430px width first.
+- No horizontal overflow.
+- No random content outside the visible frame.
+- No oversized cards that break mobile screens.
+- Forms must be easy to complete with one hand.
+- Buttons must be large enough for touch.
+- Inputs must be clear and tall enough.
+- Critical actions must be visible without hunting.
+- Tables must become cards or horizontally scroll safely on mobile.
+- Sidebars must not destroy mobile layout.
+- Text must be short, direct, and operational.
+- Avoid dense desktop-only layouts for Champ/Picker screens.
+- Admin/Area Manager can have denser desktop layouts, but mobile must still not break.
+- Every page redesign must include mobile visual verification.
+
+Login page rule:
+
+- The Login page must be mobile-first, clean, orange-accented, simple, and direct.
+- The Login page may use a creative illustration panel on desktop, but it must not become crowded or dashboard-like.
+
 For every page redesign:
 
 1. Inspect the existing page and related components.
@@ -154,7 +178,8 @@ For every page redesign:
 6. Do not change workflow behavior.
 7. Do not add new product features.
 8. Run checks.
-9. Provide before/after summary and known risks.
+9. Verify mobile layout, desktop layout, no horizontal overflow, touch-friendly controls, clear primary action, and no broken responsive behavior.
+10. Provide before/after summary and known risks.
 
 The product owner decides the final visual direction page by page.
 
@@ -192,17 +217,88 @@ Commit local-only environment values
 Claim Docker/PostgreSQL verification passed unless it was actually run
 ```
 
-## Verification Rules
+## Verification Tier Policy
 
-For UI-only work:
+Use the lightest verification tier that matches the actual change. Do not rebuild, restart, reseed, or reset infrastructure for page-by-page UI work unless the current task explicitly touches backend/full-stack behavior.
+
+### Tier 1 — Docs-only
+
+Use for documentation or instruction edits only.
+
+Do not run Docker, app startup, Prisma, build, lint, or typecheck unless explicitly requested.
+
+Allowed lightweight checks:
 
 ```text
-npm run typecheck
-npm run lint
-npm run build
+git diff
+git status
+git diff --check
 ```
 
-For backend, Prisma, auth, API, database, protected route, assignment, request, approval, notification, audit, admin, or report changes:
+### Tier 2 — UI-only lightweight
+
+Use for frontend-only visual page/component work such as spacing, colors, layout, copy, cards, tables, badges, responsive styling, shadcn/Tailwind polish, and frontend-only page composition.
+
+Required checks:
+
+```text
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/web
+```
+
+Run only when the UI change is structural or before final page acceptance:
+
+```text
+npm run build --workspace @supernova/web
+```
+
+Do not run for normal UI-only work:
+
+```text
+docker compose up
+docker compose build
+docker compose --profile app build
+docker compose --profile app up
+prisma migrate
+prisma db seed
+container rebuilds
+database reset
+full-stack restart
+```
+
+### Tier 3 — Frontend behavior
+
+Use when frontend changes touch auth routing, protected route behavior, login redirect behavior, API client usage, or cookie/auth UI interaction.
+
+Run:
+
+```text
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/web
+npm run build --workspace @supernova/web
+```
+
+Do not run Docker unless backend, API, auth server, database, Docker, or environment files were changed.
+
+### Tier 4 — Backend/full-stack
+
+Use Docker/PostgreSQL verification only when changes touch:
+
+```text
+apps/api
+prisma
+docker-compose.yml
+Dockerfile*
+.env examples
+auth backend/cookies/session behavior
+API contracts
+database migrations
+request/approval/workflow backend logic
+reports backend logic
+deployment/runtime config
+```
+
+Backend/full-stack verification may include:
 
 ```text
 docker compose up -d postgres
@@ -219,6 +315,29 @@ GET http://localhost:3000/login
 ```
 
 Do not use `prisma db push` as the normal path.
+
+### Existing Local Environment Rule
+
+If the user says Docker or localhost is already running, do not stop, restart, rebuild, or recreate containers unless the current task requires backend/full-stack verification. Use the existing running environment for manual browser verification at:
+
+```text
+http://localhost:3000
+http://localhost:4000
+```
+
+### Final Response Rule
+
+For every future task, state which verification tier was used:
+
+```text
+Docs-only
+UI-only lightweight
+UI structural
+Frontend behavior
+Backend/full-stack
+```
+
+Also state why Docker was or was not run.
 
 ## Current Main Workstream
 

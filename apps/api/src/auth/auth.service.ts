@@ -22,6 +22,7 @@ import type { LoginDto } from "./dto/login.dto";
 import type { AuthenticatedUser, JwtPayload } from "./types/authenticated-user";
 
 const PASSWORD_HASH_ROUNDS = 12;
+const REMEMBER_ME_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -88,8 +89,15 @@ export class AuthService {
       data: { lastLoginAt: new Date() }
     });
 
-    const token = await this.signToken(updatedUser);
-    this.setAuthCookie(context.response, token);
+    const token = await this.signToken(
+      updatedUser,
+      Boolean(loginDto.rememberMe)
+    );
+    this.setAuthCookie(
+      context.response,
+      token,
+      Boolean(loginDto.rememberMe)
+    );
 
     await this.auditService.log({
       actorUserId: updatedUser.id,
@@ -256,15 +264,17 @@ export class AuthService {
     return redirects[role];
   }
 
-  private async signToken(user: User) {
+  private async signToken(user: User, rememberMe = false) {
     const payload: JwtPayload = {
       sub: user.id,
       role: user.role
     };
 
-    const expiresIn = this.configService.getOrThrow<StringValue>(
-      "auth.jwtExpiresIn"
-    );
+    const expiresIn = rememberMe
+      ? this.configService.getOrThrow<StringValue>(
+          "auth.rememberMeJwtExpiresIn"
+        )
+      : this.configService.getOrThrow<StringValue>("auth.jwtExpiresIn");
 
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>("auth.jwtSecret"),
@@ -272,12 +282,13 @@ export class AuthService {
     });
   }
 
-  private setAuthCookie(response: Response, token: string) {
+  private setAuthCookie(response: Response, token: string, rememberMe = false) {
     response.cookie(
       this.configService.getOrThrow<string>("auth.cookieName"),
       token,
       {
         httpOnly: true,
+        maxAge: rememberMe ? REMEMBER_ME_COOKIE_MAX_AGE_MS : undefined,
         sameSite: "lax",
         secure: this.configService.get<boolean>("auth.isProduction") ?? false,
         path: "/"

@@ -17,13 +17,39 @@ For each page:
 4. Define target layout
 5. Write Codex prompt for that page only
 6. Implement
-7. Run checks
+7. Run the correct verification tier
 8. Review new screenshot
 9. Iterate if needed
 10. Move to next page
 ```
 
 Do not redesign multiple unrelated pages at once.
+
+## Mobile-First Requirement
+
+SuperNova UI must be designed mobile-first because most users are Pickers and Champs using phones.
+
+Mobile-first rules:
+
+- Design for 360px-430px width first.
+- No horizontal overflow.
+- No random content outside the visible frame.
+- No oversized cards that break mobile screens.
+- Forms must be easy to complete with one hand.
+- Buttons must be large enough for touch.
+- Inputs must be clear and tall enough.
+- Critical actions must be visible without hunting.
+- Tables must become cards or horizontally scroll safely on mobile.
+- Sidebars must not destroy mobile layout.
+- Text must be short, direct, and operational.
+- Avoid dense desktop-only layouts for Champ/Picker screens.
+- Admin/Area Manager can have denser desktop layouts, but mobile must still not break.
+- Every page redesign must include mobile visual verification.
+
+Login page rule:
+
+- The Login page must be mobile-first, clean, orange-accented, simple, and direct.
+- The Login page may use a creative illustration panel on desktop, but it must not become crowded or dashboard-like.
 
 ## Global Rules
 
@@ -36,6 +62,38 @@ For every page redesign:
 - Do not fake data.
 - Use existing APIs where possible.
 - Keep changes scoped.
+- Verify mobile layout.
+- Verify desktop layout.
+- Verify no horizontal overflow.
+- Verify touch-friendly controls.
+- Verify clear primary action.
+- Verify no broken responsive behavior.
+- Use the verification tier policy from `AGENTS.md` and `docs/TECHNICAL_GUARDRAILS.md`.
+- Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for UI-only page redesigns.
+
+## UI Verification Tier
+
+Normal page-by-page UI redesign uses the UI-only lightweight tier:
+
+```text
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/web
+```
+
+Run this only when the UI change is structural or before final page acceptance:
+
+```text
+npm run build --workspace @supernova/web
+```
+
+Use the existing local app for browser review if it is already running:
+
+```text
+http://localhost:3000
+http://localhost:4000 if needed
+```
+
+Do not run Docker or Prisma commands for UI-only work. Escalate to backend/full-stack verification only when the change touches backend/API/auth server/database/Docker/runtime files.
 
 ## Redesign Order
 
@@ -71,8 +129,9 @@ Must not change:
 Manual review required:
 
 - desktop screenshot
-- mobile screenshot if practical
+- mobile screenshots at 360px, 390px, and 430px if practical
 - login smoke test for all roles
+- frontend behavior tier if auth routing, API client usage, or cookie/auth UI interaction changes
 
 ## 2. Admin Dashboard
 

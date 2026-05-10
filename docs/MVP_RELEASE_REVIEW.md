@@ -108,12 +108,14 @@ For each redesigned page:
 Screenshot before
 UI/UX audit
 Redesign implementation
-Typecheck/lint/build
+Verification tier from AGENTS.md / TECHNICAL_GUARDRAILS.md
 Screenshot after
 Product owner approval
 ```
 
 Do not move page forward without visual approval.
+
+For normal UI-only redesign, use the web typecheck/lint tier and reserve web build for structural changes or final page acceptance. Do not run Docker/PostgreSQL verification unless backend/full-stack files or behavior changed.
 
 ## Recommended Next Steps
 

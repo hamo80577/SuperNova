@@ -4,6 +4,32 @@
 
 This file defines reusable UI rules for SuperNova page-by-page redesign.
 
+## Mobile-First Rule
+
+SuperNova UI must be designed mobile-first because most users are Pickers and Champs using phones.
+
+Component rules:
+
+- Design components for 360px-430px width first.
+- No horizontal overflow.
+- No random content outside the visible frame.
+- No oversized cards that break mobile screens.
+- Forms must be easy to complete with one hand.
+- Buttons must be large enough for touch.
+- Inputs must be clear and tall enough.
+- Critical actions must be visible without hunting.
+- Tables must become cards or horizontally scroll safely on mobile.
+- Sidebars must not destroy mobile layout.
+- Text must be short, direct, and operational.
+- Avoid dense desktop-only layouts for Champ/Picker screens.
+- Admin/Area Manager can have denser desktop layouts, but mobile must still not break.
+- Every page redesign must include mobile visual verification.
+
+Login page component rule:
+
+- Login page components must be clean, orange-accented, simple, direct, and mobile-first.
+- A desktop illustration panel is allowed, but it must stay lightweight and must not look like a dashboard.
+
 ## Page Header
 
 Every main page should have a clear header:
@@ -66,7 +92,7 @@ Use tables for operational lists.
 Table rules:
 
 - Wrap tables in a clean card.
-- Use horizontal overflow for small screens.
+- Use cards or safe horizontal overflow for small screens.
 - Use badges for statuses.
 - Keep row actions on the right.
 - Use empty states.
@@ -101,6 +127,8 @@ Rules:
 - Primary submit button should be clear.
 - Cancel/back action should be secondary.
 - Dangerous/final actions should be visually separated.
+- Inputs should be tall enough for touch, especially on phone screens.
+- Primary form buttons should be large enough for one-handed use.
 
 ## Workflow Forms
 
@@ -194,6 +222,10 @@ Rules:
 - Cards stack.
 - Forms remain usable.
 - No horizontal page overflow.
+- Verify 360px, 390px, and 430px widths for redesigned pages where practical.
+- Verify touch-friendly controls and clear primary actions on mobile.
+- For UI-only component polish, use the UI-only lightweight verification tier.
+- Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for visual-only component work.
 
 ## Icons
 

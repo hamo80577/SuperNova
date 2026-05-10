@@ -8,6 +8,8 @@ export default () => ({
   auth: {
     jwtSecret: process.env.JWT_SECRET ?? "",
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",
+    rememberMeJwtExpiresIn:
+      process.env.AUTH_REMEMBER_ME_JWT_EXPIRES_IN ?? "30d",
     cookieName: process.env.AUTH_COOKIE_NAME ?? "supernova_session",
     webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
     isProduction: process.env.NODE_ENV === "production"

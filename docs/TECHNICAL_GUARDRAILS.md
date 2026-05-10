@@ -145,19 +145,101 @@ For UI-only redesign:
 - Do not change workflow behavior.
 - Do not add fake data.
 - Do not hide broken data with frontend-only hacks.
-- Run typecheck/lint/build.
+- Use the verification tier that matches the actual change.
 
-## Verification Commands
+## Verification Tier Policy
 
-UI-only:
+Use the lightest verification tier that matches the actual change. The goal is correct verification, not infrastructure churn.
+
+### Tier 1 — Docs-only
+
+Use for documentation or instruction edits only.
+
+Do not run Docker, app startup, Prisma, build, lint, or typecheck unless explicitly requested.
+
+Allowed lightweight checks:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm run build
+git diff
+git status
+git diff --check
 ```
 
-Backend/full-stack:
+### Tier 2 — UI-only lightweight
+
+Use for frontend-only visual work:
+
+```text
+spacing
+colors
+layout
+copy
+cards/tables/badges
+responsive styling
+frontend-only page composition
+shadcn/Tailwind component polish
+```
+
+Required checks:
+
+```powershell
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/web
+```
+
+Run only when the UI change is structural or before final page acceptance:
+
+```powershell
+npm run build --workspace @supernova/web
+```
+
+Do not run for normal UI-only work:
+
+```text
+docker compose up
+docker compose build
+docker compose --profile app build
+docker compose --profile app up
+prisma migrate
+prisma db seed
+container rebuilds
+database reset
+full-stack restart
+```
+
+### Tier 3 — Frontend behavior
+
+Use when frontend changes touch auth routing, protected route logic, login redirect behavior, API client usage, or cookie/auth UI interaction.
+
+Run:
+
+```powershell
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/web
+npm run build --workspace @supernova/web
+```
+
+Do not run Docker unless backend, API, auth server, database, Docker, or environment files were changed.
+
+### Tier 4 — Backend/full-stack
+
+Only run Docker/PostgreSQL verification when changes touch:
+
+```text
+apps/api
+prisma
+docker-compose.yml
+Dockerfile*
+.env examples
+auth backend/cookies/session behavior
+API contracts
+database migrations
+request/approval/workflow backend logic
+reports backend logic
+deployment/runtime config
+```
+
+Backend/full-stack verification may include:
 
 ```powershell
 docker compose up -d postgres
@@ -177,6 +259,29 @@ Verify:
 http://localhost:4000/api/health
 http://localhost:3000/login
 ```
+
+### Existing Local Environment Rule
+
+If Docker or localhost is already running, do not stop, restart, rebuild, or recreate containers unless the current task requires backend/full-stack verification. Use the existing running environment for manual browser checks:
+
+```text
+http://localhost:3000
+http://localhost:4000
+```
+
+### Final Response Rule
+
+For every task, state the verification tier used:
+
+```text
+Docs-only
+UI-only lightweight
+UI structural
+Frontend behavior
+Backend/full-stack
+```
+
+Also state why Docker was or was not run.
 
 ## Commit Guardrails
 

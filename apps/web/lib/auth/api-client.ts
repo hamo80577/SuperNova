@@ -2,10 +2,10 @@ import type { AuthResponse } from "./types";
 import { apiRequest } from "@/lib/api/request";
 
 export const authApi = {
-  login(phoneNumber: string, password: string) {
+  login(phoneNumber: string, password: string, rememberMe = false) {
     return apiRequest<AuthResponse>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ phoneNumber, password })
+      body: JSON.stringify({ phoneNumber, password, rememberMe })
     });
   },
   logout() {

@@ -46,13 +46,41 @@ Timeline and approval path visibility
 
 ## Design Priorities
 
-1. Clarity.
-2. Operational speed.
-3. Correct action placement.
-4. Strong hierarchy.
-5. Consistent components.
-6. Safe workflow messaging.
-7. Role-specific experience.
+1. Mobile-first usability.
+2. Clarity.
+3. Operational speed.
+4. Correct action placement.
+5. Strong hierarchy.
+6. Consistent components.
+7. Safe workflow messaging.
+8. Role-specific experience.
+
+## Mobile-First Rule
+
+SuperNova UI must be designed mobile-first because most users are Pickers and Champs using phones.
+
+Mobile-first requirements:
+
+- Design for 360px-430px width first.
+- No horizontal overflow.
+- No random content outside the visible frame.
+- No oversized cards that break mobile screens.
+- Forms must be easy to complete with one hand.
+- Buttons must be large enough for touch.
+- Inputs must be clear and tall enough.
+- Critical actions must be visible without hunting.
+- Tables must become cards or horizontally scroll safely on mobile.
+- Sidebars must not destroy mobile layout.
+- Text must be short, direct, and operational.
+- Avoid dense desktop-only layouts for Champ/Picker screens.
+- Admin/Area Manager can have denser desktop layouts, but mobile must still not break.
+- Every page redesign must include mobile visual verification.
+
+## Login Page Direction
+
+The Login page must be mobile-first, clean, orange-accented, simple, and direct.
+
+It may use a creative illustration panel on desktop, but it must not become crowded or dashboard-like.
 
 ## Role-Specific UX
 
@@ -124,6 +152,21 @@ Screenshot
 -> next page
 ```
 
+Each page redesign must verify:
+
+- mobile layout
+- desktop layout
+- no horizontal overflow
+- touch-friendly controls
+- clear primary action
+- no broken responsive behavior
+
+Use the verification tier policy from `AGENTS.md` and `docs/TECHNICAL_GUARDRAILS.md`.
+
+For UI-only visual changes, run only the web typecheck/lint tier unless the page is structurally changed or ready for final acceptance. Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for UI-only redesign work.
+
+If the local app is already running, use the existing `http://localhost:3000` environment for browser verification instead of recreating containers.
+
 ## Interaction Rules
 
 - Primary action should be obvious.
@@ -185,3 +228,4 @@ Do not overuse random colors.
 - Keep spacing consistent.
 - Avoid huge empty whitespace.
 - Avoid cramped controls.
+- Start layouts from mobile constraints, then expand to tablet and desktop.

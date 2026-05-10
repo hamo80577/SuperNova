@@ -19,7 +19,11 @@ import { replaceRoute } from "@/lib/navigation";
 interface AuthContextValue {
   user: SafeUser | null;
   loading: boolean;
-  login: (phoneNumber: string, password: string) => Promise<AuthResponse>;
+  login: (
+    phoneNumber: string,
+    password: string,
+    rememberMe?: boolean
+  ) => Promise<AuthResponse>;
   logout: () => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -56,9 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      async login(phoneNumber, password) {
+      async login(phoneNumber, password, rememberMe = false) {
         clearApiCache();
-        const response = await authApi.login(phoneNumber, password);
+        const response = await authApi.login(phoneNumber, password, rememberMe);
         setUser(response.user);
         return response;
       },

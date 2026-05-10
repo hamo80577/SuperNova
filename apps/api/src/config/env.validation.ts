@@ -18,6 +18,10 @@ class EnvironmentVariables {
   @IsString()
   JWT_EXPIRES_IN!: string;
 
+  @IsOptional()
+  @IsString()
+  AUTH_REMEMBER_ME_JWT_EXPIRES_IN?: string;
+
   @IsString()
   AUTH_COOKIE_NAME!: string;
 
