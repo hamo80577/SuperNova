@@ -225,7 +225,7 @@ Rules:
 - Verify 360px, 390px, and 430px widths for redesigned pages where practical.
 - Verify touch-friendly controls and clear primary actions on mobile.
 - For UI-only component polish, use the UI-only lightweight verification tier.
-- Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for visual-only component work.
+- Do not restart, reseed, or reset local PostgreSQL for visual-only component work.
 
 ## Icons
 

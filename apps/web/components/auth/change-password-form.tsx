@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { replaceRoute } from "@/lib/navigation";
+import { hideGlobalLoading, showGlobalLoading } from "@/lib/navigation-loading";
 
 const PASSWORD_RULE =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,}$/;
@@ -30,11 +31,16 @@ function ChangePasswordFormInner() {
   const [submitting, setSubmitting] = useState(false);
   const { changePassword, user } = useAuth();
   const router = useRouter();
+  const submittingRef = useRef(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (submittingRef.current || submitting) {
+      return;
+    }
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError("All password fields are required.");
@@ -53,19 +59,22 @@ function ChangePasswordFormInner() {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
+    showGlobalLoading("Changing password");
 
     try {
       const response = await changePassword(currentPassword, newPassword);
       setSuccess("Password changed.");
       replaceRoute(router, response.redirectTo);
     } catch (caughtError) {
+      submittingRef.current = false;
+      hideGlobalLoading();
       setError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to change password."
       );
-    } finally {
       setSubmitting(false);
     }
   }
@@ -81,6 +90,7 @@ function ChangePasswordFormInner() {
 
       <PasswordField
         autoComplete="current-password"
+        disabled={submitting}
         id="current-password"
         label="Current password"
         onChange={setCurrentPassword}
@@ -88,6 +98,7 @@ function ChangePasswordFormInner() {
       />
       <PasswordField
         autoComplete="new-password"
+        disabled={submitting}
         id="new-password"
         label="New password"
         onChange={setNewPassword}
@@ -95,6 +106,7 @@ function ChangePasswordFormInner() {
       />
       <PasswordField
         autoComplete="new-password"
+        disabled={submitting}
         id="confirm-password"
         label="Confirm password"
         onChange={setConfirmPassword}
@@ -121,12 +133,14 @@ function ChangePasswordFormInner() {
 
 function PasswordField({
   autoComplete,
+  disabled,
   id,
   label,
   onChange,
   value
 }: {
   autoComplete: string;
+  disabled?: boolean;
   id: string;
   label: string;
   onChange: (value: string) => void;
@@ -142,6 +156,7 @@ function PasswordField({
         <Input
           autoComplete={autoComplete}
           className="pl-9"
+          disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
           type="password"

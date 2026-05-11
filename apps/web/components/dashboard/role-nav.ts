@@ -7,7 +7,6 @@ import {
   GitBranch,
   Home,
   Map,
-  Network,
   Settings,
   ShieldCheck,
   Store,
@@ -23,69 +22,255 @@ export interface NavItem {
   active?: boolean;
   disabled?: boolean;
   icon: typeof Home;
+  section?: string;
 }
 
 export const roleNavigation: Record<UserRole, NavItem[]> = {
   PICKER: [
-    { label: "Dashboard", href: "/picker/dashboard", active: true, icon: Home },
-    { label: "My Requests", href: "/requests", icon: ClipboardList },
-    { label: "My Profile", disabled: true, icon: UserRound },
+    {
+      label: "Dashboard",
+      href: "/picker/dashboard",
+      active: true,
+      icon: Home,
+      section: "Workspace"
+    },
+    {
+      label: "My Requests",
+      href: "/requests",
+      icon: ClipboardList,
+      section: "Requests"
+    },
+    {
+      label: "My Profile",
+      disabled: true,
+      icon: UserRound,
+      section: "Profile"
+    },
     {
       label: "Profile Completion",
       href: "/picker/profile-completion",
-      icon: ShieldCheck
+      icon: ShieldCheck,
+      section: "Profile"
     }
   ],
   CHAMP: [
-    { label: "Dashboard", href: "/champ/dashboard", active: true, icon: Home },
-    { label: "My Branches", href: "/champ/branches", icon: Store },
-    { label: "Reports", href: "/champ/reports", icon: BarChart3 },
-    { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Pending Actions", href: "/approvals", icon: ShieldCheck },
-    { label: "Notifications", href: "/notifications", icon: Bell }
+    {
+      label: "Dashboard",
+      href: "/champ/dashboard",
+      active: true,
+      icon: Home,
+      section: "Workspace"
+    },
+    {
+      label: "My Branches",
+      href: "/champ/branches",
+      icon: Store,
+      section: "Operations"
+    },
+    {
+      label: "Requests",
+      href: "/requests",
+      icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Pending Actions",
+      href: "/approvals",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Reports",
+      href: "/champ/reports",
+      icon: BarChart3,
+      section: "Reports"
+    },
+    {
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      section: "Workspace"
+    }
   ],
   AREA_MANAGER: [
     {
       label: "Dashboard",
       href: "/area-manager/dashboard",
       active: true,
-      icon: Home
+      icon: Home,
+      section: "Workspace"
     },
-    { label: "Operations Map", disabled: true, icon: Map },
-    { label: "Users Under Me", disabled: true, icon: Users },
-    { label: "Reports", href: "/area-manager/reports", icon: BarChart3 },
-    { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
-    { label: "Notifications", href: "/notifications", icon: Bell }
+    {
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      section: "Workspace"
+    },
+    {
+      label: "Operations Map",
+      disabled: true,
+      icon: Map,
+      section: "Operations"
+    },
+    {
+      label: "Users Under Me",
+      disabled: true,
+      icon: Users,
+      section: "Operations"
+    },
+    {
+      label: "Requests",
+      href: "/requests",
+      icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Approvals",
+      href: "/approvals",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Reports",
+      href: "/area-manager/reports",
+      icon: BarChart3,
+      section: "Reports"
+    }
   ],
   ADMIN: [
-    { label: "Dashboard", href: "/admin/dashboard", icon: Home },
-    { label: "Users", disabled: true, icon: Users },
-    { label: "Chains", href: "/admin/chains", icon: GitBranch },
-    { label: "Vendors", href: "/admin/vendors", icon: Store },
-    { label: "Assignments", href: "/admin/assignments", icon: Network },
-    { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-    { label: "Pending Actions", href: "/admin/pending-actions", icon: ShieldCheck },
-    { label: "Archived Users", href: "/admin/archived-users", icon: Archive },
-    { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
-    { label: "Notifications", href: "/notifications", icon: Bell },
-    { label: "Audit Logs", href: "/admin/audit-logs", icon: FileSearch },
-    { label: "Settings", href: "/admin/settings", icon: Settings }
+    {
+      label: "Dashboard",
+      href: "/admin/dashboard",
+      icon: Home,
+      section: "Workspace"
+    },
+    {
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      section: "Workspace"
+    },
+    {
+      label: "Organization",
+      href: "/admin/organization",
+      icon: GitBranch,
+      section: "Organization Setup"
+    },
+    {
+      label: "Users",
+      href: "/admin/users",
+      icon: Users,
+      section: "Organization Setup"
+    },
+    {
+      label: "Pending Actions",
+      href: "/admin/pending-actions",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Requests",
+      href: "/requests",
+      icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Approvals",
+      href: "/approvals",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Reports",
+      href: "/admin/reports",
+      icon: BarChart3,
+      section: "Reports"
+    },
+    {
+      label: "Archived Users",
+      href: "/admin/archived-users",
+      icon: Archive,
+      section: "Admin Controls"
+    },
+    {
+      label: "Audit Logs",
+      href: "/admin/audit-logs",
+      icon: FileSearch,
+      section: "Admin Controls"
+    },
+    {
+      label: "Settings",
+      href: "/admin/settings",
+      icon: Settings,
+      section: "Settings"
+    }
   ],
   SUPER_ADMIN: [
-    { label: "Dashboard", href: "/admin/dashboard", icon: Home },
-    { label: "Users", disabled: true, icon: Users },
-    { label: "Chains", href: "/admin/chains", icon: GitBranch },
-    { label: "Vendors", href: "/admin/vendors", icon: Store },
-    { label: "Assignments", href: "/admin/assignments", icon: Network },
-    { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-    { label: "Pending Actions", href: "/admin/pending-actions", icon: ShieldCheck },
-    { label: "Archived Users", href: "/admin/archived-users", icon: Archive },
-    { label: "Requests", href: "/requests", icon: ClipboardList },
-    { label: "Approvals", href: "/approvals", icon: ShieldCheck },
-    { label: "Notifications", href: "/notifications", icon: Bell },
-    { label: "Audit Logs", href: "/admin/audit-logs", icon: FileSearch },
-    { label: "Settings", href: "/admin/settings", icon: Settings }
+    {
+      label: "Dashboard",
+      href: "/admin/dashboard",
+      icon: Home,
+      section: "Workspace"
+    },
+    {
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      section: "Workspace"
+    },
+    {
+      label: "Organization",
+      href: "/admin/organization",
+      icon: GitBranch,
+      section: "Organization Setup"
+    },
+    {
+      label: "Users",
+      href: "/admin/users",
+      icon: Users,
+      section: "Organization Setup"
+    },
+    {
+      label: "Pending Actions",
+      href: "/admin/pending-actions",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Requests",
+      href: "/requests",
+      icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Approvals",
+      href: "/approvals",
+      icon: ShieldCheck,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Reports",
+      href: "/admin/reports",
+      icon: BarChart3,
+      section: "Reports"
+    },
+    {
+      label: "Archived Users",
+      href: "/admin/archived-users",
+      icon: Archive,
+      section: "Admin Controls"
+    },
+    {
+      label: "Audit Logs",
+      href: "/admin/audit-logs",
+      icon: FileSearch,
+      section: "Admin Controls"
+    },
+    {
+      label: "Settings",
+      href: "/admin/settings",
+      icon: Settings,
+      section: "Settings"
+    }
   ]
 };

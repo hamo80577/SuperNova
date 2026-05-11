@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ArrowLeft, CheckCircle2, MoveRight } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -37,6 +37,8 @@ type TransferFormValues = z.infer<typeof transferSchema>;
 
 export function ChampTransferForm() {
   const params = useParams<{ vendorId: string }>();
+  const searchParams = useSearchParams();
+  const preselectedPickerId = searchParams.get("pickerId");
   const [state, setState] = useState<
     AsyncState<{ branch: ChampBranchDetail; vendors: Vendor[] }>
   >({ status: "loading" });
@@ -48,6 +50,7 @@ export function ChampTransferForm() {
     formState: { errors },
     handleSubmit,
     register,
+    setValue,
     watch
   } = useForm<TransferFormValues>({
     resolver: zodResolver(transferSchema)
@@ -93,6 +96,23 @@ export function ChampTransferForm() {
       mounted = false;
     };
   }, [params.vendorId]);
+
+  useEffect(() => {
+    if (!preselectedPickerId || state.status !== "ready") {
+      return;
+    }
+
+    const pickerExists = state.data.branch.pickers.some(
+      (item) => item.picker.id === preselectedPickerId
+    );
+
+    if (pickerExists) {
+      setValue("targetUserId", preselectedPickerId, {
+        shouldDirty: true,
+        shouldValidate: true
+      });
+    }
+  }, [preselectedPickerId, setValue, state]);
 
   const selectedPickerId = watch("targetUserId");
   const selectedDestinationId = watch("destinationVendorId");
@@ -223,19 +243,31 @@ export function ChampTransferForm() {
             </div>
           ) : branch.pickers.length && vendors.length ? (
             <form className="mt-5 grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-              <Field error={errors.targetUserId?.message} label="Active Picker">
-                <select
-                  className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-                  {...register("targetUserId")}
-                >
-                  <option value="">Select Picker</option>
-                  {branch.pickers.map(({ picker }) => (
-                    <option key={picker.id} value={picker.id}>
-                      {picker.nameEn} · {picker.phoneNumber}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {preselectedPickerId && selectedPicker ? (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm">
+                  <input type="hidden" {...register("targetUserId")} />
+                  <p className="font-medium text-orange-950">
+                    Picker selected from Branch profile
+                  </p>
+                  <p className="mt-1 text-orange-800">
+                    {selectedPicker.nameEn} · {selectedPicker.phoneNumber}
+                  </p>
+                </div>
+              ) : (
+                <Field error={errors.targetUserId?.message} label="Active Picker">
+                  <select
+                    className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                    {...register("targetUserId")}
+                  >
+                    <option value="">Select Picker</option>
+                    {branch.pickers.map(({ picker }) => (
+                      <option key={picker.id} value={picker.id}>
+                        {picker.nameEn} · {picker.phoneNumber}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field
                 error={errors.destinationVendorId?.message}
                 label="Destination Branch"

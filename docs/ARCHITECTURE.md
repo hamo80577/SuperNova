@@ -172,9 +172,17 @@ Rules:
 
 ## Deployment Architecture
 
-Local and VPS deployment are Docker Compose based.
+Current development is local-only:
 
-Recommended production direction:
+```text
+Local PostgreSQL
+npm workspaces
+npm run dev
+```
+
+Production deployment strategy is deferred and will be decided in a dedicated deployment pass.
+
+Possible future production direction:
 
 ```text
 Cloudflare / HTTPS reverse proxy

@@ -20,6 +20,7 @@ export const approvalsApi = {
     clearApiCache("/approvals");
     clearApiCache("/requests");
     clearApiCache("/workspaces");
+    clearApiCache("/notifications");
     return request;
   },
   async reject(approvalId: string, notes?: string) {
@@ -33,6 +34,7 @@ export const approvalsApi = {
     clearApiCache("/approvals");
     clearApiCache("/requests");
     clearApiCache("/workspaces");
+    clearApiCache("/notifications");
     return request;
   }
 };

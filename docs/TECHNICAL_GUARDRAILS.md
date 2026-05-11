@@ -155,7 +155,7 @@ Use the lightest verification tier that matches the actual change. The goal is c
 
 Use for documentation or instruction edits only.
 
-Do not run Docker, app startup, Prisma, build, lint, or typecheck unless explicitly requested.
+Do not run app startup, Prisma, build, lint, or typecheck unless explicitly requested.
 
 Allowed lightweight checks:
 
@@ -196,13 +196,8 @@ npm run build --workspace @supernova/web
 Do not run for normal UI-only work:
 
 ```text
-docker compose up
-docker compose build
-docker compose --profile app build
-docker compose --profile app up
 prisma migrate
 prisma db seed
-container rebuilds
 database reset
 full-stack restart
 ```
@@ -219,17 +214,15 @@ npm run lint --workspace @supernova/web
 npm run build --workspace @supernova/web
 ```
 
-Do not run Docker unless backend, API, auth server, database, Docker, or environment files were changed.
+Do not run local PostgreSQL/Prisma setup unless backend, API, auth server, database, or environment files were changed.
 
 ### Tier 4 — Backend/full-stack
 
-Only run Docker/PostgreSQL verification when changes touch:
+Only run local PostgreSQL full-stack verification when changes touch:
 
 ```text
 apps/api
 prisma
-docker-compose.yml
-Dockerfile*
 .env examples
 auth backend/cookies/session behavior
 API contracts
@@ -242,15 +235,14 @@ deployment/runtime config
 Backend/full-stack verification may include:
 
 ```powershell
-docker compose up -d postgres
-docker compose ps
-docker compose logs postgres --tail=80
 npm run prisma:generate
 npm run prisma:validate
 npm run prisma:migrate
 npm run db:seed
-docker compose --profile app build --progress=plain
-docker compose --profile app up -d --force-recreate api web
+npm run typecheck
+npm run lint
+npm run build
+npm run dev
 ```
 
 Verify:
@@ -262,7 +254,7 @@ http://localhost:3000/login
 
 ### Existing Local Environment Rule
 
-If Docker or localhost is already running, do not stop, restart, rebuild, or recreate containers unless the current task requires backend/full-stack verification. Use the existing running environment for manual browser checks:
+If the local app is already running, use that existing environment for manual browser checks. Do not stop or restart local services unless the current task requires backend/full-stack verification.
 
 ```text
 http://localhost:3000
@@ -281,7 +273,7 @@ Frontend behavior
 Backend/full-stack
 ```
 
-Also state why Docker was or was not run.
+Also state why local PostgreSQL/app startup was or was not run.
 
 ## Commit Guardrails
 
@@ -302,5 +294,5 @@ temporary credentials
 
 - `requests.service.ts` is large.
 - Automated tests are limited.
-- Docker production image strategy needs a dedicated deployment pass.
+- Production deployment strategy needs a dedicated pass.
 - UI needs page-by-page redesign.

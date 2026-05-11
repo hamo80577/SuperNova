@@ -8,23 +8,30 @@ import {
   FileSearch,
   GitBranch,
   Inbox,
+  Loader2,
   Map,
+  MoveRight,
   Settings,
   ShieldCheck,
   Store,
+  X,
   UserRound,
   Users
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { organizationApi, type Vendor } from "@/lib/api/organization";
+import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
   type AssignmentStatus,
   type EntityStatus,
   type UserSummary,
+  type VendorSummary,
   workspacesApi
 } from "@/lib/api/workspaces";
 
@@ -210,6 +217,10 @@ export function ChampWorkspaceDashboard() {
 
 export function AreaManagerWorkspaceDashboard() {
   const state = useWorkspaceData(workspacesApi.areaManager);
+  const [transferAction, setTransferAction] = useState<{
+    picker: UserSummary;
+    sourceVendor: VendorSummary;
+  } | null>(null);
 
   if (state.status !== "ready") {
     return <WorkspaceState state={state} />;
@@ -267,6 +278,12 @@ export function AreaManagerWorkspaceDashboard() {
                         </div>
                       </div>
                       <UserChips
+                        onTransferPicker={(picker) =>
+                          setTransferAction({
+                            picker,
+                            sourceVendor: vendor.vendor
+                          })
+                        }
                         users={[
                           ...vendor.champs.map((item) => item.champ),
                           ...vendor.pickers.map((item) => item.picker)
@@ -285,6 +302,12 @@ export function AreaManagerWorkspaceDashboard() {
 
       <PlaceholderCard title="Requests placeholder" value={data.placeholders.requests} />
       <PlaceholderCard title="Approvals placeholder" value={data.placeholders.approvals} />
+      {transferAction ? (
+        <AreaManagerTransferModal
+          action={transferAction}
+          onClose={() => setTransferAction(null)}
+        />
+      ) : null}
     </WorkspaceGrid>
   );
 }
@@ -299,111 +322,189 @@ export function AdminWorkspaceDashboard() {
   const data = state.data;
 
   return (
-    <WorkspaceGrid>
-      <HeroCard
-        badge="Admin workspace"
-        description="System-wide operational visibility with links to the controlled management pages."
-        title="Admin Control Center"
-      />
-      <MetricCard icon={GitBranch} label="Chains" value={data.totals.chains} />
-      <MetricCard icon={Store} label="Vendors" value={data.totals.vendors} />
-      <MetricCard icon={Users} label="Users" value={data.totals.users} />
-      <MetricCard
-        icon={Map}
-        label="Active Picker assignments"
-        value={data.totals.activePickerAssignments}
-      />
-
-      <InfoCard title="Organization">
-        <Definition label="Active chains" value={data.totals.activeChains} />
-        <Definition label="Active vendors" value={data.totals.activeVendors} />
-        <Definition
-          label="Active Champ assignments"
-          value={data.totals.activeChampAssignments}
-        />
-        <Definition
-          label="Active Area Manager assignments"
-          value={data.totals.activeAreaManagerAssignments}
-        />
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/chains"
-            prefetch
-          >
-            Manage Chains
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/vendors"
-            prefetch
-          >
-            Manage Vendors
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/assignments"
-            prefetch
-          >
-            Manage Assignments
-          </Link>
+    <div className="grid gap-4">
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.04)]">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-7">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Admin workspace
+            </div>
+            <h1 className="mt-4 text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl">
+              Admin Control Center
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              System-wide operational visibility for organization setup, final
+              actions, archive review, audit history, and role-scoped reporting.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link
+                className={buttonVariants({
+                  className: "rounded-xl bg-primary px-4",
+                  size: "sm"
+                })}
+                href="/admin/pending-actions"
+                prefetch
+              >
+                Pending final actions
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+              <Link
+                className={buttonVariants({
+                  className: "rounded-xl border-slate-200 bg-white",
+                  size: "sm",
+                  variant: "outline"
+                })}
+                href="/admin/reports"
+                prefetch
+              >
+                Open reports
+              </Link>
+            </div>
+          </div>
+          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <Definition label="Active chains" value={data.totals.activeChains} />
+            <Definition label="Active vendors" value={data.totals.activeVendors} />
+            <Definition
+              label="Active Picker assignments"
+              value={data.totals.activePickerAssignments}
+            />
+          </div>
         </div>
-      </InfoCard>
+      </section>
 
-      <InfoCard title="Recent Chains">
-        <SimpleList
-          emptyLabel="No chains available."
-          items={data.recent.chains.map((chain) => ({
-            id: chain.id,
-            label: chain.chainName,
-            meta: chain.chainCode,
-            status: chain.status
-          }))}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon={GitBranch} label="Chains" value={data.totals.chains} />
+        <MetricCard icon={Store} label="Vendors" value={data.totals.vendors} />
+        <MetricCard icon={Users} label="Users" value={data.totals.users} />
+        <MetricCard
+          icon={Map}
+          label="Active Picker assignments"
+          value={data.totals.activePickerAssignments}
         />
-      </InfoCard>
+      </div>
 
-      <InfoCard title="Recent Vendors">
-        <SimpleList
-          emptyLabel="No vendors available."
-          items={data.recent.vendors.map((vendor) => ({
-            id: vendor.id,
-            label: vendor.vendorName,
-            meta: vendor.vendorCode,
-            status: vendor.status
-          }))}
-        />
-      </InfoCard>
+      <div className="grid gap-4 lg:grid-cols-4">
+        <InfoCard title="Organization Setup">
+          <Definition label="Active chains" value={data.totals.activeChains} />
+          <Definition label="Active vendors" value={data.totals.activeVendors} />
+          <Definition
+            label="Active Champ assignments"
+            value={data.totals.activeChampAssignments}
+          />
+          <Definition
+            label="Active Area Manager assignments"
+            value={data.totals.activeAreaManagerAssignments}
+          />
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <AdminControlLink
+              description="Chains, Branches, and assignments."
+              href="/admin/organization"
+              icon={GitBranch}
+              label="Organization"
+            />
+            <AdminControlLink
+              description="Partner Branch records."
+              href="/admin/organization"
+              icon={Store}
+              label="Vendors"
+            />
+            <AdminControlLink
+              description="Role assignment links."
+              href="/admin/organization"
+              icon={Map}
+              label="Assignments"
+            />
+          </div>
+        </InfoCard>
 
-      <InfoCard title="Pending Admin Actions">
-        <AdminControlLink
-          description="Review New Hire Shopper ID and offboarding finalization work."
-          href="/admin/pending-actions"
-          icon={ClipboardCheck}
-          label="Open pending final actions"
-        />
-      </InfoCard>
+        <InfoCard title="Pending Final Actions">
+          <AdminControlLink
+            description="Review New Hire Shopper ID and offboarding finalization work."
+            href="/admin/pending-actions"
+            icon={ClipboardCheck}
+            label="Open pending final actions"
+          />
+          <AdminControlLink
+            description="Review approval queues without bypassing workflow state."
+            href="/approvals"
+            icon={ShieldCheck}
+            label="Open approvals"
+          />
+          <AdminControlLink
+            description="Inspect request records and their current workflow status."
+            href="/requests"
+            icon={Inbox}
+            label="Open requests"
+          />
+        </InfoCard>
 
-      <InfoCard title="Archive & Audit">
-        <AdminControlLink
-          description="Inspect archived/deactivated users and block status."
-          href="/admin/archived-users"
-          icon={Archive}
-          label="View archived users"
-        />
-        <AdminControlLink
-          description="Review workflow, approval, assignment, and account audit events."
-          href="/admin/audit-logs"
-          icon={FileSearch}
-          label="View audit logs"
-        />
-        <AdminControlLink
-          description="Read-only Phase 10 placeholders for future system settings."
-          href="/admin/settings"
-          icon={Settings}
-          label="Open settings placeholders"
-        />
-      </InfoCard>
-    </WorkspaceGrid>
+        <InfoCard title="Archive & Audit">
+          <AdminControlLink
+            description="Inspect archived/deactivated users and block status."
+            href="/admin/archived-users"
+            icon={Archive}
+            label="View archived users"
+          />
+          <AdminControlLink
+            description="Review workflow, approval, assignment, and account audit events."
+            href="/admin/audit-logs"
+            icon={FileSearch}
+            label="View audit logs"
+          />
+          <AdminControlLink
+            description="Read-only Phase 10 placeholders for future system settings."
+            href="/admin/settings"
+            icon={Settings}
+            label="Open settings placeholders"
+          />
+        </InfoCard>
+
+        <InfoCard title="Reports">
+          <AdminControlLink
+            description="Open system-wide operational counts and scoped report surfaces."
+            href="/admin/reports"
+            icon={ClipboardCheck}
+            label="Open admin reports"
+          />
+          <SimpleList
+            emptyLabel="No chains available."
+            items={data.recent.chains.map((chain) => ({
+              id: chain.id,
+              label: chain.chainName,
+              meta: chain.chainCode,
+              status: chain.status
+            }))}
+          />
+        </InfoCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        <InfoCard title="Recent Chains">
+          <SimpleList
+            emptyLabel="No chains available."
+            items={data.recent.chains.map((chain) => ({
+              id: chain.id,
+              label: chain.chainName,
+              meta: chain.chainCode,
+              status: chain.status
+            }))}
+          />
+        </InfoCard>
+
+        <InfoCard title="Recent Vendors">
+          <SimpleList
+            emptyLabel="No vendors available."
+            items={data.recent.vendors.map((vendor) => ({
+              id: vendor.id,
+              label: vendor.vendorName,
+              meta: vendor.vendorCode,
+              status: vendor.status
+            }))}
+          />
+        </InfoCard>
+      </div>
+    </div>
   );
 }
 
@@ -498,17 +599,21 @@ function MetricCard({
   value: number | string;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <Icon className="h-5 w-5 text-primary" />
-      <p className="mt-4 text-2xl font-semibold">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.03)]">
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-orange-50 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="mt-4 text-2xl font-semibold tracking-normal text-slate-950">
+        {value}
+      </p>
+      <p className="mt-1 text-sm text-slate-500">{label}</p>
     </section>
   );
 }
 
 function InfoCard({ children, title }: { children: ReactNode; title: string }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-2">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.03)] lg:col-span-2">
       <SectionHeader title={title} />
       <div className="mt-4 grid gap-3">{children}</div>
     </section>
@@ -538,14 +643,16 @@ function AdminControlLink({
 }) {
   return (
     <Link
-      className="flex items-start gap-3 rounded-md border bg-background p-3 transition-colors hover:bg-muted"
+      className="group flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-orange-200 hover:bg-orange-50"
       href={href}
       prefetch
     >
-      <Icon className="mt-0.5 h-4 w-4 text-primary" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <span>
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+        <span className="block text-sm font-semibold text-slate-950">
+          {label}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">
           {description}
         </span>
       </span>
@@ -562,9 +669,9 @@ function SectionHeader({
 }) {
   return (
     <div>
-      <h2 className="text-base font-semibold">{title}</h2>
+      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
       {description ? (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-1 text-sm text-slate-500">{description}</p>
       ) : null}
     </div>
   );
@@ -573,13 +680,19 @@ function SectionHeader({
 function Definition({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0 last:pb-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <span className="text-sm text-slate-500">{label}</span>
+      <span className="text-sm font-semibold text-slate-950">{value}</span>
     </div>
   );
 }
 
-function UserChips({ users }: { users: UserSummary[] }) {
+function UserChips({
+  onTransferPicker,
+  users
+}: {
+  onTransferPicker?: (user: UserSummary) => void;
+  users: UserSummary[];
+}) {
   if (!users.length) {
     return <EmptyInline message="No active assigned users in this branch." />;
   }
@@ -587,10 +700,219 @@ function UserChips({ users }: { users: UserSummary[] }) {
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {users.map((user) => (
-        <Badge key={user.id} variant="outline">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700"
+          key={user.id}
+        >
           {user.nameEn} · {user.role}
-        </Badge>
+          {user.role === "PICKER" && onTransferPicker ? (
+            <button
+              className="ml-1 rounded-full border border-orange-200 px-2 py-0.5 text-orange-700 hover:bg-orange-50"
+              onClick={() => onTransferPicker(user)}
+              type="button"
+            >
+              Transfer
+            </button>
+          ) : null}
+        </span>
       ))}
+    </div>
+  );
+}
+
+function AreaManagerTransferModal({
+  action,
+  onClose
+}: {
+  action: { picker: UserSummary; sourceVendor: VendorSummary };
+  onClose: () => void;
+}) {
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [destinationVendorId, setDestinationVendorId] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [createdRequest, setCreatedRequest] = useState<RequestSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadVendors() {
+      setIsLoading(true);
+      try {
+        const firstPage = await organizationApi.listVendors({
+          page: 1,
+          pageSize: 100,
+          status: "ACTIVE"
+        });
+        const remainingPages = await Promise.all(
+          Array.from(
+            { length: Math.max(0, firstPage.meta.totalPages - 1) },
+            (_, index) =>
+              organizationApi.listVendors({
+                page: index + 2,
+                pageSize: 100,
+                status: "ACTIVE"
+              })
+          )
+        );
+        if (mounted) {
+          setVendors([
+            ...firstPage.items,
+            ...remainingPages.flatMap((page) => page.items)
+          ]);
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load destination Branches."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadVendors();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      try {
+        const request = await requestsApi.createTransfer({
+          sourceVendorId: action.sourceVendor.id,
+          targetUserId: action.picker.id,
+          destinationVendorId,
+          reason
+        });
+        setCreatedRequest(request);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to create Transfer request."
+        );
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
+      <div className="max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:max-w-lg sm:rounded-[28px] sm:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <Badge variant="outline">Area Manager Transfer</Badge>
+            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+              Transfer Picker
+            </h2>
+          </div>
+          <Button
+            aria-label="Close transfer modal"
+            className="h-10 w-10 rounded-xl p-0"
+            onClick={onClose}
+            type="button"
+            variant="outline"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {createdRequest ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <p className="font-semibold">Transfer request created.</p>
+            <p className="mt-1">
+              Status: {formatEnum(createdRequest.status)}. Current step:{" "}
+              {createdRequest.currentStep
+                ? formatEnum(createdRequest.currentStep)
+                : "Completed"}.
+            </p>
+            <Link
+              className={buttonVariants({
+                className: "mt-3 rounded-xl bg-white",
+                size: "sm",
+                variant: "outline"
+              })}
+              href={`/requests/${createdRequest.id}`}
+              prefetch
+            >
+              Open request detail
+            </Link>
+          </div>
+        ) : (
+          <form className="grid gap-4" onSubmit={onSubmit}>
+            {error ? <ModalError message={error} /> : null}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+              <p className="font-semibold text-slate-950">{action.picker.nameEn}</p>
+              <p className="text-slate-500">
+                {action.picker.phoneNumber} · From {action.sourceVendor.vendorName}
+              </p>
+            </div>
+            <label className="grid gap-1 text-sm font-medium">
+              Destination Branch
+              <select
+                className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                disabled={isLoading}
+                onChange={(event) => setDestinationVendorId(event.target.value)}
+                required
+                value={destinationVendorId}
+              >
+                <option value="">
+                  {isLoading ? "Loading Branches..." : "Select destination Branch"}
+                </option>
+                {vendors
+                  .filter((vendor) => vendor.id !== action.sourceVendor.id)
+                  .map((vendor) => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.vendorName} · {vendor.chain.chainName}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Reason
+              <Input
+                className="h-11 rounded-xl"
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Example: operational branch move"
+                required
+                value={reason}
+              />
+            </label>
+            <div className="rounded-2xl border border-orange-100 bg-orange-50 p-3 text-sm text-orange-900">
+              <MoveRight className="mb-2 h-4 w-4" />
+              Same-chain transfers complete immediately for your Chain. Cross-chain
+              transfers wait for destination Area Manager approval.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button onClick={onClose} type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button disabled={isPending || isLoading} type="submit">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Submit Transfer
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ModalError({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+      {message}
     </div>
   );
 }
@@ -615,12 +937,12 @@ function SimpleList({
     <div className="grid gap-2">
       {items.map((item) => (
         <div
-          className="flex items-center justify-between gap-3 rounded-md border bg-background p-3"
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
           key={item.id}
         >
           <div>
-            <p className="text-sm font-medium">{item.label}</p>
-            <p className="text-xs text-muted-foreground">{item.meta}</p>
+            <p className="text-sm font-semibold text-slate-950">{item.label}</p>
+            <p className="text-xs text-slate-500">{item.meta}</p>
           </div>
           <StatusBadge status={item.status} />
         </div>
@@ -648,4 +970,12 @@ function formatDate(value?: string | null) {
   }
 
   return new Date(value).toLocaleDateString();
+}
+
+function formatEnum(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

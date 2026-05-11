@@ -163,9 +163,9 @@ Each page redesign must verify:
 
 Use the verification tier policy from `AGENTS.md` and `docs/TECHNICAL_GUARDRAILS.md`.
 
-For UI-only visual changes, run only the web typecheck/lint tier unless the page is structurally changed or ready for final acceptance. Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for UI-only redesign work.
+For UI-only visual changes, run only the web typecheck/lint tier unless the page is structurally changed or ready for final acceptance. Do not restart, reseed, or reset local PostgreSQL for UI-only redesign work.
 
-If the local app is already running, use the existing `http://localhost:3000` environment for browser verification instead of recreating containers.
+If the local app is already running, use the existing `http://localhost:3000` environment for browser verification instead of restarting local services.
 
 ## Interaction Rules
 

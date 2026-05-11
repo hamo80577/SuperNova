@@ -57,7 +57,7 @@ Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
 Architecture: modular monolith
-Deployment: Docker Compose / VPS-ready
+Current dev mode: Local PostgreSQL + npm workspaces
 ```
 
 ## Repository Shape
@@ -71,7 +71,6 @@ supernova/
     shared/
   prisma/
   docs/
-  docker-compose.yml
   AGENTS.md
   README.md
 ```
@@ -160,7 +159,32 @@ GET /api/reports/champ/overview
 
 ## Local Development
 
-1. Copy environment files.
+SuperNova currently runs in local-only development mode:
+
+```text
+Local PostgreSQL
+npm workspaces
+npm run dev
+Prisma migrations against local PostgreSQL
+```
+
+Docker is not part of the current repo or daily development workflow.
+
+1. Install Node.js/npm.
+
+Use a current Node.js version compatible with the repo package manager.
+
+2. Install PostgreSQL locally on Windows.
+
+Create a local database:
+
+```powershell
+createdb -U postgres -h localhost -p 5432 supernova
+```
+
+If the database already exists, keep it.
+
+3. Copy environment files.
 
 ```powershell
 Copy-Item .env.example .env
@@ -168,19 +192,27 @@ Copy-Item apps\api\.env.example apps\api\.env
 Copy-Item apps\web\.env.example apps\web\.env.local
 ```
 
-2. Install dependencies.
+Configure local values:
+
+```text
+DATABASE_URL="postgresql://postgres:<LOCAL_PASSWORD>@localhost:5432/supernova"
+API_PORT=4000
+WEB_ORIGIN=http://localhost:3000
+JWT_SECRET=<long local-only random secret>
+JWT_EXPIRES_IN=8h
+AUTH_COOKIE_NAME=supernova_session
+NEXT_PUBLIC_API_URL=http://localhost:4000
+```
+
+Never commit local `.env` files or secrets.
+
+4. Install dependencies.
 
 ```powershell
 npm install
 ```
 
-3. Start PostgreSQL.
-
-```powershell
-docker compose up -d postgres
-```
-
-4. Run Prisma.
+5. Run Prisma.
 
 ```powershell
 npm run prisma:generate
@@ -188,13 +220,13 @@ npm run prisma:validate
 npm run prisma:migrate
 ```
 
-5. Seed local development data.
+6. Seed local development data.
 
 ```powershell
 npm run db:seed
 ```
 
-6. Start the apps.
+7. Start the apps.
 
 ```powershell
 npm run dev
@@ -207,14 +239,6 @@ Web: http://localhost:3000
 API: http://localhost:4000
 Health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
-```
-
-## Docker App Profile
-
-```powershell
-docker compose --profile app build --progress=plain
-docker compose --profile app up -d --force-recreate api web
-docker compose ps
 ```
 
 ## Documentation Map
@@ -235,6 +259,6 @@ docker compose ps
 
 - `requests.service.ts` is large and should be split carefully later.
 - Automated tests are limited.
-- Docker app profile currently targets development flow.
+- Production deployment strategy is not finalized.
 - Next/PostCSS moderate audit warnings may remain until safe dependency updates are available.
 - UI/UX needs page-by-page redesign.

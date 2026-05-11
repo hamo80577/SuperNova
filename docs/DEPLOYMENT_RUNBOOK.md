@@ -2,7 +2,22 @@
 
 ## Purpose
 
-This file is the practical runbook for local and VPS-style deployment.
+This file is the practical runbook for the current local development mode and the future production deployment pass.
+
+## Current Deployment Posture
+
+SuperNova is local-only for the current development stage.
+
+Current mode:
+
+```text
+Local PostgreSQL
+npm workspaces
+Prisma migrations against local PostgreSQL
+npm run dev
+```
+
+Production deployment strategy will be revisited later. A future deployment pass may choose Docker again, PM2, systemd, managed hosting, or another VPS strategy. Do not invent or assume the final production strategy during normal feature/UI work.
 
 ## Local Development
 
@@ -12,7 +27,25 @@ This file is the practical runbook for local and VPS-style deployment.
 npm install
 ```
 
-### 2. Prepare environment
+### 2. Install PostgreSQL locally
+
+Install PostgreSQL on Windows and make sure `psql` is available.
+
+Create the local database if it does not exist:
+
+```powershell
+createdb -U postgres -h localhost -p 5432 supernova
+```
+
+Use:
+
+```text
+database: supernova
+host: localhost
+port: 5432
+```
+
+### 3. Prepare environment
 
 ```powershell
 Copy-Item .env.example .env
@@ -23,21 +56,16 @@ Copy-Item apps\web\.env.example apps\web\.env.local
 Set at minimum:
 
 ```text
-DATABASE_URL=
-JWT_SECRET=
+DATABASE_URL="postgresql://postgres:<LOCAL_PASSWORD>@localhost:5432/supernova"
+API_PORT=4000
 WEB_ORIGIN=http://localhost:3000
+JWT_SECRET=<long local-only random secret>
+JWT_EXPIRES_IN=8h
+AUTH_COOKIE_NAME=supernova_session
 NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
 
-Use a long random `JWT_SECRET`.
-
-### 3. Start PostgreSQL
-
-```powershell
-docker compose up -d postgres
-docker compose ps
-docker compose logs postgres --tail=80
-```
+Never commit local `.env` files or secrets.
 
 ### 4. Prisma
 
@@ -70,55 +98,32 @@ Health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
 ```
 
-## Docker App Profile
+## Local Database Reset
+
+Use carefully. This removes local development data from the local PostgreSQL database.
 
 ```powershell
-docker compose --profile app build --progress=plain
-docker compose --profile app up -d --force-recreate api web
-docker compose ps
-```
-
-Health checks:
-
-```powershell
-curl http://localhost:4000/api/health
-curl -I http://localhost:3000/login
-```
-
-## Database Reset for Local Development
-
-Use carefully. This removes local development data.
-
-```powershell
-docker compose down -v --remove-orphans
-docker compose up -d postgres
 npm run prisma:migrate
 npm run db:seed
 ```
 
-Do not run broad destructive Docker prune commands unless you know what will be deleted.
+If a destructive local reset is needed, perform it explicitly with PostgreSQL tools after confirming the target database is `supernova`.
 
-## VPS Deployment Direction
+## Future Production Deployment
 
-Recommended high-level setup:
+Production deployment is deferred.
+
+Before production launch, make a dedicated deployment decision and document it. The future strategy may use:
 
 ```text
-Cloudflare / HTTPS reverse proxy
--> Web container
--> API container
--> PostgreSQL container or managed PostgreSQL
+PM2
+systemd services
+managed platform hosting
+container-based deployment
+another VPS strategy
 ```
 
-Startup order:
-
-1. Prepare environment variables.
-2. Start PostgreSQL.
-3. Run Prisma migrations.
-4. Seed only if a controlled bootstrap user is needed.
-5. Start API.
-6. Start Web.
-7. Verify health and login.
-8. Put Cloudflare/HTTPS in front.
+Do not treat any strategy as final until that deployment pass is completed.
 
 ## Required Production Environment
 
@@ -191,4 +196,4 @@ Before production launch, define:
 - Confirm API health.
 - Confirm login.
 - Confirm core workflows.
-- Confirm Cloudflare/HTTPS routing.
+- Confirm production routing strategy.

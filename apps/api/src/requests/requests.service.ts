@@ -26,7 +26,6 @@ import {
   Vendor
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
 
 import { AuditService } from "../audit/audit.service";
 import { toUserSummary } from "../assignments/assignment-response.utils";
@@ -34,6 +33,7 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { findSensitiveJsonKey } from "../security/sensitive-data.utils";
+import { TemporaryPasswordService } from "../users/temporary-password.service";
 import type { CancelRequestDto } from "./dto/cancel-request.dto";
 import type { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
 import type { CreateOffboardingRequestDto } from "./dto/create-offboarding-request.dto";
@@ -175,7 +175,9 @@ export class RequestsService {
     @Inject(NotificationsService)
     private readonly notificationsService: NotificationsService,
     @Inject(PrismaService)
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
+    @Inject(TemporaryPasswordService)
+    private readonly temporaryPasswordService: TemporaryPasswordService
   ) {}
 
   getFoundationStatus() {
@@ -293,49 +295,60 @@ export class RequestsService {
   }
 
   async createNewHire(dto: CreateNewHireRequestDto, context: RequestContext) {
-    if (context.actor.role !== UserRole.CHAMP) {
-      throw new ForbiddenException("Only Champs can submit New Hire requests.");
+    if (context.actor.role !== UserRole.CHAMP && !this.isAdmin(context.actor)) {
+      throw new ForbiddenException(
+        "Only Champs and Admins can submit New Hire requests."
+      );
     }
 
     const candidate = this.normalizeNewHireCandidate(dto);
 
-    const assignment = await this.prisma.vendorChampAssignment.findFirst({
-      where: {
-        champId: context.actor.id,
-        vendorId: dto.sourceVendorId,
-        status: AssignmentStatus.ACTIVE
-      },
-      include: {
-        vendor: {
+    const sourceVendor = this.isAdmin(context.actor)
+      ? await this.prisma.vendor.findUnique({
+          where: { id: dto.sourceVendorId },
           include: { chain: true }
-        }
-      }
-    });
+        })
+      : (
+          await this.prisma.vendorChampAssignment.findFirst({
+            where: {
+              champId: context.actor.id,
+              vendorId: dto.sourceVendorId,
+              status: AssignmentStatus.ACTIVE
+            },
+            include: {
+              vendor: {
+                include: { chain: true }
+              }
+            }
+          })
+        )?.vendor;
 
-    if (!assignment) {
+    if (!sourceVendor) {
       throw new ForbiddenException(
-        "You can submit New Hire requests only for assigned active Branches."
+        this.isAdmin(context.actor)
+          ? "Selected Branch was not found."
+          : "You can submit New Hire requests only for assigned active Branches."
       );
     }
 
-    if (assignment.vendor.status !== VendorStatus.ACTIVE) {
+    if (sourceVendor.status !== VendorStatus.ACTIVE) {
       throw new BadRequestException("Selected Branch is not active.");
     }
 
-    if (assignment.vendor.chain.status !== ChainStatus.ACTIVE) {
+    if (sourceVendor.chain.status !== ChainStatus.ACTIVE) {
       throw new BadRequestException("Selected Branch Chain is not active.");
     }
 
     const areaManagerStep = await this.resolveAreaManagerStep(
       ApprovalStep.AREA_MANAGER_APPROVAL,
-      assignment.vendor.chainId
+      sourceVendor.chainId
     );
 
     const payload: NewHirePayload = {
       candidate,
       source: {
-        vendorId: assignment.vendorId,
-        chainId: assignment.vendor.chainId
+        vendorId: sourceVendor.id,
+        chainId: sourceVendor.chainId
       }
     };
 
@@ -348,8 +361,8 @@ export class RequestsService {
           status: RequestStatus.PENDING_AREA_MANAGER,
           currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
           createdById: context.actor.id,
-          sourceVendorId: assignment.vendorId,
-          sourceChainId: assignment.vendor.chainId,
+          sourceVendorId: sourceVendor.id,
+          sourceChainId: sourceVendor.chainId,
           payload: payload as Prisma.InputJsonValue
         }
       });
@@ -448,7 +461,7 @@ export class RequestsService {
             userId: areaManagerStep.approverId,
             type: "APPROVAL_PENDING",
             title: "New Hire approval pending",
-            body: `New Hire request for ${assignment.vendor.vendorName} requires your approval.`,
+            body: `New Hire request for ${sourceVendor.vendorName} requires your approval.`,
             payload: {
               requestId: request.id,
               step: areaManagerStep.step
@@ -470,22 +483,41 @@ export class RequestsService {
     dto: CreateOffboardingRequestDto,
     context: RequestContext
   ) {
-    if (context.actor.role !== UserRole.CHAMP) {
+    if (context.actor.role !== UserRole.CHAMP && !this.isAdmin(context.actor)) {
       throw new ForbiddenException(
-        "Only Champs can submit Resignation or Termination requests."
+        "Only Champs and Admins can submit Resignation or Termination requests."
       );
     }
 
     const offboarding = this.normalizeOffboardingRequest(dto);
 
-    const assignment = await this.prisma.vendorChampAssignment.findFirst({
-      where: {
-        champId: context.actor.id,
-        vendorId: dto.sourceVendorId,
-        status: AssignmentStatus.ACTIVE
-      },
-      include: {
-        vendor: {
+    const assignment = this.isAdmin(context.actor)
+      ? null
+      : await this.prisma.vendorChampAssignment.findFirst({
+          where: {
+            champId: context.actor.id,
+            vendorId: dto.sourceVendorId,
+            status: AssignmentStatus.ACTIVE
+          },
+          include: {
+            vendor: {
+              include: {
+                chain: true,
+                pickerAssignments: {
+                  where: {
+                    pickerId: dto.targetUserId,
+                    status: AssignmentStatus.ACTIVE
+                  },
+                  include: { picker: true }
+                }
+              }
+            }
+          }
+        });
+
+    const adminVendor = this.isAdmin(context.actor)
+      ? await this.prisma.vendor.findUnique({
+          where: { id: dto.sourceVendorId },
           include: {
             chain: true,
             pickerAssignments: {
@@ -496,25 +528,32 @@ export class RequestsService {
               include: { picker: true }
             }
           }
-        }
-      }
-    });
+        })
+      : null;
 
-    if (!assignment) {
+    const sourceContext = assignment
+      ? { vendorId: assignment.vendorId, vendor: assignment.vendor }
+      : adminVendor
+        ? { vendorId: adminVendor.id, vendor: adminVendor }
+        : null;
+
+    if (!sourceContext) {
       throw new ForbiddenException(
-        "You can submit offboarding requests only for assigned active Branches."
+        this.isAdmin(context.actor)
+          ? "Selected Branch was not found."
+          : "You can submit offboarding requests only for assigned active Branches."
       );
     }
 
-    if (assignment.vendor.status !== VendorStatus.ACTIVE) {
+    if (sourceContext.vendor.status !== VendorStatus.ACTIVE) {
       throw new BadRequestException("Selected Branch is not active.");
     }
 
-    if (assignment.vendor.chain.status !== ChainStatus.ACTIVE) {
+    if (sourceContext.vendor.chain.status !== ChainStatus.ACTIVE) {
       throw new BadRequestException("Selected Branch Chain is not active.");
     }
 
-    const pickerAssignment = assignment.vendor.pickerAssignments[0];
+    const pickerAssignment = sourceContext.vendor.pickerAssignments[0];
     if (!pickerAssignment) {
       throw new BadRequestException(
         "Selected Picker is not actively assigned to this Branch."
@@ -553,14 +592,14 @@ export class RequestsService {
 
     const areaManagerStep = await this.resolveAreaManagerStep(
       ApprovalStep.AREA_MANAGER_APPROVAL,
-      assignment.vendor.chainId
+      sourceContext.vendor.chainId
     );
 
     const payload: OffboardingPayload = {
       offboarding,
       source: {
-        vendorId: assignment.vendorId,
-        chainId: assignment.vendor.chainId
+        vendorId: sourceContext.vendorId,
+        chainId: sourceContext.vendor.chainId
       },
       target: {
         pickerId: pickerAssignment.pickerId,
@@ -578,8 +617,8 @@ export class RequestsService {
           currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
           createdById: context.actor.id,
           targetUserId: pickerAssignment.pickerId,
-          sourceVendorId: assignment.vendorId,
-          sourceChainId: assignment.vendor.chainId,
+          sourceVendorId: sourceContext.vendorId,
+          sourceChainId: sourceContext.vendor.chainId,
           payload: payload as Prisma.InputJsonValue
         }
       });
@@ -679,7 +718,7 @@ export class RequestsService {
             userId: areaManagerStep.approverId,
             type: "APPROVAL_PENDING",
             title: `${this.formatRequestType(offboarding.type)} approval pending`,
-            body: `${this.formatRequestType(offboarding.type)} request for ${assignment.vendor.vendorName} requires your approval.`,
+            body: `${this.formatRequestType(offboarding.type)} request for ${sourceContext.vendor.vendorName} requires your approval.`,
             payload: {
               requestId: request.id,
               step: areaManagerStep.step,
@@ -699,8 +738,15 @@ export class RequestsService {
   }
 
   async createTransfer(dto: CreateTransferRequestDto, context: RequestContext) {
-    if (context.actor.role !== UserRole.CHAMP) {
-      throw new ForbiddenException("Only Champs can submit Transfer requests.");
+    const canSubmitTransfer =
+      context.actor.role === UserRole.CHAMP ||
+      context.actor.role === UserRole.AREA_MANAGER ||
+      this.isAdmin(context.actor);
+
+    if (!canSubmitTransfer) {
+      throw new ForbiddenException(
+        "Only Champs, Area Managers, and Admins can submit Transfer requests."
+      );
     }
 
     const transfer = this.normalizeTransferRequest(dto);
@@ -711,59 +757,87 @@ export class RequestsService {
       );
     }
 
-    const [sourceAssignment, destinationVendor] = await Promise.all([
-      this.prisma.vendorChampAssignment.findFirst({
+    const [
+      sourcePickerAssignment,
+      champSourceAssignment,
+      areaManagerSourceAssignment,
+      destinationVendor
+    ] = await Promise.all([
+      this.prisma.pickerBranchAssignment.findFirst({
         where: {
-          champId: context.actor.id,
+          pickerId: dto.targetUserId,
           vendorId: dto.sourceVendorId,
           status: AssignmentStatus.ACTIVE
         },
         include: {
+          picker: true,
           vendor: {
-            include: {
-              chain: true,
-              pickerAssignments: {
-                where: {
-                  pickerId: dto.targetUserId,
-                  status: AssignmentStatus.ACTIVE
-                },
-                include: { picker: true }
-              }
-            }
+            include: { chain: true }
           }
         }
       }),
+      context.actor.role === UserRole.CHAMP
+        ? this.prisma.vendorChampAssignment.findFirst({
+            where: {
+              champId: context.actor.id,
+              vendorId: dto.sourceVendorId,
+              status: AssignmentStatus.ACTIVE
+            }
+          })
+        : null,
+      context.actor.role === UserRole.AREA_MANAGER
+        ? this.prisma.chainAreaManagerAssignment.findFirst({
+            where: {
+              areaManagerId: context.actor.id,
+              chain: {
+                vendors: {
+                  some: { id: dto.sourceVendorId }
+                }
+              },
+              status: AssignmentStatus.ACTIVE
+            }
+          })
+        : null,
       this.prisma.vendor.findUnique({
         where: { id: dto.destinationVendorId },
         include: { chain: true }
       })
     ]);
 
-    if (!sourceAssignment) {
+    if (!sourcePickerAssignment) {
       throw new ForbiddenException(
-        "You can submit Transfer requests only from assigned active Branches."
+        this.isAdmin(context.actor)
+          ? "Selected Picker is not actively assigned to the source Branch."
+          : context.actor.role === UserRole.AREA_MANAGER
+            ? "Selected Picker is not actively assigned to a Branch in your Chain scope."
+          : "You can submit Transfer requests only from assigned active Branches."
       );
     }
 
-    if (sourceAssignment.vendor.status !== VendorStatus.ACTIVE) {
+    if (context.actor.role === UserRole.CHAMP && !champSourceAssignment) {
+      throw new ForbiddenException(
+        "You can submit Transfer requests only from Branches you currently manage."
+      );
+    }
+
+    if (context.actor.role === UserRole.AREA_MANAGER && !areaManagerSourceAssignment) {
+      throw new ForbiddenException(
+        "Area Managers can transfer only Pickers from Chains they currently manage."
+      );
+    }
+
+    if (sourcePickerAssignment.vendor.status !== VendorStatus.ACTIVE) {
       throw new BadRequestException("Source Branch is not active.");
     }
 
-    if (sourceAssignment.vendor.chain.status !== ChainStatus.ACTIVE) {
+    if (sourcePickerAssignment.vendor.chain.status !== ChainStatus.ACTIVE) {
       throw new BadRequestException("Source Branch Chain is not active.");
     }
 
-    const pickerAssignment = sourceAssignment.vendor.pickerAssignments[0];
-    if (!pickerAssignment) {
-      throw new BadRequestException(
-        "Selected Picker is not actively assigned to the source Branch."
-      );
-    }
-
     if (
-      pickerAssignment.picker.role !== UserRole.PICKER ||
-      pickerAssignment.picker.accountStatus !== AccountStatus.ACTIVE ||
-      pickerAssignment.picker.employmentStatus !== EmploymentStatus.ACTIVE
+      sourcePickerAssignment.picker.role !== UserRole.PICKER ||
+      sourcePickerAssignment.picker.accountStatus !== AccountStatus.ACTIVE ||
+      sourcePickerAssignment.picker.employmentStatus !== EmploymentStatus.ACTIVE
     ) {
       throw new BadRequestException(
         "Selected user must be an active Picker under this Branch."
@@ -785,7 +859,7 @@ export class RequestsService {
     const duplicateTransfer = await this.prisma.request.findFirst({
       where: {
         type: RequestType.TRANSFER,
-        targetUserId: pickerAssignment.pickerId,
+        targetUserId: sourcePickerAssignment.pickerId,
         status: {
           notIn: [
             RequestStatus.REJECTED,
@@ -805,7 +879,7 @@ export class RequestsService {
     const pendingOffboarding = await this.prisma.request.findFirst({
       where: {
         type: { in: [RequestType.RESIGNATION, RequestType.TERMINATION] },
-        targetUserId: pickerAssignment.pickerId,
+        targetUserId: sourcePickerAssignment.pickerId,
         status: {
           notIn: [
             RequestStatus.REJECTED,
@@ -824,10 +898,10 @@ export class RequestsService {
 
     const sourceStep = await this.resolveAreaManagerStep(
       ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL,
-      sourceAssignment.vendor.chainId
+      sourcePickerAssignment.vendor.chainId
     );
     const isCrossChain =
-      sourceAssignment.vendor.chainId !== destinationVendor.chainId;
+      sourcePickerAssignment.vendor.chainId !== destinationVendor.chainId;
     const destinationStep = isCrossChain
       ? await this.resolveAreaManagerStep(
           ApprovalStep.DESTINATION_AREA_MANAGER_APPROVAL,
@@ -841,22 +915,25 @@ export class RequestsService {
         approvalPath: isCrossChain ? "CROSS_CHAIN" : "SAME_CHAIN"
       },
       source: {
-        vendorId: sourceAssignment.vendorId,
-        chainId: sourceAssignment.vendor.chainId,
-        pickerAssignmentId: pickerAssignment.id
+        vendorId: sourcePickerAssignment.vendorId,
+        chainId: sourcePickerAssignment.vendor.chainId,
+        pickerAssignmentId: sourcePickerAssignment.id
       },
       destination: {
         vendorId: destinationVendor.id,
         chainId: destinationVendor.chainId
       },
       target: {
-        pickerId: pickerAssignment.pickerId
+        pickerId: sourcePickerAssignment.pickerId
       }
     };
 
     this.assertPayloadSafe(payload as unknown as Record<string, unknown>);
 
     const steps = destinationStep ? [sourceStep, destinationStep] : [sourceStep];
+    const shouldAutoApproveSource =
+      context.actor.role === UserRole.AREA_MANAGER &&
+      sourceStep.approverId === context.actor.id;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const request = await tx.request.create({
@@ -865,9 +942,9 @@ export class RequestsService {
           status: RequestStatus.PENDING_AREA_MANAGER,
           currentStep: ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL,
           createdById: context.actor.id,
-          targetUserId: pickerAssignment.pickerId,
-          sourceVendorId: sourceAssignment.vendorId,
-          sourceChainId: sourceAssignment.vendor.chainId,
+          targetUserId: sourcePickerAssignment.pickerId,
+          sourceVendorId: sourcePickerAssignment.vendorId,
+          sourceChainId: sourcePickerAssignment.vendor.chainId,
           destinationVendorId: destinationVendor.id,
           destinationChainId: destinationVendor.chainId,
           payload: payload as Prisma.InputJsonValue
@@ -936,27 +1013,29 @@ export class RequestsService {
           userId: context.actor.id,
           type: "REQUEST_SUBMITTED",
           title: "Transfer request submitted",
-          body: `Transfer request for ${pickerAssignment.picker.nameEn} was submitted for source Area Manager approval.`,
+          body: shouldAutoApproveSource
+            ? `Transfer request for ${sourcePickerAssignment.picker.nameEn} was submitted and source approval was applied.`
+            : `Transfer request for ${sourcePickerAssignment.picker.nameEn} was submitted for source Area Manager approval.`,
           payload: {
             requestId: request.id,
-            pickerId: pickerAssignment.pickerId,
-            sourceVendorId: sourceAssignment.vendorId,
+            pickerId: sourcePickerAssignment.pickerId,
+            sourceVendorId: sourcePickerAssignment.vendorId,
             destinationVendorId: destinationVendor.id
           }
         }
       });
 
-      if (sourceStep.approverId) {
+      if (sourceStep.approverId && !shouldAutoApproveSource) {
         await tx.notification.create({
           data: {
             userId: sourceStep.approverId,
             type: "APPROVAL_PENDING",
             title: "Transfer approval pending",
-            body: `Transfer request from ${sourceAssignment.vendor.vendorName} requires your approval.`,
+            body: `Transfer request from ${sourcePickerAssignment.vendor.vendorName} requires your approval.`,
             payload: {
               requestId: request.id,
               step: sourceStep.step,
-              pickerId: pickerAssignment.pickerId
+              pickerId: sourcePickerAssignment.pickerId
             }
           }
         });
@@ -967,6 +1046,23 @@ export class RequestsService {
         include: requestInclude
       });
     });
+
+    if (shouldAutoApproveSource) {
+      const sourceApproval = updated.approvals.find(
+        (approval) => approval.step === ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL
+      );
+
+      if (!sourceApproval) {
+        throw new BadRequestException("Source Area Manager approval was not created.");
+      }
+
+      return this.approveTransferApproval(
+        sourceApproval.id,
+        "Source Area Manager initiated and auto-approved this Transfer.",
+        context,
+        { suppressIntermediateCreatorNotification: true }
+      );
+    }
 
     return toRequestSummary(updated);
   }
@@ -1045,11 +1141,12 @@ export class RequestsService {
       );
     }
 
-    const temporaryPassword = this.generateTemporaryPassword();
+    const temporaryPassword = this.temporaryPasswordService.generate();
     const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
     const temporaryPasswordExpiresAt = new Date(
       Date.now() + TEMPORARY_PASSWORD_EXPIRY_HOURS * 60 * 60 * 1000
     );
+    const temporaryPasswordCreatedAt = new Date();
 
     const result = await this.prisma.$transaction(async (tx) => {
       const picker = await tx.user.create({
@@ -1071,7 +1168,10 @@ export class RequestsService {
           profileStatus: ProfileStatus.INCOMPLETE,
           passwordHash,
           mustChangePassword: true,
-          temporaryPasswordExpiresAt
+          temporaryPasswordExpiresAt,
+          temporaryPasswordCiphertext:
+            this.temporaryPasswordService.encrypt(temporaryPassword),
+          temporaryPasswordCreatedAt
         }
       });
 
@@ -1558,7 +1658,8 @@ export class RequestsService {
   async approveTransferApproval(
     approvalId: string,
     notes: string | undefined,
-    context: RequestContext
+    context: RequestContext,
+    options: { suppressIntermediateCreatorNotification?: boolean } = {}
   ) {
     const approval = await this.prisma.requestApproval.findUnique({
       where: { id: approvalId },
@@ -1674,13 +1775,15 @@ export class RequestsService {
         userAgent: context.userAgent
       });
 
-      await this.notificationsService.create({
-        userId: approval.request.createdById,
-        type: "APPROVAL_APPROVED",
-        title: "Source Transfer approval completed",
-        body: "The source Chain Area Manager approved the Transfer request. Destination approval is now pending.",
-        payload: { requestId: approval.requestId, approvalId: approval.id }
-      });
+      if (!options.suppressIntermediateCreatorNotification) {
+        await this.notificationsService.create({
+          userId: approval.request.createdById,
+          type: "APPROVAL_APPROVED",
+          title: "Source Transfer approval completed",
+          body: "The source Chain Area Manager approved the Transfer request. Destination approval is now pending.",
+          payload: { requestId: approval.requestId, approvalId: approval.id }
+        });
+      }
 
       return toRequestSummary(updated);
     }
@@ -2272,34 +2375,98 @@ export class RequestsService {
         include: requestInclude
       });
 
-      await tx.notification.create({
-        data: {
-          userId: approval.request.createdById,
-          type: "TRANSFER_COMPLETED",
-          title: "Transfer completed",
-          body: `${targetPicker.nameEn} was transferred from ${sourceVendor.vendorName} to ${destinationVendor.vendorName}.`,
-          payload: {
-            requestId: approval.requestId,
-            pickerId: targetPicker.id,
-            oldAssignmentId: closedAssignment.id,
-            newAssignmentId: newAssignment.id
-          }
+      const [sourceChampAssignment, destinationChampAssignment] = await Promise.all([
+        tx.vendorChampAssignment.findFirst({
+          where: {
+            vendorId: sourceVendor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { champId: true }
+        }),
+        tx.vendorChampAssignment.findFirst({
+          where: {
+            vendorId: destinationVendor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { champId: true }
+        })
+      ]);
+
+      const notifications = new Map<
+        string,
+        {
+          type: string;
+          title: string;
+          body: string;
+          payload: Prisma.InputJsonValue;
+        }
+      >();
+      const addNotification = (
+        userId: string | null | undefined,
+        notification: {
+          type: string;
+          title: string;
+          body: string;
+          payload: Prisma.InputJsonValue;
+        }
+      ) => {
+        if (userId && !notifications.has(userId)) {
+          notifications.set(userId, notification);
+        }
+      };
+
+      addNotification(approval.request.createdById, {
+        type: "TRANSFER_COMPLETED",
+        title: "Transfer completed",
+        body: `${targetPicker.nameEn} was transferred from ${sourceVendor.vendorName} to ${destinationVendor.vendorName}.`,
+        payload: {
+          requestId: approval.requestId,
+          pickerId: targetPicker.id,
+          oldAssignmentId: closedAssignment.id,
+          newAssignmentId: newAssignment.id
+        }
+      });
+      addNotification(targetPicker.id, {
+        type: "TRANSFER_COMPLETED",
+        title: "Branch transfer completed",
+        body: `Your active Branch is now ${destinationVendor.vendorName}.`,
+        payload: {
+          requestId: approval.requestId,
+          vendorId: destinationVendor.id,
+          chainId: destinationVendor.chainId
+        }
+      });
+      addNotification(sourceChampAssignment?.champId, {
+        type: "TRANSFER_COMPLETED",
+        title: "Picker transferred out",
+        body: `${targetPicker.nameEn} was transferred from ${sourceVendor.vendorName} to ${destinationVendor.vendorName}.`,
+        payload: {
+          requestId: approval.requestId,
+          pickerId: targetPicker.id,
+          vendorId: sourceVendor.id,
+          oldAssignmentId: closedAssignment.id
+        }
+      });
+      addNotification(destinationChampAssignment?.champId, {
+        type: "TRANSFER_COMPLETED",
+        title: "Picker transferred in",
+        body: `${targetPicker.nameEn} was transferred to ${destinationVendor.vendorName}.`,
+        payload: {
+          requestId: approval.requestId,
+          pickerId: targetPicker.id,
+          vendorId: destinationVendor.id,
+          newAssignmentId: newAssignment.id
         }
       });
 
-      await tx.notification.create({
-        data: {
-          userId: targetPicker.id,
-          type: "TRANSFER_COMPLETED",
-          title: "Branch transfer completed",
-          body: `Your active Branch is now ${destinationVendor.vendorName}.`,
-          payload: {
-            requestId: approval.requestId,
-            vendorId: destinationVendor.id,
-            chainId: destinationVendor.chainId
+      for (const [userId, notification] of notifications) {
+        await tx.notification.create({
+          data: {
+            userId,
+            ...notification
           }
-        }
-      });
+        });
+      }
 
       await tx.auditLog.createMany({
         data: [
@@ -2758,10 +2925,6 @@ export class RequestsService {
           ? (objectPayload.finalization as OffboardingPayload["finalization"])
           : undefined
     };
-  }
-
-  private generateTemporaryPassword() {
-    return `SN-${randomBytes(12).toString("base64url")}`;
   }
 
   private assertPayloadSafe(payload?: Record<string, unknown>) {

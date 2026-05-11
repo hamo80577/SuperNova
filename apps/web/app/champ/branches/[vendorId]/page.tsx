@@ -5,8 +5,8 @@ export default function ChampBranchDetailPage() {
   return (
     <DashboardFrame
       allowedRoles={["CHAMP"]}
-      description="Selected Branch operational context."
-      title="Branch Workspace"
+      description="Branch Pickers, requests, and actions."
+      title="Branch Dashboard"
     >
       <ChampBranchWorkspace />
     </DashboardFrame>

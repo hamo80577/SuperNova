@@ -1,6 +1,5 @@
 import {
   AccountStatus,
-  AssignmentStatus,
   ChainStatus,
   EmploymentStatus,
   PrismaClient,
@@ -9,10 +8,12 @@ import {
   VendorStatus
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { randomUUID } from "crypto";
+import { readFile } from "fs/promises";
+import path from "path";
 
 const prisma = new PrismaClient();
 const PASSWORD_HASH_ROUNDS = 12;
+const BRANCH_DATA_PATH = path.join(process.cwd(), "prisma", "data", "branches.csv");
 
 async function main() {
   const phoneNumber = process.env.SEED_ADMIN_PHONE?.trim();
@@ -21,85 +22,17 @@ async function main() {
 
   if (!phoneNumber || !password) {
     console.log("Skipping admin seed: SEED_ADMIN_PHONE or SEED_ADMIN_PASSWORD is not set.");
-    return;
-  }
-
-  if (password.length < 10) {
+  } else if (password.length < 10) {
     throw new Error("SEED_ADMIN_PASSWORD must be at least 10 characters.");
-  }
+  } else {
+    const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
 
-  const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
-
-  await prisma.user.upsert({
-    where: { phoneNumber },
-    update: {
-      nameEn,
-      passwordHash,
-      role: UserRole.SUPER_ADMIN,
-      accountStatus: AccountStatus.ACTIVE,
-      employmentStatus: EmploymentStatus.ACTIVE,
-      profileStatus: ProfileStatus.COMPLETE,
-      mustChangePassword: false,
-      temporaryPasswordExpiresAt: null
-    },
-    create: {
-      phoneNumber,
-      nameEn,
-      passwordHash,
-      role: UserRole.SUPER_ADMIN,
-      accountStatus: AccountStatus.ACTIVE,
-      employmentStatus: EmploymentStatus.ACTIVE,
-      profileStatus: ProfileStatus.COMPLETE,
-      mustChangePassword: false
-    }
-  });
-
-  console.log("Seeded local development admin user from environment variables.");
-
-  if (process.env.SEED_DEMO_ASSIGNMENT_USERS === "true") {
-    await seedDemoAssignmentUsers();
-  }
-}
-
-async function seedDemoAssignmentUsers() {
-  const demoPasswordHash = await bcrypt.hash(
-    process.env.SEED_DEMO_PASSWORD ?? randomUUID(),
-    PASSWORD_HASH_ROUNDS
-  );
-
-  const demoUsers = [
-    {
-      phoneNumber: process.env.SEED_DEMO_PICKER_PHONE ?? "+10000000011",
-      nameEn: "Local Demo Picker",
-      role: UserRole.PICKER
-    },
-    {
-      phoneNumber: process.env.SEED_DEMO_CHAMP_PHONE ?? "+10000000012",
-      nameEn: "Local Demo Champ",
-      role: UserRole.CHAMP
-    },
-    {
-      phoneNumber: process.env.SEED_DEMO_AREA_MANAGER_PHONE ?? "+10000000013",
-      nameEn: "Local Demo Area Manager",
-      role: UserRole.AREA_MANAGER
-    },
-    {
-      phoneNumber:
-        process.env.SEED_DEMO_OUT_OF_SCOPE_AREA_MANAGER_PHONE ?? "+10000000014",
-      nameEn: "Local Demo Out Of Scope Area Manager",
-      role: UserRole.AREA_MANAGER
-    }
-  ];
-
-  const seededUsers = new Map<string, { id: string }>();
-
-  for (const user of demoUsers) {
-    const seededUser = await prisma.user.upsert({
-      where: { phoneNumber: user.phoneNumber },
+    await prisma.user.upsert({
+      where: { phoneNumber },
       update: {
-        nameEn: user.nameEn,
-        passwordHash: demoPasswordHash,
-        role: user.role,
+        nameEn,
+        passwordHash,
+        role: UserRole.SUPER_ADMIN,
         accountStatus: AccountStatus.ACTIVE,
         employmentStatus: EmploymentStatus.ACTIVE,
         profileStatus: ProfileStatus.COMPLETE,
@@ -107,10 +40,10 @@ async function seedDemoAssignmentUsers() {
         temporaryPasswordExpiresAt: null
       },
       create: {
-        phoneNumber: user.phoneNumber,
-        nameEn: user.nameEn,
-        passwordHash: demoPasswordHash,
-        role: user.role,
+        phoneNumber,
+        nameEn,
+        passwordHash,
+        role: UserRole.SUPER_ADMIN,
         accountStatus: AccountStatus.ACTIVE,
         employmentStatus: EmploymentStatus.ACTIVE,
         profileStatus: ProfileStatus.COMPLETE,
@@ -118,83 +51,256 @@ async function seedDemoAssignmentUsers() {
       }
     });
 
-    seededUsers.set(user.phoneNumber, seededUser);
+    console.log("Seeded local development admin user from environment variables.");
   }
 
-  const chain = await prisma.chain.upsert({
-    where: { chainCode: process.env.SEED_DEMO_CHAIN_CODE ?? "LOCAL-DEMO-CHAIN" },
-    update: {
-      chainName: process.env.SEED_DEMO_CHAIN_NAME ?? "Local Demo Chain",
-      status: ChainStatus.ACTIVE
+  await removeLocalDemoData();
+  await seedBranchData();
+}
+
+async function removeLocalDemoData() {
+  const demoChains = await prisma.chain.findMany({
+    where: {
+      OR: [
+        { chainCode: { contains: "DEMO", mode: "insensitive" } },
+        { chainName: { contains: "Demo", mode: "insensitive" } }
+      ]
     },
-    create: {
-      chainName: process.env.SEED_DEMO_CHAIN_NAME ?? "Local Demo Chain",
-      chainCode: process.env.SEED_DEMO_CHAIN_CODE ?? "LOCAL-DEMO-CHAIN",
-      status: ChainStatus.ACTIVE
-    }
+    select: { id: true }
+  });
+  const demoVendors = await prisma.vendor.findMany({
+    where: {
+      OR: [
+        { vendorCode: { contains: "DEMO", mode: "insensitive" } },
+        { vendorName: { contains: "Demo", mode: "insensitive" } }
+      ]
+    },
+    select: { id: true }
+  });
+  const demoUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { nameEn: { contains: "Demo", mode: "insensitive" } },
+        {
+          phoneNumber: {
+            in: ["+10000000011", "+10000000012", "+10000000013", "+10000000014"]
+          }
+        }
+      ]
+    },
+    select: { id: true }
   });
 
-  const vendor = await prisma.vendor.upsert({
-    where: { vendorCode: process.env.SEED_DEMO_VENDOR_CODE ?? "LOCAL-DEMO-BRANCH" },
-    update: {
-      vendorName: process.env.SEED_DEMO_VENDOR_NAME ?? "Local Demo Branch",
-      status: VendorStatus.ACTIVE,
-      chainId: chain.id,
-      area: process.env.SEED_DEMO_VENDOR_AREA ?? "Nasr City",
-      city: process.env.SEED_DEMO_VENDOR_CITY ?? "Cairo"
-    },
-    create: {
-      vendorName: process.env.SEED_DEMO_VENDOR_NAME ?? "Local Demo Branch",
-      vendorCode: process.env.SEED_DEMO_VENDOR_CODE ?? "LOCAL-DEMO-BRANCH",
-      status: VendorStatus.ACTIVE,
-      chainId: chain.id,
-      area: process.env.SEED_DEMO_VENDOR_AREA ?? "Nasr City",
-      city: process.env.SEED_DEMO_VENDOR_CITY ?? "Cairo"
-    }
+  const demoChainIds = demoChains.map((chain) => chain.id);
+  const demoVendorIds = demoVendors.map((vendor) => vendor.id);
+  const demoUserIds = demoUsers.map((user) => user.id);
+
+  if (!demoChainIds.length && !demoVendorIds.length && !demoUserIds.length) {
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const demoRequests = await tx.request.findMany({
+      where: {
+        OR: [
+          { createdById: { in: demoUserIds } },
+          { targetUserId: { in: demoUserIds } },
+          { sourceChainId: { in: demoChainIds } },
+          { destinationChainId: { in: demoChainIds } },
+          { sourceVendorId: { in: demoVendorIds } },
+          { destinationVendorId: { in: demoVendorIds } }
+        ]
+      },
+      select: { id: true }
+    });
+    const demoRequestIds = demoRequests.map((request) => request.id);
+
+    await tx.request.deleteMany({ where: { id: { in: demoRequestIds } } });
+    await tx.auditLog.deleteMany({
+      where: {
+        OR: [
+          { actorUserId: { in: demoUserIds } },
+          {
+            entityId: {
+              in: [
+                ...demoUserIds,
+                ...demoChainIds,
+                ...demoVendorIds,
+                ...demoRequestIds
+              ]
+            }
+          }
+        ]
+      }
+    });
+    await tx.notification.deleteMany({ where: { userId: { in: demoUserIds } } });
+    await tx.pickerBranchAssignment.deleteMany({
+      where: {
+        OR: [{ pickerId: { in: demoUserIds } }, { vendorId: { in: demoVendorIds } }]
+      }
+    });
+    await tx.vendorChampAssignment.deleteMany({
+      where: {
+        OR: [{ champId: { in: demoUserIds } }, { vendorId: { in: demoVendorIds } }]
+      }
+    });
+    await tx.chainAreaManagerAssignment.deleteMany({
+      where: {
+        OR: [{ areaManagerId: { in: demoUserIds } }, { chainId: { in: demoChainIds } }]
+      }
+    });
+    await tx.vendor.deleteMany({ where: { id: { in: demoVendorIds } } });
+    await tx.chain.deleteMany({ where: { id: { in: demoChainIds } } });
+    await tx.user.deleteMany({ where: { id: { in: demoUserIds } } });
   });
 
-  const champ = seededUsers.get(process.env.SEED_DEMO_CHAMP_PHONE ?? "+10000000012");
-  const areaManager = seededUsers.get(
-    process.env.SEED_DEMO_AREA_MANAGER_PHONE ?? "+10000000013"
+  console.log("Removed local demo users, Chain, Branch, assignments, requests, and notifications.");
+}
+
+async function seedBranchData() {
+  const file = await readFile(BRANCH_DATA_PATH, "utf8");
+  const records = parseBranchCsv(file);
+  const chains = new Map<string, string>();
+
+  for (const record of records) {
+    chains.set(record.chainCode, record.chainName);
+  }
+
+  for (const [chainCode, chainName] of chains) {
+    await prisma.chain.upsert({
+      where: { chainCode },
+      update: { chainName, status: ChainStatus.ACTIVE },
+      create: { chainCode, chainName, status: ChainStatus.ACTIVE }
+    });
+  }
+
+  const persistedChains = await prisma.chain.findMany({
+    where: { chainCode: { in: [...chains.keys()] } },
+    select: { id: true, chainCode: true }
+  });
+  const chainIdsByCode = new Map(
+    persistedChains.map((chain) => [chain.chainCode, chain.id])
   );
 
-  if (!champ || !areaManager) {
-    throw new Error("Demo Champ and Area Manager users were not seeded.");
-  }
+  for (const record of records) {
+    const chainId = chainIdsByCode.get(record.chainCode);
 
-  const activeChampAssignment = await prisma.vendorChampAssignment.findFirst({
-    where: { vendorId: vendor.id, status: AssignmentStatus.ACTIVE }
-  });
+    if (!chainId) {
+      throw new Error(`Missing Chain for code ${record.chainCode}.`);
+    }
 
-  if (!activeChampAssignment) {
-    await prisma.vendorChampAssignment.create({
-      data: {
-        vendorId: vendor.id,
-        champId: champ.id,
-        status: AssignmentStatus.ACTIVE
+    await prisma.vendor.upsert({
+      where: { vendorCode: record.branchCode },
+      update: {
+        vendorName: record.branchName,
+        vendorExternalId: null,
+        status: VendorStatus.ACTIVE,
+        chainId,
+        area: null,
+        city: null
+      },
+      create: {
+        vendorName: record.branchName,
+        vendorCode: record.branchCode,
+        vendorExternalId: null,
+        status: VendorStatus.ACTIVE,
+        chainId,
+        area: null,
+        city: null
       }
     });
   }
 
-  const activeAreaManagerAssignment =
-    await prisma.chainAreaManagerAssignment.findFirst({
-      where: { chainId: chain.id, status: AssignmentStatus.ACTIVE }
-    });
-
-  if (!activeAreaManagerAssignment) {
-    await prisma.chainAreaManagerAssignment.create({
-      data: {
-        chainId: chain.id,
-        areaManagerId: areaManager.id,
-        status: AssignmentStatus.ACTIVE
-      }
-    });
-  }
-
-  console.log("Seeded local demo assignment users.");
   console.log(
-    `Seeded local demo Chain/Branch context: ${chain.chainCode} / ${vendor.vendorCode}.`
+    `Seeded real organization branch data: ${chains.size} Chains and ${records.length} Branches.`
   );
+}
+
+function parseBranchCsv(content: string) {
+  const rows = parseCsv(content.trim());
+  const [header, ...dataRows] = rows;
+  const headerIndex = new Map(header.map((column, index) => [column.trim(), index]));
+
+  return dataRows.map((row, index) => {
+    const record = {
+      chainName: getCsvValue(row, headerIndex, "chain name"),
+      chainCode: getCsvValue(row, headerIndex, "chain id"),
+      branchCode: getCsvValue(row, headerIndex, "Branch code"),
+      branchName: getCsvValue(row, headerIndex, "Branch name")
+    };
+
+    if (
+      !record.chainName ||
+      !record.chainCode ||
+      !record.branchCode ||
+      !record.branchName
+    ) {
+      throw new Error(`Invalid branch CSV row ${index + 2}.`);
+    }
+
+    return record;
+  });
+}
+
+function getCsvValue(
+  row: string[],
+  headerIndex: Map<string, number>,
+  column: string
+) {
+  const index = headerIndex.get(column);
+
+  if (index === undefined) {
+    throw new Error(`Missing required CSV column: ${column}.`);
+  }
+
+  return row[index]?.trim() ?? "";
+}
+
+function parseCsv(content: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let value = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const nextChar = content[index + 1];
+
+    if (char === "\"" && inQuotes && nextChar === "\"") {
+      value += "\"";
+      index += 1;
+      continue;
+    }
+
+    if (char === "\"") {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value);
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(value);
+      rows.push(row);
+      row = [];
+      value = "";
+      continue;
+    }
+
+    value += char;
+  }
+
+  row.push(value);
+  rows.push(row);
+
+  return rows.filter((csvRow) => csvRow.some((cell) => cell.trim()));
 }
 
 main()

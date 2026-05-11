@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { AppLoadingOverlay } from "@/components/ui/app-loading-overlay";
 import { redirectForUser, useAuth } from "@/components/auth/auth-provider";
 import type { UserRole } from "@/lib/auth/types";
 import { replaceRoute } from "@/lib/navigation";
@@ -73,11 +74,5 @@ export function ProtectedRoute({
 }
 
 export function FullPageStatus({ label }: { label: string }) {
-  return (
-    <main className="grid min-h-dvh place-items-center bg-background px-6 text-foreground">
-      <div className="rounded-lg border bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
-        {label}
-      </div>
-    </main>
-  );
+  return <AppLoadingOverlay fixed={false} label={label} />;
 }

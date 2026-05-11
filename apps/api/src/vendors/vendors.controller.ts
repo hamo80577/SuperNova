@@ -25,26 +25,29 @@ import { VendorsService } from "./vendors.service";
 
 @Controller("vendors")
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class VendorsController {
   constructor(@Inject(VendorsService) private readonly vendorsService: VendorsService) {}
 
   @Get("status")
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   getStatus() {
     return this.vendorsService.getFoundationStatus();
   }
 
   @Get()
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   list(@Query() query: ListVendorsQueryDto) {
     return this.vendorsService.list(query);
   }
 
   @Get(":id")
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   getById(@Param("id") id: string) {
     return this.vendorsService.getById(id);
   }
 
   @Post()
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   create(
     @Body() dto: CreateVendorDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -58,6 +61,7 @@ export class VendorsController {
   }
 
   @Patch(":id")
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   update(
     @Param("id") id: string,
     @Body() dto: UpdateVendorDto,

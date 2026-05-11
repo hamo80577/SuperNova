@@ -69,7 +69,7 @@ For every page redesign:
 - Verify clear primary action.
 - Verify no broken responsive behavior.
 - Use the verification tier policy from `AGENTS.md` and `docs/TECHNICAL_GUARDRAILS.md`.
-- Do not rebuild, restart, reseed, or reset Docker/PostgreSQL for UI-only page redesigns.
+- Do not restart, reseed, or reset local PostgreSQL for UI-only page redesigns.
 
 ## UI Verification Tier
 
@@ -93,7 +93,7 @@ http://localhost:3000
 http://localhost:4000 if needed
 ```
 
-Do not run Docker or Prisma commands for UI-only work. Escalate to backend/full-stack verification only when the change touches backend/API/auth server/database/Docker/runtime files.
+Do not run Prisma commands for UI-only work. Escalate to backend/full-stack verification only when the change touches backend/API/auth server/database/runtime files.
 
 ## Redesign Order
 

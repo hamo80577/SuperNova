@@ -33,6 +33,7 @@ import {
   type RequestSummary,
   type RequestType
 } from "@/lib/api/requests";
+import { pushRoute } from "@/lib/navigation";
 
 const requestTypes: RequestType[] = [
   "NEW_HIRE",
@@ -116,7 +117,7 @@ export function RequestsCenter() {
 
       try {
         const created = await requestsApi.create(payload);
-        router.push(`/requests/${created.id}`);
+        pushRoute(router, `/requests/${created.id}`);
       } catch (caughtError) {
         setError(
           caughtError instanceof Error

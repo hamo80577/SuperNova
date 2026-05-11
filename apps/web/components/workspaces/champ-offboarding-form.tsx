@@ -36,6 +36,9 @@ type OffboardingFormValues = z.infer<typeof offboardingSchema>;
 
 export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
   const params = useParams<{ vendorId: string }>();
+  const [preselectedPickerId, setPreselectedPickerId] = useState<string | null>(
+    null
+  );
   const [branchState, setBranchState] = useState<AsyncState<ChampBranchDetail>>({
     status: "loading"
   });
@@ -47,10 +50,17 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
     formState: { errors },
     handleSubmit,
     register,
+    setValue,
     watch
   } = useForm<OffboardingFormValues>({
     resolver: zodResolver(offboardingSchema)
   });
+
+  useEffect(() => {
+    setPreselectedPickerId(
+      new URLSearchParams(window.location.search).get("pickerId")
+    );
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -80,6 +90,16 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
       mounted = false;
     };
   }, [params.vendorId]);
+
+  useEffect(() => {
+    if (
+      branchState.status === "ready" &&
+      preselectedPickerId &&
+      branchState.data.pickers.some((item) => item.picker.id === preselectedPickerId)
+    ) {
+      setValue("targetUserId", preselectedPickerId);
+    }
+  }, [branchState, preselectedPickerId, setValue]);
 
   const selectedPickerId = watch("targetUserId");
   const selectedPicker = useMemo(() => {

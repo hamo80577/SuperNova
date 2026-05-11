@@ -15,6 +15,7 @@ import { getUserRedirect } from "@/lib/auth/role-redirects";
 import type { AuthResponse, SafeUser } from "@/lib/auth/types";
 import { clearApiCache } from "@/lib/api/request";
 import { replaceRoute } from "@/lib/navigation";
+import { showGlobalLoading } from "@/lib/navigation-loading";
 
 interface AuthContextValue {
   user: SafeUser | null;
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return response;
       },
       async logout() {
+        showGlobalLoading("Signing out");
         try {
           await authApi.logout();
         } finally {

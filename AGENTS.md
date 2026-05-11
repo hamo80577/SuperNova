@@ -22,11 +22,13 @@ Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
 Forms/validation: React Hook Form + Zod on frontend, DTO validation on backend
-Deployment: Docker Compose / VPS-ready structure
+Current development: local PostgreSQL + npm workspaces
 Architecture: modular monolith
 ```
 
 Do not introduce microservices.
+
+Docker files have been removed from the repo and Docker is not part of the current development workflow.
 
 ## Core Hierarchy
 
@@ -214,18 +216,18 @@ Expose passwordHash in any API response
 Allow Admin to finalize New Hire without Shopper ID
 Skip audit logs for sensitive lifecycle actions
 Commit local-only environment values
-Claim Docker/PostgreSQL verification passed unless it was actually run
+Claim local PostgreSQL/app verification passed unless it was actually run
 ```
 
 ## Verification Tier Policy
 
-Use the lightest verification tier that matches the actual change. Do not rebuild, restart, reseed, or reset infrastructure for page-by-page UI work unless the current task explicitly touches backend/full-stack behavior.
+Use the lightest verification tier that matches the actual change. Current development uses local PostgreSQL and npm scripts. Do not ask to use Docker for normal work.
 
 ### Tier 1 — Docs-only
 
 Use for documentation or instruction edits only.
 
-Do not run Docker, app startup, Prisma, build, lint, or typecheck unless explicitly requested.
+Do not run app startup, Prisma, build, lint, or typecheck unless explicitly requested.
 
 Allowed lightweight checks:
 
@@ -255,13 +257,8 @@ npm run build --workspace @supernova/web
 Do not run for normal UI-only work:
 
 ```text
-docker compose up
-docker compose build
-docker compose --profile app build
-docker compose --profile app up
 prisma migrate
 prisma db seed
-container rebuilds
 database reset
 full-stack restart
 ```
@@ -278,17 +275,15 @@ npm run lint --workspace @supernova/web
 npm run build --workspace @supernova/web
 ```
 
-Do not run Docker unless backend, API, auth server, database, Docker, or environment files were changed.
+Do not run local PostgreSQL/Prisma setup unless backend, API, auth server, database, or environment files were changed.
 
 ### Tier 4 — Backend/full-stack
 
-Use Docker/PostgreSQL verification only when changes touch:
+Use local PostgreSQL full-stack verification when changes touch:
 
 ```text
 apps/api
 prisma
-docker-compose.yml
-Dockerfile*
 .env examples
 auth backend/cookies/session behavior
 API contracts
@@ -301,15 +296,14 @@ deployment/runtime config
 Backend/full-stack verification may include:
 
 ```text
-docker compose up -d postgres
-docker compose ps
-docker compose logs postgres --tail=80
 npm run prisma:generate
 npm run prisma:validate
 npm run prisma:migrate
 npm run db:seed
-docker compose --profile app build --progress=plain
-docker compose --profile app up -d --force-recreate api web
+npm run typecheck
+npm run lint
+npm run build
+npm run dev
 GET http://localhost:4000/api/health
 GET http://localhost:3000/login
 ```
@@ -318,7 +312,7 @@ Do not use `prisma db push` as the normal path.
 
 ### Existing Local Environment Rule
 
-If the user says Docker or localhost is already running, do not stop, restart, rebuild, or recreate containers unless the current task requires backend/full-stack verification. Use the existing running environment for manual browser verification at:
+If the user says the local app is already running, use that existing environment for manual browser verification. Do not stop or restart local services unless the current task requires backend/full-stack verification.
 
 ```text
 http://localhost:3000
@@ -337,7 +331,7 @@ Frontend behavior
 Backend/full-stack
 ```
 
-Also state why Docker was or was not run.
+Also state why local PostgreSQL/app startup was or was not run.
 
 ## Current Main Workstream
 
@@ -380,7 +374,7 @@ For backend or full-stack work:
 Summary
 Files Changed
 Tests/Checks Run
-Local Docker/PostgreSQL Verification
+Local PostgreSQL/App Verification
 Manual Regression Verification
 Security/Hardening Review
 Known Risks

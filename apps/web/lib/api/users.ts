@@ -1,6 +1,7 @@
 import type { SafeUser, UserRole } from "@/lib/auth/types";
 import { apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
+import type { AssignmentStatus, ChainSummary, VendorSummary } from "./workspaces";
 
 export type UserLookupStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ARCHIVED";
 
@@ -38,6 +39,80 @@ export interface UpdateProfileCompletionInput {
   joiningDate?: string;
 }
 
+export interface OperationalProfileAssignment {
+  id: string;
+  status: AssignmentStatus;
+  startDate: string;
+  endDate: string | null;
+  vendor?: VendorSummary;
+  chain: ChainSummary;
+}
+
+export interface OperationalProfileResponse {
+  user: SafeUser;
+  workedDays: number | null;
+  permissions: {
+    mode: "ADMIN" | "CHAMP" | "SELF";
+    canEditProfile: boolean;
+    canResetPassword: boolean;
+    canRegenerateTemporaryPassword: boolean;
+    canReadTemporaryPassword: boolean;
+  };
+  password: {
+    mustChangePassword: boolean;
+    temporaryPasswordAvailable: boolean;
+    temporaryPasswordExpiresAt: string | null;
+    temporaryPasswordCreatedAt: string | null;
+  };
+  currentPickerAssignment: OperationalProfileAssignment | null;
+  champAssignments: OperationalProfileAssignment[];
+  areaManagerAssignments: OperationalProfileAssignment[];
+  recentRequests: Array<{
+    id: string;
+    type: string;
+    status: string;
+    currentStep: string | null;
+    createdAt: string;
+    completedAt: string | null;
+    sourceVendor: VendorSummary | null;
+    destinationVendor: VendorSummary | null;
+  }>;
+  activity: Array<{
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    actor: {
+      id: string;
+      role: UserRole;
+      nameEn: string;
+      nameAr: string | null;
+      phoneNumber: string;
+    } | null;
+    createdAt: string;
+  }>;
+}
+
+export interface UpdateAdminProfileInput {
+  nameEn?: string;
+  nameAr?: string;
+  phoneNumber?: string;
+  nationalId?: string;
+  address?: string;
+  dateOfBirth?: string;
+  gender?: SafeUser["gender"];
+  joiningDate?: string;
+  shopperId?: string;
+  ibsId?: string;
+}
+
+export interface TemporaryPasswordResponse {
+  user?: SafeUser;
+  temporaryPassword: string;
+  temporaryPasswordExpiresAt: string;
+  temporaryPasswordCreatedAt: string | null;
+}
+
 function toQuery(params: Record<string, string | number | undefined>) {
   const query = new URLSearchParams();
 
@@ -61,6 +136,41 @@ export const usersApi = {
         status: params.status,
         q: params.q
       })}`
+    );
+  },
+  operationalProfile(id: string) {
+    return apiRequest<OperationalProfileResponse>(
+      `/users/${id}/operational-profile`
+    );
+  },
+  async updateAdminProfile(id: string, input: UpdateAdminProfileInput) {
+    const response = await apiRequest<{ user: SafeUser }>(
+      `/users/${id}/admin-profile`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      }
+    );
+    clearApiCache("/admin/organization");
+    clearApiCache("/workspaces");
+    return response;
+  },
+  resetPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(`/users/${id}/password/reset`, {
+      method: "POST"
+    });
+  },
+  regenerateTemporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/password/regenerate-temporary`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  temporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/password/temporary`
     );
   },
   profileCompletion() {

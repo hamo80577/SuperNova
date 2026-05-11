@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { APP_NAME } from "@supernova/shared";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { AppLoadingProvider } from "@/components/ui/app-loading-provider";
 
 import "./globals.css";
 
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AppLoadingProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </AppLoadingProvider>
       </body>
     </html>
   );

@@ -189,6 +189,8 @@ export class AuthService {
         passwordHash: newPasswordHash,
         mustChangePassword: false,
         temporaryPasswordExpiresAt: null,
+        temporaryPasswordCiphertext: null,
+        temporaryPasswordCreatedAt: null,
         lastLoginAt: new Date()
       }
     });
@@ -205,7 +207,8 @@ export class AuthService {
       },
       newValue: {
         mustChangePassword: updatedUser.mustChangePassword,
-        temporaryPasswordExpiresAt: null
+        temporaryPasswordExpiresAt: null,
+        temporaryPasswordCiphertextCleared: Boolean(user.temporaryPasswordCiphertext)
       },
       ipAddress: context.ipAddress,
       userAgent: context.userAgent

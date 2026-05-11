@@ -57,7 +57,7 @@ The MVP must preserve:
 
 - `requests.service.ts` is large.
 - Automated tests are limited.
-- Production Docker image/CI pipeline needs a dedicated pass.
+- Production deployment strategy needs a dedicated pass.
 - Moderate dependency audit warnings may remain.
 - Dev database may contain accumulated verification data.
 
@@ -115,7 +115,7 @@ Product owner approval
 
 Do not move page forward without visual approval.
 
-For normal UI-only redesign, use the web typecheck/lint tier and reserve web build for structural changes or final page acceptance. Do not run Docker/PostgreSQL verification unless backend/full-stack files or behavior changed.
+For normal UI-only redesign, use the web typecheck/lint tier and reserve web build for structural changes or final page acceptance. Use the local running app for browser checks when available.
 
 ## Recommended Next Steps
 

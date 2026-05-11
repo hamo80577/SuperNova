@@ -205,7 +205,7 @@ Implemented:
 - Workflow-specific generic request bypass protection.
 - Query indexes for common queues/reports.
 - Prisma config moved out of deprecated package config.
-- Docker verification completed during Phase 12.
+- Local PostgreSQL verification is the current development verification path.
 
 ## Current Active Workstream
 
@@ -220,6 +220,6 @@ The logic works. The UI needs product-owner-led redesign.
 - `requests.service.ts` remains large.
 - Automated tests are limited.
 - Some UI pages were built quickly during backend workflow phases.
-- Docker app profile is development-oriented.
+- Current dev mode is local PostgreSQL + npm run dev.
 - Moderate dependency audit warnings may remain due to Next/PostCSS chain.
-- Production deployment image/CI pipeline is not fully built.
+- Production deployment strategy is not finalized.

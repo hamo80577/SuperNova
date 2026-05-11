@@ -4,7 +4,9 @@ import {
   Get,
   Inject,
   NotFoundException,
+  Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards
@@ -17,6 +19,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { UsersService } from "./users.service";
@@ -47,6 +50,65 @@ export class UsersController {
     }
 
     return currentUser;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/operational-profile")
+  getOperationalProfile(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.usersService.getOperationalProfile(id, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Patch(":id/admin-profile")
+  updateAdminProfile(
+    @Param("id") id: string,
+    @Body() dto: UpdateAdminProfileDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.updateAdminProfile(id, dto, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/password/reset")
+  resetPassword(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.resetPassword(id, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/password/regenerate-temporary")
+  regenerateTemporaryPassword(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.regenerateTemporaryPassword(id, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(":id/password/temporary")
+  getTemporaryPassword(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.usersService.getTemporaryPassword(id, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

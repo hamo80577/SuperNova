@@ -22,6 +22,11 @@ class EnvironmentVariables {
   @IsString()
   AUTH_REMEMBER_ME_JWT_EXPIRES_IN?: string;
 
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  TEMP_PASSWORD_ENCRYPTION_KEY?: string;
+
   @IsString()
   AUTH_COOKIE_NAME!: string;
 
