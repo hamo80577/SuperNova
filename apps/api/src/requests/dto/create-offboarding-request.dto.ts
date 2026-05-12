@@ -1,7 +1,7 @@
 import { RequestType } from "@prisma/client";
 import {
   IsDateString,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,7 +10,7 @@ import {
 } from "class-validator";
 
 export class CreateOffboardingRequestDto {
-  @IsEnum(RequestType)
+  @IsIn([RequestType.RESIGNATION])
   type!: RequestType;
 
   @IsUUID()
@@ -27,10 +27,6 @@ export class CreateOffboardingRequestDto {
   @IsOptional()
   @IsDateString()
   resignationDate?: string;
-
-  @IsOptional()
-  @IsDateString()
-  terminationDate?: string;
 
   @IsOptional()
   @IsString()

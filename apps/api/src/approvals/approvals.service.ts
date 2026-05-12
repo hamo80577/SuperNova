@@ -133,8 +133,7 @@ export class ApprovalsService {
     }
 
     if (
-      (approval.request.type === RequestType.RESIGNATION ||
-        approval.request.type === RequestType.TERMINATION) &&
+      approval.request.type === RequestType.RESIGNATION &&
       approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
     ) {
       throw new BadRequestException(

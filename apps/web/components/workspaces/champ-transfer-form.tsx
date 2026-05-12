@@ -233,7 +233,7 @@ export function ChampTransferForm() {
                       buttonVariants({ size: "sm", variant: "outline" }),
                       "mt-3 bg-white"
                     )}
-                    href={`/requests/${createdRequest.id}`}
+                    href={`/tickets?requestId=${createdRequest.id}`}
                     prefetch
                   >
                     Open request detail

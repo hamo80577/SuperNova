@@ -13,6 +13,10 @@ export class CreateNewHireRequestDto {
   sourceVendorId!: string;
 
   @IsOptional()
+  @IsUUID()
+  rehireUserId?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(160)
   nameEn?: string;

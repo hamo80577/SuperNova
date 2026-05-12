@@ -188,7 +188,7 @@ export function ChampWorkspaceDashboard() {
                   </div>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Future New Hire, Transfer, Resignation, and Termination actions
+                  Future New Hire, Transfer, and Resignation actions
                   will run inside this selected Branch context.
                 </p>
                 <div className="mt-4">
@@ -343,7 +343,7 @@ export function AdminWorkspaceDashboard() {
                   className: "rounded-xl bg-primary px-4",
                   size: "sm"
                 })}
-                href="/admin/pending-actions"
+                href="/tickets"
                 prefetch
               >
                 Pending final actions
@@ -421,19 +421,19 @@ export function AdminWorkspaceDashboard() {
         <InfoCard title="Pending Final Actions">
           <AdminControlLink
             description="Review New Hire Shopper ID and offboarding finalization work."
-            href="/admin/pending-actions"
+            href="/tickets"
             icon={ClipboardCheck}
             label="Open pending final actions"
           />
           <AdminControlLink
             description="Review approval queues without bypassing workflow state."
-            href="/approvals"
+            href="/tickets"
             icon={ShieldCheck}
             label="Open approvals"
           />
           <AdminControlLink
             description="Inspect request records and their current workflow status."
-            href="/requests"
+            href="/tickets"
             icon={Inbox}
             label="Open requests"
           />
@@ -842,7 +842,7 @@ function AreaManagerTransferModal({
                 size: "sm",
                 variant: "outline"
               })}
-              href={`/requests/${createdRequest.id}`}
+              href={`/tickets?requestId=${createdRequest.id}`}
               prefetch
             >
               Open request detail

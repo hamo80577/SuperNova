@@ -2,7 +2,7 @@ import type { ChainSummary, UserSummary, VendorSummary } from "@/lib/api/workspa
 import { apiGet, apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 
-export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TERMINATION" | "TRANSFER";
+export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TRANSFER";
 export type RequestStatus =
   | "DRAFT"
   | "PENDING_AREA_MANAGER"
@@ -88,6 +88,7 @@ export interface CreateRequestPayload {
 
 export interface CreateNewHirePayload {
   sourceVendorId: string;
+  rehireUserId?: string;
   nameEn?: string;
   nameAr?: string;
   phoneNumber: string;
@@ -98,13 +99,34 @@ export interface CreateNewHirePayload {
   notes?: string;
 }
 
+export interface NewHireLookupCandidate {
+  decision: "ACTIVE_DUPLICATE" | "BLOCKED" | "REHIRE_AVAILABLE";
+  matchedBy: Array<"phoneNumber" | "nationalId">;
+  reason?: string;
+  blockedUntil?: string | null;
+  user: UserSummary;
+  blockStatus: string;
+  accountStatus: string;
+  employmentStatus: string;
+  shopperId: string | null;
+  ibsId: string | null;
+  address: string | null;
+  nationalId: string | null;
+  dateOfBirth: string | null;
+  gender: "MALE" | "FEMALE" | "UNSPECIFIED";
+}
+
+export interface NewHireLookupResponse {
+  status: "CLEAR" | "ACTIVE_DUPLICATE" | "BLOCKED" | "REHIRE_AVAILABLE";
+  candidates: NewHireLookupCandidate[];
+}
+
 export interface CreateOffboardingPayload {
-  type: "RESIGNATION" | "TERMINATION";
+  type: "RESIGNATION";
   sourceVendorId: string;
   targetUserId: string;
   reason: string;
   resignationDate?: string;
-  terminationDate?: string;
   notes?: string;
 }
 
@@ -232,6 +254,18 @@ export const requestsApi = {
     clearApiCache("/approvals");
     clearApiCache("/workspaces");
     return created;
+  },
+  lookupNewHireCandidate(payload: {
+    phoneNumber?: string;
+    nationalId?: string;
+  }) {
+    return apiRequest<NewHireLookupResponse>(
+      "/requests/new-hire/lookup-candidate",
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    );
   },
   async createOffboarding(payload: CreateOffboardingPayload) {
     const created = await apiRequest<RequestSummary>("/requests/offboarding", {

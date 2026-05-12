@@ -26,6 +26,7 @@ import { CreateTransferRequestDto } from "./dto/create-transfer-request.dto";
 import { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
+import { LookupNewHireCandidateDto } from "./dto/lookup-new-hire-candidate.dto";
 import { RequestsService } from "./requests.service";
 
 @Controller("requests")
@@ -65,6 +66,12 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.requestsService.getById(id, user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("new-hire/lookup-candidate")
+  lookupNewHireCandidate(@Body() dto: LookupNewHireCandidateDto) {
+    return this.requestsService.lookupNewHireCandidate(dto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -10,8 +10,7 @@ import {
   ShieldAlert,
   Store,
   UserPlus,
-  Users,
-  X
+  Users
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -252,13 +251,6 @@ export function ChampBranchWorkspace() {
                 router,
                 `/champ/branches/${branch.vendor.id}/resignation?pickerId=${user.id}`
               );
-            },
-            onTermination: (user) => {
-              setSelectedPicker(null);
-              pushRoute(
-                router,
-                `/champ/branches/${branch.vendor.id}/termination?pickerId=${user.id}`
-              );
             }
           }}
           onClose={() => setSelectedPicker(null)}
@@ -329,12 +321,6 @@ function BranchActionMenu({
       label: "Resignation",
       tone: "text-amber-700 bg-amber-50"
     },
-    {
-      href: `/champ/branches/${branch.vendor.id}/termination`,
-      icon: X,
-      label: "Termination",
-      tone: "text-red-700 bg-red-50"
-    }
   ];
 
   return (
@@ -513,7 +499,7 @@ function BranchRequests({ requests }: { requests: RequestSummary[] }) {
                         buttonVariants({ size: "sm", variant: "outline" }),
                         "rounded-xl"
                       )}
-                      href={`/requests/${request.id}`}
+                      href={`/tickets?requestId=${request.id}`}
                       prefetch
                     >
                       Open

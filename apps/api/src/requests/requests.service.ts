@@ -21,6 +21,7 @@ import {
   Request,
   RequestStatus,
   RequestType,
+  User,
   UserRole,
   VendorStatus,
   Vendor
@@ -42,6 +43,7 @@ import type { CreateTransferRequestDto } from "./dto/create-transfer-request.dto
 import type { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import type { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import type { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
+import type { LookupNewHireCandidateDto } from "./dto/lookup-new-hire-candidate.dto";
 import {
   assertRequestTransition,
   isPendingRequestStatus
@@ -91,6 +93,7 @@ type GeneratedApprovalStep = {
 };
 
 type NewHirePayload = {
+  mode: "NEW_PICKER" | "REHIRE";
   candidate: {
     nameEn?: string;
     nameAr?: string;
@@ -105,6 +108,14 @@ type NewHirePayload = {
     vendorId: string;
     chainId: string;
   };
+  rehire?: {
+    userId: string;
+    matchedBy: Array<"phoneNumber" | "nationalId">;
+    previousAccountStatus: AccountStatus;
+    previousEmploymentStatus: EmploymentStatus;
+    previousBlockStatus: BlockStatus;
+    previousBlockedUntil?: string | null;
+  };
   finalization?: {
     pickerId: string;
     assignmentId: string;
@@ -115,11 +126,10 @@ type NewHirePayload = {
 
 type OffboardingPayload = {
   offboarding: {
-    type: RequestType;
+    type: "RESIGNATION";
     reason: string;
     notes?: string;
     resignationDate?: string;
-    terminationDate?: string;
   };
   source: {
     vendorId: string;
@@ -167,6 +177,19 @@ type TransferPayload = {
   };
 };
 
+type NormalizedNewHireCandidate = NewHirePayload["candidate"];
+type NewHireCandidateDecision =
+  | "ACTIVE_DUPLICATE"
+  | "BLOCKED"
+  | "REHIRE_AVAILABLE";
+type NewHireCandidateMatch = {
+  user: User;
+  matchedBy: Array<"phoneNumber" | "nationalId">;
+  decision: NewHireCandidateDecision;
+  reason?: string;
+  blockedUntil?: string | null;
+};
+
 @Injectable()
 export class RequestsService {
   constructor(
@@ -184,14 +207,54 @@ export class RequestsService {
     return {
       module: "requests",
       status: "active",
-      note: "Generic request infrastructure is enabled. New Hire, Resignation/Termination, and Transfer are implemented through Branch-first workflows."
+      note: "Generic request infrastructure is enabled. New Hire, Resignation, and Transfer are implemented through Branch-first workflows."
+    };
+  }
+
+  async lookupNewHireCandidate(dto: LookupNewHireCandidateDto) {
+    const phoneNumber = dto.phoneNumber?.trim();
+    const nationalId = dto.nationalId?.trim();
+
+    if (!phoneNumber && !nationalId) {
+      throw new BadRequestException("Phone number or National ID is required.");
+    }
+
+    const matches = await this.findNewHireCandidateMatches({
+      phoneNumber,
+      nationalId
+    });
+
+    return {
+      status: matches.some((match) => match.decision === "BLOCKED")
+        ? "BLOCKED"
+        : matches.some((match) => match.decision === "ACTIVE_DUPLICATE")
+          ? "ACTIVE_DUPLICATE"
+          : matches.length
+            ? "REHIRE_AVAILABLE"
+            : "CLEAR",
+      candidates: matches.map((match) => ({
+        decision: match.decision,
+        matchedBy: match.matchedBy,
+        reason: match.reason,
+        blockedUntil: match.blockedUntil,
+        user: toUserSummary(match.user),
+        blockStatus: match.user.blockStatus,
+        accountStatus: match.user.accountStatus,
+        employmentStatus: match.user.employmentStatus,
+        shopperId: match.user.shopperId,
+        ibsId: match.user.ibsId,
+        address: match.user.address,
+        nationalId: match.user.nationalId,
+        dateOfBirth: match.user.dateOfBirth,
+        gender: match.user.gender
+      }))
     };
   }
 
   async list(query: ListRequestsQueryDto, currentUser: AuthenticatedUser) {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? 20));
-    const where = this.buildListWhere(query, currentUser);
+    const where = await this.buildListWhere(query, currentUser);
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.request.count({ where }),
@@ -248,10 +311,7 @@ export class RequestsService {
       );
     }
 
-    if (
-      dto.type === RequestType.RESIGNATION ||
-      dto.type === RequestType.TERMINATION
-    ) {
+    if (dto.type === RequestType.RESIGNATION) {
       throw new BadRequestException(
         "Use the Branch-first Offboarding workflow endpoint."
       );
@@ -302,6 +362,10 @@ export class RequestsService {
     }
 
     const candidate = this.normalizeNewHireCandidate(dto);
+    const rehireValidation = await this.validateNewHireCandidateForCreate(
+      candidate,
+      dto.rehireUserId
+    );
 
     const sourceVendor = this.isAdmin(context.actor)
       ? await this.prisma.vendor.findUnique({
@@ -345,11 +409,26 @@ export class RequestsService {
     );
 
     const payload: NewHirePayload = {
+      mode: rehireValidation.rehireUser ? "REHIRE" : "NEW_PICKER",
       candidate,
       source: {
         vendorId: sourceVendor.id,
         chainId: sourceVendor.chainId
-      }
+      },
+      ...(rehireValidation.rehireUser
+        ? {
+            rehire: {
+              userId: rehireValidation.rehireUser.id,
+              matchedBy: rehireValidation.matchedBy,
+              previousAccountStatus: rehireValidation.rehireUser.accountStatus,
+              previousEmploymentStatus:
+                rehireValidation.rehireUser.employmentStatus,
+              previousBlockStatus: rehireValidation.rehireUser.blockStatus,
+              previousBlockedUntil:
+                rehireValidation.rehireUser.blockedUntil?.toISOString() ?? null
+            }
+          }
+        : {})
     };
 
     this.assertPayloadSafe(payload as unknown as Record<string, unknown>);
@@ -361,6 +440,7 @@ export class RequestsService {
           status: RequestStatus.PENDING_AREA_MANAGER,
           currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
           createdById: context.actor.id,
+          targetUserId: rehireValidation.rehireUser?.id,
           sourceVendorId: sourceVendor.id,
           sourceChainId: sourceVendor.chainId,
           payload: payload as Prisma.InputJsonValue
@@ -396,6 +476,7 @@ export class RequestsService {
             newValue: {
               id: request.id,
               type: request.type,
+              targetUserId: request.targetUserId,
               sourceVendorId: request.sourceVendorId,
               sourceChainId: request.sourceChainId
             },
@@ -450,7 +531,7 @@ export class RequestsService {
           userId: context.actor.id,
           type: "REQUEST_SUBMITTED",
           title: "New Hire request submitted",
-          body: `New Hire request for ${candidate.phoneNumber} was submitted for Area Manager approval.`,
+          body: `${payload.mode === "REHIRE" ? "Rehire" : "New Hire"} request for ${candidate.phoneNumber} was submitted for Area Manager approval.`,
           payload: { requestId: request.id }
         }
       });
@@ -485,7 +566,7 @@ export class RequestsService {
   ) {
     if (context.actor.role !== UserRole.CHAMP && !this.isAdmin(context.actor)) {
       throw new ForbiddenException(
-        "Only Champs and Admins can submit Resignation or Termination requests."
+        "Only Champs and Admins can submit Resignation requests."
       );
     }
 
@@ -572,7 +653,7 @@ export class RequestsService {
 
     const duplicate = await this.prisma.request.findFirst({
       where: {
-        type: { in: [RequestType.RESIGNATION, RequestType.TERMINATION] },
+        type: RequestType.RESIGNATION,
         targetUserId: pickerAssignment.pickerId,
         status: {
           notIn: [
@@ -878,7 +959,7 @@ export class RequestsService {
 
     const pendingOffboarding = await this.prisma.request.findFirst({
       where: {
-        type: { in: [RequestType.RESIGNATION, RequestType.TERMINATION] },
+        type: RequestType.RESIGNATION,
         targetUserId: sourcePickerAssignment.pickerId,
         status: {
           notIn: [
@@ -1103,28 +1184,58 @@ export class RequestsService {
 
     const payload = this.parseNewHirePayload(request.payload);
     const shopperId = dto.shopperId?.trim();
+    const isRehire = payload.mode === "REHIRE";
 
-    if (!shopperId) {
+    if (!shopperId && !isRehire) {
       throw new BadRequestException("Shopper ID is required.");
     }
 
-    const [existingShopper, existingPhone, sourceVendor] = await Promise.all([
-      this.prisma.user.findUnique({ where: { shopperId } }),
-      this.prisma.user.findUnique({
-        where: { phoneNumber: payload.candidate.phoneNumber }
-      }),
+    const [existingShopper, existingPhone, rehireUser, sourceVendor] =
+      await Promise.all([
+        shopperId
+          ? this.prisma.user.findUnique({ where: { shopperId } })
+          : Promise.resolve(null),
+        this.prisma.user.findUnique({
+          where: { phoneNumber: payload.candidate.phoneNumber }
+        }),
+        payload.rehire?.userId
+          ? this.prisma.user.findUnique({ where: { id: payload.rehire.userId } })
+          : Promise.resolve(null),
       this.prisma.vendor.findUnique({
         where: { id: payload.source.vendorId },
         include: { chain: true }
       })
-    ]);
+      ]);
 
-    if (existingShopper) {
+    const finalShopperId = shopperId || rehireUser?.shopperId;
+
+    if (!finalShopperId) {
+      throw new BadRequestException("Shopper ID is required.");
+    }
+
+    if (existingShopper && existingShopper.id !== rehireUser?.id) {
       throw new ConflictException("Shopper ID is already assigned to another user.");
     }
 
-    if (existingPhone) {
+    if (existingPhone && existingPhone.id !== rehireUser?.id) {
       throw new ConflictException("Candidate phone number already belongs to a user.");
+    }
+
+    if (isRehire && !rehireUser) {
+      throw new BadRequestException("Stored Rehire Picker was not found.");
+    }
+
+    if (isRehire && rehireUser) {
+      const rehireValidation = this.evaluateNewHireMatch(rehireUser, {
+        phoneNumber: payload.candidate.phoneNumber,
+        nationalId: payload.candidate.nationalId
+      });
+
+      if (rehireValidation.decision !== "REHIRE_AVAILABLE") {
+        throw new BadRequestException(
+          rehireValidation.reason ?? "Stored Rehire Picker is not eligible."
+        );
+      }
     }
 
     if (!sourceVendor) {
@@ -1149,31 +1260,50 @@ export class RequestsService {
     const temporaryPasswordCreatedAt = new Date();
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const picker = await tx.user.create({
-        data: {
-          role: UserRole.PICKER,
-          nameEn: payload.candidate.nameEn ?? payload.candidate.nameAr ?? "New Picker",
-          nameAr: payload.candidate.nameAr,
-          phoneNumber: payload.candidate.phoneNumber,
-          nationalId: payload.candidate.nationalId,
-          address: payload.candidate.address,
-          dateOfBirth: payload.candidate.dateOfBirth
-            ? new Date(payload.candidate.dateOfBirth)
-            : null,
-          gender: payload.candidate.gender,
-          shopperId,
-          joiningDate: new Date(),
-          accountStatus: AccountStatus.ACTIVE,
-          employmentStatus: EmploymentStatus.ACTIVE,
-          profileStatus: ProfileStatus.INCOMPLETE,
-          passwordHash,
-          mustChangePassword: true,
-          temporaryPasswordExpiresAt,
-          temporaryPasswordCiphertext:
-            this.temporaryPasswordService.encrypt(temporaryPassword),
-          temporaryPasswordCreatedAt
-        }
-      });
+      const profileFields = {
+        nameEn:
+          payload.candidate.nameEn ??
+          payload.candidate.nameAr ??
+          rehireUser?.nameEn ??
+          "New Picker",
+        nameAr: payload.candidate.nameAr ?? rehireUser?.nameAr ?? null,
+        phoneNumber: payload.candidate.phoneNumber,
+        nationalId: payload.candidate.nationalId ?? rehireUser?.nationalId ?? null,
+        address: payload.candidate.address ?? rehireUser?.address ?? null,
+        dateOfBirth: payload.candidate.dateOfBirth
+          ? new Date(payload.candidate.dateOfBirth)
+          : rehireUser?.dateOfBirth ?? null,
+        gender: payload.candidate.gender,
+        shopperId: finalShopperId,
+        joiningDate: new Date(),
+        accountStatus: AccountStatus.ACTIVE,
+        employmentStatus: EmploymentStatus.ACTIVE,
+        passwordHash,
+        mustChangePassword: true,
+        temporaryPasswordExpiresAt,
+        temporaryPasswordCiphertext:
+          this.temporaryPasswordService.encrypt(temporaryPassword),
+        temporaryPasswordCreatedAt
+      };
+
+      const picker =
+        isRehire && rehireUser
+          ? await tx.user.update({
+              where: { id: rehireUser.id },
+              data: {
+                ...profileFields,
+                blockStatus: BlockStatus.NO_BLOCK,
+                blockedUntil: null,
+                blockReason: null
+              }
+            })
+          : await tx.user.create({
+              data: {
+                role: UserRole.PICKER,
+                ...profileFields,
+                profileStatus: ProfileStatus.INCOMPLETE
+              }
+            });
 
       const assignment = await tx.pickerBranchAssignment.create({
         data: {
@@ -1200,12 +1330,12 @@ export class RequestsService {
 
       const completedPayload: NewHirePayload = {
         ...payload,
-        finalization: {
-          pickerId: picker.id,
-          assignmentId: assignment.id,
-          shopperId,
-          completedAt: new Date().toISOString()
-        }
+          finalization: {
+            pickerId: picker.id,
+            assignmentId: assignment.id,
+          shopperId: finalShopperId,
+            completedAt: new Date().toISOString()
+          }
       };
 
       const completedRequest = await tx.request.update({
@@ -1262,13 +1392,17 @@ export class RequestsService {
             entityType: "Request",
             entityId: request.id,
             oldValue: { status: request.status, currentStep: request.currentStep },
-            newValue: { status: RequestStatus.COMPLETED, shopperId },
+            newValue: {
+              status: RequestStatus.COMPLETED,
+              shopperId: finalShopperId,
+              mode: payload.mode
+            },
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null
           },
           {
             actorUserId: context.actor.id,
-            action: "USER_CREATED",
+            action: isRehire ? "USER_REACTIVATED" : "USER_CREATED",
             entityType: "User",
             entityId: picker.id,
             newValue: {
@@ -1354,18 +1488,15 @@ export class RequestsService {
   ) {
     if (!this.isAdmin(context.actor)) {
       throw new ForbiddenException(
-        "Only Admins can finalize Resignation or Termination requests."
+        "Only Admins can finalize Resignation requests."
       );
     }
 
     const request = await this.findRequestOrThrow(id);
 
-    if (
-      request.type !== RequestType.RESIGNATION &&
-      request.type !== RequestType.TERMINATION
-    ) {
+    if (request.type !== RequestType.RESIGNATION) {
       throw new BadRequestException(
-        "Only RESIGNATION or TERMINATION requests can be finalized here."
+        "Only RESIGNATION requests can be finalized here."
       );
     }
 
@@ -1945,6 +2076,10 @@ export class RequestsService {
       return true;
     }
 
+    if (await this.userCanViewRequestByOperationalScope(request, user)) {
+      return true;
+    }
+
     for (const approval of request.approvals) {
       if (
         await this.userCouldOwnApproval(
@@ -1956,6 +2091,60 @@ export class RequestsService {
       ) {
         return true;
       }
+    }
+
+    return false;
+  }
+
+  private async userCanViewRequestByOperationalScope(
+    request: Pick<
+      Request,
+      "sourceVendorId" | "destinationVendorId" | "sourceChainId" | "destinationChainId"
+    >,
+    user: AuthenticatedUser
+  ) {
+    if (user.role === UserRole.CHAMP) {
+      const vendorIds = [
+        request.sourceVendorId,
+        request.destinationVendorId
+      ].filter((value): value is string => Boolean(value));
+
+      if (!vendorIds.length) {
+        return false;
+      }
+
+      const assignment = await this.prisma.vendorChampAssignment.findFirst({
+        where: {
+          champId: user.id,
+          vendorId: { in: vendorIds },
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { id: true }
+      });
+
+      return Boolean(assignment);
+    }
+
+    if (user.role === UserRole.AREA_MANAGER) {
+      const chainIds = [
+        request.sourceChainId,
+        request.destinationChainId
+      ].filter((value): value is string => Boolean(value));
+
+      if (!chainIds.length) {
+        return false;
+      }
+
+      const assignment = await this.prisma.chainAreaManagerAssignment.findFirst({
+        where: {
+          areaManagerId: user.id,
+          chainId: { in: chainIds },
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { id: true }
+      });
+
+      return Boolean(assignment);
     }
 
     return false;
@@ -1989,49 +2178,104 @@ export class RequestsService {
     return RequestStatus.PENDING_ADMIN;
   }
 
-  private buildListWhere(
+  private async buildListWhere(
     query: ListRequestsQueryDto,
     currentUser: AuthenticatedUser
-  ): Prisma.RequestWhereInput {
+  ): Promise<Prisma.RequestWhereInput> {
     const search = query.q?.trim();
-    const adminFilters = this.isAdmin(currentUser)
-      ? {
-          createdById: query.createdById,
-          targetUserId: query.targetUserId
-        }
-      : {
-          createdById: currentUser.id
-        };
-
-    return {
+    const visibilityFilters = await this.buildRequestVisibilityWhere(
+      query,
+      currentUser
+    );
+    const baseFilters: Prisma.RequestWhereInput = {
       status: query.status,
       type: query.type,
-      ...adminFilters,
-      ...(search
-        ? {
-            OR: [
-              { createdBy: { nameEn: { contains: search, mode: "insensitive" } } },
-              { targetUser: { nameEn: { contains: search, mode: "insensitive" } } },
-              {
-                sourceVendor: {
-                  vendorName: { contains: search, mode: "insensitive" }
-                }
-              },
-              {
-                destinationVendor: {
-                  vendorName: { contains: search, mode: "insensitive" }
-                }
-              },
-              { sourceChain: { chainName: { contains: search, mode: "insensitive" } } },
-              {
-                destinationChain: {
-                  chainName: { contains: search, mode: "insensitive" }
-                }
-              }
-            ]
-          }
-        : {})
+      ...visibilityFilters
     };
+    const searchFilters: Prisma.RequestWhereInput | undefined = search
+      ? {
+          OR: [
+            { createdBy: { nameEn: { contains: search, mode: "insensitive" } } },
+            { targetUser: { nameEn: { contains: search, mode: "insensitive" } } },
+            {
+              sourceVendor: {
+                vendorName: { contains: search, mode: "insensitive" }
+              }
+            },
+            {
+              destinationVendor: {
+                vendorName: { contains: search, mode: "insensitive" }
+              }
+            },
+            { sourceChain: { chainName: { contains: search, mode: "insensitive" } } },
+            {
+              destinationChain: {
+                chainName: { contains: search, mode: "insensitive" }
+              }
+            }
+          ]
+        }
+      : undefined;
+
+    return searchFilters ? { AND: [baseFilters, searchFilters] } : baseFilters;
+  }
+
+  private async buildRequestVisibilityWhere(
+    query: ListRequestsQueryDto,
+    currentUser: AuthenticatedUser
+  ): Promise<Prisma.RequestWhereInput> {
+    if (this.isAdmin(currentUser)) {
+      return {
+        createdById: query.createdById,
+        targetUserId: query.targetUserId
+      };
+    }
+
+    if (query.createdById === currentUser.id) {
+      return { createdById: currentUser.id };
+    }
+
+    const baseVisibility: Prisma.RequestWhereInput[] = [
+      { createdById: currentUser.id },
+      { targetUserId: currentUser.id },
+      { approvals: { some: { approverId: currentUser.id } } }
+    ];
+
+    if (currentUser.role === UserRole.CHAMP) {
+      const scopedVendors = await this.prisma.vendorChampAssignment.findMany({
+        where: {
+          champId: currentUser.id,
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { vendorId: true }
+      });
+      const vendorIds = scopedVendors.map((assignment) => assignment.vendorId);
+      if (vendorIds.length) {
+        baseVisibility.push(
+          { sourceVendorId: { in: vendorIds } },
+          { destinationVendorId: { in: vendorIds } }
+        );
+      }
+    }
+
+    if (currentUser.role === UserRole.AREA_MANAGER) {
+      const scopedChains = await this.prisma.chainAreaManagerAssignment.findMany({
+        where: {
+          areaManagerId: currentUser.id,
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { chainId: true }
+      });
+      const chainIds = scopedChains.map((assignment) => assignment.chainId);
+      if (chainIds.length) {
+        baseVisibility.push(
+          { sourceChainId: { in: chainIds } },
+          { destinationChainId: { in: chainIds } }
+        );
+      }
+    }
+
+    return { OR: baseVisibility };
   }
 
   private async normalizeAndValidateCreateDto(dto: CreateRequestDto) {
@@ -2584,13 +2828,8 @@ export class RequestsService {
   private normalizeOffboardingRequest(
     dto: CreateOffboardingRequestDto
   ): OffboardingPayload["offboarding"] {
-    if (
-      dto.type !== RequestType.RESIGNATION &&
-      dto.type !== RequestType.TERMINATION
-    ) {
-      throw new BadRequestException(
-        "Offboarding type must be RESIGNATION or TERMINATION."
-      );
+    if (dto.type !== RequestType.RESIGNATION) {
+      throw new BadRequestException("Only RESIGNATION requests are supported.");
     }
 
     const reason = dto.reason?.trim();
@@ -2604,16 +2843,11 @@ export class RequestsService {
       throw new BadRequestException("Resignation date is required.");
     }
 
-    if (dto.type === RequestType.TERMINATION && !dto.terminationDate) {
-      throw new BadRequestException("Termination date is required.");
-    }
-
     return {
       type: dto.type,
       reason,
       ...(notes ? { notes } : {}),
-      ...(dto.resignationDate ? { resignationDate: dto.resignationDate } : {}),
-      ...(dto.terminationDate ? { terminationDate: dto.terminationDate } : {})
+      ...(dto.resignationDate ? { resignationDate: dto.resignationDate } : {})
     };
   }
 
@@ -2654,6 +2888,183 @@ export class RequestsService {
     };
   }
 
+  private async validateNewHireCandidateForCreate(
+    candidate: NormalizedNewHireCandidate,
+    rehireUserId?: string
+  ) {
+    const matches = await this.findNewHireCandidateMatches(candidate);
+    const selectedMatch = rehireUserId
+      ? matches.find((match) => match.user.id === rehireUserId)
+      : null;
+
+    if (rehireUserId && !selectedMatch) {
+      throw new BadRequestException(
+        "Selected previous Picker does not match this phone number or National ID."
+      );
+    }
+
+    const blockingMatch = selectedMatch
+      ? selectedMatch.decision !== "REHIRE_AVAILABLE"
+        ? selectedMatch
+        : null
+      : matches.find(
+          (match) =>
+            match.decision === "ACTIVE_DUPLICATE" || match.decision === "BLOCKED"
+        );
+
+    if (blockingMatch) {
+      throw new ConflictException(blockingMatch.reason ?? "Picker cannot be hired.");
+    }
+
+    const rehireMatch =
+      selectedMatch ??
+      matches.find((match) => match.decision === "REHIRE_AVAILABLE") ??
+      null;
+
+    if (rehireMatch && !rehireUserId) {
+      throw new ConflictException(
+        "Previous Picker record found. Select the previous Picker to submit this as a Rehire request."
+      );
+    }
+
+    await this.assertNoDuplicatePendingNewHire(candidate, rehireMatch?.user.id);
+
+    return {
+      rehireUser: rehireMatch?.user ?? null,
+      matchedBy: rehireMatch?.matchedBy ?? []
+    };
+  }
+
+  private async findNewHireCandidateMatches(
+    candidate: { phoneNumber?: string; nationalId?: string }
+  ): Promise<NewHireCandidateMatch[]> {
+    const phoneNumber = candidate.phoneNumber?.trim();
+    const nationalId = candidate.nationalId?.trim();
+    const or: Prisma.UserWhereInput[] = [];
+
+    if (phoneNumber) {
+      or.push({ phoneNumber });
+    }
+
+    if (nationalId) {
+      or.push({ nationalId });
+    }
+
+    if (!or.length) {
+      return [];
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        role: UserRole.PICKER,
+        OR: or
+      },
+      orderBy: [{ accountStatus: "asc" }, { updatedAt: "desc" }]
+    });
+
+    return users.map((user) => this.evaluateNewHireMatch(user, candidate));
+  }
+
+  private evaluateNewHireMatch(
+    user: User,
+    candidate: { phoneNumber?: string; nationalId?: string }
+  ): NewHireCandidateMatch {
+    const matchedBy: Array<"phoneNumber" | "nationalId"> = [];
+    if (candidate.phoneNumber && user.phoneNumber === candidate.phoneNumber) {
+      matchedBy.push("phoneNumber");
+    }
+    if (candidate.nationalId && user.nationalId === candidate.nationalId) {
+      matchedBy.push("nationalId");
+    }
+
+    if (
+      user.accountStatus === AccountStatus.ACTIVE &&
+      user.employmentStatus === EmploymentStatus.ACTIVE
+    ) {
+      return {
+        user,
+        matchedBy,
+        decision: "ACTIVE_DUPLICATE",
+        reason: "This Picker already exists and is currently active."
+      };
+    }
+
+    if (user.blockStatus === BlockStatus.PERMANENT_BLOCK) {
+      return {
+        user,
+        matchedBy,
+        decision: "BLOCKED",
+        reason: "This Picker has a permanent block and cannot be rehired."
+      };
+    }
+
+    if (
+      user.blockStatus === BlockStatus.TEMPORARY_BLOCK &&
+      user.blockedUntil &&
+      user.blockedUntil.getTime() > Date.now()
+    ) {
+      return {
+        user,
+        matchedBy,
+        decision: "BLOCKED",
+        blockedUntil: user.blockedUntil.toISOString(),
+        reason: `This Picker has a temporary block until ${user.blockedUntil.toISOString()}.`
+      };
+    }
+
+    return {
+      user,
+      matchedBy,
+      decision: "REHIRE_AVAILABLE",
+      reason: "Previous inactive Picker can be rehired."
+    };
+  }
+
+  private async assertNoDuplicatePendingNewHire(
+    candidate: NormalizedNewHireCandidate,
+    rehireUserId?: string
+  ) {
+    const statusFilter = {
+      notIn: [RequestStatus.REJECTED, RequestStatus.CANCELLED, RequestStatus.COMPLETED]
+    };
+    const or: Prisma.RequestWhereInput[] = [];
+
+    if (rehireUserId) {
+      or.push({ targetUserId: rehireUserId });
+    }
+
+    or.push({
+      payload: {
+        path: ["candidate", "phoneNumber"],
+        equals: candidate.phoneNumber
+      }
+    });
+
+    if (candidate.nationalId) {
+      or.push({
+        payload: {
+          path: ["candidate", "nationalId"],
+          equals: candidate.nationalId
+        }
+      });
+    }
+
+    const duplicate = await this.prisma.request.findFirst({
+      where: {
+        type: RequestType.NEW_HIRE,
+        status: statusFilter,
+        OR: or
+      },
+      select: { id: true }
+    });
+
+    if (duplicate) {
+      throw new ConflictException(
+        "A pending New Hire or Rehire request already exists for this Picker."
+      );
+    }
+  }
+
   private normalizeNewHireCandidate(dto: CreateNewHireRequestDto) {
     const nameEn = dto.nameEn?.trim();
     const nameAr = dto.nameAr?.trim();
@@ -2690,6 +3101,8 @@ export class RequestsService {
     const objectPayload = payload as Record<string, unknown>;
     const candidate = objectPayload.candidate;
     const source = objectPayload.source;
+    const rehire = objectPayload.rehire;
+    const mode = objectPayload.mode === "REHIRE" ? "REHIRE" : "NEW_PICKER";
 
     if (
       !candidate ||
@@ -2704,6 +3117,10 @@ export class RequestsService {
 
     const candidatePayload = candidate as Record<string, unknown>;
     const sourcePayload = source as Record<string, unknown>;
+    const rehirePayload =
+      rehire && typeof rehire === "object" && !Array.isArray(rehire)
+        ? (rehire as Record<string, unknown>)
+        : null;
     const phoneNumber = candidatePayload.phoneNumber;
     const vendorId = sourcePayload.vendorId;
     const chainId = sourcePayload.chainId;
@@ -2717,6 +3134,7 @@ export class RequestsService {
     }
 
     return {
+      mode,
       candidate: {
         nameEn:
           typeof candidatePayload.nameEn === "string"
@@ -2752,7 +3170,48 @@ export class RequestsService {
       source: {
         vendorId,
         chainId
-      }
+      },
+      ...(mode === "REHIRE" && rehirePayload
+        ? {
+            rehire: {
+              userId:
+                typeof rehirePayload.userId === "string"
+                  ? rehirePayload.userId
+                  : "",
+              matchedBy: Array.isArray(rehirePayload.matchedBy)
+                ? rehirePayload.matchedBy.filter(
+                    (value): value is "phoneNumber" | "nationalId" =>
+                      value === "phoneNumber" || value === "nationalId"
+                  )
+                : [],
+              previousAccountStatus:
+                typeof rehirePayload.previousAccountStatus === "string" &&
+                Object.values(AccountStatus).includes(
+                  rehirePayload.previousAccountStatus as AccountStatus
+                )
+                  ? (rehirePayload.previousAccountStatus as AccountStatus)
+                  : AccountStatus.ARCHIVED,
+              previousEmploymentStatus:
+                typeof rehirePayload.previousEmploymentStatus === "string" &&
+                Object.values(EmploymentStatus).includes(
+                  rehirePayload.previousEmploymentStatus as EmploymentStatus
+                )
+                  ? (rehirePayload.previousEmploymentStatus as EmploymentStatus)
+                  : EmploymentStatus.RESIGNED,
+              previousBlockStatus:
+                typeof rehirePayload.previousBlockStatus === "string" &&
+                Object.values(BlockStatus).includes(
+                  rehirePayload.previousBlockStatus as BlockStatus
+                )
+                  ? (rehirePayload.previousBlockStatus as BlockStatus)
+                  : BlockStatus.NO_BLOCK,
+              previousBlockedUntil:
+                typeof rehirePayload.previousBlockedUntil === "string"
+                  ? rehirePayload.previousBlockedUntil
+                  : null
+            }
+          }
+        : {})
     };
   }
 
@@ -2881,7 +3340,7 @@ export class RequestsService {
     const pickerAssignmentId = targetPayload.pickerAssignmentId;
 
     if (
-      (type !== RequestType.RESIGNATION && type !== RequestType.TERMINATION) ||
+      type !== RequestType.RESIGNATION ||
       typeof reason !== "string" ||
       typeof vendorId !== "string" ||
       typeof chainId !== "string" ||
@@ -2905,10 +3364,6 @@ export class RequestsService {
           typeof offboardingPayload.resignationDate === "string"
             ? offboardingPayload.resignationDate
             : undefined,
-        terminationDate:
-          typeof offboardingPayload.terminationDate === "string"
-            ? offboardingPayload.terminationDate
-            : undefined
       },
       source: {
         vendorId,

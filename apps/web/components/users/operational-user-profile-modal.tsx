@@ -2,7 +2,6 @@
 
 import {
   ArrowRightLeft,
-  Ban,
   CalendarDays,
   Copy,
   Edit3,
@@ -43,7 +42,6 @@ type LoadState =
 export interface OperationalUserProfileActions {
   onTransfer?: (user: SafeUser) => void;
   onResignation?: (user: SafeUser) => void;
-  onTermination?: (user: SafeUser) => void;
 }
 
 export function OperationalUserProfileModal({
@@ -334,7 +332,7 @@ function ProfileActions({
   }
 
   return (
-    <section className="grid gap-2 sm:grid-cols-3">
+    <section className="grid gap-2 sm:grid-cols-2">
       <ActionButton
         icon={<ArrowRightLeft className="h-4 w-4" />}
         label="Transfer"
@@ -346,12 +344,6 @@ function ProfileActions({
         label="Resignation"
         onClick={() => actions.onResignation?.(user)}
         tone="amber"
-      />
-      <ActionButton
-        icon={<Ban className="h-4 w-4" />}
-        label="Termination"
-        onClick={() => actions.onTermination?.(user)}
-        tone="red"
       />
     </section>
   );

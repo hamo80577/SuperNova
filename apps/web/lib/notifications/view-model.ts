@@ -52,7 +52,7 @@ export function groupNotifications(items: NotificationItem[]) {
       category: getNotificationCategory(latest),
       items: groupItems,
       latest,
-      targetHref: requestId ? `/requests/${requestId}` : "/notifications",
+      targetHref: requestId ? `/tickets?requestId=${requestId}` : "/notifications",
       unreadCount: groupItems.filter((item) => !item.readAt).length
     } satisfies NotificationGroup;
   });

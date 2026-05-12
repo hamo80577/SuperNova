@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/workspaces";
 import { cn } from "@/lib/utils";
 
-type OffboardingType = "RESIGNATION" | "TERMINATION";
+type OffboardingType = "RESIGNATION";
 type AsyncState<T> =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
@@ -122,9 +122,7 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
           sourceVendorId: params.vendorId,
           targetUserId: values.targetUserId,
           reason: values.reason,
-          ...(type === "RESIGNATION"
-            ? { resignationDate: values.effectiveDate }
-            : { terminationDate: values.effectiveDate }),
+          resignationDate: values.effectiveDate,
           ...(values.notes ? { notes: values.notes } : {})
         });
         setCreatedRequest(created);
@@ -204,7 +202,7 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
                       buttonVariants({ size: "sm", variant: "outline" }),
                       "mt-3 bg-white"
                     )}
-                    href={`/requests/${createdRequest.id}`}
+                    href={`/tickets?requestId=${createdRequest.id}`}
                     prefetch
                   >
                     Open request detail
@@ -230,17 +228,13 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field error={errors.reason?.message} label="Reason">
                   <Input
-                    placeholder={
-                      type === "RESIGNATION"
-                        ? "Example: Picker submitted resignation"
-                        : "Example: Policy violation"
-                    }
+                    placeholder="Example: Picker submitted resignation"
                     {...register("reason")}
                   />
                 </Field>
                 <Field
                   error={errors.effectiveDate?.message}
-                  label={type === "RESIGNATION" ? "Resignation date" : "Termination date"}
+                  label="Last working day"
                 >
                   <Input type="date" {...register("effectiveDate")} />
                 </Field>

@@ -133,7 +133,7 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
         <Definition label="Pending Admin final actions" value={data.cards.pendingAdminFinalActions} />
         <Link
           className={buttonVariants({ size: "sm", variant: "outline" })}
-          href="/admin/pending-actions"
+          href="/tickets"
           prefetch
         >
           Open pending actions

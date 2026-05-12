@@ -35,10 +35,10 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Workspace"
     },
     {
-      label: "My Requests",
-      href: "/requests",
+      label: "Tickets",
+      href: "/tickets",
       icon: ClipboardList,
-      section: "Requests"
+      section: "Operations"
     },
     {
       label: "My Profile",
@@ -68,15 +68,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Operations"
     },
     {
-      label: "Requests",
-      href: "/requests",
+      label: "Tickets",
+      href: "/tickets",
       icon: ClipboardList,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Pending Actions",
-      href: "/approvals",
-      icon: ShieldCheck,
       section: "Requests & Approvals"
     },
     {
@@ -119,15 +113,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Operations"
     },
     {
-      label: "Requests",
-      href: "/requests",
+      label: "Tickets",
+      href: "/tickets",
       icon: ClipboardList,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Approvals",
-      href: "/approvals",
-      icon: ShieldCheck,
       section: "Requests & Approvals"
     },
     {
@@ -163,21 +151,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Organization Setup"
     },
     {
-      label: "Pending Actions",
-      href: "/admin/pending-actions",
-      icon: ShieldCheck,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Requests",
-      href: "/requests",
+      label: "Tickets",
+      href: "/tickets",
       icon: ClipboardList,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Approvals",
-      href: "/approvals",
-      icon: ShieldCheck,
       section: "Requests & Approvals"
     },
     {
@@ -231,21 +207,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Organization Setup"
     },
     {
-      label: "Pending Actions",
-      href: "/admin/pending-actions",
-      icon: ShieldCheck,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Requests",
-      href: "/requests",
+      label: "Tickets",
+      href: "/tickets",
       icon: ClipboardList,
-      section: "Requests & Approvals"
-    },
-    {
-      label: "Approvals",
-      href: "/approvals",
-      icon: ShieldCheck,
       section: "Requests & Approvals"
     },
     {

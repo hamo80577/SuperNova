@@ -291,7 +291,7 @@ export function AdminArchivedUsersPage() {
                         {user.latestOffboardingRequest ? (
                           <Link
                             className="text-sm font-medium text-primary hover:underline"
-                            href={`/requests/${user.latestOffboardingRequest.id}`}
+                            href={`/tickets?requestId=${user.latestOffboardingRequest.id}`}
                             prefetch
                           >
                             {formatEnum(user.latestOffboardingRequest.type)} ·{" "}

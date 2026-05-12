@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
+import { NewHireRequestForm } from "@/components/requests/request-components";
 import {
   adminOrganizationApi,
   type AdminOrganizationBranchDetail,
@@ -54,7 +55,6 @@ type AssignMode = "picker" | "champ" | "areaManager" | null;
 type PickerAction =
   | { type: "transfer"; picker: SafePicker }
   | { type: "resignation"; picker: SafePicker }
-  | { type: "termination"; picker: SafePicker }
   | null;
 
 type SafePicker = AdminOrganizationBranchDetail["pickers"][number]["picker"];
@@ -891,10 +891,6 @@ function BranchDetailSheet({
             onResignation: (user) => {
               setPickerAction({ type: "resignation", picker: user });
               setSelectedUser(null);
-            },
-            onTermination: (user) => {
-              setPickerAction({ type: "termination", picker: user });
-              setSelectedUser(null);
             }
           }}
           onClose={() => setSelectedUser(null)}
@@ -1075,9 +1071,6 @@ function PeopleTable({
                         <RowActionMenu
                           onResignation={() =>
                             onPickerAction?.({ type: "resignation", picker: user })
-                          }
-                          onTermination={() =>
-                            onPickerAction?.({ type: "termination", picker: user })
                           }
                           onTransfer={() =>
                             onPickerAction?.({ type: "transfer", picker: user })
@@ -1345,70 +1338,14 @@ function NewHireModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [nameEn, setNameEn] = useState("");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      try {
-        await requestsApi.createNewHire({
-          sourceVendorId: branchId,
-          phoneNumber,
-          nameEn: nameEn || undefined,
-          notes: notes || "Created from Admin Organization Control Center."
-        });
-        onSaved();
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to create New Hire request."
-        );
-      }
-    });
-  }
-
   return (
     <ModalFrame onClose={onClose} title="New Hire request">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        {error ? <InlineError message={error} /> : null}
-        <FormField label="Phone number">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => setPhoneNumber(event.target.value)}
-            required
-            value={phoneNumber}
-          />
-        </FormField>
-        <FormField label="Name">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => setNameEn(event.target.value)}
-            value={nameEn}
-          />
-        </FormField>
-        <FormField label="Notes">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => setNotes(event.target.value)}
-            value={notes}
-          />
-        </FormField>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={isPending} type="submit">
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Submit request
-          </Button>
-        </div>
-      </form>
+      <NewHireRequestForm
+        fixedSourceVendorId={branchId}
+        onCreated={() => {
+          onSaved();
+        }}
+      />
     </ModalFrame>
   );
 }
@@ -1445,7 +1382,7 @@ function PickerActionModal({
           });
         } else {
           await requestsApi.createOffboarding({
-            type: action.type === "resignation" ? "RESIGNATION" : "TERMINATION",
+            type: "RESIGNATION",
             sourceVendorId: sourceBranch.id,
             targetUserId: action.picker.id,
             reason: reason || "Created from Admin Organization Control Center."
@@ -1586,11 +1523,9 @@ function ChampActionMenu({ onAssign }: { onAssign?: () => void }) {
 
 function RowActionMenu({
   onResignation,
-  onTermination,
   onTransfer
 }: {
   onResignation: () => void;
-  onTermination: () => void;
   onTransfer: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -1603,7 +1538,6 @@ function RowActionMenu({
         <div className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
           <MenuButton label="Transfer" onClick={onTransfer} />
           <MenuButton label="Resignation" onClick={onResignation} />
-          <MenuButton label="Termination" onClick={onTermination} />
         </div>
       ) : null}
     </div>

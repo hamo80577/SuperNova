@@ -1,14 +1,10 @@
-import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
-import { ChampOffboardingForm } from "@/components/workspaces/champ-offboarding-form";
+import { redirect } from "next/navigation";
 
-export default function ChampBranchTerminationPage() {
-  return (
-    <DashboardFrame
-      allowedRoles={["CHAMP"]}
-      description="Create a Branch-scoped Picker termination request."
-      title="Termination"
-    >
-      <ChampOffboardingForm type="TERMINATION" />
-    </DashboardFrame>
-  );
+export default async function ChampBranchTerminationPage({
+  params
+}: {
+  params: Promise<{ vendorId: string }>;
+}) {
+  const { vendorId } = await params;
+  redirect(`/champ/branches/${vendorId}`);
 }

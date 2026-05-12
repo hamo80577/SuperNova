@@ -19,7 +19,6 @@ export type AdminUserRole =
 export type AdminRequestType =
   | "NEW_HIRE"
   | "RESIGNATION"
-  | "TERMINATION"
   | "TRANSFER";
 export type AdminRequestStatus =
   | "DRAFT"
@@ -71,7 +70,7 @@ export interface AdminArchivedUser {
   updatedAt: string;
   latestOffboardingRequest: {
     id: string;
-    type: "RESIGNATION" | "TERMINATION";
+    type: "RESIGNATION";
     status: AdminRequestStatus;
     createdAt: string;
     sourceChain: ChainSummary | null;
