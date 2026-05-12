@@ -119,13 +119,14 @@ assignment fields
 workflow fields
 ```
 
-## Resignation / Termination
+## Resignation
+
+Termination is intentionally removed from the active MVP scope.
 
 Routes:
 
 ```text
 /champ/branches/:vendorId/resignation
-/champ/branches/:vendorId/termination
 ```
 
 Backend:
@@ -219,7 +220,6 @@ Admin final action is required for:
 ```text
 New Hire
 Resignation
-Termination
 ```
 
 Admin final action is not required for Transfer unless explicitly changed later.

@@ -159,8 +159,11 @@ export class RequestsService {
     };
   }
 
-  async lookupNewHireCandidate(dto: LookupNewHireCandidateDto) {
-    return this.newHireWorkflowService.lookupNewHireCandidate(dto);
+  async lookupNewHireCandidate(
+    dto: LookupNewHireCandidateDto,
+    currentUser: AuthenticatedUser
+  ) {
+    return this.newHireWorkflowService.lookupNewHireCandidate(dto, currentUser);
   }
 
   async list(query: ListRequestsQueryDto, currentUser: AuthenticatedUser) {

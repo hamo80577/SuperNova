@@ -22,7 +22,7 @@ Implemented:
 - Request and approval engine.
 - Branch-first New Hire workflow.
 - Picker Profile Completion workflow.
-- Branch-first Resignation / Termination workflow.
+- Branch-first Resignation workflow.
 - Branch-first Transfer workflow.
 - Admin controls for pending final actions, archived users, and audit logs.
 - Operational reports for Admin, Area Manager, and Champ.
@@ -91,8 +91,9 @@ Champ:
   /champ/branches/:vendorId/new-hire
   /champ/branches/:vendorId/transfer
   /champ/branches/:vendorId/resignation
-  /champ/branches/:vendorId/termination
   /champ/reports
+
+Termination is intentionally removed from the active MVP scope.
 
 Area Manager:
   /area-manager/dashboard

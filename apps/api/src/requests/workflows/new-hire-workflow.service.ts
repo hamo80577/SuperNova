@@ -118,7 +118,20 @@ export class NewHireWorkflowService {
     private readonly temporaryPasswordService: TemporaryPasswordService
   ) {}
 
-  async lookupNewHireCandidate(dto: LookupNewHireCandidateDto) {
+  async lookupNewHireCandidate(
+    dto: LookupNewHireCandidateDto,
+    currentUser: AuthenticatedUser
+  ) {
+    if (currentUser.role !== UserRole.CHAMP && !this.isAdmin(currentUser)) {
+      throw new ForbiddenException(
+        "Only Champs and Admins can look up New Hire candidates."
+      );
+    }
+
+    if (currentUser.role === UserRole.CHAMP) {
+      await this.assertChampCanLookupForSourceVendor(currentUser.id, dto.sourceVendorId);
+    }
+
     const phoneNumber = dto.phoneNumber?.trim();
     const nationalId = dto.nationalId?.trim();
 
@@ -150,8 +163,7 @@ export class NewHireWorkflowService {
         employmentStatus: match.user.employmentStatus,
         shopperId: match.user.shopperId,
         ibsId: match.user.ibsId,
-        address: match.user.address,
-        nationalId: match.user.nationalId,
+        maskedNationalId: this.maskNationalId(match.user.nationalId),
         dateOfBirth: match.user.dateOfBirth,
         gender: match.user.gender
       }))
@@ -469,6 +481,22 @@ export class NewHireWorkflowService {
       );
     }
 
+    if (isRehire && rehireUser) {
+      const activeAssignment = await this.prisma.pickerBranchAssignment.findFirst({
+        where: {
+          pickerId: rehireUser.id,
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { id: true }
+      });
+
+      if (activeAssignment) {
+        throw new BadRequestException(
+          "Stored Rehire Picker already has an active Branch assignment."
+        );
+      }
+    }
+
     const temporaryPassword = this.temporaryPasswordService.generate();
     const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
     const temporaryPasswordExpiresAt = new Date(
@@ -509,6 +537,8 @@ export class NewHireWorkflowService {
               where: { id: rehireUser.id },
               data: {
                 ...profileFields,
+                // Rehire keeps the existing profileStatus. Password reset is mandatory,
+                // but profile completion should not be re-opened unless policy changes.
                 blockStatus: BlockStatus.NO_BLOCK,
                 blockedUntil: null,
                 blockReason: null
@@ -709,6 +739,36 @@ export class NewHireWorkflowService {
     }
 
     return request;
+  }
+
+  private async assertChampCanLookupForSourceVendor(
+    champId: string,
+    sourceVendorId?: string
+  ) {
+    if (!sourceVendorId) {
+      throw new BadRequestException(
+        "sourceVendorId is required for Champ New Hire candidate lookup."
+      );
+    }
+
+    const assignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: {
+        champId,
+        vendorId: sourceVendorId,
+        status: AssignmentStatus.ACTIVE,
+        vendor: {
+          status: VendorStatus.ACTIVE,
+          chain: { status: ChainStatus.ACTIVE }
+        }
+      },
+      select: { id: true }
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException(
+        "You can look up New Hire candidates only for assigned active Branches."
+      );
+    }
   }
 
   private async validateNewHireCandidateForCreate(
@@ -915,6 +975,19 @@ export class NewHireWorkflowService {
       gender: dto.gender ?? Gender.UNSPECIFIED,
       ...(notes ? { notes } : {})
     };
+  }
+
+  private maskNationalId(nationalId: string | null) {
+    if (!nationalId) {
+      return null;
+    }
+
+    if (nationalId.length <= 4) {
+      return "*".repeat(nationalId.length);
+    }
+
+    const visibleSuffix = nationalId.slice(-4);
+    return `${"*".repeat(Math.max(0, nationalId.length - visibleSuffix.length))}${visibleSuffix}`;
   }
 
   private parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {

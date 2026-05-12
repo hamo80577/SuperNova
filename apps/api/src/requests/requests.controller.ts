@@ -68,10 +68,14 @@ export class RequestsController {
     return this.requestsService.getById(id, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CHAMP, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Post("new-hire/lookup-candidate")
-  lookupNewHireCandidate(@Body() dto: LookupNewHireCandidateDto) {
-    return this.requestsService.lookupNewHireCandidate(dto);
+  lookupNewHireCandidate(
+    @Body() dto: LookupNewHireCandidateDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.requestsService.lookupNewHireCandidate(dto, user);
   }
 
   @UseGuards(JwtAuthGuard)

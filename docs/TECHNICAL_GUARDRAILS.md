@@ -115,14 +115,15 @@ POST /api/requests/offboarding
 POST /api/requests/transfer
 ```
 
-Generic request creation must not create:
+Generic request creation must not create active lifecycle request types:
 
 ```text
 NEW_HIRE
 RESIGNATION
-TERMINATION
 TRANSFER
 ```
+
+TERMINATION is intentionally removed from the active MVP scope.
 
 ## Database Guardrails
 

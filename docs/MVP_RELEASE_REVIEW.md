@@ -19,12 +19,14 @@ Notifications
 Audit logs
 New Hire
 Profile Completion
-Resignation/Termination
+Resignation
 Transfer
 Admin controls
 Reports
 Hardening baseline
 ```
+
+Termination is intentionally removed from the active MVP scope.
 
 ## Current Release Position
 

@@ -166,14 +166,15 @@ Rules:
 
 Represents workflow request.
 
-Request types:
+Current active request types:
 
 ```text
 NEW_HIRE
 RESIGNATION
-TERMINATION
 TRANSFER
 ```
+
+TERMINATION is intentionally removed from the active MVP scope.
 
 Statuses:
 

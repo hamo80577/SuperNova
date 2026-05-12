@@ -72,7 +72,9 @@ Picker logs in
 -> Picker can access workspace
 ```
 
-### Resignation / Termination
+### Resignation
+
+Termination is intentionally removed from the active MVP scope.
 
 ```text
 Champ submits from selected Branch

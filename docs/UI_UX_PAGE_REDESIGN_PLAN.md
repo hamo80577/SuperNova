@@ -169,7 +169,8 @@ Route:
 Purpose:
 
 - Core branch-first operations screen.
-- Starting point for New Hire, Transfer, Resignation, Termination.
+- Starting point for New Hire, Transfer, and Resignation.
+- Termination is intentionally removed from the active MVP scope.
 
 Problems to check:
 
@@ -276,12 +277,11 @@ Routes:
 
 ```text
 /champ/branches/:vendorId/resignation
-/champ/branches/:vendorId/termination
 ```
 
 Purpose:
 
-- Resignation/Termination request submission.
+- Resignation request submission.
 
 Recommended style:
 

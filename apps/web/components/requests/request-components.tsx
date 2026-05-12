@@ -1126,6 +1126,7 @@ export function NewHireRequestForm({
       startTransition(async () => {
         try {
           const result = await requestsApi.lookupNewHireCandidate({
+            sourceVendorId: form.sourceVendorId || undefined,
             phoneNumber: phoneNumber || undefined,
             nationalId: nationalId || undefined
           });
@@ -1150,10 +1151,8 @@ export function NewHireRequestForm({
               nameEn: firstCandidate.user.nameEn,
               nameAr: firstCandidate.user.nameAr ?? "",
               phoneNumber: firstCandidate.user.phoneNumber,
-              nationalId: firstCandidate.nationalId ?? current.nationalId,
               dateOfBirth: firstCandidate.dateOfBirth ?? "",
-              gender: firstCandidate.gender,
-              address: firstCandidate.address ?? ""
+              gender: firstCandidate.gender
             }));
             setAutoFilledFromUserId(firstCandidate.user.id);
           }
@@ -1178,7 +1177,7 @@ export function NewHireRequestForm({
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [form.phoneNumber, form.nationalId]);
+  }, [form.phoneNumber, form.nationalId, form.sourceVendorId]);
 
   function updateSourceChain(chainId: string) {
     setForm((current) => ({

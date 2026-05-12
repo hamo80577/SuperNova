@@ -119,9 +119,11 @@ Key behavior:
 - Profile status becomes complete.
 - Audit log is created.
 
-### Resignation / Termination
+### Resignation
 
 Status: Complete.
+
+Termination is intentionally removed from the active MVP scope.
 
 Key behavior:
 

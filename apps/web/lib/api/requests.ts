@@ -110,8 +110,7 @@ export interface NewHireLookupCandidate {
   employmentStatus: string;
   shopperId: string | null;
   ibsId: string | null;
-  address: string | null;
-  nationalId: string | null;
+  maskedNationalId: string | null;
   dateOfBirth: string | null;
   gender: "MALE" | "FEMALE" | "UNSPECIFIED";
 }
@@ -256,6 +255,7 @@ export const requestsApi = {
     return created;
   },
   lookupNewHireCandidate(payload: {
+    sourceVendorId?: string;
     phoneNumber?: string;
     nationalId?: string;
   }) {
