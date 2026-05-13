@@ -69,7 +69,7 @@ export class RequestsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.CHAMP, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Post("new-hire/lookup-candidate")
   lookupNewHireCandidate(
     @Body() dto: LookupNewHireCandidateDto,

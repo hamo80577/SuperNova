@@ -9,6 +9,7 @@ import {
 import {
   AccountStatus,
   AssignmentStatus,
+  ChainStatus,
   Prisma,
   ProfileStatus,
   User,
@@ -405,24 +406,21 @@ export class UsersService {
       userAgent?: string | null;
     }
   ) {
-    const user = await this.findById(userId);
-
-    if (!user) {
-      throw new NotFoundException("User was not found.");
-    }
-
-    await this.assertCanManagePassword(user, currentUser);
-
-    if (user.mustChangePassword) {
-      throw new BadRequestException(
-        "User already has an active temporary password. Regenerate it instead."
-      );
-    }
-
-    return this.issueTemporaryPassword(user, currentUser, "PASSWORD_RESET", context);
+    return this.resetTemporaryPassword(userId, currentUser, context);
   }
 
   async regenerateTemporaryPassword(
+    userId: string,
+    currentUser: AuthenticatedUser,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    return this.resetTemporaryPassword(userId, currentUser, context);
+  }
+
+  async revealTemporaryPassword(
     userId: string,
     currentUser: AuthenticatedUser,
     context: {
@@ -440,38 +438,34 @@ export class UsersService {
 
     if (!user.mustChangePassword) {
       throw new BadRequestException(
-        "User has already changed their password. Use reset password instead."
+        "User does not have an active temporary password."
       );
     }
 
-    return this.issueTemporaryPassword(
-      user,
-      currentUser,
-      "TEMPORARY_PASSWORD_REGENERATED",
-      context
-    );
-  }
-
-  async getTemporaryPassword(userId: string, currentUser: AuthenticatedUser) {
-    const user = await this.findById(userId);
-
-    if (!user) {
-      throw new NotFoundException("User was not found.");
+    if (!user.temporaryPasswordCiphertext) {
+      throw new BadRequestException("Temporary password is not available.");
     }
-
-    await this.assertCanManagePassword(user, currentUser);
 
     if (
-      !user.mustChangePassword ||
-      !user.temporaryPasswordCiphertext ||
-      !user.temporaryPasswordExpiresAt
+      user.temporaryPasswordExpiresAt &&
+      user.temporaryPasswordExpiresAt.getTime() <= Date.now()
     ) {
-      throw new BadRequestException("No active temporary password is available.");
-    }
-
-    if (user.temporaryPasswordExpiresAt.getTime() <= Date.now()) {
       throw new BadRequestException("Temporary password has expired.");
     }
+
+    await this.auditService.log({
+      actorUserId: currentUser.id,
+      action: "TEMPORARY_PASSWORD_REVEALED",
+      entityType: "User",
+      entityId: user.id,
+      newValue: {
+        mustChangePassword: user.mustChangePassword,
+        temporaryPasswordExpiresAt:
+          user.temporaryPasswordExpiresAt?.toISOString() ?? null
+      },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
 
     return {
       temporaryPassword: this.temporaryPasswordService.decrypt(
@@ -482,10 +476,39 @@ export class UsersService {
     };
   }
 
+  async resetTemporaryPassword(
+    userId: string,
+    currentUser: AuthenticatedUser,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException("User was not found.");
+    }
+
+    await this.assertCanManagePassword(user, currentUser);
+
+    return this.issueTemporaryPassword(user, currentUser, context);
+  }
+
+  async getTemporaryPassword(
+    userId: string,
+    currentUser: AuthenticatedUser,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    return this.revealTemporaryPassword(userId, currentUser, context);
+  }
+
   private async issueTemporaryPassword(
     user: User,
     currentUser: AuthenticatedUser,
-    action: "PASSWORD_RESET" | "TEMPORARY_PASSWORD_REGENERATED",
     context: {
       ipAddress?: string | null;
       userAgent?: string | null;
@@ -510,24 +533,38 @@ export class UsersService {
       }
     });
 
-    await this.auditService.log({
-      actorUserId: currentUser.id,
-      action,
-      entityType: "User",
-      entityId: updatedUser.id,
-      oldValue: {
-        mustChangePassword: user.mustChangePassword,
-        temporaryPasswordExpiresAt:
-          user.temporaryPasswordExpiresAt?.toISOString() ?? null
-      },
-      newValue: {
-        mustChangePassword: updatedUser.mustChangePassword,
-        temporaryPasswordExpiresAt:
-          updatedUser.temporaryPasswordExpiresAt?.toISOString() ?? null
-      },
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
-    });
+    await Promise.all([
+      this.auditService.log({
+        actorUserId: currentUser.id,
+        action: "TEMPORARY_PASSWORD_RESET",
+        entityType: "User",
+        entityId: updatedUser.id,
+        oldValue: {
+          mustChangePassword: user.mustChangePassword,
+          temporaryPasswordExpiresAt:
+            user.temporaryPasswordExpiresAt?.toISOString() ?? null
+        },
+        newValue: {
+          mustChangePassword: updatedUser.mustChangePassword,
+          temporaryPasswordExpiresAt:
+            updatedUser.temporaryPasswordExpiresAt?.toISOString() ?? null
+        },
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      }),
+      this.auditService.log({
+        actorUserId: currentUser.id,
+        action: "TEMPORARY_PASSWORD_GENERATED",
+        entityType: "User",
+        entityId: updatedUser.id,
+        newValue: {
+          temporaryPasswordExpiresAt:
+            updatedUser.temporaryPasswordExpiresAt?.toISOString() ?? null
+        },
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent
+      })
+    ]);
 
     return {
       user: toSafeUser(updatedUser),
@@ -546,14 +583,28 @@ export class UsersService {
       currentUser.role === UserRole.CHAMP &&
       targetUser.role === UserRole.PICKER &&
       (await this.isActivePickerInChampScope(targetUser.id, currentUser.id));
-    const canManagePassword = admin || scopedChampPicker;
+    const scopedAreaManagerUser =
+      currentUser.role === UserRole.AREA_MANAGER &&
+      (await this.isUserInAreaManagerScope(targetUser, currentUser.id));
+    const canManagePassword = admin || scopedChampPicker || scopedAreaManagerUser;
 
-    if (!admin && !scopedChampPicker && currentUser.id !== targetUser.id) {
+    if (
+      !admin &&
+      !scopedChampPicker &&
+      !scopedAreaManagerUser &&
+      currentUser.id !== targetUser.id
+    ) {
       throw new ForbiddenException("You cannot view this profile.");
     }
 
     return {
-      mode: admin ? "ADMIN" : scopedChampPicker ? "CHAMP" : "SELF",
+      mode: admin
+        ? "ADMIN"
+        : scopedChampPicker
+          ? "CHAMP"
+          : scopedAreaManagerUser
+            ? "AREA_MANAGER"
+            : "SELF",
       canEditProfile: admin,
       canResetPassword: canManagePassword && !targetUser.mustChangePassword,
       canRegenerateTemporaryPassword:
@@ -592,6 +643,13 @@ export class UsersService {
       return;
     }
 
+    if (
+      currentUser.role === UserRole.AREA_MANAGER &&
+      (await this.isUserInAreaManagerScope(targetUser, currentUser.id))
+    ) {
+      return;
+    }
+
     throw new ForbiddenException("You cannot manage this user's password.");
   }
 
@@ -608,6 +666,57 @@ export class UsersService {
             }
           }
         }
+      },
+      select: { id: true }
+    });
+
+    return Boolean(assignment);
+  }
+
+  private async isUserInAreaManagerScope(
+    targetUser: User,
+    areaManagerId: string
+  ) {
+    if (
+      targetUser.role !== UserRole.PICKER &&
+      targetUser.role !== UserRole.CHAMP
+    ) {
+      return false;
+    }
+
+    const areaManagerAssignments =
+      await this.prisma.chainAreaManagerAssignment.findMany({
+        where: {
+          areaManagerId,
+          status: AssignmentStatus.ACTIVE,
+          chain: { status: ChainStatus.ACTIVE }
+        },
+        select: { chainId: true }
+      });
+    const chainIds = areaManagerAssignments.map((assignment) => assignment.chainId);
+
+    if (!chainIds.length) {
+      return false;
+    }
+
+    if (targetUser.role === UserRole.PICKER) {
+      const assignment = await this.prisma.pickerBranchAssignment.findFirst({
+        where: {
+          pickerId: targetUser.id,
+          status: AssignmentStatus.ACTIVE,
+          vendor: { chainId: { in: chainIds } }
+        },
+        select: { id: true }
+      });
+
+      return Boolean(assignment);
+    }
+
+    const assignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: {
+        champId: targetUser.id,
+        status: AssignmentStatus.ACTIVE,
+        vendor: { chainId: { in: chainIds } }
       },
       select: { id: true }
     });

@@ -52,7 +52,7 @@ export interface OperationalProfileResponse {
   user: SafeUser;
   workedDays: number | null;
   permissions: {
-    mode: "ADMIN" | "CHAMP" | "SELF";
+    mode: "ADMIN" | "AREA_MANAGER" | "CHAMP" | "SELF";
     canEditProfile: boolean;
     canResetPassword: boolean;
     canRegenerateTemporaryPassword: boolean;
@@ -156,11 +156,51 @@ export const usersApi = {
     return response;
   },
   resetPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/reset-temporary-password`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  regenerateTemporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/reset-temporary-password`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  revealTemporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/reveal-temporary-password`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  resetTemporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/reset-temporary-password`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  temporaryPassword(id: string) {
+    return apiRequest<TemporaryPasswordResponse>(
+      `/users/${id}/reveal-temporary-password`,
+      {
+        method: "POST"
+      }
+    );
+  },
+  legacyResetPassword(id: string) {
     return apiRequest<TemporaryPasswordResponse>(`/users/${id}/password/reset`, {
       method: "POST"
     });
   },
-  regenerateTemporaryPassword(id: string) {
+  legacyRegenerateTemporaryPassword(id: string) {
     return apiRequest<TemporaryPasswordResponse>(
       `/users/${id}/password/regenerate-temporary`,
       {
@@ -168,7 +208,7 @@ export const usersApi = {
       }
     );
   },
-  temporaryPassword(id: string) {
+  legacyTemporaryPassword(id: string) {
     return apiRequest<TemporaryPasswordResponse>(
       `/users/${id}/password/temporary`
     );

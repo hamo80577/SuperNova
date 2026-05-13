@@ -1,11 +1,11 @@
-import { IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 export class FinalizeNewHireDto {
+  @IsOptional()
   @IsString()
-  @MinLength(3)
   @MaxLength(64)
-  @Matches(/^[A-Za-z0-9_-]+$/, {
+  @Matches(/^[A-Za-z0-9_-]*$/, {
     message: "shopperId may contain letters, numbers, underscores, and hyphens only."
   })
-  shopperId!: string;
+  shopperId?: string;
 }

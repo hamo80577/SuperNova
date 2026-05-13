@@ -77,6 +77,32 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(":id/reveal-temporary-password")
+  revealTemporaryPassword(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.revealTemporaryPassword(id, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(":id/reset-temporary-password")
+  resetTemporaryPassword(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.resetTemporaryPassword(id, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(":id/password/reset")
   resetPassword(
     @Param("id") id: string,
@@ -106,9 +132,13 @@ export class UsersController {
   @Get(":id/password/temporary")
   getTemporaryPassword(
     @Param("id") id: string,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
   ) {
-    return this.usersService.getTemporaryPassword(id, user);
+    return this.usersService.getTemporaryPassword(id, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -1241,7 +1241,7 @@ export function NewHireRequestForm({
           nameEn: form.nameEn || undefined,
           nameAr: form.nameAr || undefined,
           phoneNumber: form.phoneNumber,
-          nationalId: form.nationalId || undefined,
+          nationalId: form.nationalId,
           dateOfBirth: form.dateOfBirth || undefined,
           gender: form.gender,
           address: form.address || undefined,

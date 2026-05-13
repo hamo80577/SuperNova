@@ -18,6 +18,7 @@ export type ApprovalStep =
   | "SOURCE_AREA_MANAGER_APPROVAL"
   | "DESTINATION_AREA_MANAGER_APPROVAL"
   | "ADMIN_FINAL_APPROVAL";
+export type NewHireTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
 
 export interface RequestApprovalSummary {
   id: string;
@@ -87,12 +88,15 @@ export interface CreateRequestPayload {
 }
 
 export interface CreateNewHirePayload {
-  sourceVendorId: string;
+  targetRole?: NewHireTargetRole;
+  sourceVendorId?: string;
+  sourceChainId?: string;
+  chainIds?: string[];
   rehireUserId?: string;
   nameEn?: string;
   nameAr?: string;
   phoneNumber: string;
-  nationalId?: string;
+  nationalId: string;
   address?: string;
   dateOfBirth?: string;
   gender?: "MALE" | "FEMALE" | "UNSPECIFIED";
@@ -100,23 +104,37 @@ export interface CreateNewHirePayload {
 }
 
 export interface NewHireLookupCandidate {
-  decision: "ACTIVE_DUPLICATE" | "BLOCKED" | "REHIRE_AVAILABLE";
+  decision:
+    | "ACTIVE_DUPLICATE"
+    | "BLOCKED"
+    | "REHIRE_AVAILABLE"
+    | "TEMPORARY_BLOCKED"
+    | "PERMANENT_BLOCKED";
   matchedBy: Array<"phoneNumber" | "nationalId">;
   reason?: string;
   blockedUntil?: string | null;
+  remainingDays?: number | null;
   user: UserSummary;
+  role: string;
   blockStatus: string;
   accountStatus: string;
   employmentStatus: string;
-  shopperId: string | null;
-  ibsId: string | null;
   maskedNationalId: string | null;
-  dateOfBirth: string | null;
+  blockReason?: string | null;
+  lastBranch?: VendorSummary | null;
+  lastChain?: ChainSummary | null;
+  dateOfBirth?: string | null;
   gender: "MALE" | "FEMALE" | "UNSPECIFIED";
 }
 
 export interface NewHireLookupResponse {
-  status: "CLEAR" | "ACTIVE_DUPLICATE" | "BLOCKED" | "REHIRE_AVAILABLE";
+  status:
+    | "CLEAR"
+    | "ACTIVE_DUPLICATE"
+    | "BLOCKED"
+    | "REHIRE_AVAILABLE"
+    | "TEMPORARY_BLOCKED"
+    | "PERMANENT_BLOCKED";
   candidates: NewHireLookupCandidate[];
 }
 
@@ -140,9 +158,21 @@ export interface CreateTransferPayload {
 
 export interface FinalizeNewHireResponse {
   request: RequestSummary;
+  user: {
+    id: string;
+    role: "PICKER" | "CHAMP";
+    nameEn: string;
+    nameAr: string | null;
+    phoneNumber: string;
+    shopperId: string | null;
+    accountStatus: string;
+    employmentStatus: string;
+    profileStatus: string;
+    mustChangePassword: boolean;
+  };
   picker: {
     id: string;
-    role: "PICKER";
+    role: "PICKER" | "CHAMP";
     nameEn: string;
     nameAr: string | null;
     phoneNumber: string;
@@ -154,10 +184,13 @@ export interface FinalizeNewHireResponse {
   };
   assignment: {
     id: string;
+    assignmentType: "PickerBranchAssignment" | "VendorChampAssignment";
     status: string;
     startDate: string;
     vendorId: string;
-    pickerId: string;
+    userId: string | null;
+    pickerId?: string;
+    champId?: string;
     createdByRequestId: string | null;
   };
 }
@@ -255,7 +288,10 @@ export const requestsApi = {
     return created;
   },
   lookupNewHireCandidate(payload: {
+    targetRole?: NewHireTargetRole;
     sourceVendorId?: string;
+    sourceChainId?: string;
+    chainIds?: string[];
     phoneNumber?: string;
     nationalId?: string;
   }) {
