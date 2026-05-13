@@ -1,0 +1,262 @@
+{
+  "checkedAt": "2026-05-13T15:42:50.693Z",
+  "screenshots": [
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\champ-390-branch-new-hire.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\area-manager-430-global-new-hire.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-desktop-global-lookup.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-390-picker-finalization.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-390-champ-finalization.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-390-notifications.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-360-new-request.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-390-new-request.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-430-new-request.png",
+    "C:\\Users\\hp\\Desktop\\SuperNova\\.codex-run-logs\\qa-screenshots\\admin-1366-new-request.png"
+  ],
+  "createdTestArtifacts": [],
+  "results": [
+    {
+      "name": "1. Champ branch New Hire only shows PICKER",
+      "status": "PASS",
+      "details": "[\"Picker\"]"
+    },
+    {
+      "name": "4. Branch locked mode hides Chain/Branch selectors",
+      "status": "FAIL",
+      "details": ""
+    },
+    {
+      "name": "Mobile 390 branch-locked has no horizontal overflow",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "2. Area Manager global New Hire shows PICKER + CHAMP only",
+      "status": "PASS",
+      "details": "[\"Picker\",\"Champ\"]"
+    },
+    {
+      "name": "5. Global Picker/Champ mode shows Chain and Branch selectors",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "5. Global Picker mode blocks submit before Chain/Branch",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Mobile 430 global New Hire has no horizontal overflow",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "3. Admin global New Hire shows PICKER + CHAMP + AREA_MANAGER",
+      "status": "PASS",
+      "details": "[\"Picker\",\"Champ\",\"Area Manager\"]"
+    },
+    {
+      "name": "6. AREA_MANAGER target has Chain selector and no Branch selector",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "6. AREA_MANAGER target requires at least one Chain",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "7. Egypt phone/National ID validation messages appear",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "8. Lookup CLEAR shows candidate form",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "9. ACTIVE_DUPLICATE blocks submit",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "10. REHIRE_AVAILABLE shows old Picker read-only card",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "11. TEMPORARY_BLOCKED blocks submit and shows remaining days",
+      "status": "NOT_VERIFIED",
+      "details": "No temporary-blocked Picker exists in seeded data."
+    },
+    {
+      "name": "12. PERMANENT_BLOCKED blocks submit",
+      "status": "NOT_VERIFIED",
+      "details": "No permanent-blocked Picker exists in seeded data."
+    },
+    {
+      "name": "Desktop global New Hire has no horizontal overflow",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "13. Picker finalization asks for Shopper ID",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "15. Request detail does not show raw temporary password",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "14. Champ finalization does not ask for Shopper ID",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "15. Notifications do not show raw temporary passwords",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "17. Reset temporary password works and sets mustChangePassword",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "16. User profile reveal temporary password works for authorized user",
+      "status": "PASS",
+      "details": ""
+    },
+    {
+      "name": "Credential controls do not store temporary password in localStorage",
+      "status": "FAIL",
+      "details": ""
+    },
+    {
+      "name": "Mobile/Desktop width 360px has no horizontal overflow",
+      "status": "PASS",
+      "details": "{\"width\":360,\"scrollWidth\":360,\"ok\":true}"
+    },
+    {
+      "name": "Mobile/Desktop width 390px has no horizontal overflow",
+      "status": "PASS",
+      "details": "{\"width\":390,\"scrollWidth\":390,\"ok\":true}"
+    },
+    {
+      "name": "Mobile/Desktop width 430px has no horizontal overflow",
+      "status": "PASS",
+      "details": "{\"width\":430,\"scrollWidth\":430,\"ok\":true}"
+    },
+    {
+      "name": "Mobile/Desktop width 1366px has no horizontal overflow",
+      "status": "PASS",
+      "details": "{\"width\":1366,\"scrollWidth\":1351,\"ok\":true}"
+    }
+  ],
+  "consoleErrors": [
+    {
+      "route": "champ branch new-hire",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "champ branch new-hire",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "area-manager tickets",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "area-manager tickets",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "notifications",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:4000/api/requests/51e0baef-53e1-44b9-b88a-81b8720b60da"
+    },
+    {
+      "route": "notifications",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:4000/api/requests/881ec8a3-60e9-4287-9d2e-19bac55aebff"
+    },
+    {
+      "route": "notifications",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:4000/api/requests/ec2fdf90-018e-42ee-ad7b-5ff951c49578"
+    },
+    {
+      "route": "notifications",
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://localhost:4000/api/requests/8a6eeec3-da3b-402c-98d0-7cac8600942f"
+    }
+  ],
+  "networkErrors": [
+    {
+      "route": "champ branch new-hire",
+      "type": "http",
+      "status": 403,
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "champ branch new-hire",
+      "type": "http",
+      "status": 403,
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "area-manager tickets",
+      "type": "http",
+      "status": 403,
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "area-manager tickets",
+      "type": "http",
+      "status": 403,
+      "url": "http://localhost:4000/api/chains?page=1&pageSize=100&status=ACTIVE"
+    },
+    {
+      "route": "notifications",
+      "type": "http",
+      "status": 404,
+      "url": "http://localhost:4000/api/requests/51e0baef-53e1-44b9-b88a-81b8720b60da"
+    },
+    {
+      "route": "notifications",
+      "type": "http",
+      "status": 404,
+      "url": "http://localhost:4000/api/requests/881ec8a3-60e9-4287-9d2e-19bac55aebff"
+    },
+    {
+      "route": "notifications",
+      "type": "http",
+      "status": 404,
+      "url": "http://localhost:4000/api/requests/ec2fdf90-018e-42ee-ad7b-5ff951c49578"
+    },
+    {
+      "route": "notifications",
+      "type": "http",
+      "status": 404,
+      "url": "http://localhost:4000/api/requests/8a6eeec3-da3b-402c-98d0-7cac8600942f"
+    }
+  ],
+  "sensitiveArtifactsRemoved": [
+    "admin-430-credential-profile.png",
+    "auth-cookies.json"
+  ]
+}

@@ -48,11 +48,19 @@ const notificationFilters: Array<{
   { label: "Completed", value: "completed" }
 ];
 
+function isRequestUnavailableError(caughtError: unknown) {
+  const error = caughtError as { message?: string; status?: number } | null;
+  return (
+    error?.status === 404 ||
+    Boolean(error?.message && /not found|no longer available/i.test(error.message))
+  );
+}
+
 export function NotificationsCenter() {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [requestDetails, setRequestDetails] = useState<
-    Record<string, RequestDetail>
+    Record<string, RequestDetail | null>
   >({});
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -106,8 +114,10 @@ export function NotificationsCenter() {
       requestIds.map(async (requestId) => {
         try {
           return [requestId, await requestsApi.get(requestId)] as const;
-        } catch {
-          return null;
+        } catch (caughtError) {
+          return isRequestUnavailableError(caughtError)
+            ? ([requestId, null] as const)
+            : null;
         }
       })
     );
@@ -115,7 +125,8 @@ export function NotificationsCenter() {
     setRequestDetails(
       Object.fromEntries(
         entries.filter(
-          (entry): entry is readonly [string, RequestDetail] => Boolean(entry)
+          (entry): entry is readonly [string, RequestDetail | null] =>
+            Boolean(entry)
         )
       )
     );
@@ -251,23 +262,37 @@ export function NotificationsCenter() {
         <LoadingState />
       ) : visibleGroups.length ? (
         <div className="grid gap-4">
-          {visibleGroups.map((group) => (
-            <NotificationGroupCard
-              activeAction={activeAction}
-              expanded={expandedGroupId === group.id}
-              group={group}
-              key={group.id}
-              onMarkRead={() => void markRead(group)}
-              onOpen={() => void openGroup(group)}
-              onQuickApprove={() => void quickApprove(group)}
-              onToggleExpanded={() =>
-                setExpandedGroupId((current) =>
-                  current === group.id ? null : group.id
-                )
-              }
-              request={group.requestId ? requestDetails[group.requestId] : undefined}
-            />
-          ))}
+          {visibleGroups.map((group) => {
+            const requestDetail = group.requestId
+              ? requestDetails[group.requestId]
+              : undefined;
+
+            return (
+              <NotificationGroupCard
+                activeAction={activeAction}
+                expanded={expandedGroupId === group.id}
+                group={group}
+                key={group.id}
+                onMarkRead={() => void markRead(group)}
+                onOpen={() => void openGroup(group)}
+                onQuickApprove={() => void quickApprove(group)}
+                onToggleExpanded={() =>
+                  setExpandedGroupId((current) =>
+                    current === group.id ? null : group.id
+                  )
+                }
+                request={requestDetail ?? undefined}
+                requestUnavailable={Boolean(
+                  group.requestId &&
+                    Object.prototype.hasOwnProperty.call(
+                      requestDetails,
+                      group.requestId
+                    ) &&
+                    requestDetail === null
+                )}
+              />
+            );
+          })}
         </div>
       ) : (
         <EmptyState />
@@ -284,7 +309,8 @@ function NotificationGroupCard({
   onOpen,
   onQuickApprove,
   onToggleExpanded,
-  request
+  request,
+  requestUnavailable
 }: {
   activeAction: string | null;
   expanded: boolean;
@@ -294,6 +320,7 @@ function NotificationGroupCard({
   onQuickApprove: () => void;
   onToggleExpanded: () => void;
   request?: RequestDetail;
+  requestUnavailable: boolean;
 }) {
   const tone = getNotificationTone(group.category);
   const Icon = tone.icon;
@@ -303,7 +330,9 @@ function NotificationGroupCard({
   const isStacked = group.items.length > 1;
   const actionCompleted = isActionCompleted(group, request);
   const subject = getRequestSubject(request);
-  const previewBody = subject
+  const previewBody = requestUnavailable
+    ? "Request no longer available."
+    : subject
     ? `${formatNotificationLabel(request?.type ?? group.latest.type)} - ${subject}`
     : group.latest.body;
 
@@ -354,6 +383,15 @@ function NotificationGroupCard({
                 </Badge>
                 {isStacked ? (
                   <Badge variant="outline">{group.items.length} stacked</Badge>
+                ) : null}
+                {requestUnavailable ? (
+                  <Badge
+                    className="border-slate-200 bg-slate-50 text-slate-600"
+                    variant="outline"
+                  >
+                    <AlertCircle className="mr-1 h-3 w-3" />
+                    Unavailable
+                  </Badge>
                 ) : null}
               </div>
               <h2 className="mt-2 text-base font-semibold tracking-normal text-slate-950">

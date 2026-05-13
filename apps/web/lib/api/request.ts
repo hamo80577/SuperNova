@@ -25,7 +25,9 @@ export async function apiRequest<T>(
     const message = Array.isArray(body.message)
       ? body.message.join(" ")
       : body.message ?? body.error ?? "Request failed.";
-    throw new Error(message);
+    const error = new Error(message) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
 
   return response.json() as Promise<T>;

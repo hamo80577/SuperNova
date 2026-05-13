@@ -843,7 +843,8 @@ function BranchDetailSheet({
 
       {state.status === "ready" && newHireOpen ? (
         <NewHireModal
-          branchId={state.data.branch.id}
+          branch={state.data.branch}
+          chain={state.data.chain}
           onClose={() => setNewHireOpen(false)}
           onSaved={() => {
             setNewHireOpen(false);
@@ -1330,18 +1331,21 @@ function AreaManagerModal({
 }
 
 function NewHireModal({
-  branchId,
+  branch,
+  chain,
   onClose,
   onSaved
 }: {
-  branchId: string;
+  branch: OrganizationBranchSummary;
+  chain: Pick<OrganizationChainSummary, "id" | "chainName" | "chainCode" | "status">;
   onClose: () => void;
   onSaved: () => void;
 }) {
   return (
     <ModalFrame onClose={onClose} title="New Hire request">
       <NewHireRequestForm
-        fixedSourceVendorId={branchId}
+        fixedSourceVendorId={branch.id}
+        lockedBranchContext={{ vendor: branch, chain }}
         onCreated={() => {
           onSaved();
         }}

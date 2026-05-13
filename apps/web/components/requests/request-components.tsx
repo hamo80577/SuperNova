@@ -25,8 +25,10 @@ import {
   useMemo,
   useState,
   useTransition,
+  type Dispatch,
   type FormEvent,
-  type ReactNode
+  type ReactNode,
+  type SetStateAction
 } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
@@ -75,7 +77,47 @@ const requestStatuses: RequestStatus[] = [
   "COMPLETED"
 ];
 
+function getRequestLoadErrorMessage(caughtError: unknown) {
+  const error = caughtError as { message?: string; status?: number } | null;
+  const message = error?.message;
+
+  if (
+    error?.status === 404 ||
+    (message && /not found|no longer available/i.test(message))
+  ) {
+    return "Request no longer available.";
+  }
+
+  return message ?? "Unable to load request.";
+}
+
 type OperationsMode = "action" | "submitted" | "open" | "completed" | "rejected";
+type NewHireEntityStatus = "ACTIVE" | "INACTIVE";
+type NewHireChainSource = {
+  id: string;
+  chainName: string;
+  chainCode: string;
+  status?: NewHireEntityStatus;
+};
+type NewHireVendorSource = {
+  id: string;
+  vendorName: string;
+  vendorCode: string;
+  vendorExternalId?: string | null;
+  status?: NewHireEntityStatus;
+  chainId: string;
+  area?: string | null;
+  city?: string | null;
+  chain?: NewHireChainSource;
+};
+type NewHireChainOption = Required<NewHireChainSource>;
+type NewHireVendorOption = Omit<Required<NewHireVendorSource>, "chain"> & {
+  chain: NewHireChainOption;
+};
+export type LockedNewHireBranchContext = {
+  vendor: NewHireVendorSource;
+  chain: NewHireChainSource;
+};
 
 export function RequestsCenter() {
   return <RequestOperationsCenter defaultMode="action" />;
@@ -674,11 +716,7 @@ function RequestDetailModal({
     try {
       setRequest(await requestsApi.get(requestId));
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to load request."
-      );
+      setError(getRequestLoadErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
@@ -1125,16 +1163,94 @@ function NewHireApprovalPathDetail({
   );
 }
 
+function toNewHireChainOption(chain: NewHireChainSource): NewHireChainOption {
+  return {
+    id: chain.id,
+    chainName: chain.chainName,
+    chainCode: chain.chainCode,
+    status: chain.status ?? "ACTIVE"
+  };
+}
+
+function toNewHireVendorOption(
+  vendor: NewHireVendorSource,
+  chain?: NewHireChainSource
+): NewHireVendorOption {
+  const resolvedChain = toNewHireChainOption(
+    chain ??
+      vendor.chain ?? {
+        id: vendor.chainId,
+        chainName: "Selected Chain",
+        chainCode: "",
+        status: "ACTIVE"
+      }
+  );
+
+  return {
+    id: vendor.id,
+    vendorName: vendor.vendorName,
+    vendorCode: vendor.vendorCode,
+    vendorExternalId: vendor.vendorExternalId ?? null,
+    status: vendor.status ?? "ACTIVE",
+    chainId: vendor.chainId,
+    area: vendor.area ?? null,
+    city: vendor.city ?? null,
+    chain: resolvedChain
+  };
+}
+
+function uniqueNewHireChains(chains: NewHireChainOption[]) {
+  return Array.from(new Map(chains.map((chain) => [chain.id, chain])).values());
+}
+
+function isActiveNewHireEntity(entity: { status?: NewHireEntityStatus }) {
+  return !entity.status || entity.status === "ACTIVE";
+}
+
+function applyFixedNewHireBranch(
+  fixedSourceVendorId: string | undefined,
+  vendorOptions: NewHireVendorOption[],
+  setForm: Dispatch<
+    SetStateAction<{
+      targetRole: NewHireTargetRole;
+      sourceChainId: string;
+      sourceVendorId: string;
+      chainIds: string[];
+      nameEn: string;
+      nameAr: string;
+      phoneNumber: string;
+      nationalId: string;
+      dateOfBirth: string;
+      gender: "MALE" | "FEMALE" | "UNSPECIFIED";
+      address: string;
+      notes: string;
+    }>
+  >
+) {
+  if (!fixedSourceVendorId) {
+    return;
+  }
+
+  const fixedVendor = vendorOptions.find((vendor) => vendor.id === fixedSourceVendorId);
+  setForm((current) => ({
+    ...current,
+    sourceVendorId: fixedSourceVendorId,
+    sourceChainId: fixedVendor?.chainId ?? current.sourceChainId
+  }));
+}
+
 export function NewHireRequestForm({
   fixedSourceVendorId,
+  lockedBranchContext,
   onCreated
 }: {
   fixedSourceVendorId?: string;
+  lockedBranchContext?: LockedNewHireBranchContext;
   onCreated: (request: RequestSummary) => void;
 }) {
   const { user } = useAuth();
-  const [chains, setChains] = useState<Chain[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [chains, setChains] = useState<NewHireChainOption[]>([]);
+  const [vendors, setVendors] = useState<NewHireVendorOption[]>([]);
   const [form, setForm] = useState({
     targetRole: "PICKER" as NewHireTargetRole,
     sourceChainId: "",
@@ -1173,84 +1289,141 @@ export function NewHireRequestForm({
     }
     let mounted = true;
     async function loadVendors() {
+      setIsLoadingVendors(true);
+      setError(null);
       try {
-        const [chainFirst, first] = await Promise.all([
-          organizationApi.listChains({
-            page: 1,
-            pageSize: 100,
-            status: "ACTIVE"
-          }),
-          organizationApi.listVendors({
-            page: 1,
-            pageSize: 100,
-            status: "ACTIVE"
-          })
-        ]);
-        const rest = await Promise.all(
-          Array.from({ length: Math.max(0, first.meta.totalPages - 1) }, (_, index) =>
+        if (fixedSourceVendorId && lockedBranchContext) {
+          const chainOption = toNewHireChainOption(lockedBranchContext.chain);
+          const vendorOption = toNewHireVendorOption(
+            lockedBranchContext.vendor,
+            chainOption
+          );
+          if (mounted) {
+            setChains([chainOption]);
+            setVendors([vendorOption]);
+            applyFixedNewHireBranch(fixedSourceVendorId, [vendorOption], setForm);
+          }
+          return;
+        }
+
+        if (user?.role === "CHAMP") {
+          const workspace = await workspacesApi.champBranches();
+          if (!mounted) {
+            return;
+          }
+
+          const visibleBranches = workspace.branches.filter(
+            (branch) =>
+              isActiveNewHireEntity(branch.chain) &&
+              isActiveNewHireEntity(branch.vendor) &&
+              (!fixedSourceVendorId || branch.vendor.id === fixedSourceVendorId)
+          );
+          const chainOptions = uniqueNewHireChains(
+            visibleBranches.map((branch) => toNewHireChainOption(branch.chain))
+          );
+          const vendorOptions = visibleBranches.map((branch) =>
+            toNewHireVendorOption(branch.vendor, branch.chain)
+          );
+
+          setChains(chainOptions);
+          setVendors(vendorOptions);
+          applyFixedNewHireBranch(fixedSourceVendorId, vendorOptions, setForm);
+          return;
+        }
+
+        if (user?.role === "AREA_MANAGER") {
+          const workspace = await workspacesApi.areaManager();
+          if (!mounted) {
+            return;
+          }
+
+          const activeChains = workspace.chains.filter((chain) =>
+            isActiveNewHireEntity(chain.chain)
+          );
+          const chainOptions = uniqueNewHireChains(
+            activeChains.map((chain) => toNewHireChainOption(chain.chain))
+          );
+          const vendorOptions = activeChains.flatMap((chain) =>
+            chain.vendors
+              .filter(
+                (branch) =>
+                  isActiveNewHireEntity(branch.vendor) &&
+                  (!fixedSourceVendorId ||
+                    branch.vendor.id === fixedSourceVendorId)
+              )
+              .map((branch) => toNewHireVendorOption(branch.vendor, chain.chain))
+          );
+
+          setChains(chainOptions);
+          setVendors(vendorOptions);
+          applyFixedNewHireBranch(fixedSourceVendorId, vendorOptions, setForm);
+          return;
+        }
+
+        if (fixedSourceVendorId) {
+          if (mounted) {
+            setChains([]);
+            setVendors([]);
+            setError("Selected Branch context was not provided.");
+          }
+          return;
+        }
+
+        if (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") {
+          const [chainFirst, first] = await Promise.all([
+            organizationApi.listChains({
+              page: 1,
+              pageSize: 100,
+              status: "ACTIVE"
+            }),
             organizationApi.listVendors({
-              page: index + 2,
+              page: 1,
               pageSize: 100,
               status: "ACTIVE"
             })
-          )
-        );
-        const chainRest = await Promise.all(
-          Array.from(
-            { length: Math.max(0, chainFirst.meta.totalPages - 1) },
-            (_, index) =>
-              organizationApi.listChains({
-                page: index + 2,
-                pageSize: 100,
-                status: "ACTIVE"
-              })
-          )
-        );
+          ]);
+          const rest = await Promise.all(
+            Array.from(
+              { length: Math.max(0, first.meta.totalPages - 1) },
+              (_, index) =>
+                organizationApi.listVendors({
+                  page: index + 2,
+                  pageSize: 100,
+                  status: "ACTIVE"
+                })
+            )
+          );
+          const chainRest = await Promise.all(
+            Array.from(
+              { length: Math.max(0, chainFirst.meta.totalPages - 1) },
+              (_, index) =>
+                organizationApi.listChains({
+                  page: index + 2,
+                  pageSize: 100,
+                  status: "ACTIVE"
+                })
+            )
+          );
+
+          if (mounted) {
+            const allChains = [
+              ...chainFirst.items,
+              ...chainRest.flatMap((page) => page.items)
+            ].map((chain) => toNewHireChainOption(chain));
+            const allVendors = [
+              ...first.items,
+              ...rest.flatMap((page) => page.items)
+            ].map((vendor) => toNewHireVendorOption(vendor));
+
+            setChains(allChains);
+            setVendors(allVendors);
+          }
+          return;
+        }
+
         if (mounted) {
-          const allVendors = [...first.items, ...rest.flatMap((page) => page.items)];
-          const allChains = [
-            ...chainFirst.items,
-            ...chainRest.flatMap((page) => page.items)
-          ];
-          let scopedChainIds: Set<string> | null = null;
-          let scopedVendorIds: Set<string> | null = null;
-
-          if (user?.role === "CHAMP") {
-            const workspace = await workspacesApi.champBranches();
-            scopedVendorIds = new Set(
-              workspace.branches.map((branch) => branch.vendor.id)
-            );
-            scopedChainIds = new Set(
-              workspace.branches.map((branch) => branch.chain.id)
-            );
-          } else if (user?.role === "AREA_MANAGER") {
-            const workspace = await workspacesApi.areaManager();
-            scopedChainIds = new Set(
-              workspace.chains.map((chain) => chain.chain.id)
-            );
-          }
-
-          const visibleChains = scopedChainIds
-            ? allChains.filter((chain) => scopedChainIds?.has(chain.id))
-            : allChains;
-          const visibleVendors = scopedVendorIds
-            ? allVendors.filter((vendor) => scopedVendorIds?.has(vendor.id))
-            : scopedChainIds
-              ? allVendors.filter((vendor) => scopedChainIds?.has(vendor.chainId))
-              : allVendors;
-
-          setChains(visibleChains);
-          setVendors(visibleVendors);
-          if (fixedSourceVendorId) {
-            const fixedVendor = visibleVendors.find(
-              (vendor) => vendor.id === fixedSourceVendorId
-            );
-            setForm((current) => ({
-              ...current,
-              sourceVendorId: fixedSourceVendorId,
-              sourceChainId: fixedVendor?.chainId ?? current.sourceChainId
-            }));
-          }
+          setChains([]);
+          setVendors([]);
         }
       } catch (caughtError) {
         if (mounted) {
@@ -1270,7 +1443,7 @@ export function NewHireRequestForm({
     return () => {
       mounted = false;
     };
-  }, [fixedSourceVendorId, user?.role]);
+  }, [fixedSourceVendorId, lockedBranchContext, user?.role]);
 
   useEffect(() => {
     if (!allowedTargetRoles.length) {
@@ -1452,7 +1625,7 @@ export function NewHireRequestForm({
     resetLookup();
   }
 
-  function selectBranch(vendor: Vendor) {
+  function selectBranch(vendor: NewHireVendorOption) {
     setForm((current) => ({
       ...current,
       sourceChainId: vendor.chainId,
@@ -1903,8 +2076,8 @@ function SelectedContextCard({
   selectedVendor
 }: {
   loading: boolean;
-  selectedChain: Pick<Chain, "chainCode" | "chainName"> | null;
-  selectedVendor: Vendor | null;
+  selectedChain: Pick<NewHireChainOption, "chainCode" | "chainName"> | null;
+  selectedVendor: NewHireVendorOption | null;
 }) {
   if (loading) {
     return <EmptyState message="Loading selected Branch context." compact />;
@@ -2102,8 +2275,8 @@ function NewHireReviewCard({
   mode: "NEW_USER" | "REHIRE";
   nationalId: string;
   phoneNumber: string;
-  selectedChains: Chain[];
-  selectedVendor: Vendor | null;
+  selectedChains: NewHireChainOption[];
+  selectedVendor: NewHireVendorOption | null;
   targetRole: NewHireTargetRole;
 }) {
   const expectedNextStep =
@@ -2802,11 +2975,7 @@ export function RequestDetailView() {
     try {
       setRequest(await requestsApi.get(params.id));
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to load request."
-      );
+      setError(getRequestLoadErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }

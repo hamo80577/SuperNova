@@ -132,6 +132,7 @@ export function ChampNewHireForm() {
             <div className="mt-5">
               <NewHireRequestForm
                 fixedSourceVendorId={branch.vendor.id}
+                lockedBranchContext={branch}
                 onCreated={setCreatedRequest}
               />
             </div>
