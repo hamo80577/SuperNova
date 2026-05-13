@@ -12,6 +12,7 @@ import {
   UserRound,
   Users
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ const blockStatuses: BlockStatus[] = [
 ];
 
 export function AdminUsersPage() {
+  const searchParams = useSearchParams();
   const [state, setState] = useState<AsyncState<SafeUser[]>>({
     status: "loading"
   });
@@ -94,6 +96,13 @@ export function AdminUsersPage() {
   useEffect(() => {
     void loadUsers();
   }, []);
+
+  useEffect(() => {
+    const userId = searchParams.get("userId");
+    if (userId) {
+      setSelectedUserId(userId);
+    }
+  }, [searchParams]);
 
   const users = state.status === "ready" ? state.data : [];
   const filteredUsers = useMemo(

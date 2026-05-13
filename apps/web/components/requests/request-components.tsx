@@ -40,17 +40,21 @@ import {
   type PickerBranchAssignment
 } from "@/lib/api/assignments";
 import { organizationApi, type Chain, type Vendor } from "@/lib/api/organization";
+import { workspacesApi } from "@/lib/api/workspaces";
 import {
   requestsApi,
   type CreateRequestPayload,
   type FinalizeOffboardingResponse,
   type FinalizeNewHireResponse,
   type NewHireLookupCandidate,
+  type NewHireLookupResponse,
+  type NewHireTargetRole,
   type RequestDetail,
   type RequestStatus,
   type RequestSummary,
   type RequestType
 } from "@/lib/api/requests";
+import type { UserRole } from "@/lib/auth/types";
 import { pushRoute } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -874,7 +878,7 @@ function RequestDetailModal({
                     await loadRequest();
                     await onChanged();
                   }}
-                  requestId={request.id}
+                  request={request}
                 />
               ) : null}
 
@@ -947,24 +951,7 @@ function RequestModalHero({ request }: { request: RequestDetail }) {
 
 function RequestTypePanel({ request }: { request: RequestDetail }) {
   if (request.type === "NEW_HIRE") {
-    const context = parseNewHirePayload(request.payload);
-    return (
-      <InfoCard title={context?.mode === "REHIRE" ? "Rehire Candidate" : "New Hire Candidate"}>
-        <Definition label="Picker English name" value={context?.nameEn ?? "Not available"} />
-        <Definition label="Phone number" value={context?.candidatePhone ?? "Not available"} />
-        <Definition label="National ID" value={context?.nationalId ?? "Not available"} />
-        <Definition label="Address" value={context?.address ?? "Not available"} />
-        <Definition label="Chain" value={request.sourceChain?.chainName ?? "None"} />
-        <Definition label="Branch" value={request.sourceVendor?.vendorName ?? "None"} />
-        <Definition
-          label="Mode"
-          value={context?.mode === "REHIRE" ? "Previous Picker rehire" : "New Picker"}
-        />
-        {context?.rehireUserId ? (
-          <Definition label="Previous Picker ID" value={context.rehireUserId} />
-        ) : null}
-      </InfoCard>
-    );
+    return <NewHireRequestDetailPanel request={request} />;
   }
 
   if (request.type === "TRANSFER") {
@@ -982,6 +969,162 @@ function RequestTypePanel({ request }: { request: RequestDetail }) {
   );
 }
 
+function NewHireRequestDetailPanel({ request }: { request: RequestDetail }) {
+  const context = parseNewHirePayload(request.payload);
+
+  if (!context) {
+    return (
+      <InfoCard title="New Hire">
+        <EmptyState message="No New Hire context is available." compact />
+      </InfoCard>
+    );
+  }
+
+  const isRehire = context.mode === "REHIRE";
+  const selectedChainText =
+    context.targetRole === "AREA_MANAGER"
+      ? [
+          request.sourceChain?.chainName,
+          ...(context.source.chainIds ?? []).filter(
+            (chainId) => chainId !== request.sourceChain?.id
+          )
+        ]
+          .filter(Boolean)
+          .join(", ") || "Not available"
+      : request.sourceChain?.chainName ?? context.source.chainId ?? "Not available";
+
+  return (
+    <InfoCard title="New Hire">
+      <div className="flex flex-wrap gap-2">
+        <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+          {formatEnum(context.targetRole)}
+        </Badge>
+        <Badge variant="outline">{isRehire ? "Rehire" : "New User"}</Badge>
+      </div>
+
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <Definition label="Candidate" value={context.nameEn ?? "Not available"} />
+        <Definition label="Phone" value={context.candidatePhone} />
+        <Definition
+          label="National ID"
+          value={context.nationalId ? maskNationalId(context.nationalId) : "Not available"}
+        />
+        <Definition label="Arabic name" value={context.nameAr ?? "Not available"} />
+        <Definition label="Date of birth" value={context.dateOfBirth ?? "Not available"} />
+        <Definition label="Gender" value={formatEnum(context.gender)} />
+        <Definition label="Address" value={context.address ?? "Not available"} />
+        <Definition label="Notes" value={context.notes ?? "None"} />
+      </div>
+
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+        <Definition label="Source Chain" value={selectedChainText} />
+        {context.targetRole !== "AREA_MANAGER" ? (
+          <Definition
+            label="Source Branch"
+            value={request.sourceVendor?.vendorName ?? context.source.vendorId ?? "Not available"}
+          />
+        ) : (
+          <Definition
+            label="Selected Chain IDs"
+            value={(context.source.chainIds ?? []).join(", ") || "Not available"}
+          />
+        )}
+        <Definition label="Creator" value={request.createdBy.nameEn} />
+        {context.rehireUserId ? (
+          <Definition label="Previous Picker ID" value={context.rehireUserId} />
+        ) : null}
+      </div>
+
+      <NewHireApprovalPathDetail request={request} targetRole={context.targetRole} />
+
+      {context.finalization ? (
+        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+          <Definition label="Finalized user" value={context.finalization.userId} />
+          {request.targetUser ? (
+            <Link
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+              href={`/admin/users?userId=${request.targetUser.id}`}
+              prefetch
+            >
+              Open user profile
+            </Link>
+          ) : null}
+          <Definition
+            label="Assignment type"
+            value={context.finalization.assignmentType}
+          />
+          <Definition
+            label="Assignment result"
+            value={
+              context.finalization.assignmentId ??
+              context.finalization.assignmentIds?.join(", ") ??
+              "Not available"
+            }
+          />
+          <Definition
+            label="Shopper ID"
+            value={context.finalization.shopperId ?? "Not required"}
+          />
+          <Definition
+            label="Completed"
+            value={
+              context.finalization.completedAt
+                ? new Date(context.finalization.completedAt).toLocaleString()
+                : "Not available"
+            }
+          />
+        </div>
+      ) : null}
+    </InfoCard>
+  );
+}
+
+function NewHireApprovalPathDetail({
+  request,
+  targetRole
+}: {
+  request: RequestDetail;
+  targetRole: NewHireTargetRole;
+}) {
+  const steps = buildNewHireApprovalSteps(request.createdBy.role, targetRole);
+  const areaManagerApproval = request.approvals.find(
+    (approval) => approval.step === "AREA_MANAGER_APPROVAL"
+  );
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+      <p className="text-sm font-semibold text-slate-950">Approval path</p>
+      {steps.map((step, index) => {
+        const isAreaManagerStep = step.label === "Area Manager approval";
+        const skipped = isAreaManagerStep
+          ? areaManagerApproval?.status === "SKIPPED" || step.skipped
+          : step.skipped;
+        return (
+          <div className="flex items-start gap-3 text-sm" key={`${step.label}:${index}`}>
+            <span
+              className={cn(
+                "mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                skipped
+                  ? "bg-slate-100 text-slate-500"
+                  : "bg-orange-50 text-orange-700"
+              )}
+            >
+              {index + 1}
+            </span>
+            <div>
+              <p className="font-medium text-slate-950">
+                {step.label}
+                {skipped ? " (skipped)" : ""}
+              </p>
+              <p className="text-xs leading-5 text-slate-500">{step.description}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function NewHireRequestForm({
   fixedSourceVendorId,
   onCreated
@@ -989,11 +1132,14 @@ export function NewHireRequestForm({
   fixedSourceVendorId?: string;
   onCreated: (request: RequestSummary) => void;
 }) {
+  const { user } = useAuth();
   const [chains, setChains] = useState<Chain[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [form, setForm] = useState({
+    targetRole: "PICKER" as NewHireTargetRole,
     sourceChainId: "",
     sourceVendorId: "",
+    chainIds: [] as string[],
     nameEn: "",
     nameAr: "",
     phoneNumber: "",
@@ -1003,14 +1149,23 @@ export function NewHireRequestForm({
     address: "",
     notes: ""
   });
+  const [chainQuery, setChainQuery] = useState("");
   const [branchQuery, setBranchQuery] = useState("");
-  const [lookupCandidates, setLookupCandidates] = useState<NewHireLookupCandidate[]>([]);
+  const [lookupResponse, setLookupResponse] =
+    useState<NewHireLookupResponse | null>(null);
   const [selectedRehireUserId, setSelectedRehireUserId] = useState("");
-  const [autoFilledFromUserId, setAutoFilledFromUserId] = useState("");
-  const [lookupState, setLookupState] = useState<"idle" | "checking" | "found" | "clear">("idle");
+  const [lookupState, setLookupState] = useState<"idle" | "checking" | "checked">(
+    "idle"
+  );
   const [error, setError] = useState<string | null>(null);
   const [isLoadingVendors, setIsLoadingVendors] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const branchLocked = Boolean(fixedSourceVendorId);
+
+  const allowedTargetRoles = useMemo(
+    () => getAllowedNewHireTargetRoles(user?.role, branchLocked),
+    [branchLocked, user?.role]
+  );
 
   useEffect(() => {
     if (fixedSourceVendorId) {
@@ -1053,10 +1208,41 @@ export function NewHireRequestForm({
         );
         if (mounted) {
           const allVendors = [...first.items, ...rest.flatMap((page) => page.items)];
-          setChains([...chainFirst.items, ...chainRest.flatMap((page) => page.items)]);
-          setVendors(allVendors);
+          const allChains = [
+            ...chainFirst.items,
+            ...chainRest.flatMap((page) => page.items)
+          ];
+          let scopedChainIds: Set<string> | null = null;
+          let scopedVendorIds: Set<string> | null = null;
+
+          if (user?.role === "CHAMP") {
+            const workspace = await workspacesApi.champBranches();
+            scopedVendorIds = new Set(
+              workspace.branches.map((branch) => branch.vendor.id)
+            );
+            scopedChainIds = new Set(
+              workspace.branches.map((branch) => branch.chain.id)
+            );
+          } else if (user?.role === "AREA_MANAGER") {
+            const workspace = await workspacesApi.areaManager();
+            scopedChainIds = new Set(
+              workspace.chains.map((chain) => chain.chain.id)
+            );
+          }
+
+          const visibleChains = scopedChainIds
+            ? allChains.filter((chain) => scopedChainIds?.has(chain.id))
+            : allChains;
+          const visibleVendors = scopedVendorIds
+            ? allVendors.filter((vendor) => scopedVendorIds?.has(vendor.id))
+            : scopedChainIds
+              ? allVendors.filter((vendor) => scopedChainIds?.has(vendor.chainId))
+              : allVendors;
+
+          setChains(visibleChains);
+          setVendors(visibleVendors);
           if (fixedSourceVendorId) {
-            const fixedVendor = allVendors.find(
+            const fixedVendor = visibleVendors.find(
               (vendor) => vendor.id === fixedSourceVendorId
             );
             setForm((current) => ({
@@ -1084,39 +1270,122 @@ export function NewHireRequestForm({
     return () => {
       mounted = false;
     };
-  }, [fixedSourceVendorId]);
+  }, [fixedSourceVendorId, user?.role]);
+
+  useEffect(() => {
+    if (!allowedTargetRoles.length) {
+      return;
+    }
+    setForm((current) =>
+      allowedTargetRoles.includes(current.targetRole)
+        ? current
+        : {
+            ...current,
+            targetRole: allowedTargetRoles[0],
+            chainIds: [],
+            sourceChainId: fixedSourceVendorId ? current.sourceChainId : "",
+            sourceVendorId: fixedSourceVendorId ?? ""
+          }
+    );
+  }, [allowedTargetRoles, fixedSourceVendorId]);
 
   function updateField(name: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
-  function updateIdentityField(name: "phoneNumber" | "nationalId", value: string) {
+  function resetLookup() {
+    setLookupResponse(null);
+    setLookupState("idle");
+    setSelectedRehireUserId("");
+  }
+
+  function updateTargetRole(targetRole: NewHireTargetRole) {
+    setError(null);
+    resetLookup();
     setForm((current) => ({
       ...current,
-      [name]: value,
-      ...(autoFilledFromUserId
-        ? {
-            nameEn: "",
-            nameAr: "",
-            dateOfBirth: "",
-            gender: "UNSPECIFIED" as const,
-            address: ""
-          }
-        : {})
+      targetRole,
+      chainIds: targetRole === "AREA_MANAGER" ? current.chainIds : [],
+      sourceChainId:
+        targetRole === "AREA_MANAGER" && !fixedSourceVendorId
+          ? ""
+          : current.sourceChainId,
+      sourceVendorId:
+        targetRole === "AREA_MANAGER" && !fixedSourceVendorId
+          ? ""
+          : current.sourceVendorId
     }));
-    setAutoFilledFromUserId("");
-    setSelectedRehireUserId("");
-    setLookupCandidates([]);
-    setLookupState("idle");
+  }
+
+  function updateIdentityField(name: "phoneNumber" | "nationalId", value: string) {
+    const numericValue = value.replace(/\D/g, "");
+    setForm((current) => ({
+      ...current,
+      [name]: numericValue
+    }));
+    resetLookup();
     setError(null);
   }
+
+  const isPhoneValid = isValidEgyptPhone(form.phoneNumber);
+  const isNationalIdValid = isValidEgyptNationalId(form.nationalId);
+  const isBranchTarget = form.targetRole === "PICKER" || form.targetRole === "CHAMP";
+  const isAreaManagerTarget = form.targetRole === "AREA_MANAGER";
+  const selectedVendor = vendors.find((vendor) => vendor.id === form.sourceVendorId);
+  const selectedChain = chains.find((chain) => chain.id === form.sourceChainId);
+  const selectedChains = chains.filter((chain) => form.chainIds.includes(chain.id));
+  const lookupContextReady = isAreaManagerTarget
+    ? form.chainIds.length > 0
+    : Boolean(form.sourceVendorId);
+  const canLookupCandidate =
+    lookupContextReady && (isPhoneValid || isNationalIdValid);
+  const chainSearchResults = chains
+    .filter((chain) => {
+      const query = chainQuery.trim().toLowerCase();
+      if (!query) {
+        return true;
+      }
+      return [chain.chainName, chain.chainCode]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    })
+    .slice(0, 10);
+  const filteredVendors = vendors
+    .filter((vendor) => !form.sourceChainId || vendor.chainId === form.sourceChainId)
+    .filter((vendor) => {
+      const query = branchQuery.trim().toLowerCase();
+      if (!query) {
+        return true;
+      }
+      return [vendor.vendorName, vendor.vendorCode, vendor.chain.chainName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  const lookupStatus = lookupResponse?.status;
+  const lookupCandidates = lookupResponse?.candidates ?? [];
+  const rehireCandidate =
+    form.targetRole === "PICKER"
+      ? lookupCandidates.find((candidate) => candidate.decision === "REHIRE_AVAILABLE")
+      : undefined;
+  const blockingCandidate = lookupCandidates.find((candidate) =>
+    isBlockingNewHireDecision(candidate.decision)
+  );
+  const canShowCandidateForm = lookupStatus === "CLEAR";
+  const canSubmit =
+    !isPending &&
+    lookupContextReady &&
+    isPhoneValid &&
+    isNationalIdValid &&
+    (lookupStatus === "CLEAR" || lookupStatus === "REHIRE_AVAILABLE") &&
+    !blockingCandidate &&
+    (lookupStatus !== "CLEAR" || Boolean(form.nameEn.trim())) &&
+    (lookupStatus !== "REHIRE_AVAILABLE" || Boolean(selectedRehireUserId));
 
   useEffect(() => {
     const phoneNumber = form.phoneNumber.trim();
     const nationalId = form.nationalId.trim();
-    const canLookup = phoneNumber.length >= 8 || nationalId.length >= 6;
 
-    if (!canLookup) {
+    if (!canLookupCandidate) {
       return;
     }
 
@@ -1126,40 +1395,23 @@ export function NewHireRequestForm({
       startTransition(async () => {
         try {
           const result = await requestsApi.lookupNewHireCandidate({
+            targetRole: form.targetRole,
             sourceVendorId: form.sourceVendorId || undefined,
-            phoneNumber: phoneNumber || undefined,
-            nationalId: nationalId || undefined
+            sourceChainId: form.sourceChainId || undefined,
+            chainIds: isAreaManagerTarget ? form.chainIds : undefined,
+            phoneNumber: isPhoneValid ? phoneNumber : undefined,
+            nationalId: isNationalIdValid ? nationalId : undefined
           });
           if (cancelled) {
             return;
           }
 
-          setLookupCandidates(result.candidates);
-          const firstCandidate = result.candidates[0];
           const rehireCandidate = result.candidates.find(
             (candidate) => candidate.decision === "REHIRE_AVAILABLE"
           );
-          const blocking = result.candidates.find(
-            (candidate) =>
-              candidate.decision === "ACTIVE_DUPLICATE" ||
-              candidate.decision === "BLOCKED"
-          );
-
-          if (firstCandidate) {
-            setForm((current) => ({
-              ...current,
-              nameEn: firstCandidate.user.nameEn,
-              nameAr: firstCandidate.user.nameAr ?? "",
-              phoneNumber: firstCandidate.user.phoneNumber,
-              dateOfBirth: firstCandidate.dateOfBirth ?? "",
-              gender: firstCandidate.gender
-            }));
-            setAutoFilledFromUserId(firstCandidate.user.id);
-          }
-
+          setLookupResponse(result);
           setSelectedRehireUserId(rehireCandidate?.user.id ?? "");
-          setLookupState(result.candidates.length ? "found" : "clear");
-          setError(blocking?.reason ?? null);
+          setLookupState("checked");
         } catch (caughtError) {
           if (!cancelled) {
             setError(
@@ -1177,7 +1429,18 @@ export function NewHireRequestForm({
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [form.phoneNumber, form.nationalId, form.sourceVendorId]);
+  }, [
+    canLookupCandidate,
+    form.chainIds,
+    form.nationalId,
+    form.phoneNumber,
+    form.sourceChainId,
+    form.sourceVendorId,
+    form.targetRole,
+    isAreaManagerTarget,
+    isNationalIdValid,
+    isPhoneValid
+  ]);
 
   function updateSourceChain(chainId: string) {
     setForm((current) => ({
@@ -1186,6 +1449,7 @@ export function NewHireRequestForm({
       sourceVendorId: ""
     }));
     setBranchQuery("");
+    resetLookup();
   }
 
   function selectBranch(vendor: Vendor) {
@@ -1194,32 +1458,50 @@ export function NewHireRequestForm({
       sourceChainId: vendor.chainId,
       sourceVendorId: vendor.id
     }));
+    resetLookup();
   }
 
-  const filteredVendors = vendors
-    .filter((vendor) => !form.sourceChainId || vendor.chainId === form.sourceChainId)
-    .filter((vendor) => {
-      const query = branchQuery.trim().toLowerCase();
-      if (!query) {
-        return true;
-      }
-      return [vendor.vendorName, vendor.vendorCode, vendor.chain.chainName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
+  function toggleChain(chainId: string) {
+    setForm((current) => {
+      const chainIds = current.chainIds.includes(chainId)
+        ? current.chainIds.filter((id) => id !== chainId)
+        : [...current.chainIds, chainId];
+      return {
+        ...current,
+        chainIds,
+        sourceChainId: chainIds[0] ?? ""
+      };
     });
-
-  const selectedVendor = vendors.find((vendor) => vendor.id === form.sourceVendorId);
-  const blockingCandidate = lookupCandidates.find(
-    (candidate) =>
-      candidate.decision === "ACTIVE_DUPLICATE" || candidate.decision === "BLOCKED"
-  );
+    resetLookup();
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const rehireCandidate = lookupCandidates.find(
-      (candidate) => candidate.decision === "REHIRE_AVAILABLE"
-    );
-    if (rehireCandidate && !selectedRehireUserId) {
+    if (!allowedTargetRoles.includes(form.targetRole)) {
+      setError("This New Hire target role is not available for your workspace.");
+      return;
+    }
+    if (!isPhoneValid) {
+      setError("Phone number must be 11 digits and start with 010, 011, 012, or 015.");
+      return;
+    }
+    if (!isNationalIdValid) {
+      setError("National ID must be exactly 14 digits.");
+      return;
+    }
+    if (isBranchTarget && !form.sourceVendorId) {
+      setError("Select the Chain and Branch before submitting New Hire.");
+      return;
+    }
+    if (isAreaManagerTarget && !form.chainIds.length) {
+      setError("Select at least one Chain before creating an Area Manager.");
+      return;
+    }
+    if (!lookupResponse) {
+      setError("Wait for candidate lookup before submitting.");
+      return;
+    }
+    if (lookupStatus === "REHIRE_AVAILABLE" && !selectedRehireUserId) {
       setError("Select the previous Picker before submitting this Rehire.");
       return;
     }
@@ -1227,8 +1509,8 @@ export function NewHireRequestForm({
       setError(blockingCandidate.reason ?? "This candidate cannot be hired.");
       return;
     }
-    if (!form.sourceVendorId) {
-      setError("Select the Chain and Branch before submitting New Hire.");
+    if (lookupStatus === "CLEAR" && !form.nameEn.trim()) {
+      setError("English name is required for a new user.");
       return;
     }
 
@@ -1236,15 +1518,24 @@ export function NewHireRequestForm({
       setError(null);
       try {
         const created = await requestsApi.createNewHire({
-          sourceVendorId: form.sourceVendorId,
-          rehireUserId: selectedRehireUserId || undefined,
-          nameEn: form.nameEn || undefined,
-          nameAr: form.nameAr || undefined,
+          targetRole: form.targetRole,
+          sourceVendorId: isBranchTarget ? form.sourceVendorId : undefined,
+          sourceChainId: isAreaManagerTarget
+            ? form.chainIds[0]
+            : form.sourceChainId || selectedVendor?.chainId || undefined,
+          chainIds: isAreaManagerTarget ? form.chainIds : undefined,
+          rehireUserId:
+            lookupStatus === "REHIRE_AVAILABLE"
+              ? selectedRehireUserId || undefined
+              : undefined,
+          nameEn: lookupStatus === "CLEAR" ? form.nameEn || undefined : undefined,
+          nameAr: lookupStatus === "CLEAR" ? form.nameAr || undefined : undefined,
           phoneNumber: form.phoneNumber,
           nationalId: form.nationalId,
-          dateOfBirth: form.dateOfBirth || undefined,
-          gender: form.gender,
-          address: form.address || undefined,
+          dateOfBirth:
+            lookupStatus === "CLEAR" ? form.dateOfBirth || undefined : undefined,
+          gender: lookupStatus === "CLEAR" ? form.gender : undefined,
+          address: lookupStatus === "CLEAR" ? form.address || undefined : undefined,
           notes: form.notes || undefined
         });
         onCreated(created);
@@ -1261,176 +1552,721 @@ export function NewHireRequestForm({
   return (
     <form className="grid min-w-0 gap-4" onSubmit={submit}>
       {error ? <ErrorState message={error} /> : null}
-      {fixedSourceVendorId ? null : (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Chain">
-              <select
-                className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
-                disabled={isLoadingVendors}
-                onChange={(event) => updateSourceChain(event.target.value)}
-                value={form.sourceChainId}
-              >
-                <option value="">
-                  {isLoadingVendors ? "Loading Chains..." : "Select Chain"}
-                </option>
-                {chains.map((chain) => (
-                  <option key={chain.id} value={chain.id}>
-                    {chain.chainName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Branch search">
+
+      <NewHireFormSection
+        description="Choose only the role this workspace can submit."
+        title="Target role"
+      >
+        <div className="grid gap-2 sm:grid-cols-3">
+          {allowedTargetRoles.map((role) => (
+            <button
+              className={cn(
+                "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
+                form.targetRole === role
+                  ? "border-orange-300 bg-orange-50 text-orange-800"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+              )}
+              key={role}
+              onClick={() => updateTargetRole(role)}
+              type="button"
+            >
+              {formatEnum(role)}
+            </button>
+          ))}
+        </div>
+      </NewHireFormSection>
+
+      <NewHireFormSection
+        description={
+          branchLocked
+            ? "The Branch is locked from the current workspace."
+            : isAreaManagerTarget
+              ? "Area Managers are assigned directly to one or more Chains."
+              : "Select a Chain first, then choose a Branch from the scoped search."
+        }
+        title="Operational context"
+      >
+        {branchLocked ? (
+          <SelectedContextCard
+            loading={isLoadingVendors}
+            selectedChain={selectedVendor?.chain ?? selectedChain ?? null}
+            selectedVendor={selectedVendor ?? null}
+          />
+        ) : isAreaManagerTarget ? (
+          <div className="grid gap-3">
+            <Field label="Chain search">
               <Input
                 className="h-11 rounded-xl bg-white"
-                disabled={!form.sourceChainId || isLoadingVendors}
-                onChange={(event) => setBranchQuery(event.target.value)}
-                placeholder="Search Branch name or code"
-                value={branchQuery}
+                disabled={isLoadingVendors}
+                onChange={(event) => setChainQuery(event.target.value)}
+                placeholder="Search Chain name or code"
+                value={chainQuery}
               />
             </Field>
-          </div>
-          {form.sourceChainId ? (
-            <div className="grid max-h-44 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {filteredVendors.slice(0, 12).map((vendor) => (
+            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {chainSearchResults.map((chain) => (
                 <button
                   className={cn(
-                    "rounded-xl border bg-white p-3 text-left text-sm transition-colors",
-                    form.sourceVendorId === vendor.id
+                    "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
+                    form.chainIds.includes(chain.id)
                       ? "border-orange-300 bg-orange-50 text-orange-950"
                       : "border-slate-200 text-slate-700 hover:border-orange-200"
                   )}
-                  key={vendor.id}
-                  onClick={() => selectBranch(vendor)}
+                  key={chain.id}
+                  onClick={() => toggleChain(chain.id)}
                   type="button"
                 >
-                  <span className="block font-semibold">{vendor.vendorName}</span>
+                  <span className="block font-semibold">{chain.chainName}</span>
                   <span className="block text-xs text-slate-500">
-                    {vendor.vendorCode} · {vendor.chain.chainName}
+                    {chain.chainCode}
                   </span>
                 </button>
               ))}
-              {!filteredVendors.length ? (
-                <EmptyState message="No Branch matches this Chain/search." compact />
+              {!chainSearchResults.length ? (
+                <EmptyState message="No Chain matches this search." compact />
               ) : null}
             </div>
+            {selectedChains.length ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedChains.map((chain) => (
+                  <Badge key={chain.id} variant="outline">
+                    {chain.chainName}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Chain search">
+                <Input
+                  className="h-11 rounded-xl bg-white"
+                  disabled={isLoadingVendors}
+                  onChange={(event) => setChainQuery(event.target.value)}
+                  placeholder="Search Chain name or code"
+                  value={chainQuery}
+                />
+              </Field>
+              <Field label="Branch search">
+                <Input
+                  className="h-11 rounded-xl bg-white"
+                  disabled={!form.sourceChainId || isLoadingVendors}
+                  onChange={(event) => setBranchQuery(event.target.value)}
+                  placeholder="Search Branch name or code"
+                  value={branchQuery}
+                />
+              </Field>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {chainSearchResults.map((chain) => (
+                  <button
+                    className={cn(
+                      "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
+                      form.sourceChainId === chain.id
+                        ? "border-orange-300 bg-orange-50 text-orange-950"
+                        : "border-slate-200 text-slate-700 hover:border-orange-200"
+                    )}
+                    key={chain.id}
+                    onClick={() => updateSourceChain(chain.id)}
+                    type="button"
+                  >
+                    <span className="block font-semibold">{chain.chainName}</span>
+                    <span className="block text-xs text-slate-500">
+                      {chain.chainCode}
+                    </span>
+                  </button>
+                ))}
+                {!chainSearchResults.length ? (
+                  <EmptyState message="No Chain matches this search." compact />
+                ) : null}
+              </div>
+              <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {form.sourceChainId ? (
+                  filteredVendors.slice(0, 12).map((vendor) => (
+                    <button
+                      className={cn(
+                        "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
+                        form.sourceVendorId === vendor.id
+                          ? "border-orange-300 bg-orange-50 text-orange-950"
+                          : "border-slate-200 text-slate-700 hover:border-orange-200"
+                      )}
+                      key={vendor.id}
+                      onClick={() => selectBranch(vendor)}
+                      type="button"
+                    >
+                      <span className="block font-semibold">{vendor.vendorName}</span>
+                      <span className="block text-xs text-slate-500">
+                        {vendor.vendorCode} / {vendor.chain.chainName}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <EmptyState message="Select a Chain to load Branches." compact />
+                )}
+                {form.sourceChainId && !filteredVendors.length ? (
+                  <EmptyState message="No Branch matches this Chain/search." compact />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+      </NewHireFormSection>
+
+      <NewHireFormSection
+        description="Lookup starts only after a valid Egyptian phone number or National ID is entered."
+        title="Candidate identity"
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Phone number">
+            <Input
+              className="h-11 rounded-xl"
+              inputMode="numeric"
+              maxLength={11}
+              onChange={(event) =>
+                updateIdentityField("phoneNumber", event.target.value)
+              }
+              placeholder="01012345678"
+              required
+              value={form.phoneNumber}
+            />
+          </Field>
+          <Field label="National ID">
+            <Input
+              className="h-11 rounded-xl"
+              inputMode="numeric"
+              maxLength={14}
+              onChange={(event) =>
+                updateIdentityField("nationalId", event.target.value)
+              }
+              placeholder="14 digits"
+              required
+              value={form.nationalId}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-1 text-xs text-slate-500">
+          {form.phoneNumber && !isPhoneValid ? (
+            <span>Phone must be 11 digits and start with 010, 011, 012, or 015.</span>
+          ) : null}
+          {form.nationalId && !isNationalIdValid ? (
+            <span>National ID must be exactly 14 digits.</span>
+          ) : null}
+          {!lookupContextReady ? (
+            <span>Select the operational context before lookup can run.</span>
           ) : null}
         </div>
-      )}
-      {selectedVendor ? (
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
-          <span className="font-semibold">{selectedVendor.chain.chainName}</span>
-          <span className="mx-2 text-orange-400">/</span>
-          <span>{selectedVendor.vendorName}</span>
-        </div>
-      ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Phone number">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateIdentityField("phoneNumber", event.target.value)}
-            required
-            value={form.phoneNumber}
-          />
-        </Field>
-        <Field label="National ID">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateIdentityField("nationalId", event.target.value)}
-            value={form.nationalId}
-          />
-        </Field>
-      </div>
+      </NewHireFormSection>
+
       {lookupState === "checking" ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-          Checking existing Picker records...
+          Checking existing user records...
         </div>
       ) : null}
-      {lookupCandidates
-        .filter((candidate) => candidate.decision !== "ACTIVE_DUPLICATE")
-        .map((candidate) => (
-          <div
-            className={cn(
-              "rounded-2xl border p-3 text-left text-sm",
-              candidate.decision === "REHIRE_AVAILABLE"
-                ? "border-orange-300 bg-orange-50"
-                : "border-red-200 bg-red-50 text-red-800"
-            )}
-            key={candidate.user.id}
-          >
-            <p className="font-semibold text-slate-950">
-              {candidate.decision === "REHIRE_AVAILABLE"
-                ? `Previous Picker will be reused: ${candidate.user.nameEn}`
-                : `Blocked Picker: ${candidate.user.nameEn}`}
-            </p>
-            <p className="mt-1 text-slate-500">
-              {candidate.user.phoneNumber} · {formatEnum(candidate.employmentStatus)}
-            </p>
-            <p className="mt-2 text-xs font-medium text-orange-700">
-              {candidate.reason ??
-                (candidate.decision === "REHIRE_AVAILABLE"
-                  ? "SuperNova detected an old Picker record and selected Rehire automatically."
-                  : "This Picker cannot be hired right now.")}
-            </p>
-          </div>
-        ))}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name English">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateField("nameEn", event.target.value)}
-            value={form.nameEn}
-          />
-        </Field>
-        <Field label="Name Arabic">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateField("nameAr", event.target.value)}
-            value={form.nameAr}
-          />
-        </Field>
-        <Field label="Date of birth">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateField("dateOfBirth", event.target.value)}
-            type="date"
-            value={form.dateOfBirth}
-          />
-        </Field>
-        <Field label="Gender">
-          <select
-            className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
-            onChange={(event) => updateField("gender", event.target.value)}
-            value={form.gender}
-          >
-            <option value="UNSPECIFIED">Unspecified</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-          </select>
-        </Field>
-      </div>
-      <Field label="Address">
-        <Input
-          className="h-11 rounded-xl"
-          onChange={(event) => updateField("address", event.target.value)}
-          value={form.address}
+
+      {lookupStatus && lookupStatus !== "CLEAR" ? (
+        <NewHireLookupResultCard
+          candidate={blockingCandidate ?? rehireCandidate ?? lookupCandidates[0]}
+          status={lookupStatus}
         />
-      </Field>
-      <Field label="Notes">
-        <Input
-          className="h-11 rounded-xl"
-          onChange={(event) => updateField("notes", event.target.value)}
-          value={form.notes}
-        />
-      </Field>
+      ) : null}
+
+      {canShowCandidateForm ? (
+        <>
+          <NewHireFormSection description="Core profile fields for the requested user." title="Identity">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Name English">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => updateField("nameEn", event.target.value)}
+                  required
+                  value={form.nameEn}
+                />
+              </Field>
+              <Field label="Name Arabic">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => updateField("nameAr", event.target.value)}
+                  value={form.nameAr}
+                />
+              </Field>
+            </div>
+          </NewHireFormSection>
+          <NewHireFormSection description="Optional personal fields used by the operational profile." title="Personal details">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Date of birth">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => updateField("dateOfBirth", event.target.value)}
+                  type="date"
+                  value={form.dateOfBirth}
+                />
+              </Field>
+              <Field label="Gender">
+                <select
+                  className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+                  onChange={(event) => updateField("gender", event.target.value)}
+                  value={form.gender}
+                >
+                  <option value="UNSPECIFIED">Unspecified</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                </select>
+              </Field>
+            </div>
+          </NewHireFormSection>
+          <NewHireFormSection description="Contact location and operational notes." title="Contact and notes">
+            <Field label="Address">
+              <Input
+                className="h-11 rounded-xl"
+                onChange={(event) => updateField("address", event.target.value)}
+                value={form.address}
+              />
+            </Field>
+            <Field label="Notes">
+              <Input
+                className="h-11 rounded-xl"
+                onChange={(event) => updateField("notes", event.target.value)}
+                value={form.notes}
+              />
+            </Field>
+          </NewHireFormSection>
+        </>
+      ) : lookupStatus === "REHIRE_AVAILABLE" ? (
+        <NewHireFormSection
+          description="Previous safe profile data is read-only for Rehire submission."
+          title="Previous Picker"
+        >
+          <PreviousPickerCard candidate={rehireCandidate} />
+          <Field label="Notes">
+            <Input
+              className="h-11 rounded-xl"
+              onChange={(event) => updateField("notes", event.target.value)}
+              value={form.notes}
+            />
+          </Field>
+        </NewHireFormSection>
+      ) : null}
+
+      <NewHireApprovalPreview
+        creatorRole={user?.role}
+        targetRole={form.targetRole}
+      />
+
+      <NewHireReviewCard
+        creatorName={user?.nameEn ?? "Current user"}
+        mode={lookupStatus === "REHIRE_AVAILABLE" ? "REHIRE" : "NEW_USER"}
+        nationalId={form.nationalId}
+        phoneNumber={form.phoneNumber}
+        selectedChains={selectedChains}
+        selectedVendor={selectedVendor ?? null}
+        targetRole={form.targetRole}
+      />
+
       <div className="flex justify-end">
-        <Button className="rounded-xl bg-orange-600 hover:bg-orange-700" disabled={isPending} type="submit">
-          Submit New Hire
+        <Button
+          className="min-h-11 rounded-xl bg-orange-600 hover:bg-orange-700"
+          disabled={!canSubmit}
+          type="submit"
+        >
+          {isPending ? "Submitting..." : getNewHireSubmitLabel(form.targetRole)}
         </Button>
       </div>
     </form>
   );
+}
+
+function NewHireFormSection({
+  children,
+  description,
+  title
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <section className="grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+      <div className="grid min-w-0 gap-3">{children}</div>
+    </section>
+  );
+}
+
+function SelectedContextCard({
+  loading,
+  selectedChain,
+  selectedVendor
+}: {
+  loading: boolean;
+  selectedChain: Pick<Chain, "chainCode" | "chainName"> | null;
+  selectedVendor: Vendor | null;
+}) {
+  if (loading) {
+    return <EmptyState message="Loading selected Branch context." compact />;
+  }
+
+  if (!selectedVendor) {
+    return <EmptyState message="Selected Branch context was not found." compact />;
+  }
+
+  return (
+    <div className="rounded-2xl border border-orange-200 bg-white p-3 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-950">{selectedVendor.vendorName}</p>
+          <p className="mt-1 text-xs text-slate-500">{selectedVendor.vendorCode}</p>
+        </div>
+        <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+          Branch locked
+        </Badge>
+      </div>
+      <div className="mt-3 grid gap-2 text-xs text-slate-600">
+        <span>Chain: {selectedChain?.chainName ?? selectedVendor.chain.chainName}</span>
+        <span>Code: {selectedChain?.chainCode ?? selectedVendor.chain.chainCode}</span>
+      </div>
+    </div>
+  );
+}
+
+function NewHireLookupResultCard({
+  candidate,
+  status
+}: {
+  candidate?: NewHireLookupCandidate;
+  status: NewHireLookupResponse["status"];
+}) {
+  const isRehire = status === "REHIRE_AVAILABLE";
+  const title =
+    status === "ACTIVE_DUPLICATE"
+      ? "Active duplicate found"
+      : status === "TEMPORARY_BLOCKED"
+        ? "Temporary block is active"
+        : status === "PERMANENT_BLOCKED"
+          ? "Permanent block is active"
+          : isRehire
+            ? "Rehire available"
+            : "Candidate cannot be submitted";
+  const body =
+    status === "ACTIVE_DUPLICATE"
+      ? "This user already exists and is active. New Hire submission is disabled."
+      : status === "TEMPORARY_BLOCKED"
+        ? "This Picker cannot be rehired until the temporary block expires."
+        : status === "PERMANENT_BLOCKED"
+          ? "Admin must remove the permanent block from the user profile before Rehire."
+          : isRehire
+            ? "SuperNova found a previous Picker. Submit this as a Rehire without editing old profile data."
+            : "This candidate cannot be hired right now.";
+
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border p-4 text-sm",
+        isRehire
+          ? "border-orange-200 bg-orange-50 text-orange-950"
+          : "border-red-200 bg-red-50 text-red-800"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        {isRehire ? (
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
+        ) : (
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+        )}
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-950">{title}</h3>
+          <p className="mt-1 leading-6">{candidate?.reason ?? body}</p>
+          {candidate ? (
+            <div className="mt-3 grid gap-2 rounded-xl bg-white/75 p-3 text-slate-700">
+              <Definition label="User" value={candidate.user.nameEn} />
+              <Definition label="Role" value={formatEnum(candidate.role)} />
+              <Definition label="Status" value={formatEnum(candidate.employmentStatus)} />
+              <Definition
+                label="National ID"
+                value={candidate.maskedNationalId ?? "Masked"}
+              />
+              <Definition
+                label="Last Branch"
+                value={candidate.lastBranch?.vendorName ?? "Not available"}
+              />
+              <Definition
+                label="Last Chain"
+                value={candidate.lastChain?.chainName ?? "Not available"}
+              />
+              {candidate.blockReason ? (
+                <Definition label="Block reason" value={candidate.blockReason} />
+              ) : null}
+              {candidate.blockedUntil ? (
+                <Definition
+                  label="Blocked until"
+                  value={new Date(candidate.blockedUntil).toLocaleDateString()}
+                />
+              ) : null}
+              {candidate.remainingDays !== undefined && candidate.remainingDays !== null ? (
+                <Definition label="Remaining days" value={String(candidate.remainingDays)} />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PreviousPickerCard({
+  candidate
+}: {
+  candidate?: NewHireLookupCandidate;
+}) {
+  if (!candidate) {
+    return <EmptyState message="Previous Picker details are not available." compact />;
+  }
+
+  return (
+    <div className="grid gap-2 rounded-2xl border border-orange-200 bg-white p-3 text-sm">
+      <Definition label="Name" value={candidate.user.nameEn} />
+      <Definition label="Phone" value={candidate.user.phoneNumber} />
+      <Definition
+        label="National ID"
+        value={candidate.maskedNationalId ?? "Masked"}
+      />
+      <Definition label="Status" value={formatEnum(candidate.employmentStatus)} />
+      <Definition
+        label="Last Branch"
+        value={candidate.lastBranch?.vendorName ?? "Not available"}
+      />
+      <Definition
+        label="Last Chain"
+        value={candidate.lastChain?.chainName ?? "Not available"}
+      />
+    </div>
+  );
+}
+
+function NewHireApprovalPreview({
+  creatorRole,
+  targetRole
+}: {
+  creatorRole?: UserRole;
+  targetRole: NewHireTargetRole;
+}) {
+  const steps = buildNewHireApprovalSteps(creatorRole, targetRole);
+
+  return (
+    <NewHireFormSection
+      description="Expected workflow after submission. Backend scope checks remain the source of truth."
+      title="Approval path preview"
+    >
+      <div className="grid gap-2">
+        {steps.map((step, index) => (
+          <div
+            className={cn(
+              "flex items-start gap-3 rounded-xl border bg-white p-3 text-sm",
+              step.skipped ? "border-slate-200 text-slate-500" : "border-orange-100"
+            )}
+            key={`${step.label}:${index}`}
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-orange-50 text-xs font-semibold text-orange-700">
+              {index + 1}
+            </span>
+            <div>
+              <p className="font-semibold text-slate-950">
+                {step.label}
+                {step.skipped ? " (skipped)" : ""}
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                {step.description}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </NewHireFormSection>
+  );
+}
+
+function NewHireReviewCard({
+  creatorName,
+  mode,
+  nationalId,
+  phoneNumber,
+  selectedChains,
+  selectedVendor,
+  targetRole
+}: {
+  creatorName: string;
+  mode: "NEW_USER" | "REHIRE";
+  nationalId: string;
+  phoneNumber: string;
+  selectedChains: Chain[];
+  selectedVendor: Vendor | null;
+  targetRole: NewHireTargetRole;
+}) {
+  const expectedNextStep =
+    targetRole === "AREA_MANAGER"
+      ? "Account and Chain assignment created immediately"
+      : targetRole === "PICKER"
+        ? "Admin finalization with Shopper ID"
+        : "Admin finalization without Shopper ID";
+
+  return (
+    <NewHireFormSection
+      description="Confirm the request contract before submission."
+      title="Review"
+    >
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-sm">
+        <Definition label="Target role" value={formatEnum(targetRole)} />
+        <Definition
+          label="Mode"
+          value={mode === "REHIRE" ? "Rehire" : "New User"}
+        />
+        <Definition
+          label="Selected Chain"
+          value={
+            targetRole === "AREA_MANAGER"
+              ? selectedChains.map((chain) => chain.chainName).join(", ") ||
+                "At least one Chain required"
+              : selectedVendor?.chain.chainName ?? "Required"
+          }
+        />
+        {targetRole !== "AREA_MANAGER" ? (
+          <Definition
+            label="Selected Branch"
+            value={selectedVendor?.vendorName ?? "Required"}
+          />
+        ) : null}
+        <Definition label="Candidate phone" value={phoneNumber || "Required"} />
+        <Definition
+          label="National ID"
+          value={nationalId ? maskNationalId(nationalId) : "Required"}
+        />
+        <Definition label="Creator" value={creatorName} />
+        <Definition label="Expected next step" value={expectedNextStep} />
+      </div>
+    </NewHireFormSection>
+  );
+}
+
+function getAllowedNewHireTargetRoles(
+  role: UserRole | undefined,
+  branchLocked: boolean
+): NewHireTargetRole[] {
+  if (role === "CHAMP") {
+    return ["PICKER"];
+  }
+  if (role === "AREA_MANAGER") {
+    return ["PICKER", "CHAMP"];
+  }
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    return branchLocked ? ["PICKER", "CHAMP"] : ["PICKER", "CHAMP", "AREA_MANAGER"];
+  }
+  return [];
+}
+
+function isValidEgyptPhone(value: string) {
+  return /^(010|011|012|015)\d{8}$/.test(value);
+}
+
+function isValidEgyptNationalId(value: string) {
+  return /^\d{14}$/.test(value);
+}
+
+function isBlockingNewHireDecision(decision: NewHireLookupCandidate["decision"]) {
+  return (
+    decision === "ACTIVE_DUPLICATE" ||
+    decision === "BLOCKED" ||
+    decision === "TEMPORARY_BLOCKED" ||
+    decision === "PERMANENT_BLOCKED"
+  );
+}
+
+function getNewHireSubmitLabel(targetRole: NewHireTargetRole) {
+  if (targetRole === "AREA_MANAGER") {
+    return "Create Area Manager";
+  }
+  return `Submit ${formatEnum(targetRole)} New Hire`;
+}
+
+function buildNewHireApprovalSteps(
+  creatorRole: UserRole | undefined,
+  targetRole: NewHireTargetRole
+) {
+  if (targetRole === "AREA_MANAGER") {
+    return [
+      {
+        label: "Submit",
+        description: "Admin submits the Area Manager New Hire.",
+        skipped: false
+      },
+      {
+        label: "Account created immediately",
+        description: "The backend creates the account without approval routing.",
+        skipped: false
+      },
+      {
+        label: "Chain assignment created",
+        description: "ChainAreaManagerAssignment rows are created for selected Chains.",
+        skipped: false
+      },
+      {
+        label: "Credential handoff from user profile",
+        description: "Temporary password is revealed or reset only from authorized profile controls.",
+        skipped: false
+      }
+    ];
+  }
+
+  const isAreaManagerCreator = creatorRole === "AREA_MANAGER";
+  const finalization =
+    targetRole === "PICKER"
+      ? "Admin finalization with Shopper ID"
+      : "Admin finalization";
+  const assignment =
+    targetRole === "PICKER"
+      ? "Picker created and assigned"
+      : "Champ created and assigned to Branch";
+
+  return [
+    {
+      label: "Submit",
+      description: `${formatEnum(targetRole)} New Hire request is submitted.`,
+      skipped: false
+    },
+    {
+      label: "Area Manager approval",
+      description: isAreaManagerCreator
+        ? "Area Manager-created New Hire skips this approval step."
+        : "Area Manager reviews the Branch-scoped request.",
+      skipped: isAreaManagerCreator
+    },
+    {
+      label: finalization,
+      description:
+        targetRole === "PICKER"
+          ? "Admin provides Shopper ID before account creation."
+          : "Admin finalizes without a Shopper ID.",
+      skipped: false
+    },
+    {
+      label: assignment,
+      description:
+        targetRole === "PICKER"
+          ? "PickerBranchAssignment is created."
+          : "VendorChampAssignment is created.",
+      skipped: false
+    }
+  ];
+}
+
+function maskNationalId(value: string) {
+  if (value.length <= 4) {
+    return value;
+  }
+  return `${value.slice(0, 3)}*******${value.slice(-4)}`;
 }
 
 function LifecyclePickerRequestForm({
@@ -2084,6 +2920,9 @@ export function RequestDetailView() {
         <InfoCard title="Workflow State">
           <WorkflowStateSummary request={request} />
         </InfoCard>
+        {request.type === "NEW_HIRE" ? (
+          <NewHireRequestDetailPanel request={request} />
+        ) : null}
         {request.type === "RESIGNATION" ? (
           <InfoCard title="Offboarding Context">
             <OffboardingContext payload={request.payload} />
@@ -2121,7 +2960,7 @@ export function RequestDetailView() {
           onFinalized={async () => {
             await loadRequest();
           }}
-          requestId={request.id}
+          request={request}
         />
       ) : null}
 
@@ -2380,21 +3219,36 @@ function ApprovalQueueCard({
 
 function FinalizeNewHirePanel({
   onFinalized,
-  requestId
+  request
 }: {
   onFinalized: () => Promise<void>;
-  requestId: string;
+  request: RequestDetail;
 }) {
+  const context = parseNewHirePayload(request.payload);
   const [shopperId, setShopperId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FinalizeNewHireResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const targetRole = context?.targetRole ?? "PICKER";
+  const isPicker = targetRole === "PICKER";
+
+  if (targetRole === "AREA_MANAGER") {
+    return null;
+  }
 
   function finalize() {
+    if (isPicker && !shopperId.trim()) {
+      setError("Shopper ID is required before Picker account creation.");
+      return;
+    }
+
     startTransition(async () => {
       setError(null);
       try {
-        const finalized = await requestsApi.finalizeNewHire(requestId, shopperId);
+        const finalized = await requestsApi.finalizeNewHire(
+          request.id,
+          isPicker ? shopperId : undefined
+        );
         setResult(finalized);
         await onFinalized();
       } catch (caughtError) {
@@ -2412,12 +3266,13 @@ function FinalizeNewHirePanel({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Badge variant="outline">Admin finalization</Badge>
-          <h2 className="mt-3 text-base font-semibold">Finalize New Hire</h2>
+          <h2 className="mt-3 text-base font-semibold">
+            Finalize {formatEnum(targetRole)} New Hire
+          </h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Shopper ID is required for a new Picker and optional when a Rehire
-            already has one. SuperNova applies the approved workflow, creates or
-            reactivates the Picker, assigns the source Branch, and generates
-            temporary credentials in one backend transaction.
+            {isPicker
+              ? "Shopper ID is required before Picker account creation. SuperNova applies the approved workflow, creates or reactivates the Picker, and creates the Branch assignment."
+              : "Champ does not require Shopper ID. SuperNova applies the approved workflow, creates the Champ account, and assigns the source Branch."}
           </p>
         </div>
         <UserPlus className="h-6 w-6 text-primary" />
@@ -2427,25 +3282,31 @@ function FinalizeNewHirePanel({
         <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           <p className="font-medium">New Hire completed.</p>
           <p className="mt-1">
-            Picker {result.picker.nameEn} was created with phone{" "}
-            {result.picker.phoneNumber} and assigned to the selected Branch.
+            {formatEnum(result.user.role)} {result.user.nameEn} was created with phone{" "}
+            {result.user.phoneNumber} and assigned to the selected Branch.
           </p>
           <p className="mt-1">
-            Temporary credentials are available only in the Champ notification.
+            Temporary credentials are available only from authorized user profile controls.
           </p>
         </div>
       ) : (
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-          <Field label="Shopper ID">
-            <Input
-              onChange={(event) => setShopperId(event.target.value)}
-              placeholder="Required for new Picker"
-              value={shopperId}
-            />
-          </Field>
+          {isPicker ? (
+            <Field label="Shopper ID">
+              <Input
+                onChange={(event) => setShopperId(event.target.value)}
+                placeholder="Required before Picker creation"
+                value={shopperId}
+              />
+            </Field>
+          ) : (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+              Champ finalization does not require Shopper ID.
+            </div>
+          )}
           <div className="flex items-end">
             <Button disabled={isPending} onClick={finalize} type="button">
-              {isPending ? "Finalizing..." : "Finalize New Hire"}
+              {isPending ? "Finalizing..." : `Finalize ${formatEnum(targetRole)}`}
             </Button>
           </div>
         </div>
@@ -2799,11 +3660,17 @@ function InfoCard({ children, title }: { children: ReactNode; title: string }) {
 }
 
 function WorkflowStateSummary({ request }: { request: RequestDetail }) {
+  const newHireContext =
+    request.type === "NEW_HIRE" ? parseNewHirePayload(request.payload) : null;
   const finalAction =
     request.status === "PENDING_ADMIN" &&
     request.currentStep === "ADMIN_FINAL_APPROVAL"
       ? request.type === "NEW_HIRE"
-        ? "Admin must enter Shopper ID and finalize New Hire."
+        ? newHireContext?.targetRole === "PICKER"
+          ? "Admin must enter Shopper ID and finalize Picker New Hire."
+          : newHireContext?.targetRole === "CHAMP"
+            ? "Admin can finalize Champ New Hire without Shopper ID."
+            : "Area Manager New Hire does not use Admin finalization."
         : request.type === "RESIGNATION"
           ? "Admin must confirm offboarding and block status."
           : "Admin review is pending."
@@ -2838,13 +3705,21 @@ function WorkflowResultSummary({ request }: { request: RequestDetail }) {
           label="New Hire result"
           value={
             context?.finalization
-              ? `Picker ${context.finalization.pickerId} created and assigned.`
+              ? `${formatEnum(context.targetRole)} ${context.finalization.userId} completed.`
               : "Completed result is not available in payload."
           }
         />
         <Definition
+          label="Assignment type"
+          value={context?.finalization?.assignmentType ?? "Not available"}
+        />
+        <Definition
           label="Shopper ID"
-          value={context?.finalization?.shopperId ?? "Not available"}
+          value={
+            context?.targetRole === "PICKER"
+              ? context?.finalization?.shopperId ?? "Not available"
+              : "Not required"
+          }
         />
       </>
     );
@@ -2897,8 +3772,11 @@ function getRequestPrimaryContext(request: RequestSummary) {
       title:
         context?.mode === "REHIRE"
           ? `Rehire ${request.targetUser?.nameEn ?? context.candidatePhone}`
-          : `New Hire ${context?.candidatePhone ?? ""}`.trim(),
-      subtitle: `${request.sourceVendor?.vendorName ?? "No Branch"} · ${request.sourceChain?.chainName ?? "No Chain"}`
+          : `${formatEnum(context?.targetRole ?? "PICKER")} New Hire ${context?.candidatePhone ?? ""}`.trim(),
+      subtitle:
+        context?.targetRole === "AREA_MANAGER"
+          ? `${request.sourceChain?.chainName ?? "Selected Chain"} · Area Manager`
+          : `${request.sourceVendor?.vendorName ?? "No Branch"} · ${request.sourceChain?.chainName ?? "No Chain"}`
     };
   }
 
@@ -3063,7 +3941,18 @@ function parseNewHirePayload(payload: unknown) {
 
   const objectPayload = payload as Record<string, unknown>;
   const candidate = objectPayload.candidate;
-  const mode = objectPayload.mode === "REHIRE" ? "REHIRE" : "NEW_PICKER";
+  const targetRole = parseNewHireTargetRole(objectPayload.targetRole);
+  const mode =
+    objectPayload.mode === "REHIRE" ||
+    objectPayload.mode === "NEW_PICKER" ||
+    objectPayload.mode === "NEW_CHAMP" ||
+    objectPayload.mode === "NEW_AREA_MANAGER"
+      ? objectPayload.mode
+      : targetRole === "CHAMP"
+        ? "NEW_CHAMP"
+        : targetRole === "AREA_MANAGER"
+          ? "NEW_AREA_MANAGER"
+          : "NEW_PICKER";
   const rehire = objectPayload.rehire;
   const source = objectPayload.source;
   const finalization = objectPayload.finalization;
@@ -3080,6 +3969,7 @@ function parseNewHirePayload(payload: unknown) {
   }
 
   const candidatePayload = candidate as Record<string, unknown>;
+  const sourcePayload = source as Record<string, unknown>;
   const rehirePayload =
     rehire && typeof rehire === "object" && !Array.isArray(rehire)
       ? (rehire as Record<string, unknown>)
@@ -3088,8 +3978,17 @@ function parseNewHirePayload(payload: unknown) {
     finalization && typeof finalization === "object" && !Array.isArray(finalization)
       ? (finalization as Record<string, unknown>)
       : null;
+  const chainIds = Array.isArray(sourcePayload.chainIds)
+    ? sourcePayload.chainIds.filter((value): value is string => typeof value === "string")
+    : undefined;
+  const assignmentIds = Array.isArray(finalizationPayload?.assignmentIds)
+    ? finalizationPayload.assignmentIds.filter(
+        (value): value is string => typeof value === "string"
+      )
+    : undefined;
 
   return {
+    targetRole,
     mode,
     candidatePhone:
       typeof candidatePayload.phoneNumber === "string"
@@ -3107,22 +4006,46 @@ function parseNewHirePayload(payload: unknown) {
         : undefined,
     address:
       typeof candidatePayload.address === "string" ? candidatePayload.address : undefined,
+    dateOfBirth:
+      typeof candidatePayload.dateOfBirth === "string"
+        ? candidatePayload.dateOfBirth
+        : undefined,
+    gender:
+      typeof candidatePayload.gender === "string"
+        ? candidatePayload.gender
+        : "UNSPECIFIED",
+    notes:
+      typeof candidatePayload.notes === "string" ? candidatePayload.notes : undefined,
+    source: {
+      vendorId:
+        typeof sourcePayload.vendorId === "string" ? sourcePayload.vendorId : undefined,
+      chainId:
+        typeof sourcePayload.chainId === "string" ? sourcePayload.chainId : undefined,
+      chainIds
+    },
     rehireUserId:
       typeof rehirePayload?.userId === "string" ? rehirePayload.userId : undefined,
     finalization: finalizationPayload
       ? {
-          pickerId:
-            typeof finalizationPayload.pickerId === "string"
-              ? finalizationPayload.pickerId
-              : "Not available",
+          userId:
+            typeof finalizationPayload.userId === "string"
+              ? finalizationPayload.userId
+              : typeof finalizationPayload.pickerId === "string"
+                ? finalizationPayload.pickerId
+                : "Not available",
           assignmentId:
             typeof finalizationPayload.assignmentId === "string"
               ? finalizationPayload.assignmentId
+              : undefined,
+          assignmentIds,
+          assignmentType:
+            typeof finalizationPayload.assignmentType === "string"
+              ? finalizationPayload.assignmentType
               : "Not available",
           shopperId:
             typeof finalizationPayload.shopperId === "string"
               ? finalizationPayload.shopperId
-              : "Not available",
+              : undefined,
           completedAt:
             typeof finalizationPayload.completedAt === "string"
               ? finalizationPayload.completedAt
@@ -3130,6 +4053,12 @@ function parseNewHirePayload(payload: unknown) {
         }
       : null
   };
+}
+
+function parseNewHireTargetRole(value: unknown): NewHireTargetRole {
+  return value === "CHAMP" || value === "AREA_MANAGER" || value === "PICKER"
+    ? value
+    : "PICKER";
 }
 
 function parseTransferPayload(payload: unknown) {

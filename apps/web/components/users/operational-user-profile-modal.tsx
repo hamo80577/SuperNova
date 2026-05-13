@@ -206,49 +206,75 @@ function ProfileContent({
 }
 
 function PasswordPanel({
-  onReload,
   profile
 }: {
   onReload: () => void;
   profile: OperationalProfileResponse;
 }) {
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [temporaryPasswordExpiresAt, setTemporaryPasswordExpiresAt] = useState<
+    string | null
+  >(profile.password.temporaryPasswordExpiresAt);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const user = profile.user;
+  const canReveal =
+    profile.password.mustChangePassword &&
+    profile.password.temporaryPasswordAvailable &&
+    profile.permissions.canReadTemporaryPassword;
+  const canReset =
+    profile.permissions.canResetPassword ||
+    profile.permissions.canRegenerateTemporaryPassword;
 
-  function handlePasswordAction(action: "copy" | "reset" | "regenerate") {
+  function revealTemporaryPassword() {
     setError(null);
     setMessage(null);
     startTransition(async () => {
       try {
-        const response =
-          action === "copy"
-            ? await usersApi.temporaryPassword(user.id)
-            : action === "reset"
-              ? await usersApi.resetPassword(user.id)
-              : await usersApi.regenerateTemporaryPassword(user.id);
+        const response = await usersApi.revealTemporaryPassword(user.id);
         setTemporaryPassword(response.temporaryPassword);
-        await navigator.clipboard.writeText(response.temporaryPassword);
-        setMessage(
-          action === "reset"
-            ? "Temporary password reset and copied."
-            : action === "regenerate"
-              ? "Temporary password regenerated and copied."
-              : "Temporary password copied."
-        );
-        if (action !== "copy") {
-          onReload();
-        }
+        setTemporaryPasswordExpiresAt(response.temporaryPasswordExpiresAt);
+        setMessage("Temporary password revealed.");
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Password action failed."
+            : "Unable to reveal temporary password."
         );
       }
     });
+  }
+
+  function resetTemporaryPassword() {
+    setError(null);
+    setMessage(null);
+    startTransition(async () => {
+      try {
+        const response = await usersApi.resetTemporaryPassword(user.id);
+        setTemporaryPassword(response.temporaryPassword);
+        setTemporaryPasswordExpiresAt(response.temporaryPasswordExpiresAt);
+        setMessage("Temporary password reset. Share it from this profile only.");
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to reset temporary password."
+        );
+      }
+    });
+  }
+
+  async function copyTemporaryPassword() {
+    if (!temporaryPassword) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(temporaryPassword);
+      setMessage("Temporary password copied.");
+    } catch {
+      setError("Unable to copy temporary password.");
+    }
   }
 
   if (
@@ -266,52 +292,84 @@ function PasswordPanel({
           <h3 className="text-sm font-semibold text-slate-950">Password access</h3>
           <p className="mt-1 text-sm text-slate-500">
             {profile.password.mustChangePassword
-              ? "First password is active until the user changes it."
+              ? "Temporary password can be revealed only while the user must change it."
               : "Reset creates a temporary password and requires change on next login."}
           </p>
+          {temporaryPasswordExpiresAt ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Available until {new Date(temporaryPasswordExpiresAt).toLocaleString()}
+            </p>
+          ) : null}
         </div>
         <KeyRound className="h-5 w-5 text-orange-600" />
       </div>
-      {profile.password.mustChangePassword ? (
+      {temporaryPassword ? (
         <div className="mt-4 grid gap-3">
           <div className="flex gap-2">
             <Input
               className="h-11 rounded-xl font-mono"
               readOnly
-              value={temporaryPassword || "Temporary password available"}
+              value={temporaryPassword}
             />
             <Button
-              aria-label="Copy first password"
+              aria-label="Copy temporary password"
               className="h-11 w-11 rounded-xl p-0"
-              disabled={isPending || !profile.permissions.canReadTemporaryPassword}
-              onClick={() => handlePasswordAction("copy")}
+              disabled={isPending}
+              onClick={() => void copyTemporaryPassword()}
               type="button"
               variant="outline"
             >
-              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+              <Copy className="h-4 w-4" />
             </Button>
           </div>
+          {canReset ? (
+            <Button
+              className="h-11 rounded-xl"
+              disabled={isPending}
+              onClick={resetTemporaryPassword}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reset temporary password
+            </Button>
+          ) : null}
+        </div>
+      ) : canReveal ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Button
-            className="h-11 rounded-xl"
-            disabled={isPending || !profile.permissions.canRegenerateTemporaryPassword}
-            onClick={() => handlePasswordAction("regenerate")}
+            className="h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+            disabled={isPending}
+            onClick={revealTemporaryPassword}
             type="button"
             variant="outline"
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Regenerate
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+            Reveal temporary password
           </Button>
+          {canReset ? (
+            <Button
+              className="h-11 rounded-xl"
+              disabled={isPending}
+              onClick={resetTemporaryPassword}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reset temporary password
+            </Button>
+          ) : null}
         </div>
       ) : (
         <Button
           className="mt-4 h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-          disabled={isPending || !profile.permissions.canResetPassword}
-          onClick={() => handlePasswordAction("reset")}
+          disabled={isPending || !canReset}
+          onClick={resetTemporaryPassword}
           type="button"
           variant="outline"
         >
           {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-          Reset password
+          Reset temporary password
         </Button>
       )}
       {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}

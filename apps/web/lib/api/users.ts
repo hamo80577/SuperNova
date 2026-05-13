@@ -109,7 +109,7 @@ export interface UpdateAdminProfileInput {
 export interface TemporaryPasswordResponse {
   user?: SafeUser;
   temporaryPassword: string;
-  temporaryPasswordExpiresAt: string;
+  temporaryPasswordExpiresAt: string | null;
   temporaryPasswordCreatedAt: string | null;
 }
 

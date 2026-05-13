@@ -323,12 +323,12 @@ export const requestsApi = {
     clearApiCache("/workspaces");
     return created;
   },
-  async finalizeNewHire(id: string, shopperId: string) {
+  async finalizeNewHire(id: string, shopperId?: string) {
     const finalized = await apiRequest<FinalizeNewHireResponse>(
       `/requests/${id}/finalize-new-hire`,
       {
         method: "POST",
-        body: JSON.stringify({ shopperId })
+        body: JSON.stringify(shopperId?.trim() ? { shopperId: shopperId.trim() } : {})
       }
     );
     clearApiCache("/requests");
