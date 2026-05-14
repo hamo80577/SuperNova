@@ -39,6 +39,10 @@ import {
   isPendingRequestStatus
 } from "./request-status-machine";
 import {
+  requestInclude,
+  type RequestWithRelations
+} from "./request-includes";
+import {
   RequestApprovalRoutingService,
   type GeneratedApprovalStep
 } from "./request-approval-routing.service";
@@ -49,23 +53,6 @@ import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.ser
 import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
 
 const MAX_PAGE_SIZE = 100;
-
-const requestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
-
-type RequestWithRelations = Prisma.RequestGetPayload<{
-  include: typeof requestInclude;
-}>;
 
 type RequestContext = {
   actor: AuthenticatedUser;

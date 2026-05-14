@@ -37,6 +37,10 @@ import {
   RequestApprovalRoutingService,
   type GeneratedApprovalStep
 } from "../request-approval-routing.service";
+import {
+  requestInclude,
+  type RequestApprovalWithRequest
+} from "../request-includes";
 import { toRequestSummary } from "../request-response.utils";
 import { assertRequestTransition } from "../request-status-machine";
 import {
@@ -47,19 +51,6 @@ import {
   type OffboardingReasonCode
 } from "./offboarding-workflow.policy";
 
-const requestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
-
 const pickerAssignmentInclude = {
   picker: true,
   vendor: { include: { chain: true } }
@@ -67,14 +58,6 @@ const pickerAssignmentInclude = {
 
 type PickerAssignmentWithContext = Prisma.PickerBranchAssignmentGetPayload<{
   include: typeof pickerAssignmentInclude;
-}>;
-
-type RequestApprovalWithRequest = Prisma.RequestApprovalGetPayload<{
-  include: {
-    request: {
-      include: typeof requestInclude;
-    };
-  };
 }>;
 
 type RequestContext = {

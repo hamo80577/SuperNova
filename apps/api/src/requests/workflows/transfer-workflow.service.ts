@@ -31,29 +31,12 @@ import {
   RequestApprovalRoutingService,
   type GeneratedApprovalStep
 } from "../request-approval-routing.service";
+import {
+  requestInclude,
+  type RequestApprovalWithRequest
+} from "../request-includes";
 import { toRequestSummary } from "../request-response.utils";
 import { assertRequestTransition } from "../request-status-machine";
-
-const requestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
-
-type TransferApprovalWithRequest = Prisma.RequestApprovalGetPayload<{
-  include: {
-    request: {
-      include: typeof requestInclude;
-    };
-  };
-}>;
 
 type RequestContext = {
   actor: AuthenticatedUser;
@@ -600,7 +583,7 @@ export class TransferWorkflowService {
   }
 
   private async applyTransferAfterFinalApproval(
-    approval: TransferApprovalWithRequest,
+    approval: RequestApprovalWithRequest,
     notes: string | undefined,
     context: RequestContext
   ) {

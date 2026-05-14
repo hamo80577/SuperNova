@@ -42,6 +42,10 @@ import {
   RequestApprovalRoutingService,
   type GeneratedApprovalStep
 } from "../request-approval-routing.service";
+import {
+  requestInclude,
+  type RequestWithRelations
+} from "../request-includes";
 import { assertRequestPayloadSafe } from "../request-payload.utils";
 import { toRequestSummary } from "../request-response.utils";
 import {
@@ -55,19 +59,6 @@ import {
 
 const PASSWORD_HASH_ROUNDS = 12;
 const TEMPORARY_PASSWORD_EXPIRY_HOURS = 24;
-
-const requestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
 
 const candidateUserInclude = {
   pickerBranchAssignments: {
@@ -89,10 +80,6 @@ const candidateUserInclude = {
 
 type CandidateUser = Prisma.UserGetPayload<{
   include: typeof candidateUserInclude;
-}>;
-
-type RequestWithRelations = Prisma.RequestGetPayload<{
-  include: typeof requestInclude;
 }>;
 
 type RequestContext = {

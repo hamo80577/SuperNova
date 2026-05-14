@@ -16,6 +16,7 @@ import {
   toVendorSummary
 } from "../assignments/assignment-response.utils";
 import { PrismaService } from "../prisma/prisma.service";
+import { requestInclude as workspaceRequestInclude } from "../requests/request-includes";
 import { toRequestSummary } from "../requests/request-response.utils";
 import { toSafeUser } from "../users/dto/safe-user.dto";
 
@@ -73,19 +74,6 @@ const areaManagerChainInclude = {
     }
   }
 } satisfies Prisma.ChainAreaManagerAssignmentInclude;
-
-const workspaceRequestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
 
 type ChampBranchAssignment = Prisma.VendorChampAssignmentGetPayload<{
   include: typeof champBranchInclude;

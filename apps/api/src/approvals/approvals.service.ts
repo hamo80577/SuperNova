@@ -22,6 +22,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   assertRequestTransition
 } from "../requests/request-status-machine";
+import { requestInclude } from "../requests/request-includes";
 import { toApprovalSummary, toRequestSummary } from "../requests/request-response.utils";
 import { RequestsService } from "../requests/requests.service";
 import type { ApprovalDecisionDto } from "./dto/approval-decision.dto";
@@ -29,18 +30,7 @@ import type { ApprovalDecisionDto } from "./dto/approval-decision.dto";
 const approvalInclude = {
   approver: true,
   request: {
-    include: {
-      createdBy: true,
-      targetUser: true,
-      sourceChain: true,
-      sourceVendor: { include: { chain: true } },
-      destinationChain: true,
-      destinationVendor: { include: { chain: true } },
-      approvals: {
-        include: { approver: true },
-        orderBy: { createdAt: "asc" as const }
-      }
-    }
+    include: requestInclude
   }
 } satisfies Prisma.RequestApprovalInclude;
 

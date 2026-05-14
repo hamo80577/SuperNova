@@ -25,6 +25,7 @@ import {
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { requestInclude as adminRequestInclude } from "../requests/request-includes";
 import { RequestsService } from "../requests/requests.service";
 import { redactJson } from "../security/sensitive-data.utils";
 import type {
@@ -39,19 +40,6 @@ import type {
 } from "./dto/list-admin-query.dto";
 
 const MAX_PAGE_SIZE = 100;
-
-const adminRequestInclude = {
-  createdBy: true,
-  targetUser: true,
-  sourceChain: true,
-  sourceVendor: { include: { chain: true } },
-  destinationChain: true,
-  destinationVendor: { include: { chain: true } },
-  approvals: {
-    include: { approver: true },
-    orderBy: { createdAt: "asc" as const }
-  }
-} satisfies Prisma.RequestInclude;
 
 type AdminActionContext = {
   actor: AuthenticatedUser;

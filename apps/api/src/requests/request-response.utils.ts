@@ -1,10 +1,7 @@
 import type {
   AuditLog,
-  Chain,
-  Request,
   RequestApproval,
-  User,
-  Vendor
+  User
 } from "@prisma/client";
 
 import {
@@ -13,16 +10,7 @@ import {
   toVendorSummary
 } from "../assignments/assignment-response.utils";
 import { redactJson } from "../security/sensitive-data.utils";
-
-type RequestWithRelations = Request & {
-  createdBy: User;
-  targetUser: User | null;
-  sourceChain: Chain | null;
-  destinationChain: Chain | null;
-  sourceVendor: (Vendor & { chain?: Chain }) | null;
-  destinationVendor: (Vendor & { chain?: Chain }) | null;
-  approvals: Array<RequestApproval & { approver: User | null }>;
-};
+import type { RequestWithRelations } from "./request-includes";
 
 export function toRequestSummary(request: RequestWithRelations) {
   return {
