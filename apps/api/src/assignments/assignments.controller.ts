@@ -71,12 +71,12 @@ export class AssignmentsController {
   }
 
   @Post("picker-branch")
-  createPickerBranchAssignment(
+  rejectDirectPickerBranchAssignmentCreate(
     @Body() dto: CreatePickerBranchAssignmentDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
-    return this.assignmentsService.createPickerBranchAssignment(dto, {
+    return this.assignmentsService.rejectDirectPickerBranchAssignmentCreate(dto, {
       actorUserId: user.id,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -110,13 +110,13 @@ export class AssignmentsController {
   }
 
   @Patch("picker-branch/:id/close")
-  closePickerBranchAssignment(
+  rejectDirectPickerBranchAssignmentClose(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: CloseAssignmentDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
-    return this.assignmentsService.closePickerBranchAssignment(id, dto, {
+    return this.assignmentsService.rejectDirectPickerBranchAssignmentClose(id, dto, {
       actorUserId: user.id,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

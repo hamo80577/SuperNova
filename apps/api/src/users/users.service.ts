@@ -259,9 +259,13 @@ export class UsersService {
       permissions,
       password: {
         mustChangePassword: user.mustChangePassword,
-        temporaryPasswordAvailable: Boolean(user.temporaryPasswordCiphertext),
-        temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt,
-        temporaryPasswordCreatedAt: user.temporaryPasswordCreatedAt
+        temporaryPasswordAvailable: permissions.canReadTemporaryPassword,
+        temporaryPasswordExpiresAt: permissions.canReadTemporaryPassword
+          ? user.temporaryPasswordExpiresAt
+          : null,
+        temporaryPasswordCreatedAt: permissions.canReadTemporaryPassword
+          ? user.temporaryPasswordCreatedAt
+          : null
       },
       currentPickerAssignment: currentPickerAssignment
         ? {
@@ -398,28 +402,6 @@ export class UsersService {
     }
   }
 
-  async resetPassword(
-    userId: string,
-    currentUser: AuthenticatedUser,
-    context: {
-      ipAddress?: string | null;
-      userAgent?: string | null;
-    }
-  ) {
-    return this.resetTemporaryPassword(userId, currentUser, context);
-  }
-
-  async regenerateTemporaryPassword(
-    userId: string,
-    currentUser: AuthenticatedUser,
-    context: {
-      ipAddress?: string | null;
-      userAgent?: string | null;
-    }
-  ) {
-    return this.resetTemporaryPassword(userId, currentUser, context);
-  }
-
   async revealTemporaryPassword(
     userId: string,
     currentUser: AuthenticatedUser,
@@ -493,17 +475,6 @@ export class UsersService {
     await this.assertCanManagePassword(user, currentUser);
 
     return this.issueTemporaryPassword(user, currentUser, context);
-  }
-
-  async getTemporaryPassword(
-    userId: string,
-    currentUser: AuthenticatedUser,
-    context: {
-      ipAddress?: string | null;
-      userAgent?: string | null;
-    }
-  ) {
-    return this.revealTemporaryPassword(userId, currentUser, context);
   }
 
   private async issueTemporaryPassword(
@@ -610,9 +581,7 @@ export class UsersService {
       canRegenerateTemporaryPassword:
         canManagePassword && targetUser.mustChangePassword,
       canReadTemporaryPassword:
-        canManagePassword &&
-        targetUser.mustChangePassword &&
-        Boolean(targetUser.temporaryPasswordCiphertext)
+        canManagePassword && this.hasUsableTemporaryPassword(targetUser)
     };
   }
 
@@ -651,6 +620,31 @@ export class UsersService {
     }
 
     throw new ForbiddenException("You cannot manage this user's password.");
+  }
+
+  private hasUsableTemporaryPassword(
+    user: Pick<
+      User,
+      | "mustChangePassword"
+      | "temporaryPasswordCiphertext"
+      | "temporaryPasswordExpiresAt"
+    >
+  ) {
+    return (
+      user.mustChangePassword &&
+      Boolean(user.temporaryPasswordCiphertext) &&
+      !this.hasExpiredTemporaryPassword(user)
+    );
+  }
+
+  private hasExpiredTemporaryPassword(
+    user: Pick<User, "mustChangePassword" | "temporaryPasswordExpiresAt">
+  ) {
+    if (!user.mustChangePassword || !user.temporaryPasswordExpiresAt) {
+      return false;
+    }
+
+    return user.temporaryPasswordExpiresAt.getTime() <= Date.now();
   }
 
   private async isActivePickerInChampScope(pickerId: string, champId: string) {

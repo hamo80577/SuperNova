@@ -269,56 +269,15 @@ export class AssignmentsService {
     );
   }
 
-  async createPickerBranchAssignment(
+  async rejectDirectPickerBranchAssignmentCreate(
     dto: CreatePickerBranchAssignmentDto,
     context: RequestContext
   ) {
-    const [picker, vendor, activeAssignment] = await this.prisma.$transaction([
-      this.prisma.user.findUnique({ where: { id: dto.pickerId } }),
-      this.prisma.vendor.findUnique({
-        where: { id: dto.vendorId },
-        include: { chain: true }
-      }),
-      this.prisma.pickerBranchAssignment.findFirst({
-        where: { pickerId: dto.pickerId, status: AssignmentStatus.ACTIVE }
-      })
-    ]);
-
-    this.assertUserRole(picker, UserRole.PICKER, "Picker");
-    this.assertActiveVendor(vendor);
-
-    if (activeAssignment) {
-      throw new ConflictException("Picker already has an active branch assignment.");
-    }
-
-    try {
-      const assignment = await this.prisma.pickerBranchAssignment.create({
-        data: {
-          pickerId: dto.pickerId,
-          vendorId: dto.vendorId,
-          status: AssignmentStatus.ACTIVE,
-          startDate: this.parseDate(dto.startDate)
-        },
-        include: pickerAssignmentInclude
-      });
-
-      await this.auditService.log({
-        actorUserId: context.actorUserId,
-        action: "PICKER_BRANCH_ASSIGNMENT_CREATED",
-        entityType: "PickerBranchAssignment",
-        entityId: assignment.id,
-        newValue: this.toPickerAssignmentAuditValue(assignment),
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
-      });
-
-      return this.toPickerAssignmentResponse(assignment);
-    } catch (error) {
-      this.handleActiveAssignmentConflict(
-        error,
-        "Picker already has an active branch assignment."
-      );
-    }
+    void dto;
+    void context;
+    throw new BadRequestException(
+      "Picker branch assignment must be created through the New Hire workflow."
+    );
   }
 
   async createVendorChampAssignment(
@@ -424,43 +383,17 @@ export class AssignmentsService {
     }
   }
 
-  async closePickerBranchAssignment(
+  async rejectDirectPickerBranchAssignmentClose(
     id: string,
     dto: CloseAssignmentDto,
     context: RequestContext
   ) {
-    const current = await this.prisma.pickerBranchAssignment.findUnique({
-      where: { id },
-      include: pickerAssignmentInclude
-    });
-
-    if (!current) {
-      throw new NotFoundException("Picker branch assignment was not found.");
-    }
-
-    this.assertCanClose(current.status);
-
-    const assignment = await this.prisma.pickerBranchAssignment.update({
-      where: { id },
-      data: {
-        status: AssignmentStatus.CLOSED,
-        endDate: this.parseDate(dto.endDate)
-      },
-      include: pickerAssignmentInclude
-    });
-
-    await this.auditService.log({
-      actorUserId: context.actorUserId,
-      action: "PICKER_BRANCH_ASSIGNMENT_CLOSED",
-      entityType: "PickerBranchAssignment",
-      entityId: assignment.id,
-      oldValue: this.toPickerAssignmentAuditValue(current),
-      newValue: this.toPickerAssignmentAuditValue(assignment),
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
-    });
-
-    return this.toPickerAssignmentResponse(assignment);
+    void id;
+    void dto;
+    void context;
+    throw new BadRequestException(
+      "Picker branch assignment closure must be completed through the Resignation or Transfer workflow."
+    );
   }
 
   async closeVendorChampAssignment(

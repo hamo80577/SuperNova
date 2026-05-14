@@ -52,7 +52,6 @@ const employmentStatuses: EmploymentStatus[] = [
   "NEW_HIRE_PENDING",
   "ACTIVE",
   "RESIGNED",
-  "TERMINATED",
   "ARCHIVED"
 ];
 const profileStatuses: ProfileStatus[] = [
@@ -488,7 +487,7 @@ function getStatusTone(status: string) {
   if (["INACTIVE", "NEW_HIRE_PENDING", "INCOMPLETE", "PENDING_REVIEW"].includes(status)) {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
-  if (["SUSPENDED", "ARCHIVED", "RESIGNED", "TERMINATED", "PERMANENT_BLOCK", "TEMPORARY_BLOCK"].includes(status)) {
+  if (["SUSPENDED", "ARCHIVED", "RESIGNED", "PERMANENT_BLOCK", "TEMPORARY_BLOCK"].includes(status)) {
     return "border-red-200 bg-red-50 text-red-700";
   }
   return "border-slate-200 bg-slate-50 text-slate-600";

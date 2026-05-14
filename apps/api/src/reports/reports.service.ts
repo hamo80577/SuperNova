@@ -495,7 +495,7 @@ export class ReportsService {
       this.prisma.request.count({
         where: {
           createdById: champId,
-          type: { in: [RequestType.RESIGNATION, RequestType.TERMINATION] },
+          type: RequestType.RESIGNATION,
           status: RequestStatus.COMPLETED
         }
       })

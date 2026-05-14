@@ -46,7 +46,7 @@ Good:
 ```text
 Do not change Transfer.
 Do not add Email/OTP.
-Do not reintroduce Termination.
+Do not add removed offboarding lifecycle types.
 Do not redesign unrelated pages.
 ```
 

@@ -785,7 +785,7 @@ function BranchDetailSheet({
                       <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
                         <MenuButton
                           icon={<Users className="h-4 w-4" />}
-                          label="Picker"
+                          label="Transfer Picker"
                           onClick={() => {
                             setAssignMode("picker");
                             setAssignMenuOpen(false);
@@ -1234,7 +1234,7 @@ function AssignModal({
       onClose={onClose}
       title={
         mode === "picker"
-          ? "Assign Picker"
+          ? "Transfer Picker"
           : mode === "champ"
             ? "Assign Champ"
             : "Assign Area Manager"
@@ -1262,7 +1262,7 @@ function AssignModal({
           </Button>
           <Button disabled={isPending || !selectedUser} type="submit">
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save
+            {mode === "picker" ? "Create Transfer" : "Save"}
           </Button>
         </div>
       </form>

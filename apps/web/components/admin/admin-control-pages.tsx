@@ -35,7 +35,6 @@ const employmentStatuses: Array<EmploymentStatus | ""> = [
   "NEW_HIRE_PENDING",
   "ACTIVE",
   "RESIGNED",
-  "TERMINATED",
   "ARCHIVED"
 ];
 const accountStatuses: Array<AccountStatus | ""> = [
@@ -608,7 +607,6 @@ function GenericStatusBadge({ status }: { status: string }) {
     "REJECTED",
     "CANCELLED",
     "ARCHIVED",
-    "TERMINATED",
     "PERMANENT_BLOCK"
   ];
 
