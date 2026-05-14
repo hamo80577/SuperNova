@@ -1,0 +1,2 @@
+export const PASSWORD_HASH_ROUNDS = 12;
+export const TEMPORARY_PASSWORD_EXPIRY_HOURS = 24;
