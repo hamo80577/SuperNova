@@ -7,6 +7,7 @@ import { UsersModule } from "../users/users.module";
 import { RequestApprovalRoutingService } from "./request-approval-routing.service";
 import { RequestsController } from "./requests.controller";
 import { RequestsService } from "./requests.service";
+import { NewHireCandidateService } from "./workflows/new-hire-candidate.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
@@ -17,6 +18,7 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
   providers: [
     RequestApprovalRoutingService,
     RequestsService,
+    NewHireCandidateService,
     NewHireWorkflowService,
     OffboardingWorkflowService,
     TransferWorkflowService
