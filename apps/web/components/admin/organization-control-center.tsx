@@ -43,7 +43,7 @@ import {
   type OrganizationChainSummary
 } from "@/lib/api/admin-organization";
 import { organizationApi } from "@/lib/api/organization";
-import { requestsApi } from "@/lib/api/requests";
+import { requestsApi, type NewHireTargetRole } from "@/lib/api/requests";
 import { usersApi } from "@/lib/api/users";
 import type { SafeUser, UserRole } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,7 @@ type LoadState<T> =
 
 type AddMode = "chain" | "vendor" | null;
 type AssignMode = "picker" | "champ" | "areaManager" | null;
+type BranchNewHireTargetRole = Extract<NewHireTargetRole, "PICKER" | "CHAMP">;
 type PickerAction =
   | { type: "transfer"; picker: SafePicker }
   | { type: "resignation"; picker: SafePicker }
@@ -663,7 +664,9 @@ function BranchDetailSheet({
   const [assignMode, setAssignMode] = useState<AssignMode>(null);
   const [assignMenuOpen, setAssignMenuOpen] = useState(false);
   const [pickerAction, setPickerAction] = useState<PickerAction>(null);
-  const [newHireOpen, setNewHireOpen] = useState(false);
+  const [newHireMenuOpen, setNewHireMenuOpen] = useState(false);
+  const [newHireTargetRole, setNewHireTargetRole] =
+    useState<BranchNewHireTargetRole | null>(null);
   const [selectedUser, setSelectedUser] = useState<BranchUser | null>(null);
 
   async function loadBranch() {
@@ -730,18 +733,47 @@ function BranchDetailSheet({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    className="rounded-xl bg-orange-600 text-white hover:bg-orange-700"
-                    onClick={() => setNewHireOpen(true)}
-                    type="button"
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    New Hire
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      className="rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+                      onClick={() => {
+                        setNewHireMenuOpen((value) => !value);
+                        setAssignMenuOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      New Hire
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                    {newHireMenuOpen ? (
+                      <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                        <MenuButton
+                          icon={<Users className="h-4 w-4" />}
+                          label="Picker"
+                          onClick={() => {
+                            setNewHireTargetRole("PICKER");
+                            setNewHireMenuOpen(false);
+                          }}
+                        />
+                        <MenuButton
+                          icon={<UserCog className="h-4 w-4" />}
+                          label="Champ"
+                          onClick={() => {
+                            setNewHireTargetRole("CHAMP");
+                            setNewHireMenuOpen(false);
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="relative">
                     <Button
                       className="rounded-xl"
-                      onClick={() => setAssignMenuOpen((value) => !value)}
+                      onClick={() => {
+                        setAssignMenuOpen((value) => !value);
+                        setNewHireMenuOpen(false);
+                      }}
                       type="button"
                       variant="outline"
                     >
@@ -844,16 +876,17 @@ function BranchDetailSheet({
         </div>
       </div>
 
-      {state.status === "ready" && newHireOpen ? (
+      {state.status === "ready" && newHireTargetRole ? (
         <NewHireModal
           branch={state.data.branch}
           chain={state.data.chain}
-          onClose={() => setNewHireOpen(false)}
+          onClose={() => setNewHireTargetRole(null)}
           onSaved={() => {
-            setNewHireOpen(false);
+            setNewHireTargetRole(null);
             void loadBranch();
             onChanged();
           }}
+          targetRole={newHireTargetRole}
         />
       ) : null}
 
@@ -1337,21 +1370,36 @@ function NewHireModal({
   branch,
   chain,
   onClose,
-  onSaved
+  onSaved,
+  targetRole
 }: {
   branch: OrganizationBranchSummary;
   chain: Pick<OrganizationChainSummary, "id" | "chainName" | "chainCode" | "status">;
   onClose: () => void;
   onSaved: () => void;
+  targetRole: BranchNewHireTargetRole;
 }) {
+  const [isDirty, setIsDirty] = useState(false);
+
+  function requestClose() {
+    if (isDirty && !window.confirm("Discard the New Hire data you entered?")) {
+      return;
+    }
+
+    onClose();
+  }
+
   return (
-    <ModalFrame onClose={onClose} title="New Hire request">
+    <ModalFrame onClose={requestClose} size="wide" title="New Hire request">
       <NewHireRequestForm
         fixedSourceVendorId={branch.id}
+        initialTargetRole={targetRole}
         lockedBranchContext={{ vendor: branch, chain }}
+        lockTargetRole
         onCreated={() => {
           onSaved();
         }}
+        onDirtyChange={setIsDirty}
       />
     </ModalFrame>
   );
@@ -1561,15 +1609,22 @@ function RowActionMenu({
 function ModalFrame({
   children,
   onClose,
+  size = "default",
   title
 }: {
   children: ReactNode;
   onClose: () => void;
+  size?: "default" | "wide";
   title: string;
 }) {
   return (
     <div className="fixed inset-0 z-[100] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
-      <div className="max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:max-w-lg sm:rounded-[28px] sm:p-5">
+      <div
+        className={cn(
+          "max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5",
+          size === "wide" ? "sm:max-w-5xl xl:max-w-6xl" : "sm:max-w-lg"
+        )}
+      >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
           <IconButton label={`Close ${title}`} onClick={onClose}>

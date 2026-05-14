@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   ArrowRight,
+  ChevronDown,
   CheckCircle2,
   Clock,
   FileText,
@@ -142,6 +143,9 @@ export type LockedNewHireBranchContext = {
   vendor: NewHireVendorSource;
   chain: NewHireChainSource;
 };
+type NewRequestDraft =
+  | { type: "NEW_HIRE"; targetRole: NewHireTargetRole }
+  | { type: "RESIGNATION" | "TRANSFER" };
 
 export function RequestsCenter() {
   return <RequestOperationsCenter defaultMode="action" />;
@@ -163,10 +167,17 @@ export function RequestOperationsCenter({
   const [type, setType] = useState<RequestType | "">("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [newRequestOpen, setNewRequestOpen] = useState(false);
+  const [newRequestMenuOpen, setNewRequestMenuOpen] = useState(false);
+  const [newRequestDraft, setNewRequestDraft] = useState<NewRequestDraft | null>(
+    null
+  );
 
   const requestId = searchParams.get("requestId");
   const canCreateLifecycleRequest = user?.role !== "PICKER";
+  const allowedNewHireTargetRoles = useMemo(
+    () => getAllowedNewHireTargetRoles(user?.role, false),
+    [user?.role]
+  );
 
   async function loadOperations() {
     setLoading(true);
@@ -276,15 +287,25 @@ export function RequestOperationsCenter({
             </p>
           </div>
           {canCreateLifecycleRequest ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex flex-wrap items-center gap-2">
               <Button
                 className="h-11 rounded-xl bg-orange-600 hover:bg-orange-700"
-                onClick={() => setNewRequestOpen(true)}
+                onClick={() => setNewRequestMenuOpen((open) => !open)}
                 type="button"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 New Request
+                <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
+              {newRequestMenuOpen ? (
+                <NewRequestMenu
+                  allowedNewHireTargetRoles={allowedNewHireTargetRoles}
+                  onSelect={(draft) => {
+                    setNewRequestMenuOpen(false);
+                    setNewRequestDraft(draft);
+                  }}
+                />
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -376,11 +397,12 @@ export function RequestOperationsCenter({
         />
       ) : null}
 
-      {newRequestOpen && canCreateLifecycleRequest ? (
+      {newRequestDraft && canCreateLifecycleRequest ? (
         <NewRequestSheet
-          onClose={() => setNewRequestOpen(false)}
+          draft={newRequestDraft}
+          onClose={() => setNewRequestDraft(null)}
           onCreated={(request) => {
-            setNewRequestOpen(false);
+            setNewRequestDraft(null);
             void loadOperations();
             openRequest(request.id);
           }}
@@ -1381,18 +1403,24 @@ function applyFixedNewHireBranch(
 
 export function NewHireRequestForm({
   fixedSourceVendorId,
+  initialTargetRole = "PICKER",
   lockedBranchContext,
+  lockTargetRole = false,
+  onDirtyChange,
   onCreated
 }: {
   fixedSourceVendorId?: string;
+  initialTargetRole?: NewHireTargetRole;
   lockedBranchContext?: LockedNewHireBranchContext;
+  lockTargetRole?: boolean;
+  onDirtyChange?: (isDirty: boolean) => void;
   onCreated: (request: RequestSummary) => void;
 }) {
   const { user } = useAuth();
   const [chains, setChains] = useState<NewHireChainOption[]>([]);
   const [vendors, setVendors] = useState<NewHireVendorOption[]>([]);
   const [form, setForm] = useState({
-    targetRole: "PICKER" as NewHireTargetRole,
+    targetRole: initialTargetRole,
     sourceChainId: "",
     sourceVendorId: "",
     chainIds: [] as string[],
@@ -1601,6 +1629,99 @@ export function NewHireRequestForm({
           }
     );
   }, [allowedTargetRoles, fixedSourceVendorId]);
+
+  useEffect(() => {
+    if (!lockTargetRole) {
+      return;
+    }
+
+    setForm((current) =>
+      current.targetRole === initialTargetRole
+        ? current
+        : {
+            ...current,
+            targetRole: initialTargetRole,
+            chainIds: initialTargetRole === "AREA_MANAGER" ? current.chainIds : [],
+            sourceChainId:
+              initialTargetRole === "AREA_MANAGER" && !fixedSourceVendorId
+                ? ""
+                : current.sourceChainId,
+            sourceVendorId:
+              initialTargetRole === "AREA_MANAGER" && !fixedSourceVendorId
+                ? ""
+                : current.sourceVendorId
+          }
+    );
+  }, [fixedSourceVendorId, initialTargetRole, lockTargetRole]);
+
+  useEffect(() => {
+    if (isLoadingVendors || branchLocked) {
+      return;
+    }
+
+    setForm((current) => {
+      if (current.targetRole === "AREA_MANAGER") {
+        if (current.chainIds.length || chains.length !== 1) {
+          return current;
+        }
+
+        return {
+          ...current,
+          chainIds: [chains[0].id],
+          sourceChainId: chains[0].id
+        };
+      }
+
+      if (current.sourceVendorId) {
+        return current;
+      }
+
+      const nextChainId =
+        current.sourceChainId || (chains.length === 1 ? chains[0].id : "");
+      const branchOptions = vendors.filter(
+        (vendor) => !nextChainId || vendor.chainId === nextChainId
+      );
+      const nextVendorId = branchOptions.length === 1 ? branchOptions[0].id : "";
+
+      if (
+        nextChainId === current.sourceChainId &&
+        nextVendorId === current.sourceVendorId
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        sourceChainId: nextChainId,
+        sourceVendorId: nextVendorId
+      };
+    });
+  }, [branchLocked, chains, form.targetRole, isLoadingVendors, vendors]);
+
+  useEffect(() => {
+    onDirtyChange?.(
+      Boolean(
+        form.nameEn.trim() ||
+          form.nameAr.trim() ||
+          form.phoneNumber.trim() ||
+          form.nationalId.trim() ||
+          form.dateOfBirth ||
+          form.gender !== "UNSPECIFIED" ||
+          form.address.trim() ||
+          form.notes.trim()
+      )
+    );
+  }, [
+    form.address,
+    form.dateOfBirth,
+    form.gender,
+    form.nameAr,
+    form.nameEn,
+    form.nationalId,
+    form.notes,
+    form.phoneNumber,
+    onDirtyChange
+  ]);
 
   function updateField(name: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -1866,28 +1987,30 @@ export function NewHireRequestForm({
     <form className="grid min-w-0 gap-4" onSubmit={submit}>
       {error ? <ErrorState message={error} /> : null}
 
-      <NewHireFormSection
-        description="Choose only the role this workspace can submit."
-        title="Target role"
-      >
-        <div className="grid gap-2 sm:grid-cols-3">
-          {allowedTargetRoles.map((role) => (
-            <button
-              className={cn(
-                "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
-                form.targetRole === role
-                  ? "border-orange-300 bg-orange-50 text-orange-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
-              )}
-              key={role}
-              onClick={() => updateTargetRole(role)}
-              type="button"
-            >
-              {formatEnum(role)}
-            </button>
-          ))}
-        </div>
-      </NewHireFormSection>
+      {!lockTargetRole ? (
+        <NewHireFormSection
+          description="Choose only the role this workspace can submit."
+          title="Target role"
+        >
+          <div className="grid gap-2 sm:grid-cols-3">
+            {allowedTargetRoles.map((role) => (
+              <button
+                className={cn(
+                  "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
+                  form.targetRole === role
+                    ? "border-orange-300 bg-orange-50 text-orange-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                )}
+                key={role}
+                onClick={() => updateTargetRole(role)}
+                type="button"
+              >
+                {formatEnum(role)}
+              </button>
+            ))}
+          </div>
+        </NewHireFormSection>
+      ) : null}
 
       <NewHireFormSection
         description={
@@ -2109,10 +2232,10 @@ export function NewHireRequestForm({
           <NewHireFormSection description="Optional personal fields used by the operational profile." title="Personal details">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Date of birth">
-                <Input
-                  className="h-11 rounded-xl"
-                  onChange={(event) => updateField("dateOfBirth", event.target.value)}
-                  type="date"
+                <DatePicker
+                  onChange={(value) => updateField("dateOfBirth", value)}
+                  placeholder="Select birth date"
+                  startYear={2000}
                   value={form.dateOfBirth}
                 />
               </Field>
@@ -3483,14 +3606,77 @@ function BranchChoiceList({
   );
 }
 
+function NewRequestMenu({
+  allowedNewHireTargetRoles,
+  onSelect
+}: {
+  allowedNewHireTargetRoles: NewHireTargetRole[];
+  onSelect: (draft: NewRequestDraft) => void;
+}) {
+  return (
+    <div className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-2xl">
+      <div className="group relative">
+        <button
+          className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-sm font-semibold text-slate-800 hover:bg-orange-50 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!allowedNewHireTargetRoles.length}
+          type="button"
+        >
+          <span>New Hire</span>
+          <ChevronDown className="h-4 w-4 -rotate-90 text-slate-400" />
+        </button>
+        <div className="mt-1 hidden gap-1 rounded-xl border border-slate-100 bg-slate-50 p-1 group-focus-within:grid group-hover:grid sm:absolute sm:right-full sm:top-0 sm:mt-0 sm:w-52 sm:bg-white sm:shadow-xl">
+          {allowedNewHireTargetRoles.map((role) => (
+            <button
+              className="min-h-10 rounded-lg px-3 text-left text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
+              key={role}
+              onClick={() => onSelect({ type: "NEW_HIRE", targetRole: role })}
+              type="button"
+            >
+              {formatEnum(role)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <button
+        className="mt-1 flex min-h-11 w-full items-center rounded-xl px-3 text-sm font-semibold text-slate-800 hover:bg-orange-50 hover:text-orange-700"
+        onClick={() => onSelect({ type: "RESIGNATION" })}
+        type="button"
+      >
+        Resignation
+      </button>
+      <button
+        className="mt-1 flex min-h-11 w-full items-center rounded-xl px-3 text-sm font-semibold text-slate-800 hover:bg-orange-50 hover:text-orange-700"
+        onClick={() => onSelect({ type: "TRANSFER" })}
+        type="button"
+      >
+        Transfer
+      </button>
+    </div>
+  );
+}
+
 function NewRequestSheet({
+  draft,
   onClose,
   onCreated
 }: {
+  draft: NewRequestDraft;
   onClose: () => void;
   onCreated: (request: RequestSummary) => void;
 }) {
-  const [selectedType, setSelectedType] = useState<RequestType>("NEW_HIRE");
+  const [isDirty, setIsDirty] = useState(false);
+  const title =
+    draft.type === "NEW_HIRE"
+      ? `${formatEnum(draft.targetRole)} New Hire`
+      : `${formatEnum(draft.type)} request`;
+
+  function requestClose() {
+    if (isDirty && !window.confirm("Discard the New Hire data you entered?")) {
+      return;
+    }
+
+    onClose();
+  }
 
   return (
     <div
@@ -3498,49 +3684,38 @@ function NewRequestSheet({
       className="fixed inset-0 z-[130] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
       role="dialog"
     >
-      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-4xl sm:rounded-[1.75rem] sm:p-5 [&::-webkit-scrollbar]:hidden">
+      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-5xl sm:rounded-[1.75rem] sm:p-5 xl:max-w-6xl [&::-webkit-scrollbar]:hidden">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
               New request
             </Badge>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-              Create lifecycle request
+              Create {title}
             </h2>
           </div>
           <Button
             aria-label="Close new request"
             className="h-10 w-10 rounded-xl p-0"
-            onClick={onClose}
+            onClick={requestClose}
             type="button"
             variant="outline"
           >
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {requestTypes.map((type) => (
-            <button
-              className={cn(
-                "rounded-2xl border p-3 text-left text-sm font-semibold",
-                selectedType === type
-                  ? "border-orange-200 bg-orange-50 text-orange-700"
-                  : "border-slate-200 bg-white text-slate-600"
-              )}
-              key={type}
-              onClick={() => setSelectedType(type)}
-              type="button"
-            >
-              {formatEnum(type)}
-            </button>
-          ))}
-        </div>
-        {selectedType === "NEW_HIRE" ? (
-          <NewHireRequestForm onCreated={onCreated} />
-        ) : selectedType === "RESIGNATION" ? (
+        {draft.type === "NEW_HIRE" ? (
+          <NewHireRequestForm
+            initialTargetRole={draft.targetRole}
+            key={draft.targetRole}
+            lockTargetRole
+            onCreated={onCreated}
+            onDirtyChange={setIsDirty}
+          />
+        ) : draft.type === "RESIGNATION" ? (
           <ResignationRequestForm onCreated={onCreated} />
-        ) : selectedType === "TRANSFER" ? (
-          <LifecyclePickerRequestForm onCreated={onCreated} type={selectedType} />
+        ) : draft.type === "TRANSFER" ? (
+          <LifecyclePickerRequestForm onCreated={onCreated} type={draft.type} />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             This request type is not available in the current workflow.
