@@ -58,6 +58,7 @@ import {
   type OffboardingBlockDecision,
   type OffboardingPickerSearchItem,
   type OffboardingReasonCode,
+  type RequestApprovalSummary,
   type RequestDetail,
   type RequestStatus,
   type RequestSummary,
@@ -739,7 +740,7 @@ function RequestOperationCard({
   );
 }
 
-function RequestDetailModal({
+export function RequestDetailModal({
   onChanged,
   onClose,
   requestId
@@ -752,9 +753,6 @@ function RequestDetailModal({
   const [request, setRequest] = useState<RequestDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [decision, setDecision] = useState<"approve" | "reject" | null>(null);
-  const [decisionNotes, setDecisionNotes] = useState("");
-  const [isPending, startTransition] = useTransition();
 
   async function loadRequest() {
     setLoading(true);
@@ -781,37 +779,6 @@ function RequestDetailModal({
         ((user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") &&
           approval.step === "ADMIN_FINAL_APPROVAL"))
   );
-
-  function decide() {
-    if (!actionableApproval || !decision) {
-      return;
-    }
-    if (decision === "reject" && !decisionNotes.trim()) {
-      setError("Reject reason is required.");
-      return;
-    }
-
-    startTransition(async () => {
-      setError(null);
-      try {
-        if (decision === "approve") {
-          await approvalsApi.approve(actionableApproval.id, decisionNotes || undefined);
-        } else {
-          await approvalsApi.reject(actionableApproval.id, decisionNotes);
-        }
-        setDecision(null);
-        setDecisionNotes("");
-        await loadRequest();
-        await onChanged();
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to record approval decision."
-        );
-      }
-    });
-  }
 
   return (
     <div
@@ -882,90 +849,14 @@ function RequestDetailModal({
               !(
                 request.type === "RESIGNATION" &&
                 actionableApproval.step === "ADMIN_FINAL_APPROVAL"
-              ) &&
-              !(
-                request.type === "RESIGNATION" &&
-                actionableApproval.step === "AREA_MANAGER_APPROVAL"
               ) ? (
-                <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                  <h3 className="text-sm font-semibold text-orange-950">
-                    Action required
-                  </h3>
-                  <p className="mt-1 text-sm text-orange-800">
-                    Review the request details before recording your decision.
-                    Reject requires a reason.
-                  </p>
-                  <div className="mt-3 grid gap-3">
-                    {decision ? (
-                      <Field label={decision === "reject" ? "Reject reason" : "Notes"}>
-                        <Input
-                          onChange={(event) => setDecisionNotes(event.target.value)}
-                          placeholder={
-                            decision === "reject"
-                              ? "Required reason"
-                              : "Optional notes"
-                          }
-                          value={decisionNotes}
-                        />
-                      </Field>
-                    ) : null}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        disabled={isPending}
-                        onClick={() => {
-                          if (decision === "approve") {
-                            decide();
-                          } else {
-                            setDecision("approve");
-                            setDecisionNotes("");
-                          }
-                        }}
-                        type="button"
-                      >
-                        {decision === "approve" ? "Confirm Approve" : "Approve"}
-                      </Button>
-                      <Button
-                        disabled={isPending}
-                        onClick={() => {
-                          if (decision === "reject") {
-                            decide();
-                          } else {
-                            setDecision("reject");
-                            setDecisionNotes("");
-                          }
-                        }}
-                        type="button"
-                        variant="outline"
-                      >
-                        {decision === "reject" ? "Confirm Reject" : "Reject"}
-                      </Button>
-                      {decision ? (
-                        <Button
-                          onClick={() => {
-                            setDecision(null);
-                            setDecisionNotes("");
-                          }}
-                          type="button"
-                          variant="ghost"
-                        >
-                          Cancel decision
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                </section>
-              ) : null}
-
-              {actionableApproval &&
-              request.type === "RESIGNATION" &&
-              actionableApproval.step === "AREA_MANAGER_APPROVAL" ? (
-                <ResignationAreaManagerApprovalPanel
-                  approvalId={actionableApproval.id}
-                  onApproved={async () => {
+                <RequestApprovalDecisionPanel
+                  approval={actionableApproval}
+                  onChanged={async () => {
                     await loadRequest();
                     await onChanged();
                   }}
+                  request={request}
                 />
               ) : null}
 
@@ -4204,23 +4095,26 @@ function ApprovalQueueCard({
   );
 }
 
-function ResignationAreaManagerApprovalPanel({
-  approvalId,
-  onApproved
+function RequestApprovalDecisionPanel({
+  approval,
+  onChanged,
+  request
 }: {
-  approvalId: string;
-  onApproved: () => Promise<void>;
+  approval: RequestApprovalSummary;
+  onChanged: () => Promise<void>;
+  request: RequestDetail;
 }) {
-  const [form, setForm] = useState({
-    blockDecision: "NO_BLOCK" as OffboardingBlockDecision,
-    blockReason: "",
-    notes: ""
-  });
+  const isResignationAreaManager =
+    request.type === "RESIGNATION" && approval.step === "AREA_MANAGER_APPROVAL";
+  const [notes, setNotes] = useState("");
+  const [blockDecision, setBlockDecision] =
+    useState<OffboardingBlockDecision>("NO_BLOCK");
+  const [blockReason, setBlockReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function approve() {
-    if (form.blockDecision !== "NO_BLOCK" && !form.blockReason.trim()) {
+    if (isResignationAreaManager && blockDecision !== "NO_BLOCK" && !blockReason.trim()) {
       setError("Block reason is required for any block decision.");
       return;
     }
@@ -4228,73 +4122,125 @@ function ResignationAreaManagerApprovalPanel({
     startTransition(async () => {
       setError(null);
       try {
-        await approvalsApi.approve(approvalId, {
-          blockDecision: form.blockDecision,
-          ...(form.blockReason.trim()
-            ? { blockReason: form.blockReason.trim() }
-            : {}),
-          ...(form.notes.trim() ? { notes: form.notes.trim() } : {})
-        });
-        await onApproved();
+        await approvalsApi.approve(
+          approval.id,
+          isResignationAreaManager
+            ? {
+                blockDecision,
+                ...(blockReason.trim() ? { blockReason: blockReason.trim() } : {}),
+                ...(notes.trim() ? { notes: notes.trim() } : {})
+              }
+            : notes.trim() || undefined
+        );
+        setNotes("");
+        setBlockDecision("NO_BLOCK");
+        setBlockReason("");
+        await onChanged();
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Unable to record Area Manager approval."
+            : "Unable to approve request."
+        );
+      }
+    });
+  }
+
+  function reject() {
+    if (!notes.trim()) {
+      setError("Reject reason is required before rejecting this request.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        await approvalsApi.reject(approval.id, notes.trim());
+        setNotes("");
+        setBlockDecision("NO_BLOCK");
+        setBlockReason("");
+        await onChanged();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to reject request."
         );
       }
     });
   }
 
   return (
-    <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+    <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-orange-950">
-            Area Manager block decision
+            Approval decision
           </h3>
           <p className="mt-1 text-sm text-orange-800">
-            Choose whether this Picker should be blocked before the request goes
-            to Admin finalization.
+            Approve applies immediately. Reject requires a written reason before
+            the request can be rejected.
           </p>
+          {isResignationAreaManager ? (
+            <p className="mt-2 text-xs font-medium text-orange-700">
+              Block decision defaults to No block. Choose a duration only when the
+              Picker should be blocked.
+            </p>
+          ) : null}
         </div>
         <UserCheck className="h-5 w-5 text-orange-700" />
       </div>
       <div className="mt-4 grid gap-4">
-        <BlockDecisionFields
-          blockDecision={form.blockDecision}
-          blockReason={form.blockReason}
-          onChange={(patch) =>
-            setForm((current) => ({
-              ...current,
-              ...patch,
-              blockReason:
-                patch.blockDecision === "NO_BLOCK"
-                  ? ""
-                  : patch.blockReason ?? current.blockReason
-            }))
-          }
-          title="Block decision"
-        />
-        <Field label="Approval notes">
-          <Input
-            className="h-11 rounded-xl bg-white"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, notes: event.target.value }))
-            }
-            placeholder="Optional"
-            value={form.notes}
+        {isResignationAreaManager ? (
+          <BlockDecisionFields
+            blockDecision={blockDecision}
+            blockReason={blockReason}
+            onChange={(patch) => {
+              if (patch.blockDecision) {
+                setBlockDecision(patch.blockDecision);
+                if (patch.blockDecision === "NO_BLOCK") {
+                  setBlockReason("");
+                }
+              }
+              if (patch.blockReason !== undefined) {
+                setBlockReason(patch.blockReason);
+              }
+            }}
+            title="Block decision"
           />
-        </Field>
+        ) : null}
+        <label className="grid gap-1 text-sm font-medium text-orange-950">
+          Decision notes
+          <textarea
+            className="min-h-24 rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200"
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Optional for approve. Required for reject."
+            value={notes}
+          />
+          <span className="text-xs font-normal text-orange-700">
+            Approval can be submitted without notes. Rejection needs a clear reason.
+          </span>
+        </label>
         {error ? <ErrorState message={error} /> : null}
-        <Button
-          className="w-fit rounded-xl bg-orange-600 text-white hover:bg-orange-700"
-          disabled={isPending}
-          onClick={approve}
-          type="button"
-        >
-          {isPending ? "Approving..." : "Approve Resignation"}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button
+            className="min-h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+            disabled={isPending}
+            onClick={approve}
+            type="button"
+          >
+            {isPending ? "Submitting..." : "Approve request"}
+          </Button>
+          <Button
+            className="min-h-11 rounded-xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            disabled={isPending}
+            onClick={reject}
+            type="button"
+            variant="outline"
+          >
+            Reject request
+          </Button>
+        </div>
       </div>
     </section>
   );

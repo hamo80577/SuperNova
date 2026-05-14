@@ -248,6 +248,11 @@ export class ApprovalsService {
     const approval = await this.findApprovalOrThrow(approvalId);
     await this.assertCanDecide(approval, context.actor);
 
+    const notes = dto.notes?.trim();
+    if (!notes) {
+      throw new BadRequestException("Reject reason is required.");
+    }
+
     assertRequestTransition(approval.request.status, RequestStatus.REJECTED);
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -256,7 +261,7 @@ export class ApprovalsService {
         data: {
           status: ApprovalStatus.REJECTED,
           decisionAt: new Date(),
-          notes: dto.notes,
+          notes,
           approverId: approval.approverId ?? context.actor.id
         }
       });
@@ -288,7 +293,7 @@ export class ApprovalsService {
       newValue: {
         ...this.toApprovalAuditValue(approval),
         status: ApprovalStatus.REJECTED,
-        notes: dto.notes ?? null
+        notes
       },
       ipAddress: context.ipAddress,
       userAgent: context.userAgent

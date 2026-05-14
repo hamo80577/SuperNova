@@ -22,6 +22,7 @@ import {
 } from "react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
+import { RequestDetailModal } from "@/components/requests/request-components";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -125,15 +126,17 @@ export function ChampBranchesIndex() {
 export function ChampBranchWorkspace() {
   const params = useParams<{ vendorId: string }>();
   const router = useRouter();
+  const [reloadVersion, setReloadVersion] = useState(0);
   const loadBranch = useCallback(
     () => workspacesApi.champBranchDetail(params.vendorId),
     [params.vendorId]
   );
-  const branchState = useAsyncData(loadBranch);
+  const branchState = useAsyncData(loadBranch, reloadVersion);
   const branchesState = useAsyncData(workspacesApi.champBranches);
   const [activeTab, setActiveTab] = useState<BranchTab>("Pickers");
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [selectedPicker, setSelectedPicker] = useState<ScopedPicker | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   if (branchState.status !== "ready") {
     return <WorkspaceState state={branchState} label="Loading Branch workspace" />;
@@ -232,7 +235,10 @@ export function ChampBranchWorkspace() {
         />
       ) : null}
       {activeTab === "Requests" ? (
-        <BranchRequests requests={branch.recentRequests} />
+        <BranchRequests
+          onOpenRequest={setSelectedRequestId}
+          requests={branch.recentRequests}
+        />
       ) : null}
 
       {selectedPicker ? (
@@ -255,6 +261,16 @@ export function ChampBranchWorkspace() {
           }}
           onClose={() => setSelectedPicker(null)}
           userId={selectedPicker.picker.id}
+        />
+      ) : null}
+
+      {selectedRequestId ? (
+        <RequestDetailModal
+          onChanged={async () => {
+            setReloadVersion((current) => current + 1);
+          }}
+          onClose={() => setSelectedRequestId(null)}
+          requestId={selectedRequestId}
         />
       ) : null}
     </div>
@@ -459,7 +475,13 @@ function BranchPickers({
   );
 }
 
-function BranchRequests({ requests }: { requests: RequestSummary[] }) {
+function BranchRequests({
+  onOpenRequest,
+  requests
+}: {
+  onOpenRequest: (requestId: string) => void;
+  requests: RequestSummary[];
+}) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <h2 className="text-lg font-semibold text-slate-950">Recent requests</h2>
@@ -494,16 +516,15 @@ function BranchRequests({ requests }: { requests: RequestSummary[] }) {
                     {formatDate(request.createdAt)}
                   </td>
                   <td className="py-3 text-right">
-                    <Link
-                      className={cn(
-                        buttonVariants({ size: "sm", variant: "outline" }),
-                        "rounded-xl"
-                      )}
-                      href={`/tickets?requestId=${request.id}`}
-                      prefetch
+                    <Button
+                      className="rounded-xl"
+                      onClick={() => onOpenRequest(request.id)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
                     >
                       Open
-                    </Link>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -535,7 +556,7 @@ function MiniMetric({
   );
 }
 
-function useAsyncData<T>(loader: () => Promise<T>) {
+function useAsyncData<T>(loader: () => Promise<T>, reloadVersion = 0) {
   const [state, setState] = useState<AsyncState<T>>({ status: "loading" });
 
   useEffect(() => {
@@ -565,7 +586,7 @@ function useAsyncData<T>(loader: () => Promise<T>) {
     return () => {
       mounted = false;
     };
-  }, [loader]);
+  }, [loader, reloadVersion]);
 
   return state;
 }

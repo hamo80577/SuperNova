@@ -93,13 +93,13 @@ export function normalizeOffboardingBlockDecision(dto: {
   blockReason?: string;
   notes?: string;
 }) {
-  const blockDecision =
-    dto.blockDecision?.trim() as OffboardingBlockDecision | undefined;
+  const blockDecision = (dto.blockDecision?.trim() ||
+    "NO_BLOCK") as OffboardingBlockDecision;
   const blockReason = dto.blockReason?.trim() || null;
   const notes = dto.notes?.trim();
 
-  if (!blockDecision || !blockDecisions.has(blockDecision)) {
-    throw new BadRequestException("blockDecision is required.");
+  if (!blockDecisions.has(blockDecision)) {
+    throw new BadRequestException("blockDecision is invalid.");
   }
 
   if (blockDecision !== "NO_BLOCK" && !blockReason) {

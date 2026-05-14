@@ -48,6 +48,11 @@ const noBlock = normalizeOffboardingBlockDecision({
 assert.equal(noBlock.blockStatus, BlockStatus.NO_BLOCK);
 assert.equal(noBlock.blockReason, null);
 
+const defaultNoBlock = normalizeOffboardingBlockDecision({});
+assert.equal(defaultNoBlock.blockDecision, "NO_BLOCK");
+assert.equal(defaultNoBlock.blockStatus, BlockStatus.NO_BLOCK);
+assert.equal(defaultNoBlock.blockReason, null);
+
 const sixMonths = normalizeOffboardingBlockDecision({
   blockDecision: "SIX_MONTHS",
   blockReason: "  repeated attendance issue  "
