@@ -1,20 +1,34 @@
 import { apiGet, apiRequest, clearApiCache } from "./request";
-import type { RequestApprovalSummary, RequestSummary } from "./requests";
+import type {
+  OffboardingBlockDecision,
+  RequestApprovalSummary,
+  RequestSummary
+} from "./requests";
 
 export interface PendingApproval extends RequestApprovalSummary {
   request: RequestSummary;
 }
 
+export type ApprovalDecisionInput =
+  | string
+  | {
+      notes?: string;
+      blockDecision?: OffboardingBlockDecision;
+      blockReason?: string;
+    };
+
 export const approvalsApi = {
   pending() {
     return apiGet<{ items: PendingApproval[] }>("/approvals/pending");
   },
-  async approve(approvalId: string, notes?: string) {
+  async approve(approvalId: string, input?: ApprovalDecisionInput) {
+    const body =
+      typeof input === "string" || input === undefined ? { notes: input } : input;
     const request = await apiRequest<RequestSummary>(
       `/approvals/${approvalId}/approve`,
       {
         method: "POST",
-        body: JSON.stringify({ notes })
+        body: JSON.stringify(body)
       }
     );
     clearApiCache("/approvals");

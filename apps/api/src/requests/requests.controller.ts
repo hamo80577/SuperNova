@@ -27,6 +27,7 @@ import { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
 import { LookupNewHireCandidateDto } from "./dto/lookup-new-hire-candidate.dto";
+import { SearchOffboardingPickersDto } from "./dto/search-offboarding-pickers.dto";
 import { RequestsService } from "./requests.service";
 
 @Controller("requests")
@@ -57,6 +58,16 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.requestsService.listSubmitted(query, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Get("offboarding/pickers")
+  searchOffboardingPickers(
+    @Query() query: SearchOffboardingPickersDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.requestsService.searchOffboardingPickers(query, user);
   }
 
   @UseGuards(JwtAuthGuard)

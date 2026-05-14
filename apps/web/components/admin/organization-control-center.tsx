@@ -31,7 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
-import { NewHireRequestForm } from "@/components/requests/request-components";
+import {
+  NewHireRequestForm,
+  ResignationRequestForm
+} from "@/components/requests/request-components";
 import {
   adminOrganizationApi,
   type AdminOrganizationBranchDetail,
@@ -1372,6 +1375,20 @@ function PickerActionModal({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  if (action.type === "resignation") {
+    return (
+      <ModalFrame onClose={onClose} title="Resignation request">
+        <ResignationRequestForm
+          fixedSourceVendorId={sourceBranch.id}
+          initialPicker={action.picker}
+          onCreated={() => {
+            onSaved();
+          }}
+        />
+      </ModalFrame>
+    );
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -1381,13 +1398,6 @@ function PickerActionModal({
           await requestsApi.createTransfer({
             sourceVendorId: sourceBranch.id,
             destinationVendorId,
-            targetUserId: action.picker.id,
-            reason: reason || "Created from Admin Organization Control Center."
-          });
-        } else {
-          await requestsApi.createOffboarding({
-            type: "RESIGNATION",
-            sourceVendorId: sourceBranch.id,
             targetUserId: action.picker.id,
             reason: reason || "Created from Admin Organization Control Center."
           });

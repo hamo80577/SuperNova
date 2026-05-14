@@ -1,21 +1,17 @@
-import { BlockStatus } from "@prisma/client";
 import {
   Equals,
   IsBoolean,
-  IsDateString,
-  IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength
 } from "class-validator";
 
-export class FinalizeOffboardingDto {
-  @IsEnum(BlockStatus)
-  blockStatus!: BlockStatus;
+import { OFFBOARDING_BLOCK_DECISIONS } from "../workflows/offboarding-workflow.policy";
 
-  @IsOptional()
-  @IsDateString()
-  blockedUntil?: string;
+export class FinalizeOffboardingDto {
+  @IsIn(OFFBOARDING_BLOCK_DECISIONS)
+  blockDecision!: string;
 
   @IsOptional()
   @IsString()

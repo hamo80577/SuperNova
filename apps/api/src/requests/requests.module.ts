@@ -8,11 +8,17 @@ import { RequestApprovalRoutingService } from "./request-approval-routing.servic
 import { RequestsController } from "./requests.controller";
 import { RequestsService } from "./requests.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
+import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 
 @Module({
   controllers: [RequestsController],
   imports: [AuditModule, JwtModule.register({}), NotificationsModule, UsersModule],
-  providers: [RequestApprovalRoutingService, RequestsService, NewHireWorkflowService],
+  providers: [
+    RequestApprovalRoutingService,
+    RequestsService,
+    NewHireWorkflowService,
+    OffboardingWorkflowService
+  ],
   exports: [RequestsService]
 })
 export class RequestsModule {}

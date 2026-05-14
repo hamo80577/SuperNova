@@ -11,7 +11,6 @@ import {
   ApprovalStep,
   ApprovalStatus,
   AssignmentStatus,
-  BlockStatus,
   Chain,
   ChainStatus,
   EmploymentStatus,
@@ -25,6 +24,7 @@ import {
 } from "@prisma/client";
 
 import { AuditService } from "../audit/audit.service";
+import type { ApprovalDecisionDto } from "../approvals/dto/approval-decision.dto";
 import { toUserSummary } from "../assignments/assignment-response.utils";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -38,6 +38,7 @@ import type { FinalizeNewHireDto } from "./dto/finalize-new-hire.dto";
 import type { FinalizeOffboardingDto } from "./dto/finalize-offboarding.dto";
 import type { ListRequestsQueryDto } from "./dto/list-requests-query.dto";
 import type { LookupNewHireCandidateDto } from "./dto/lookup-new-hire-candidate.dto";
+import type { SearchOffboardingPickersDto } from "./dto/search-offboarding-pickers.dto";
 import {
   assertRequestTransition,
   isPendingRequestStatus
@@ -49,6 +50,7 @@ import {
 import { assertRequestPayloadSafe } from "./request-payload.utils";
 import { toRequestSummary, toTimeline } from "./request-response.utils";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
+import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 
 const MAX_PAGE_SIZE = 100;
 
@@ -81,32 +83,6 @@ type RequestContext = {
   actor: AuthenticatedUser;
   ipAddress?: string | null;
   userAgent?: string | null;
-};
-
-type OffboardingPayload = {
-  offboarding: {
-    type: "RESIGNATION";
-    reason: string;
-    notes?: string;
-    resignationDate?: string;
-  };
-  source: {
-    vendorId: string;
-    chainId: string;
-  };
-  target: {
-    pickerId: string;
-    pickerAssignmentId: string;
-  };
-  finalization?: {
-    completedAt: string;
-    assignmentId: string;
-    blockStatus: BlockStatus;
-    blockedUntil?: string | null;
-    blockReason?: string | null;
-    finalizedById: string;
-    notes?: string;
-  };
 };
 
 type TransferPayload = {
@@ -143,6 +119,8 @@ export class RequestsService {
     private readonly auditService: AuditService,
     @Inject(NewHireWorkflowService)
     private readonly newHireWorkflowService: NewHireWorkflowService,
+    @Inject(OffboardingWorkflowService)
+    private readonly offboardingWorkflowService: OffboardingWorkflowService,
     @Inject(NotificationsService)
     private readonly notificationsService: NotificationsService,
     @Inject(PrismaService)
@@ -155,7 +133,7 @@ export class RequestsService {
     return {
       module: "requests",
       status: "active",
-      note: "Generic request infrastructure is enabled. New Hire, Resignation, and Transfer are implemented through Branch-first workflows."
+      note: "Generic request infrastructure is enabled. New Hire, Resignation, and Transfer are implemented through dedicated workflow endpoints."
     };
   }
 
@@ -277,259 +255,17 @@ export class RequestsService {
     dto: CreateOffboardingRequestDto,
     context: RequestContext
   ) {
-    if (context.actor.role !== UserRole.CHAMP && !this.isAdmin(context.actor)) {
-      throw new ForbiddenException(
-        "Only Champs and Admins can submit Resignation requests."
-      );
-    }
+    return this.offboardingWorkflowService.createOffboarding(dto, context);
+  }
 
-    const offboarding = this.normalizeOffboardingRequest(dto);
-
-    const assignment = this.isAdmin(context.actor)
-      ? null
-      : await this.prisma.vendorChampAssignment.findFirst({
-          where: {
-            champId: context.actor.id,
-            vendorId: dto.sourceVendorId,
-            status: AssignmentStatus.ACTIVE
-          },
-          include: {
-            vendor: {
-              include: {
-                chain: true,
-                pickerAssignments: {
-                  where: {
-                    pickerId: dto.targetUserId,
-                    status: AssignmentStatus.ACTIVE
-                  },
-                  include: { picker: true }
-                }
-              }
-            }
-          }
-        });
-
-    const adminVendor = this.isAdmin(context.actor)
-      ? await this.prisma.vendor.findUnique({
-          where: { id: dto.sourceVendorId },
-          include: {
-            chain: true,
-            pickerAssignments: {
-              where: {
-                pickerId: dto.targetUserId,
-                status: AssignmentStatus.ACTIVE
-              },
-              include: { picker: true }
-            }
-          }
-        })
-      : null;
-
-    const sourceContext = assignment
-      ? { vendorId: assignment.vendorId, vendor: assignment.vendor }
-      : adminVendor
-        ? { vendorId: adminVendor.id, vendor: adminVendor }
-        : null;
-
-    if (!sourceContext) {
-      throw new ForbiddenException(
-        this.isAdmin(context.actor)
-          ? "Selected Branch was not found."
-          : "You can submit offboarding requests only for assigned active Branches."
-      );
-    }
-
-    if (sourceContext.vendor.status !== VendorStatus.ACTIVE) {
-      throw new BadRequestException("Selected Branch is not active.");
-    }
-
-    if (sourceContext.vendor.chain.status !== ChainStatus.ACTIVE) {
-      throw new BadRequestException("Selected Branch Chain is not active.");
-    }
-
-    const pickerAssignment = sourceContext.vendor.pickerAssignments[0];
-    if (!pickerAssignment) {
-      throw new BadRequestException(
-        "Selected Picker is not actively assigned to this Branch."
-      );
-    }
-
-    if (
-      pickerAssignment.picker.role !== UserRole.PICKER ||
-      pickerAssignment.picker.accountStatus !== AccountStatus.ACTIVE ||
-      pickerAssignment.picker.employmentStatus !== EmploymentStatus.ACTIVE
-    ) {
-      throw new BadRequestException(
-        "Selected user must be an active Picker under this Branch."
-      );
-    }
-
-    const duplicate = await this.prisma.request.findFirst({
-      where: {
-        type: RequestType.RESIGNATION,
-        targetUserId: pickerAssignment.pickerId,
-        status: {
-          notIn: [
-            RequestStatus.REJECTED,
-            RequestStatus.CANCELLED,
-            RequestStatus.COMPLETED
-          ]
-        }
-      }
-    });
-
-    if (duplicate) {
-      throw new ConflictException(
-        "A pending offboarding request already exists for this Picker."
-      );
-    }
-
-    const areaManagerStep =
-      await this.requestApprovalRoutingService.resolveAreaManagerStep(
-        ApprovalStep.AREA_MANAGER_APPROVAL,
-        sourceContext.vendor.chainId
-      );
-
-    const payload: OffboardingPayload = {
-      offboarding,
-      source: {
-        vendorId: sourceContext.vendorId,
-        chainId: sourceContext.vendor.chainId
-      },
-      target: {
-        pickerId: pickerAssignment.pickerId,
-        pickerAssignmentId: pickerAssignment.id
-      }
-    };
-
-    assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const request = await tx.request.create({
-        data: {
-          type: offboarding.type,
-          status: RequestStatus.PENDING_AREA_MANAGER,
-          currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
-          createdById: context.actor.id,
-          targetUserId: pickerAssignment.pickerId,
-          sourceVendorId: sourceContext.vendorId,
-          sourceChainId: sourceContext.vendor.chainId,
-          payload: payload as Prisma.InputJsonValue
-        }
-      });
-
-      await tx.requestApproval.createMany({
-        data: [
-          {
-            requestId: request.id,
-            step: areaManagerStep.step,
-            approverRole: areaManagerStep.approverRole,
-            approverId: areaManagerStep.approverId,
-            status: ApprovalStatus.PENDING
-          },
-          {
-            requestId: request.id,
-            step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-            approverRole: UserRole.ADMIN,
-            approverId: null,
-            status: ApprovalStatus.PENDING
-          }
-        ]
-      });
-
-      await tx.auditLog.createMany({
-        data: [
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_CREATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              type: request.type,
-              targetUserId: request.targetUserId,
-              sourceVendorId: request.sourceVendorId,
-              sourceChainId: request.sourceChainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_SUBMITTED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              status: request.status,
-              currentStep: request.currentStep
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_GENERATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              step: areaManagerStep.step,
-              approverRole: areaManagerStep.approverRole,
-              approverId: areaManagerStep.approverId,
-              chainId: areaManagerStep.chainId ?? null
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_GENERATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-              approverRole: UserRole.ADMIN,
-              approverId: null
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          }
-        ]
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: context.actor.id,
-          type: "REQUEST_SUBMITTED",
-          title: `${this.formatRequestType(offboarding.type)} request submitted`,
-          body: `${this.formatRequestType(offboarding.type)} request for ${pickerAssignment.picker.nameEn} was submitted for Area Manager approval.`,
-          payload: { requestId: request.id, pickerId: pickerAssignment.pickerId }
-        }
-      });
-
-      if (areaManagerStep.approverId) {
-        await tx.notification.create({
-          data: {
-            userId: areaManagerStep.approverId,
-            type: "APPROVAL_PENDING",
-            title: `${this.formatRequestType(offboarding.type)} approval pending`,
-            body: `${this.formatRequestType(offboarding.type)} request for ${sourceContext.vendor.vendorName} requires your approval.`,
-            payload: {
-              requestId: request.id,
-              step: areaManagerStep.step,
-              pickerId: pickerAssignment.pickerId
-            }
-          }
-        });
-      }
-
-      return tx.request.findUniqueOrThrow({
-        where: { id: request.id },
-        include: requestInclude
-      });
-    });
-
-    return toRequestSummary(updated);
+  async searchOffboardingPickers(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    return this.offboardingWorkflowService.searchOffboardingPickers(
+      dto,
+      currentUser
+    );
   }
 
   async createTransfer(dto: CreateTransferRequestDto, context: RequestContext) {
@@ -876,304 +612,23 @@ export class RequestsService {
     dto: FinalizeOffboardingDto,
     context: RequestContext
   ) {
-    if (!this.isAdmin(context.actor)) {
-      throw new ForbiddenException(
-        "Only Admins can finalize Resignation requests."
-      );
-    }
-
-    const request = await this.findRequestOrThrow(id);
-
-    if (request.type !== RequestType.RESIGNATION) {
-      throw new BadRequestException(
-        "Only RESIGNATION requests can be finalized here."
-      );
-    }
-
-    if (
-      request.status !== RequestStatus.PENDING_ADMIN ||
-      request.currentStep !== ApprovalStep.ADMIN_FINAL_APPROVAL
-    ) {
-      throw new BadRequestException(
-        "Offboarding request is not waiting for Admin finalization."
-      );
-    }
-
-    const adminApproval = request.approvals.find(
-      (approval) =>
-        approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL &&
-        approval.status === ApprovalStatus.PENDING
+    return this.offboardingWorkflowService.finalizeOffboarding(
+      id,
+      dto,
+      context
     );
+  }
 
-    if (!adminApproval) {
-      throw new BadRequestException("Pending Admin final approval was not found.");
-    }
-
-    const payload = this.parseOffboardingPayload(request.payload);
-    const finalizationInput = this.normalizeOffboardingFinalization(dto);
-
-    if (request.targetUserId !== payload.target.pickerId) {
-      throw new BadRequestException(
-        "Request target Picker does not match the stored offboarding payload."
-      );
-    }
-
-    const [targetPicker, sourceVendor, activeAssignment] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: payload.target.pickerId } }),
-      this.prisma.vendor.findUnique({
-        where: { id: payload.source.vendorId },
-        include: { chain: true }
-      }),
-      this.prisma.pickerBranchAssignment.findFirst({
-        where: {
-          id: payload.target.pickerAssignmentId,
-          pickerId: payload.target.pickerId,
-          vendorId: payload.source.vendorId,
-          status: AssignmentStatus.ACTIVE
-        }
-      })
-    ]);
-
-    if (!targetPicker) {
-      throw new NotFoundException("Target Picker was not found.");
-    }
-
-    if (
-      targetPicker.role !== UserRole.PICKER ||
-      targetPicker.accountStatus !== AccountStatus.ACTIVE ||
-      targetPicker.employmentStatus !== EmploymentStatus.ACTIVE
-    ) {
-      throw new BadRequestException("Target Picker is no longer active.");
-    }
-
-    if (!sourceVendor) {
-      throw new NotFoundException("Source Branch was not found.");
-    }
-
-    if (sourceVendor.status !== VendorStatus.ACTIVE) {
-      throw new BadRequestException("Source Branch is no longer active.");
-    }
-
-    if (
-      sourceVendor.chainId !== payload.source.chainId ||
-      request.sourceChainId !== payload.source.chainId ||
-      request.sourceVendorId !== payload.source.vendorId
-    ) {
-      throw new BadRequestException(
-        "Source Branch and Chain no longer match the stored request context."
-      );
-    }
-
-    if (!activeAssignment) {
-      throw new BadRequestException(
-        "Target Picker no longer has an active assignment to the source Branch."
-      );
-    }
-
-    const completedAt = new Date();
-    const employmentStatus =
-      request.type === RequestType.RESIGNATION
-        ? EmploymentStatus.RESIGNED
-        : EmploymentStatus.TERMINATED;
-    const resignationDate =
-      request.type === RequestType.RESIGNATION
-        ? new Date(payload.offboarding.resignationDate ?? completedAt.toISOString())
-        : null;
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const picker = await tx.user.update({
-        where: { id: targetPicker.id },
-        data: {
-          accountStatus: AccountStatus.ARCHIVED,
-          employmentStatus,
-          resignationDate,
-          blockStatus: finalizationInput.blockStatus,
-          blockedUntil: finalizationInput.blockedUntil,
-          blockReason: finalizationInput.blockReason,
-          mustChangePassword: false,
-          temporaryPasswordExpiresAt: null
-        }
-      });
-
-      const closedAssignment = await tx.pickerBranchAssignment.update({
-        where: { id: activeAssignment.id },
-        data: {
-          status: AssignmentStatus.CLOSED,
-          endDate: completedAt
-        },
-        include: {
-          picker: true,
-          vendor: { include: { chain: true } }
-        }
-      });
-
-      await tx.requestApproval.update({
-        where: { id: adminApproval.id },
-        data: {
-          status: ApprovalStatus.APPROVED,
-          decisionAt: completedAt,
-          approverId: context.actor.id,
-          notes: finalizationInput.notes ?? "Offboarding finalized."
-        }
-      });
-
-      const completedPayload: OffboardingPayload = {
-        ...payload,
-        finalization: {
-          completedAt: completedAt.toISOString(),
-          assignmentId: closedAssignment.id,
-          blockStatus: finalizationInput.blockStatus,
-          blockedUntil: finalizationInput.blockedUntil?.toISOString() ?? null,
-          blockReason: finalizationInput.blockReason,
-          finalizedById: context.actor.id,
-          ...(finalizationInput.notes ? { notes: finalizationInput.notes } : {})
-        }
-      };
-
-      const completedRequest = await tx.request.update({
-        where: { id: request.id },
-        data: {
-          status: RequestStatus.COMPLETED,
-          currentStep: null,
-          completedAt,
-          payload: completedPayload as Prisma.InputJsonValue
-        },
-        include: requestInclude
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: request.createdById,
-          type: "OFFBOARDING_COMPLETED",
-          title: `${this.formatRequestType(request.type)} completed`,
-          body: `${this.formatRequestType(request.type)} for ${picker.nameEn} was finalized. The Picker account is archived and the active Branch assignment is closed.`,
-          payload: {
-            requestId: request.id,
-            pickerId: picker.id,
-            assignmentId: closedAssignment.id,
-            blockStatus: finalizationInput.blockStatus
-          }
-        }
-      });
-
-      await tx.auditLog.createMany({
-        data: [
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_APPROVED",
-            entityType: "RequestApproval",
-            entityId: adminApproval.id,
-            oldValue: {
-              status: adminApproval.status,
-              step: adminApproval.step,
-              requestId: request.id
-            },
-            newValue: {
-              status: ApprovalStatus.APPROVED,
-              step: adminApproval.step,
-              requestId: request.id
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "ADMIN_FINALIZED_OFFBOARDING",
-            entityType: "Request",
-            entityId: request.id,
-            oldValue: { status: request.status, currentStep: request.currentStep },
-            newValue: {
-              status: RequestStatus.COMPLETED,
-              type: request.type,
-              targetUserId: picker.id,
-              blockStatus: finalizationInput.blockStatus
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "PICKER_ARCHIVED",
-            entityType: "User",
-            entityId: picker.id,
-            oldValue: {
-              accountStatus: targetPicker.accountStatus,
-              employmentStatus: targetPicker.employmentStatus,
-              blockStatus: targetPicker.blockStatus
-            },
-            newValue: {
-              accountStatus: picker.accountStatus,
-              employmentStatus: picker.employmentStatus,
-              blockStatus: picker.blockStatus,
-              blockedUntil: picker.blockedUntil?.toISOString() ?? null
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "PICKER_BRANCH_ASSIGNMENT_CLOSED",
-            entityType: "PickerBranchAssignment",
-            entityId: closedAssignment.id,
-            oldValue: {
-              status: activeAssignment.status,
-              pickerId: activeAssignment.pickerId,
-              vendorId: activeAssignment.vendorId
-            },
-            newValue: {
-              status: closedAssignment.status,
-              endDate: closedAssignment.endDate?.toISOString() ?? null,
-              requestId: request.id
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_COMPLETED",
-            entityType: "Request",
-            entityId: request.id,
-            oldValue: { status: request.status },
-            newValue: {
-              status: RequestStatus.COMPLETED,
-              targetUserId: picker.id,
-              completedAt: completedAt.toISOString()
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          }
-        ]
-      });
-
-      return { completedRequest, picker, closedAssignment };
-    });
-
-    return {
-      request: toRequestSummary(result.completedRequest),
-      picker: {
-        id: result.picker.id,
-        role: result.picker.role,
-        nameEn: result.picker.nameEn,
-        nameAr: result.picker.nameAr,
-        phoneNumber: result.picker.phoneNumber,
-        shopperId: result.picker.shopperId,
-        accountStatus: result.picker.accountStatus,
-        employmentStatus: result.picker.employmentStatus,
-        profileStatus: result.picker.profileStatus,
-        blockStatus: result.picker.blockStatus,
-        blockedUntil: result.picker.blockedUntil,
-        blockReason: result.picker.blockReason
-      },
-      assignment: {
-        id: result.closedAssignment.id,
-        status: result.closedAssignment.status,
-        startDate: result.closedAssignment.startDate,
-        endDate: result.closedAssignment.endDate,
-        vendorId: result.closedAssignment.vendorId,
-        pickerId: result.closedAssignment.pickerId,
-        createdByRequestId: result.closedAssignment.createdByRequestId
-      }
-    };
+  async approveOffboardingAreaManagerApproval(
+    approvalId: string,
+    dto: ApprovalDecisionDto,
+    context: RequestContext
+  ) {
+    return this.offboardingWorkflowService.approveAreaManagerApproval(
+      approvalId,
+      dto,
+      context
+    );
   }
 
   async approveTransferApproval(
@@ -2192,69 +1647,6 @@ export class RequestsService {
     };
   }
 
-  private normalizeOffboardingRequest(
-    dto: CreateOffboardingRequestDto
-  ): OffboardingPayload["offboarding"] {
-    if (dto.type !== RequestType.RESIGNATION) {
-      throw new BadRequestException("Only RESIGNATION requests are supported.");
-    }
-
-    const reason = dto.reason?.trim();
-    const notes = dto.notes?.trim();
-
-    if (!reason) {
-      throw new BadRequestException("Offboarding reason is required.");
-    }
-
-    if (dto.type === RequestType.RESIGNATION && !dto.resignationDate) {
-      throw new BadRequestException("Resignation date is required.");
-    }
-
-    return {
-      type: dto.type,
-      reason,
-      ...(notes ? { notes } : {}),
-      ...(dto.resignationDate ? { resignationDate: dto.resignationDate } : {})
-    };
-  }
-
-  private normalizeOffboardingFinalization(dto: FinalizeOffboardingDto) {
-    if (!dto.confirmInternalDeactivation) {
-      throw new BadRequestException(
-        "Internal deactivation confirmation is required."
-      );
-    }
-
-    const blockReason = dto.blockReason?.trim() || null;
-    const notes = dto.notes?.trim();
-    const blockedUntil = dto.blockedUntil ? new Date(dto.blockedUntil) : null;
-
-    if (dto.blockStatus === BlockStatus.TEMPORARY_BLOCK && !blockedUntil) {
-      throw new BadRequestException(
-        "blockedUntil is required for a temporary block."
-      );
-    }
-
-    if (
-      (dto.blockStatus === BlockStatus.TEMPORARY_BLOCK ||
-        dto.blockStatus === BlockStatus.PERMANENT_BLOCK) &&
-      !blockReason
-    ) {
-      throw new BadRequestException(
-        "blockReason is required for temporary or permanent blocks."
-      );
-    }
-
-    return {
-      blockStatus: dto.blockStatus,
-      blockedUntil:
-        dto.blockStatus === BlockStatus.TEMPORARY_BLOCK ? blockedUntil : null,
-      blockReason:
-        dto.blockStatus === BlockStatus.NO_BLOCK ? null : blockReason,
-      ...(notes ? { notes } : {})
-    };
-  }
-
   private parseTransferPayload(payload: Prisma.JsonValue): TransferPayload {
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
       throw new BadRequestException("Transfer request payload is invalid.");
@@ -2341,83 +1733,6 @@ export class RequestsService {
         typeof objectPayload.finalization === "object" &&
         !Array.isArray(objectPayload.finalization)
           ? (objectPayload.finalization as TransferPayload["finalization"])
-          : undefined
-    };
-  }
-
-  private parseOffboardingPayload(payload: Prisma.JsonValue): OffboardingPayload {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new BadRequestException("Offboarding request payload is invalid.");
-    }
-
-    const objectPayload = payload as Record<string, unknown>;
-    const offboarding = objectPayload.offboarding;
-    const source = objectPayload.source;
-    const target = objectPayload.target;
-
-    if (
-      !offboarding ||
-      typeof offboarding !== "object" ||
-      Array.isArray(offboarding) ||
-      !source ||
-      typeof source !== "object" ||
-      Array.isArray(source) ||
-      !target ||
-      typeof target !== "object" ||
-      Array.isArray(target)
-    ) {
-      throw new BadRequestException("Offboarding request payload is incomplete.");
-    }
-
-    const offboardingPayload = offboarding as Record<string, unknown>;
-    const sourcePayload = source as Record<string, unknown>;
-    const targetPayload = target as Record<string, unknown>;
-    const type = offboardingPayload.type;
-    const reason = offboardingPayload.reason;
-    const vendorId = sourcePayload.vendorId;
-    const chainId = sourcePayload.chainId;
-    const pickerId = targetPayload.pickerId;
-    const pickerAssignmentId = targetPayload.pickerAssignmentId;
-
-    if (
-      type !== RequestType.RESIGNATION ||
-      typeof reason !== "string" ||
-      typeof vendorId !== "string" ||
-      typeof chainId !== "string" ||
-      typeof pickerId !== "string" ||
-      typeof pickerAssignmentId !== "string"
-    ) {
-      throw new BadRequestException(
-        "Offboarding request payload is missing required context."
-      );
-    }
-
-    return {
-      offboarding: {
-        type,
-        reason,
-        notes:
-          typeof offboardingPayload.notes === "string"
-            ? offboardingPayload.notes
-            : undefined,
-        resignationDate:
-          typeof offboardingPayload.resignationDate === "string"
-            ? offboardingPayload.resignationDate
-            : undefined,
-      },
-      source: {
-        vendorId,
-        chainId
-      },
-      target: {
-        pickerId,
-        pickerAssignmentId
-      },
-      finalization:
-        objectPayload.finalization &&
-        typeof objectPayload.finalization === "object" &&
-        !Array.isArray(objectPayload.finalization)
-          ? (objectPayload.finalization as OffboardingPayload["finalization"])
           : undefined
     };
   }

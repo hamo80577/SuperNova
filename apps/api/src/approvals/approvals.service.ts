@@ -137,7 +137,18 @@ export class ApprovalsService {
       approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
     ) {
       throw new BadRequestException(
-        "Offboarding Admin final approval requires block status and deactivation confirmation from the request detail page."
+        "Offboarding Admin final approval requires block decision and deactivation confirmation from the request detail page."
+      );
+    }
+
+    if (
+      approval.request.type === RequestType.RESIGNATION &&
+      approval.step === ApprovalStep.AREA_MANAGER_APPROVAL
+    ) {
+      return this.requestsService.approveOffboardingAreaManagerApproval(
+        approval.id,
+        dto,
+        context
       );
     }
 

@@ -123,9 +123,9 @@ Admin selects at least one Chain
 ## Resignation Workflow
 
 ```text
-Champ submits for active Picker under selected Branch
--> Area Manager approval
--> Admin finalization with block status
+Champ/Admin submits for a scoped active Picker
+-> Area Manager block decision approval
+-> Admin finalization with fixed block decision
 -> Picker account archived/deactivated
 -> Active PickerBranchAssignment closed
 -> Login disabled
@@ -139,6 +139,10 @@ No deletion
 Assignment history preserved
 Pending resignation blocks Transfer
 Rejection/cancellation does not deactivate Picker
+Area Manager submits within assigned Chain scope and skips own Area Manager approval
+Branch/Chain context is resolved from the Picker active assignment
+Block decisions are NO_BLOCK, THREE_MONTHS, SIX_MONTHS, ONE_YEAR, or PERMANENT
+Temporary blockedUntil is calculated during Admin finalization
 ```
 
 ## Transfer Workflow

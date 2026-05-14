@@ -11,8 +11,10 @@ import {
   KeyRound,
   MoveRight,
   Plus,
+  Search,
   Send,
   ShieldAlert,
+  UserCheck,
   UserRound,
   X,
   UserPlus,
@@ -35,6 +37,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { approvalsApi, type PendingApproval } from "@/lib/api/approvals";
 import {
@@ -51,10 +54,15 @@ import {
   type NewHireLookupCandidate,
   type NewHireLookupResponse,
   type NewHireTargetRole,
+  type OffboardingBlockDecision,
+  type OffboardingPickerSearchItem,
+  type OffboardingReasonCode,
   type RequestDetail,
   type RequestStatus,
   type RequestSummary,
-  type RequestType
+  type RequestType,
+  offboardingBlockDecisionLabels,
+  offboardingReasonLabels
 } from "@/lib/api/requests";
 import type { UserRole } from "@/lib/auth/types";
 import { pushRoute } from "@/lib/navigation";
@@ -64,6 +72,22 @@ const requestTypes: RequestType[] = [
   "NEW_HIRE",
   "RESIGNATION",
   "TRANSFER"
+];
+const offboardingReasonCodes: OffboardingReasonCode[] = [
+  "BAD_ATTITUDE",
+  "BAD_PERFORMANCE",
+  "ATTENDANCE_ISSUES",
+  "POLICY_VIOLATION",
+  "NO_SHOW",
+  "VOLUNTARY_QUIT",
+  "OTHER"
+];
+const offboardingBlockDecisions: OffboardingBlockDecision[] = [
+  "NO_BLOCK",
+  "THREE_MONTHS",
+  "SIX_MONTHS",
+  "ONE_YEAR",
+  "PERMANENT"
 ];
 const internalRequestEngineTypes: RequestType[] = [];
 const requestStatuses: RequestStatus[] = [
@@ -836,6 +860,10 @@ function RequestDetailModal({
               !(
                 request.type === "RESIGNATION" &&
                 actionableApproval.step === "ADMIN_FINAL_APPROVAL"
+              ) &&
+              !(
+                request.type === "RESIGNATION" &&
+                actionableApproval.step === "AREA_MANAGER_APPROVAL"
               ) ? (
                 <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
                   <h3 className="text-sm font-semibold text-orange-950">
@@ -907,6 +935,18 @@ function RequestDetailModal({
                 </section>
               ) : null}
 
+              {actionableApproval &&
+              request.type === "RESIGNATION" &&
+              actionableApproval.step === "AREA_MANAGER_APPROVAL" ? (
+                <ResignationAreaManagerApprovalPanel
+                  approvalId={actionableApproval.id}
+                  onApproved={async () => {
+                    await loadRequest();
+                    await onChanged();
+                  }}
+                />
+              ) : null}
+
               {request.type === "NEW_HIRE" &&
               request.status === "PENDING_ADMIN" &&
               request.currentStep === "ADMIN_FINAL_APPROVAL" &&
@@ -929,7 +969,7 @@ function RequestDetailModal({
                     await loadRequest();
                     await onChanged();
                   }}
-                  requestId={request.id}
+                  request={request}
                   type="RESIGNATION"
                 />
               ) : null}
@@ -1001,8 +1041,108 @@ function RequestTypePanel({ request }: { request: RequestDetail }) {
   }
 
   return (
-    <InfoCard title="Resignation Details">
-      <OffboardingContext payload={request.payload} />
+    <ResignationRequestDetailPanel request={request} />
+  );
+}
+
+function ResignationRequestDetailPanel({ request }: { request: RequestDetail }) {
+  const context = parseOffboardingPayload(request.payload);
+
+  if (!context) {
+    return (
+      <InfoCard title="Resignation">
+        <EmptyState message="No Resignation context is available." compact />
+      </InfoCard>
+    );
+  }
+
+  return (
+    <InfoCard title="Resignation">
+      <div className="flex flex-wrap gap-2">
+        <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+          Picker
+        </Badge>
+        <Badge variant="outline">{formatEnum(request.status)}</Badge>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <PickerAvatar name={request.targetUser?.nameEn ?? "Picker"} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-950">
+              {request.targetUser?.nameEn ?? context.pickerId}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {request.targetUser?.phoneNumber ?? "Phone not available"} ·{" "}
+              {request.sourceVendor?.vendorName ?? context.sourceVendorId}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2">
+          <Definition
+            label="Source Branch"
+            value={request.sourceVendor?.vendorName ?? context.sourceVendorId}
+          />
+          <Definition
+            label="Source Chain"
+            value={request.sourceChain?.chainName ?? context.sourceChainId}
+          />
+          <Definition label="Assignment" value={context.pickerAssignmentId} />
+        </div>
+      </div>
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+        <Definition label="Last working day" value={context.effectiveDate} />
+        <Definition label="Reason" value={context.reason} />
+        <Definition label="Reason details" value={context.reasonDetails ?? "None"} />
+        <Definition label="Notes" value={context.notes ?? "None"} />
+      </div>
+      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+        <p className="text-sm font-semibold text-slate-950">
+          Area Manager block recommendation
+        </p>
+        {context.areaManagerDecision ? (
+          <>
+            <Definition
+              label="Decision"
+              value={formatOffboardingBlockDecision(
+                context.areaManagerDecision.blockDecision
+              )}
+            />
+            <Definition
+              label="Block status"
+              value={formatEnum(context.areaManagerDecision.blockStatus)}
+            />
+            <Definition
+              label="Block reason"
+              value={context.areaManagerDecision.blockReason ?? "No block"}
+            />
+          </>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Waiting for Area Manager block decision.
+          </p>
+        )}
+      </div>
+      {context.finalization ? (
+        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+          <p className="text-sm font-semibold text-emerald-950">Admin final result</p>
+          <Definition
+            label="Decision"
+            value={formatOffboardingBlockDecision(context.finalization.blockDecision)}
+          />
+          <Definition
+            label="Block status"
+            value={formatEnum(context.finalization.blockStatus)}
+          />
+          <Definition
+            label="Blocked until"
+            value={context.finalization.blockedUntil ?? "Not applicable"}
+          />
+          <Definition
+            label="Completed"
+            value={new Date(context.finalization.completedAt).toLocaleString()}
+          />
+        </div>
+      ) : null}
     </InfoCard>
   );
 }
@@ -2442,12 +2582,476 @@ function maskNationalId(value: string) {
   return `${value.slice(0, 3)}*******${value.slice(-4)}`;
 }
 
+type InitialResignationPicker = {
+  id: string;
+  nameEn: string;
+  phoneNumber?: string | null;
+};
+
+export function ResignationRequestForm({
+  fixedSourceVendorId,
+  initialPicker,
+  onCreated
+}: {
+  fixedSourceVendorId?: string;
+  initialPicker?: InitialResignationPicker | null;
+  onCreated: (request: RequestSummary) => void;
+}) {
+  const { user } = useAuth();
+  const [query, setQuery] = useState(
+    initialPicker?.phoneNumber ?? initialPicker?.nameEn ?? ""
+  );
+  const [items, setItems] = useState<OffboardingPickerSearchItem[]>([]);
+  const [selectedPicker, setSelectedPicker] =
+    useState<OffboardingPickerSearchItem | null>(null);
+  const [form, setForm] = useState({
+    resignationDate: "",
+    reasonCode: "BAD_ATTITUDE" as OffboardingReasonCode,
+    reasonDetails: "",
+    notes: "",
+    blockDecision: "NO_BLOCK" as OffboardingBlockDecision,
+    blockReason: ""
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdRequest, setCreatedRequest] = useState<RequestSummary | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const isAreaManagerCreator = user?.role === "AREA_MANAGER";
+
+  useEffect(() => {
+    let mounted = true;
+    const timeout = window.setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      requestsApi
+        .searchOffboardingPickers({
+          q: query.trim() || undefined,
+          sourceVendorId: fixedSourceVendorId
+        })
+        .then((response) => {
+          if (!mounted) return;
+          setItems(response.items);
+          if (!selectedPicker && initialPicker?.id) {
+            const match = response.items.find(
+              (item) => item.pickerId === initialPicker.id
+            );
+            if (match) setSelectedPicker(match);
+          }
+        })
+        .catch((caughtError) => {
+          if (mounted) {
+            setError(
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to search active Pickers."
+            );
+          }
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timeout);
+    };
+  }, [fixedSourceVendorId, initialPicker?.id, query, selectedPicker]);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedPicker) {
+      setError("Select an active Picker before submitting.");
+      return;
+    }
+    if (selectedPicker.hasPendingResignation) {
+      setError("This Picker already has a pending Resignation request.");
+      return;
+    }
+    if (!form.resignationDate) {
+      setError("Last working day is required.");
+      return;
+    }
+    if (form.reasonCode === "OTHER" && !form.reasonDetails.trim()) {
+      setError("Reason details are required when the reason is Other.");
+      return;
+    }
+    if (
+      isAreaManagerCreator &&
+      form.blockDecision !== "NO_BLOCK" &&
+      !form.blockReason.trim()
+    ) {
+      setError("Block reason is required for any block decision.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        const created = await requestsApi.createOffboarding({
+          type: "RESIGNATION",
+          sourceVendorId: selectedPicker.vendorId,
+          targetUserId: selectedPicker.pickerId,
+          resignationDate: form.resignationDate,
+          reasonCode: form.reasonCode,
+          ...(form.reasonDetails.trim()
+            ? { reasonDetails: form.reasonDetails.trim() }
+            : {}),
+          ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
+          ...(isAreaManagerCreator
+            ? {
+                blockDecision: form.blockDecision,
+                ...(form.blockReason.trim()
+                  ? { blockReason: form.blockReason.trim() }
+                  : {})
+              }
+            : {})
+        });
+        setCreatedRequest(created);
+        onCreated(created);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to submit Resignation request."
+        );
+      }
+    });
+  }
+
+  if (createdRequest) {
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Resignation request submitted.</p>
+            <p className="mt-1">
+              Status: {formatEnum(createdRequest.status)}. Current step:{" "}
+              {createdRequest.currentStep
+                ? formatEnum(createdRequest.currentStep)
+                : "None"}.
+            </p>
+            <Link
+              className={cn(
+                buttonVariants({ size: "sm", variant: "outline" }),
+                "mt-3 bg-white"
+              )}
+              href={`/tickets?requestId=${createdRequest.id}`}
+              prefetch
+            >
+              Open request detail
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form className="grid min-w-0 gap-5" onSubmit={submit}>
+      {error ? <ErrorState message={error} /> : null}
+
+      <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Picker search</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Search is scoped by your workspace. Branch and Chain are resolved
+            from the active Picker assignment.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            <Input
+              className="h-11 rounded-xl bg-white pl-9"
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelectedPicker(null);
+              }}
+              placeholder="Search by name, phone, shopper ID, Branch, or Chain"
+              value={query}
+            />
+          </div>
+          <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {loading ? <LoadingState label="Searching active Pickers" /> : null}
+            {!loading &&
+              items.map((item) => (
+                <button
+                  className={cn(
+                    "flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left text-sm transition",
+                    selectedPicker?.assignmentId === item.assignmentId
+                      ? "border-orange-300 bg-orange-50"
+                      : "border-slate-200 bg-white hover:border-orange-200"
+                  )}
+                  key={item.assignmentId}
+                  onClick={() => setSelectedPicker(item)}
+                  type="button"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <PickerAvatar name={item.picker.nameEn} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-slate-950">
+                        {item.picker.nameEn}
+                      </span>
+                      <span className="block truncate text-xs text-slate-500">
+                        {item.picker.phoneNumber} · {item.vendor.vendorName}
+                      </span>
+                    </span>
+                  </span>
+                  <Badge
+                    className={cn(
+                      "shrink-0",
+                      item.hasPendingResignation
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : ""
+                    )}
+                    variant={item.hasPendingResignation ? "outline" : "muted"}
+                  >
+                    {item.hasPendingResignation ? "Pending" : "Active"}
+                  </Badge>
+                </button>
+              ))}
+            {!loading && !items.length ? (
+              <EmptyState
+                compact
+                message="No active scoped Picker matches this search."
+              />
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {selectedPicker ? <PickerIdentityCard picker={selectedPicker} /> : null}
+
+      <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Resignation details</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Last working day and reason are required before approval routing.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Last working day">
+            <DatePicker
+              maxYear={new Date().getFullYear() + 1}
+              minYear={new Date().getFullYear() - 1}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, resignationDate: value }))
+              }
+              quickActions={["yesterday", "today"]}
+              value={form.resignationDate}
+            />
+          </Field>
+          <Field label="Reason">
+            <select
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  reasonCode: event.target.value as OffboardingReasonCode,
+                  reasonDetails:
+                    event.target.value === "OTHER" ? current.reasonDetails : ""
+                }))
+              }
+              value={form.reasonCode}
+            >
+              {offboardingReasonCodes.map((reasonCode) => (
+                <option key={reasonCode} value={reasonCode}>
+                  {offboardingReasonLabels[reasonCode]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {form.reasonCode === "OTHER" ? (
+            <Field label="Reason details">
+              <Input
+                className="h-11 rounded-xl"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    reasonDetails: event.target.value
+                  }))
+                }
+                placeholder="Required for Other"
+                value={form.reasonDetails}
+              />
+            </Field>
+          ) : null}
+          <Field label="Notes">
+            <Input
+              className="h-11 rounded-xl"
+              onChange={(event) =>
+                setForm((current) => ({ ...current, notes: event.target.value }))
+              }
+              placeholder="Optional"
+              value={form.notes}
+            />
+          </Field>
+        </div>
+      </div>
+
+      {isAreaManagerCreator ? (
+        <BlockDecisionFields
+          blockDecision={form.blockDecision}
+          blockReason={form.blockReason}
+          onChange={(patch) =>
+            setForm((current) => ({
+              ...current,
+              ...patch,
+              blockReason:
+                patch.blockDecision === "NO_BLOCK"
+                  ? ""
+                  : patch.blockReason ?? current.blockReason
+            }))
+          }
+          title="Area Manager block recommendation"
+        />
+      ) : null}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button
+          className="min-h-11 rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700"
+          disabled={isPending || selectedPicker?.hasPendingResignation}
+          type="submit"
+        >
+          {isPending ? "Submitting..." : "Submit Resignation"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function PickerAvatar({ name }: { name: string }) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return (
+    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+      {initials || <UserRound className="h-4 w-4" />}
+    </span>
+  );
+}
+
+function PickerIdentityCard({ picker }: { picker: OffboardingPickerSearchItem }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-3">
+          <PickerAvatar name={picker.picker.nameEn} />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-slate-950">
+                {picker.picker.nameEn}
+              </h3>
+              <Badge variant="muted">{formatEnum(picker.picker.employmentStatus)}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              {picker.picker.phoneNumber}
+              {picker.picker.shopperId ? ` · Shopper ${picker.picker.shopperId}` : ""}
+              {picker.picker.ibsId ? ` · IBS ${picker.picker.ibsId}` : ""}
+            </p>
+          </div>
+        </div>
+        <Badge
+          className={cn(
+            "w-fit",
+            picker.hasPendingResignation
+              ? "border-red-200 bg-red-50 text-red-700"
+              : ""
+          )}
+          variant="outline"
+        >
+          {picker.hasPendingResignation ? "Pending Resignation" : "Ready"}
+        </Badge>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Definition label="Branch" value={picker.vendor.vendorName} />
+        <Definition label="Chain" value={picker.chain.chainName} />
+        <Definition
+          label="Assignment start"
+          value={new Date(picker.assignmentStartDate).toLocaleDateString()}
+        />
+        <Definition label="Block status" value={formatEnum(picker.picker.blockStatus)} />
+      </div>
+    </section>
+  );
+}
+
+function BlockDecisionFields({
+  blockDecision,
+  blockReason,
+  onChange,
+  title
+}: {
+  blockDecision: OffboardingBlockDecision;
+  blockReason: string;
+  onChange: (
+    patch: Partial<{
+      blockDecision: OffboardingBlockDecision;
+      blockReason: string;
+    }>
+  ) => void;
+  title: string;
+}) {
+  return (
+    <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+      <div>
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Choose one fixed decision. Temporary block dates are calculated at
+          Admin finalization.
+        </p>
+      </div>
+      <div className="grid gap-3">
+        <div className="grid gap-2 sm:grid-cols-5">
+          {offboardingBlockDecisions.map((decision) => (
+            <button
+              className={cn(
+                "min-h-11 rounded-xl border px-3 text-sm font-medium transition",
+                blockDecision === decision
+                  ? "border-orange-300 bg-orange-50 text-orange-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+              )}
+              key={decision}
+              onClick={() =>
+                onChange({
+                  blockDecision: decision,
+                  blockReason: decision === "NO_BLOCK" ? "" : blockReason
+                })
+              }
+              type="button"
+            >
+              {offboardingBlockDecisionLabels[decision]}
+            </button>
+          ))}
+        </div>
+        {blockDecision !== "NO_BLOCK" ? (
+          <Field label="Block reason">
+            <Input
+              className="h-11 rounded-xl"
+              onChange={(event) => onChange({ blockReason: event.target.value })}
+              placeholder="Required for any block"
+              value={blockReason}
+            />
+          </Field>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function LifecyclePickerRequestForm({
   onCreated,
   type
 }: {
   onCreated: (request: RequestSummary) => void;
-  type: "RESIGNATION" | "TRANSFER";
+  type: "TRANSFER";
 }) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -2615,11 +3219,7 @@ function LifecyclePickerRequestForm({
       setError("Reason is required.");
       return;
     }
-    if (type === "RESIGNATION" && !form.effectiveDate) {
-      setError("Last working day is required.");
-      return;
-    }
-    if (type === "TRANSFER" && !destinationVendorId) {
+    if (!destinationVendorId) {
       setError("Select destination Chain and Branch.");
       return;
     }
@@ -2627,24 +3227,14 @@ function LifecyclePickerRequestForm({
     startTransition(async () => {
       setError(null);
       try {
-        const created =
-          type === "RESIGNATION"
-            ? await requestsApi.createOffboarding({
-                type: "RESIGNATION",
-                sourceVendorId,
-                targetUserId: selectedAssignment.pickerId,
-                reason: form.reason,
-                resignationDate: form.effectiveDate,
-                notes: form.notes || undefined
-              })
-            : await requestsApi.createTransfer({
-                sourceVendorId,
-                targetUserId: selectedAssignment.pickerId,
-                destinationVendorId,
-                reason: form.reason,
-                requestedTransferDate: form.effectiveDate || undefined,
-                notes: form.notes || undefined
-              });
+        const created = await requestsApi.createTransfer({
+          sourceVendorId,
+          targetUserId: selectedAssignment.pickerId,
+          destinationVendorId,
+          reason: form.reason,
+          requestedTransferDate: form.effectiveDate || undefined,
+          notes: form.notes || undefined
+        });
         onCreated(created);
       } catch (caughtError) {
         setError(
@@ -2754,56 +3344,54 @@ function LifecyclePickerRequestForm({
         </div>
       ) : null}
 
-      {type === "TRANSFER" ? (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Destination Chain">
-              <select
-                className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
-                disabled={loading}
-                onChange={(event) => selectDestinationChain(event.target.value)}
-                value={destinationChainId}
-              >
-                <option value="">
-                  {loading ? "Loading Chains..." : "Select Chain"}
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Destination Chain">
+            <select
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              disabled={loading}
+              onChange={(event) => selectDestinationChain(event.target.value)}
+              value={destinationChainId}
+            >
+              <option value="">
+                {loading ? "Loading Chains..." : "Select Chain"}
+              </option>
+              {chains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.chainName}
                 </option>
-                {chains.map((chain) => (
-                  <option key={chain.id} value={chain.id}>
-                    {chain.chainName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Destination Branch search">
-              <Input
-                className="h-11 rounded-xl bg-white"
-                disabled={!destinationChainId || loading}
-                onChange={(event) => setDestinationBranchQuery(event.target.value)}
-                placeholder="Search destination Branch"
-                value={destinationBranchQuery}
-              />
-            </Field>
-          </div>
-          {destinationChainId ? (
-            <BranchChoiceList
-              onSelect={(vendor) => {
-                setDestinationChainId(vendor.chainId);
-                setDestinationVendorId(vendor.id);
-              }}
-              selectedVendorId={destinationVendorId}
-              vendors={destinationVendors}
+              ))}
+            </select>
+          </Field>
+          <Field label="Destination Branch search">
+            <Input
+              className="h-11 rounded-xl bg-white"
+              disabled={!destinationChainId || loading}
+              onChange={(event) => setDestinationBranchQuery(event.target.value)}
+              placeholder="Search destination Branch"
+              value={destinationBranchQuery}
             />
-          ) : null}
-          {destinationVendor ? (
-            <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
-              {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
-            </div>
-          ) : null}
+          </Field>
         </div>
-      ) : null}
+        {destinationChainId ? (
+          <BranchChoiceList
+            onSelect={(vendor) => {
+              setDestinationChainId(vendor.chainId);
+              setDestinationVendorId(vendor.id);
+            }}
+            selectedVendorId={destinationVendorId}
+            vendors={destinationVendors}
+          />
+        ) : null}
+        {destinationVendor ? (
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+            {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
+          </div>
+        ) : null}
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={type === "RESIGNATION" ? "Last working day" : "Transfer date"}>
+        <Field label="Transfer date">
           <Input
             className="h-11 rounded-xl"
             onChange={(event) =>
@@ -2910,7 +3498,7 @@ function NewRequestSheet({
       className="fixed inset-0 z-[130] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
       role="dialog"
     >
-      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-2xl sm:rounded-[1.75rem] sm:p-5 [&::-webkit-scrollbar]:hidden">
+      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-4xl sm:rounded-[1.75rem] sm:p-5 [&::-webkit-scrollbar]:hidden">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
@@ -2949,7 +3537,9 @@ function NewRequestSheet({
         </div>
         {selectedType === "NEW_HIRE" ? (
           <NewHireRequestForm onCreated={onCreated} />
-        ) : selectedType === "RESIGNATION" || selectedType === "TRANSFER" ? (
+        ) : selectedType === "RESIGNATION" ? (
+          <ResignationRequestForm onCreated={onCreated} />
+        ) : selectedType === "TRANSFER" ? (
           <LifecyclePickerRequestForm onCreated={onCreated} type={selectedType} />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
@@ -3093,9 +3683,7 @@ export function RequestDetailView() {
           <NewHireRequestDetailPanel request={request} />
         ) : null}
         {request.type === "RESIGNATION" ? (
-          <InfoCard title="Offboarding Context">
-            <OffboardingContext payload={request.payload} />
-          </InfoCard>
+          <ResignationRequestDetailPanel request={request} />
         ) : null}
         {request.type === "TRANSFER" ? (
           <InfoCard title="Transfer Context">
@@ -3141,7 +3729,7 @@ export function RequestDetailView() {
           onFinalized={async () => {
             await loadRequest();
           }}
-          requestId={request.id}
+          request={request}
         type="RESIGNATION"
       />
       ) : null}
@@ -3173,6 +3761,9 @@ export function LegacyApprovalsCenter() {
     approval: PendingApproval;
   } | null>(null);
   const [decisionNotes, setDecisionNotes] = useState("");
+  const [decisionBlockDecision, setDecisionBlockDecision] =
+    useState<OffboardingBlockDecision>("NO_BLOCK");
+  const [decisionBlockReason, setDecisionBlockReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -3202,17 +3793,43 @@ export function LegacyApprovalsCenter() {
     if (!decision) {
       return;
     }
+    const requiresBlockDecision =
+      decision.action === "approve" &&
+      decision.approval.request.type === "RESIGNATION" &&
+      decision.approval.step === "AREA_MANAGER_APPROVAL";
+
+    if (
+      requiresBlockDecision &&
+      decisionBlockDecision !== "NO_BLOCK" &&
+      !decisionBlockReason.trim()
+    ) {
+      setError("Block reason is required for any block decision.");
+      return;
+    }
 
     startTransition(async () => {
       setError(null);
       try {
         if (decision.action === "approve") {
-          await approvalsApi.approve(decision.approval.id, decisionNotes);
+          await approvalsApi.approve(
+            decision.approval.id,
+            requiresBlockDecision
+              ? {
+                  blockDecision: decisionBlockDecision,
+                  ...(decisionBlockReason.trim()
+                    ? { blockReason: decisionBlockReason.trim() }
+                    : {}),
+                  ...(decisionNotes.trim() ? { notes: decisionNotes.trim() } : {})
+                }
+              : decisionNotes
+          );
         } else {
           await approvalsApi.reject(decision.approval.id, decisionNotes);
         }
         setDecision(null);
         setDecisionNotes("");
+        setDecisionBlockDecision("NO_BLOCK");
+        setDecisionBlockReason("");
         await loadApprovals();
       } catch (caughtError) {
         setError(
@@ -3245,9 +3862,11 @@ export function LegacyApprovalsCenter() {
               isPending={isPending}
               key={approval.id}
               onDecision={(action) => {
-                setDecision({ action, approval });
-                setDecisionNotes("");
-              }}
+                  setDecision({ action, approval });
+                  setDecisionNotes("");
+                  setDecisionBlockDecision("NO_BLOCK");
+                  setDecisionBlockReason("");
+                }}
             />
           ))}
         </div>
@@ -3268,9 +3887,31 @@ export function LegacyApprovalsCenter() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               This records the approval decision. New Hire Admin final approval
               requires Shopper ID finalization from the request detail page.
-              Offboarding Admin final approval requires block status and internal
+              Offboarding Admin final approval requires block decision and internal
               deactivation confirmation from the request detail page.
             </p>
+            {decision.action === "approve" &&
+            decision.approval.request.type === "RESIGNATION" &&
+            decision.approval.step === "AREA_MANAGER_APPROVAL" ? (
+              <div className="mt-4">
+                <BlockDecisionFields
+                  blockDecision={decisionBlockDecision}
+                  blockReason={decisionBlockReason}
+                  onChange={(patch) => {
+                    if (patch.blockDecision) {
+                      setDecisionBlockDecision(patch.blockDecision);
+                      if (patch.blockDecision === "NO_BLOCK") {
+                        setDecisionBlockReason("");
+                      }
+                    }
+                    if (patch.blockReason !== undefined) {
+                      setDecisionBlockReason(patch.blockReason);
+                    }
+                  }}
+                  title="Block decision"
+                />
+              </div>
+            ) : null}
             <label className="mt-4 grid gap-1 text-sm font-medium">
               Decision notes
               <Input
@@ -3284,6 +3925,8 @@ export function LegacyApprovalsCenter() {
                 onClick={() => {
                   setDecision(null);
                   setDecisionNotes("");
+                  setDecisionBlockDecision("NO_BLOCK");
+                  setDecisionBlockReason("");
                 }}
                 type="button"
                 variant="outline"
@@ -3382,6 +4025,102 @@ function ApprovalQueueCard({
       >
         View request detail
       </Link>
+    </section>
+  );
+}
+
+function ResignationAreaManagerApprovalPanel({
+  approvalId,
+  onApproved
+}: {
+  approvalId: string;
+  onApproved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    blockDecision: "NO_BLOCK" as OffboardingBlockDecision,
+    blockReason: "",
+    notes: ""
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function approve() {
+    if (form.blockDecision !== "NO_BLOCK" && !form.blockReason.trim()) {
+      setError("Block reason is required for any block decision.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        await approvalsApi.approve(approvalId, {
+          blockDecision: form.blockDecision,
+          ...(form.blockReason.trim()
+            ? { blockReason: form.blockReason.trim() }
+            : {}),
+          ...(form.notes.trim() ? { notes: form.notes.trim() } : {})
+        });
+        await onApproved();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to record Area Manager approval."
+        );
+      }
+    });
+  }
+
+  return (
+    <section className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-orange-950">
+            Area Manager block decision
+          </h3>
+          <p className="mt-1 text-sm text-orange-800">
+            Choose whether this Picker should be blocked before the request goes
+            to Admin finalization.
+          </p>
+        </div>
+        <UserCheck className="h-5 w-5 text-orange-700" />
+      </div>
+      <div className="mt-4 grid gap-4">
+        <BlockDecisionFields
+          blockDecision={form.blockDecision}
+          blockReason={form.blockReason}
+          onChange={(patch) =>
+            setForm((current) => ({
+              ...current,
+              ...patch,
+              blockReason:
+                patch.blockDecision === "NO_BLOCK"
+                  ? ""
+                  : patch.blockReason ?? current.blockReason
+            }))
+          }
+          title="Block decision"
+        />
+        <Field label="Approval notes">
+          <Input
+            className="h-11 rounded-xl bg-white"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, notes: event.target.value }))
+            }
+            placeholder="Optional"
+            value={form.notes}
+          />
+        </Field>
+        {error ? <ErrorState message={error} /> : null}
+        <Button
+          className="w-fit rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+          disabled={isPending}
+          onClick={approve}
+          type="button"
+        >
+          {isPending ? "Approving..." : "Approve Resignation"}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -3491,17 +4230,20 @@ function FinalizeNewHirePanel({
 
 function FinalizeOffboardingPanel({
   onFinalized,
-  requestId,
+  request,
   type
 }: {
   onFinalized: () => Promise<void>;
-  requestId: string;
+  request: RequestDetail;
   type: "RESIGNATION";
 }) {
+  const context = parseOffboardingPayload(request.payload);
+  const recommendedDecision =
+    context?.areaManagerDecision?.blockDecision ?? "NO_BLOCK";
+  const recommendedReason = context?.areaManagerDecision?.blockReason ?? "";
   const [form, setForm] = useState({
-    blockStatus: "NO_BLOCK" as "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK",
-    blockedUntil: "",
-    blockReason: "",
+    blockDecision: recommendedDecision as OffboardingBlockDecision,
+    blockReason: recommendedReason,
     notes: "",
     confirmInternalDeactivation: false
   });
@@ -3515,27 +4257,17 @@ function FinalizeOffboardingPanel({
       return;
     }
 
-    if (form.blockStatus === "TEMPORARY_BLOCK" && !form.blockedUntil) {
-      setError("Blocked until date is required for a temporary block.");
-      return;
-    }
-
-    if (
-      (form.blockStatus === "TEMPORARY_BLOCK" ||
-        form.blockStatus === "PERMANENT_BLOCK") &&
-      !form.blockReason.trim()
-    ) {
-      setError("Block reason is required for temporary or permanent blocks.");
+    if (form.blockDecision !== "NO_BLOCK" && !form.blockReason.trim()) {
+      setError("Block reason is required for any block decision.");
       return;
     }
 
     startTransition(async () => {
       setError(null);
       try {
-        const finalized = await requestsApi.finalizeOffboarding(requestId, {
-          blockStatus: form.blockStatus,
+        const finalized = await requestsApi.finalizeOffboarding(request.id, {
+          blockDecision: form.blockDecision,
           confirmInternalDeactivation: form.confirmInternalDeactivation,
-          ...(form.blockedUntil ? { blockedUntil: form.blockedUntil } : {}),
           ...(form.blockReason ? { blockReason: form.blockReason } : {}),
           ...(form.notes ? { notes: form.notes } : {})
         });
@@ -3580,50 +4312,34 @@ function FinalizeOffboardingPanel({
         </div>
       ) : (
         <div className="mt-4 grid gap-4">
-          <Field label="Block status">
-            <select
-              className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  blockStatus: event.target.value as typeof form.blockStatus
-                }))
-              }
-              value={form.blockStatus}
-            >
-              <option value="NO_BLOCK">No block</option>
-              <option value="TEMPORARY_BLOCK">Temporary block</option>
-              <option value="PERMANENT_BLOCK">Permanent block</option>
-            </select>
-          </Field>
-          {form.blockStatus === "TEMPORARY_BLOCK" ? (
-            <Field label="Blocked until">
-              <Input
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    blockedUntil: event.target.value
-                  }))
-                }
-                type="date"
-                value={form.blockedUntil}
-              />
-            </Field>
+          {context?.areaManagerDecision ? (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+              Area Manager recommended{" "}
+              <span className="font-semibold">
+                {formatOffboardingBlockDecision(
+                  context.areaManagerDecision.blockDecision
+                )}
+              </span>
+              {context.areaManagerDecision.blockReason
+                ? `: ${context.areaManagerDecision.blockReason}`
+                : "."}
+            </div>
           ) : null}
-          {form.blockStatus !== "NO_BLOCK" ? (
-            <Field label="Block reason">
-              <Input
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    blockReason: event.target.value
-                  }))
-                }
-                placeholder="Required for temporary or permanent block"
-                value={form.blockReason}
-              />
-            </Field>
-          ) : null}
+          <BlockDecisionFields
+            blockDecision={form.blockDecision}
+            blockReason={form.blockReason}
+            onChange={(patch) =>
+              setForm((current) => ({
+                ...current,
+                ...patch,
+                blockReason:
+                  patch.blockDecision === "NO_BLOCK"
+                    ? ""
+                    : patch.blockReason ?? current.blockReason
+              }))
+            }
+            title="Admin block decision"
+          />
           <Field label="Admin notes">
             <Input
               onChange={(event) =>
@@ -3736,34 +4452,6 @@ function TransferContext({
   );
 }
 
-function OffboardingContext({ payload }: { payload: unknown }) {
-  const context = parseOffboardingPayload(payload);
-
-  if (!context) {
-    return <EmptyState message="No offboarding context is available." compact />;
-  }
-
-  return (
-    <>
-      <Definition label="Reason" value={context.reason} />
-      <Definition
-        label="Last working day"
-        value={context.effectiveDate ?? "Not set"}
-      />
-      <Definition label="Notes" value={context.notes ?? "None"} />
-      <Definition label="Picker assignment" value={context.pickerAssignmentId} />
-      {context.finalizedAt ? (
-        <Definition
-          label="Finalized"
-          value={`${new Date(context.finalizedAt).toLocaleString()} · ${formatEnum(
-            context.blockStatus ?? "NO_BLOCK"
-          )}`}
-        />
-      ) : null}
-    </>
-  );
-}
-
 function RequestsTable({ items }: { items: RequestSummary[] }) {
   return (
     <div className="overflow-x-auto">
@@ -3841,7 +4529,7 @@ function WorkflowStateSummary({ request }: { request: RequestDetail }) {
             ? "Admin can finalize Champ New Hire without Shopper ID."
             : "Area Manager New Hire does not use Admin finalization."
         : request.type === "RESIGNATION"
-          ? "Admin must confirm offboarding and block status."
+          ? "Admin must confirm offboarding and block decision."
           : "Admin review is pending."
       : request.status === "COMPLETED"
         ? "Workflow has been completed by the backend."
@@ -4048,13 +4736,18 @@ function parseOffboardingPayload(payload: unknown) {
 
   const objectPayload = payload as Record<string, unknown>;
   const offboarding = objectPayload.offboarding;
+  const source = objectPayload.source;
   const target = objectPayload.target;
+  const areaManagerDecision = objectPayload.areaManagerDecision;
   const finalization = objectPayload.finalization;
 
   if (
     !offboarding ||
     typeof offboarding !== "object" ||
     Array.isArray(offboarding) ||
+    !source ||
+    typeof source !== "object" ||
+    Array.isArray(source) ||
     !target ||
     typeof target !== "object" ||
     Array.isArray(target)
@@ -4063,7 +4756,14 @@ function parseOffboardingPayload(payload: unknown) {
   }
 
   const offboardingPayload = offboarding as Record<string, unknown>;
+  const sourcePayload = source as Record<string, unknown>;
   const targetPayload = target as Record<string, unknown>;
+  const areaManagerPayload =
+    areaManagerDecision &&
+    typeof areaManagerDecision === "object" &&
+    !Array.isArray(areaManagerDecision)
+      ? (areaManagerDecision as Record<string, unknown>)
+      : null;
   const finalizationPayload =
     finalization && typeof finalization === "object" && !Array.isArray(finalization)
       ? (finalization as Record<string, unknown>)
@@ -4076,10 +4776,18 @@ function parseOffboardingPayload(payload: unknown) {
 
   return {
     type,
+    reasonCode:
+      typeof offboardingPayload.reasonCode === "string"
+        ? offboardingPayload.reasonCode
+        : "OTHER",
     reason:
       typeof offboardingPayload.reason === "string"
         ? offboardingPayload.reason
         : "Not provided",
+    reasonDetails:
+      typeof offboardingPayload.reasonDetails === "string"
+        ? offboardingPayload.reasonDetails
+        : undefined,
     notes:
       typeof offboardingPayload.notes === "string"
         ? offboardingPayload.notes
@@ -4087,20 +4795,86 @@ function parseOffboardingPayload(payload: unknown) {
     effectiveDate:
       typeof offboardingPayload.resignationDate === "string"
         ? offboardingPayload.resignationDate
-        : undefined,
+        : "Not set",
+    sourceVendorId:
+      typeof sourcePayload.vendorId === "string"
+        ? sourcePayload.vendorId
+        : "Not available",
+    sourceChainId:
+      typeof sourcePayload.chainId === "string"
+        ? sourcePayload.chainId
+        : "Not available",
+    pickerId:
+      typeof targetPayload.pickerId === "string"
+        ? targetPayload.pickerId
+        : "Not available",
     pickerAssignmentId:
       typeof targetPayload.pickerAssignmentId === "string"
         ? targetPayload.pickerAssignmentId
         : "Not available",
+    areaManagerDecision: areaManagerPayload
+      ? {
+          blockDecision:
+            typeof areaManagerPayload.blockDecision === "string"
+              ? (areaManagerPayload.blockDecision as OffboardingBlockDecision)
+              : blockStatusToOffboardingDecision(areaManagerPayload.blockStatus),
+          blockStatus:
+            typeof areaManagerPayload.blockStatus === "string"
+              ? areaManagerPayload.blockStatus
+              : "NO_BLOCK",
+          blockReason:
+            typeof areaManagerPayload.blockReason === "string"
+              ? areaManagerPayload.blockReason
+              : null
+        }
+      : null,
     finalizedAt:
       typeof finalizationPayload?.completedAt === "string"
         ? finalizationPayload.completedAt
         : undefined,
+    finalization: finalizationPayload
+      ? {
+          completedAt:
+            typeof finalizationPayload.completedAt === "string"
+              ? finalizationPayload.completedAt
+              : "",
+          blockDecision:
+            typeof finalizationPayload.blockDecision === "string"
+              ? (finalizationPayload.blockDecision as OffboardingBlockDecision)
+              : blockStatusToOffboardingDecision(finalizationPayload.blockStatus),
+          blockStatus:
+            typeof finalizationPayload.blockStatus === "string"
+              ? finalizationPayload.blockStatus
+              : "NO_BLOCK",
+          blockedUntil:
+            typeof finalizationPayload.blockedUntil === "string"
+              ? finalizationPayload.blockedUntil
+              : null,
+          blockReason:
+            typeof finalizationPayload.blockReason === "string"
+              ? finalizationPayload.blockReason
+              : null
+        }
+      : null,
     blockStatus:
       typeof finalizationPayload?.blockStatus === "string"
         ? finalizationPayload.blockStatus
         : undefined
   };
+}
+
+function blockStatusToOffboardingDecision(value: unknown): OffboardingBlockDecision {
+  if (value === "PERMANENT_BLOCK") {
+    return "PERMANENT";
+  }
+  if (value === "TEMPORARY_BLOCK") {
+    return "THREE_MONTHS";
+  }
+  return "NO_BLOCK";
+}
+
+function formatOffboardingBlockDecision(value: OffboardingBlockDecision) {
+  return offboardingBlockDecisionLabels[value] ?? formatEnum(value);
 }
 
 function parseNewHirePayload(payload: unknown) {

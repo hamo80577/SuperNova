@@ -19,6 +19,41 @@ export type ApprovalStep =
   | "DESTINATION_AREA_MANAGER_APPROVAL"
   | "ADMIN_FINAL_APPROVAL";
 export type NewHireTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
+export type OffboardingReasonCode =
+  | "BAD_ATTITUDE"
+  | "BAD_PERFORMANCE"
+  | "ATTENDANCE_ISSUES"
+  | "POLICY_VIOLATION"
+  | "NO_SHOW"
+  | "VOLUNTARY_QUIT"
+  | "OTHER";
+export type OffboardingBlockDecision =
+  | "NO_BLOCK"
+  | "THREE_MONTHS"
+  | "SIX_MONTHS"
+  | "ONE_YEAR"
+  | "PERMANENT";
+
+export const offboardingReasonLabels: Record<OffboardingReasonCode, string> = {
+  BAD_ATTITUDE: "Bad attitude",
+  BAD_PERFORMANCE: "Bad performance",
+  ATTENDANCE_ISSUES: "Attendance issues",
+  POLICY_VIOLATION: "Policy violation",
+  NO_SHOW: "No show",
+  VOLUNTARY_QUIT: "Voluntary quit",
+  OTHER: "Other"
+};
+
+export const offboardingBlockDecisionLabels: Record<
+  OffboardingBlockDecision,
+  string
+> = {
+  NO_BLOCK: "No block",
+  THREE_MONTHS: "3 months",
+  SIX_MONTHS: "6 months",
+  ONE_YEAR: "1 year",
+  PERMANENT: "Permanent"
+};
 
 export interface RequestApprovalSummary {
   id: string;
@@ -140,11 +175,36 @@ export interface NewHireLookupResponse {
 
 export interface CreateOffboardingPayload {
   type: "RESIGNATION";
-  sourceVendorId: string;
+  sourceVendorId?: string;
   targetUserId: string;
-  reason: string;
-  resignationDate?: string;
+  resignationDate: string;
+  reasonCode: OffboardingReasonCode;
+  reasonDetails?: string;
   notes?: string;
+  blockDecision?: OffboardingBlockDecision;
+  blockReason?: string;
+}
+
+export interface OffboardingPickerSearchItem {
+  assignmentId: string;
+  pickerId: string;
+  vendorId: string;
+  chainId: string;
+  assignmentStartDate: string;
+  pendingResignationRequestId: string | null;
+  hasPendingResignation: boolean;
+  picker: UserSummary & {
+    shopperId: string | null;
+    ibsId: string | null;
+    joiningDate: string | null;
+    blockStatus: string;
+  };
+  vendor: VendorSummary;
+  chain: ChainSummary;
+}
+
+export interface OffboardingPickerSearchResponse {
+  items: OffboardingPickerSearchItem[];
 }
 
 export interface CreateTransferPayload {
@@ -196,8 +256,7 @@ export interface FinalizeNewHireResponse {
 }
 
 export interface FinalizeOffboardingPayload {
-  blockStatus: "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK";
-  blockedUntil?: string;
+  blockDecision: OffboardingBlockDecision;
   blockReason?: string;
   confirmInternalDeactivation: boolean;
   notes?: string;
@@ -301,6 +360,14 @@ export const requestsApi = {
         method: "POST",
         body: JSON.stringify(payload)
       }
+    );
+  },
+  searchOffboardingPickers(params: { q?: string; sourceVendorId?: string } = {}) {
+    return apiGet<OffboardingPickerSearchResponse>(
+      `/requests/offboarding/pickers${toQuery({
+        q: params.q,
+        sourceVendorId: params.sourceVendorId
+      })}`
     );
   },
   async createOffboarding(payload: CreateOffboardingPayload) {
