@@ -31,9 +31,9 @@ RESIGNATION
 TRANSFER
 ```
 
-`TERMINATION` may exist in old schema/code history but is not active product scope.
+Resignation is the only active offboarding workflow.
 
-Do not reintroduce it unless explicitly requested.
+Do not add another offboarding lifecycle unless explicitly requested.
 
 ## Approval Steps
 

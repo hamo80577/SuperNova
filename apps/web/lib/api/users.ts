@@ -155,22 +155,6 @@ export const usersApi = {
     clearApiCache("/workspaces");
     return response;
   },
-  resetPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(
-      `/users/${id}/reset-temporary-password`,
-      {
-        method: "POST"
-      }
-    );
-  },
-  regenerateTemporaryPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(
-      `/users/${id}/reset-temporary-password`,
-      {
-        method: "POST"
-      }
-    );
-  },
   revealTemporaryPassword(id: string) {
     return apiRequest<TemporaryPasswordResponse>(
       `/users/${id}/reveal-temporary-password`,
@@ -185,32 +169,6 @@ export const usersApi = {
       {
         method: "POST"
       }
-    );
-  },
-  temporaryPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(
-      `/users/${id}/reveal-temporary-password`,
-      {
-        method: "POST"
-      }
-    );
-  },
-  legacyResetPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(`/users/${id}/password/reset`, {
-      method: "POST"
-    });
-  },
-  legacyRegenerateTemporaryPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(
-      `/users/${id}/password/regenerate-temporary`,
-      {
-        method: "POST"
-      }
-    );
-  },
-  legacyTemporaryPassword(id: string) {
-    return apiRequest<TemporaryPasswordResponse>(
-      `/users/${id}/password/temporary`
     );
   },
   profileCompletion() {

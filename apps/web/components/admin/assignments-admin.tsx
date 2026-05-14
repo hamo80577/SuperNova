@@ -43,7 +43,7 @@ const tabs: Array<{ id: AssignmentTab; label: string; description: string }> = [
   {
     id: "pickers",
     label: "Picker Branch",
-    description: "Assign one Picker to one active Vendor / Branch."
+    description: "View Picker assignment history from workflows."
   },
   {
     id: "vendorChamps",
@@ -57,12 +57,6 @@ const tabs: Array<{ id: AssignmentTab; label: string; description: string }> = [
   }
 ];
 
-const pickerSchema = z.object({
-  pickerId: z.string().uuid("Picker is required."),
-  vendorId: z.string().uuid("Vendor is required."),
-  startDate: z.string().optional()
-});
-
 const vendorChampSchema = z.object({
   vendorId: z.string().uuid("Vendor is required."),
   champId: z.string().uuid("Champ is required."),
@@ -75,7 +69,6 @@ const chainAreaManagerSchema = z.object({
   startDate: z.string().optional()
 });
 
-type PickerFormValues = z.infer<typeof pickerSchema>;
 type VendorChampFormValues = z.infer<typeof vendorChampSchema>;
 type ChainAreaManagerFormValues = z.infer<typeof chainAreaManagerSchema>;
 
@@ -108,7 +101,6 @@ export function AssignmentsAdmin() {
   const [lookupQuery, setLookupQuery] = useState("");
   const deferredLookupQuery = useDeferredValue(lookupQuery);
   const [status, setStatus] = useState<AssignmentStatus | "">("ACTIVE");
-  const [pickers, setPickers] = useState<SafeUser[]>([]);
   const [champs, setChamps] = useState<SafeUser[]>([]);
   const [areaManagers, setAreaManagers] = useState<SafeUser[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -117,10 +109,6 @@ export function AssignmentsAdmin() {
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
-  const pickerForm = useForm<PickerFormValues>({
-    resolver: zodResolver(pickerSchema),
-    defaultValues: { pickerId: "", vendorId: "", startDate: "" }
-  });
   const vendorChampForm = useForm<VendorChampFormValues>({
     resolver: zodResolver(vendorChampSchema),
     defaultValues: { vendorId: "", champId: "", startDate: "" }
@@ -131,15 +119,8 @@ export function AssignmentsAdmin() {
   });
 
   async function loadLookups() {
-    const [pickerUsers, champUsers, areaManagerUsers, activeVendors, activeChains] =
+    const [champUsers, areaManagerUsers, activeVendors, activeChains] =
       await Promise.all([
-        usersApi.list({
-          page: 1,
-          pageSize: 100,
-          role: "PICKER",
-          status: "ACTIVE",
-          q: deferredLookupQuery
-        }),
         usersApi.list({
           page: 1,
           pageSize: 100,
@@ -168,7 +149,6 @@ export function AssignmentsAdmin() {
         })
       ]);
 
-    setPickers(pickerUsers.items);
     setChamps(champUsers.items);
     setAreaManagers(areaManagerUsers.items);
     setVendors(activeVendors.items);
@@ -225,23 +205,6 @@ export function AssignmentsAdmin() {
     void loadAssignments();
   }, [deferredQuery, page, status]);
 
-  function createPickerAssignment(values: PickerFormValues) {
-    startTransition(async () => {
-      setError(null);
-      try {
-        await assignmentsApi.createPickerBranchAssignment({
-          pickerId: values.pickerId,
-          vendorId: values.vendorId,
-          startDate: values.startDate || undefined
-        });
-        pickerForm.reset({ pickerId: "", vendorId: "", startDate: "" });
-        await loadAssignments();
-      } catch (caughtError) {
-        setError(toErrorMessage(caughtError, "Unable to assign Picker."));
-      }
-    });
-  }
-
   function createVendorChampAssignment(values: VendorChampFormValues) {
     startTransition(async () => {
       setError(null);
@@ -290,11 +253,9 @@ export function AssignmentsAdmin() {
     startTransition(async () => {
       setError(null);
       try {
-        if (activeTab === "pickers") {
-          await assignmentsApi.closePickerBranchAssignment(id);
-        } else if (activeTab === "vendorChamps") {
+        if (activeTab === "vendorChamps") {
           await assignmentsApi.closeVendorChampAssignment(id);
-        } else {
+        } else if (activeTab === "chainAreaManagers") {
           await assignmentsApi.closeChainAreaManagerAssignment(id);
         }
         await loadAssignments();
@@ -366,39 +327,10 @@ export function AssignmentsAdmin() {
 
         <div className="mt-4">
           {activeTab === "pickers" ? (
-            <form
-              className="grid gap-3 md:grid-cols-[1fr_1fr_180px_auto]"
-              onSubmit={pickerForm.handleSubmit(createPickerAssignment)}
-            >
-              <FieldError error={pickerForm.formState.errors.pickerId?.message}>
-                <SelectField label="Picker" {...pickerForm.register("pickerId")}>
-                  <option value="">Select Picker</option>
-                  {pickers.map((picker) => (
-                    <option key={picker.id} value={picker.id}>
-                      {picker.nameEn} ({picker.phoneNumber})
-                    </option>
-                  ))}
-                </SelectField>
-              </FieldError>
-              <FieldError error={pickerForm.formState.errors.vendorId?.message}>
-                <SelectField label="Vendor" {...pickerForm.register("vendorId")}>
-                  <option value="">Select Vendor</option>
-                  {vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.vendorName} ({vendor.vendorCode})
-                    </option>
-                  ))}
-                </SelectField>
-              </FieldError>
-              <Input
-                aria-label="Start date"
-                type="date"
-                {...pickerForm.register("startDate")}
-              />
-              <Button disabled={isPending} type="submit">
-                Assign
-              </Button>
-            </form>
+            <div className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Picker Branch assignments are created by New Hire and changed by
+              Transfer or Resignation workflows only.
+            </div>
           ) : null}
 
           {activeTab === "vendorChamps" ? (
@@ -527,14 +459,15 @@ export function AssignmentsAdmin() {
           <LoadingRows label="Loading assignments" />
         ) : activeItems.length === 0 ? (
           <EmptyState
-            description="Create an assignment to establish hierarchy setup."
+            description={
+              activeTab === "pickers"
+                ? "Picker assignment history appears after New Hire, Transfer, or Resignation workflows run."
+                : "Create an assignment to establish hierarchy setup."
+            }
             title="No assignments found"
           />
         ) : activeTab === "pickers" ? (
-          <PickerAssignmentsTable
-            items={pickerAssignments}
-            onClose={closeAssignment}
-          />
+          <PickerAssignmentsTable items={pickerAssignments} />
         ) : activeTab === "vendorChamps" ? (
           <VendorChampAssignmentsTable
             items={vendorChampAssignments}
@@ -553,13 +486,7 @@ export function AssignmentsAdmin() {
   );
 }
 
-function PickerAssignmentsTable({
-  items,
-  onClose
-}: {
-  items: PickerBranchAssignment[];
-  onClose: (id: string) => void;
-}) {
+function PickerAssignmentsTable({ items }: { items: PickerBranchAssignment[] }) {
   return (
     <TableShell minWidth="980px">
       <thead className="border-b text-xs uppercase text-muted-foreground">
@@ -569,7 +496,6 @@ function PickerAssignmentsTable({
           <th className="py-3 pr-4">Chain</th>
           <th className="py-3 pr-4">Status</th>
           <th className="py-3 pr-4">Dates</th>
-          <th className="py-3 text-right">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -580,7 +506,6 @@ function PickerAssignmentsTable({
             <td className="py-3 pr-4">{item.chain.chainName}</td>
             <StatusCell status={item.status} />
             <DateCell endDate={item.endDate} startDate={item.startDate} />
-            <ActionCell id={item.id} onClose={onClose} status={item.status} />
           </tr>
         ))}
       </tbody>

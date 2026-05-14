@@ -116,16 +116,6 @@ export const assignmentsApi = {
       })}`
     );
   },
-  createPickerBranchAssignment(payload: {
-    pickerId: string;
-    vendorId: string;
-    startDate?: string;
-  }) {
-    return apiRequest<PickerBranchAssignment>("/assignments/picker-branch", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-  },
   createVendorChampAssignment(payload: {
     vendorId: string;
     champId: string;
@@ -146,15 +136,6 @@ export const assignmentsApi = {
       {
         method: "POST",
         body: JSON.stringify(payload)
-      }
-    );
-  },
-  closePickerBranchAssignment(id: string) {
-    return apiRequest<PickerBranchAssignment>(
-      `/assignments/picker-branch/${id}/close`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({})
       }
     );
   },

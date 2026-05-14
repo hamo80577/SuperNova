@@ -93,7 +93,7 @@ Champ:
   /champ/branches/:vendorId/resignation
   /champ/reports
 
-Termination is intentionally removed from the active MVP scope.
+Resignation is the only offboarding lifecycle in the active MVP scope.
 
 Area Manager:
   /area-manager/dashboard

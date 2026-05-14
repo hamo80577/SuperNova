@@ -137,7 +137,7 @@ export class AdminService {
         include: {
           targetedRequests: {
             where: {
-              type: { in: [RequestType.RESIGNATION, RequestType.TERMINATION] }
+              type: RequestType.RESIGNATION
             },
             include: {
               sourceChain: true,
@@ -418,75 +418,9 @@ export class AdminService {
       };
     }
 
-    const startDate = this.parseDate(dto.startDate);
-    const assignment = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.pickerBranchAssignment.create({
-        data: {
-          pickerId: dto.pickerId,
-          vendorId,
-          status: AssignmentStatus.ACTIVE,
-          startDate
-        },
-        include: {
-          picker: true,
-          vendor: { include: { chain: true } }
-        }
-      });
-
-      await tx.auditLog.create({
-        data: {
-          actorUserId: context.actor.id,
-          action: "ADMIN_PICKER_BRANCH_ASSIGNMENT_CREATED",
-          entityType: "PickerBranchAssignment",
-          entityId: created.id,
-          newValue: {
-            pickerId: created.pickerId,
-            vendorId: created.vendorId,
-            startDate: created.startDate.toISOString()
-          },
-          ipAddress: context.ipAddress ?? null,
-          userAgent: context.userAgent ?? null
-        }
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: dto.pickerId,
-          type: "ASSIGNMENT_CREATED",
-          title: "Branch assignment updated",
-          body: `You have been assigned to ${created.vendor.vendorName}.`,
-          payload: {
-            vendorId,
-            chainId: created.vendor.chainId,
-            assignmentId: created.id
-          }
-        }
-      });
-
-      return created;
-    });
-
-    await this.notifyActiveBranchChamp(vendorId, {
-      type: "ASSIGNMENT_CREATED",
-      title: "Picker assigned",
-      body: `${picker.nameEn} was assigned to ${vendor.vendorName}.`,
-      payload: {
-        vendorId,
-        pickerId: picker.id,
-        assignmentId: assignment.id
-      }
-    });
-
-    return {
-      mode: "ASSIGNMENT_CREATED" as const,
-      assignment: {
-        id: assignment.id,
-        status: assignment.status,
-        startDate: assignment.startDate,
-        picker: toUserSummary(assignment.picker),
-        branch: toVendorSummary(assignment.vendor)
-      }
-    };
+    throw new BadRequestException(
+      "Picker branch assignment must be created through the New Hire workflow."
+    );
   }
 
   async replaceBranchChamp(
@@ -876,7 +810,6 @@ export class AdminService {
             employmentStatus: {
               in: [
                 EmploymentStatus.RESIGNED,
-                EmploymentStatus.TERMINATED,
                 EmploymentStatus.ARCHIVED
               ]
             }
@@ -968,7 +901,7 @@ export class AdminService {
       return "Enter Shopper ID";
     }
 
-    if (type === RequestType.RESIGNATION || type === RequestType.TERMINATION) {
+    if (type === RequestType.RESIGNATION) {
       return "Confirm offboarding/block status";
     }
 

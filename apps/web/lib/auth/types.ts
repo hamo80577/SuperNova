@@ -10,7 +10,6 @@ export type EmploymentStatus =
   | "NEW_HIRE_PENDING"
   | "ACTIVE"
   | "RESIGNED"
-  | "TERMINATED"
   | "ARCHIVED";
 export type ProfileStatus = "INCOMPLETE" | "PENDING_REVIEW" | "COMPLETE";
 export type BlockStatus = "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK";

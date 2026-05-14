@@ -92,7 +92,7 @@ Do not change approval logic.
 Do not change Prisma schema.
 Do not change frontend.
 Do not add Email/OTP.
-Do not reintroduce Termination.
+Do not add removed offboarding lifecycle types.
 Do not redesign unrelated pages.
 ```
 

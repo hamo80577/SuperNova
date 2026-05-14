@@ -219,13 +219,28 @@ function PasswordPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const user = profile.user;
+  const expiresAt = profile.password.temporaryPasswordExpiresAt
+    ? new Date(profile.password.temporaryPasswordExpiresAt).getTime()
+    : null;
+  const temporaryPasswordExpired =
+    expiresAt !== null && expiresAt <= Date.now();
   const canReveal =
     profile.password.mustChangePassword &&
     profile.password.temporaryPasswordAvailable &&
-    profile.permissions.canReadTemporaryPassword;
+    profile.permissions.canReadTemporaryPassword &&
+    !temporaryPasswordExpired;
   const canReset =
     profile.permissions.canResetPassword ||
     profile.permissions.canRegenerateTemporaryPassword;
+
+  useEffect(() => {
+    if (!canReveal) {
+      setTemporaryPassword("");
+    }
+    setTemporaryPasswordExpiresAt(
+      canReveal ? profile.password.temporaryPasswordExpiresAt : null
+    );
+  }, [canReveal, profile.password.temporaryPasswordExpiresAt]);
 
   function revealTemporaryPassword() {
     setError(null);
@@ -291,8 +306,10 @@ function PasswordPanel({
         <div>
           <h3 className="text-sm font-semibold text-slate-950">Password access</h3>
           <p className="mt-1 text-sm text-slate-500">
-            {profile.password.mustChangePassword
+            {canReveal
               ? "Temporary password can be revealed only while the user must change it."
+              : profile.password.mustChangePassword
+                ? "Temporary password is unavailable or expired. Reset to issue a new one."
               : "Reset creates a temporary password and requires change on next login."}
           </p>
           {temporaryPasswordExpiresAt ? (

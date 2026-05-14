@@ -72,7 +72,7 @@ Audit Logs
 Reports
 ```
 
-Termination is outside current active MVP scope unless explicitly reintroduced.
+Resignation is the only active offboarding lifecycle.
 
 ## New Hire / User Onboarding
 

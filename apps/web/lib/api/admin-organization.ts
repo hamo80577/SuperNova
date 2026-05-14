@@ -68,9 +68,8 @@ export interface AdminOrganizationBranchDetail {
 }
 
 export interface AdminAssignPickerResult {
-  mode: "NO_CHANGE" | "ASSIGNMENT_CREATED" | "TRANSFER_REQUEST_CREATED";
+  mode: "NO_CHANGE" | "TRANSFER_REQUEST_CREATED";
   message?: string;
-  assignment?: unknown;
   request?: RequestSummary;
 }
 

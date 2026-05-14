@@ -83,7 +83,7 @@ Notifications
 Audit Logs
 ```
 
-Termination is intentionally outside the active MVP scope unless the product owner explicitly reintroduces it.
+Resignation is the only active offboarding lifecycle unless the product owner explicitly expands scope.
 
 ## New Hire Direction
 
