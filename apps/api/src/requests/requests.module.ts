@@ -8,6 +8,7 @@ import { RequestApprovalRoutingService } from "./request-approval-routing.servic
 import { RequestsController } from "./requests.controller";
 import { RequestsService } from "./requests.service";
 import { NewHireCandidateService } from "./workflows/new-hire-candidate.service";
+import { NewHireRequestCreationService } from "./workflows/new-hire-request-creation.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
@@ -19,6 +20,7 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
     RequestApprovalRoutingService,
     RequestsService,
     NewHireCandidateService,
+    NewHireRequestCreationService,
     NewHireWorkflowService,
     OffboardingWorkflowService,
     TransferWorkflowService
