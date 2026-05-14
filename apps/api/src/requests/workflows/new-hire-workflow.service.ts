@@ -38,7 +38,6 @@ import {
   requestInclude,
   type RequestWithRelations
 } from "../request-includes";
-import { assertRequestPayloadSafe } from "../request-payload.utils";
 import { toRequestSummary } from "../request-response.utils";
 import {
   normalizeNewHireTargetRole,
@@ -47,6 +46,7 @@ import {
   type NewHireTargetRole
 } from "./new-hire-workflow.policy";
 import { NewHireCandidateService } from "./new-hire-candidate.service";
+import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
 import { parseNewHirePayload } from "./new-hire-payload";
 import {
   PASSWORD_HASH_ROUNDS,
@@ -55,7 +55,6 @@ import {
 import type {
   AreaManagerNewHireContext,
   BranchNewHireContext,
-  CandidateUser,
   FinalizedAssignment,
   NewHirePayload,
   NewHireUserProfileFields,
@@ -70,6 +69,8 @@ export class NewHireWorkflowService {
     private readonly prisma: PrismaService,
     @Inject(NewHireCandidateService)
     private readonly newHireCandidateService: NewHireCandidateService,
+    @Inject(NewHireRequestCreationService)
+    private readonly newHireRequestCreationService: NewHireRequestCreationService,
     @Inject(RequestApprovalRoutingService)
     private readonly requestApprovalRoutingService: RequestApprovalRoutingService,
     @Inject(TemporaryPasswordService)
@@ -110,7 +111,7 @@ export class NewHireWorkflowService {
       targetRole
     );
 
-    return this.createBranchNewHire(
+    return this.newHireRequestCreationService.createBranchNewHire(
       candidate,
       branchContext,
       rehireValidation,
@@ -470,201 +471,6 @@ export class NewHireWorkflowService {
         finalizableTargetRole
       )
     };
-  }
-
-  private async createBranchNewHire(
-    candidate: NormalizedNewHireCandidate,
-    branchContext: BranchNewHireContext,
-    rehireValidation: {
-      rehireUser: CandidateUser | null;
-      matchedBy: Array<"phoneNumber" | "nationalId">;
-    },
-    context: RequestContext
-  ) {
-    const mode = rehireValidation.rehireUser
-      ? "REHIRE"
-      : branchContext.targetRole === UserRole.PICKER
-        ? "NEW_PICKER"
-        : "NEW_CHAMP";
-    const payload: NewHirePayload = {
-      targetRole: branchContext.targetRole,
-      mode,
-      candidate,
-      source: {
-        vendorId: branchContext.sourceVendor.id,
-        chainId: branchContext.sourceVendor.chainId
-      },
-      ...(rehireValidation.rehireUser
-        ? {
-            rehire: {
-              userId: rehireValidation.rehireUser.id,
-              matchedBy: rehireValidation.matchedBy,
-              previousAccountStatus:
-                rehireValidation.rehireUser.accountStatus,
-              previousEmploymentStatus:
-                rehireValidation.rehireUser.employmentStatus,
-              previousBlockStatus: rehireValidation.rehireUser.blockStatus,
-              previousBlockedUntil:
-                rehireValidation.rehireUser.blockedUntil?.toISOString() ?? null,
-              previousProfileStatus: rehireValidation.rehireUser.profileStatus
-            }
-          }
-        : {})
-    };
-
-    assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
-
-    const createdAt = new Date();
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const request = await tx.request.create({
-        data: {
-          type: RequestType.NEW_HIRE,
-          status: branchContext.skipAreaManagerApproval
-            ? RequestStatus.PENDING_ADMIN
-            : RequestStatus.PENDING_AREA_MANAGER,
-          currentStep: branchContext.skipAreaManagerApproval
-            ? ApprovalStep.ADMIN_FINAL_APPROVAL
-            : ApprovalStep.AREA_MANAGER_APPROVAL,
-          createdById: context.actor.id,
-          targetUserId: rehireValidation.rehireUser?.id,
-          sourceVendorId: branchContext.sourceVendor.id,
-          sourceChainId: branchContext.sourceVendor.chainId,
-          payload: payload as Prisma.InputJsonValue
-        }
-      });
-
-      await tx.requestApproval.createMany({
-        data: [
-          {
-            requestId: request.id,
-            step: ApprovalStep.AREA_MANAGER_APPROVAL,
-            approverRole: UserRole.AREA_MANAGER,
-            approverId: branchContext.areaManagerStep.approverId,
-            status: branchContext.skipAreaManagerApproval
-              ? ApprovalStatus.SKIPPED
-              : ApprovalStatus.PENDING,
-            decisionAt: branchContext.skipAreaManagerApproval ? createdAt : null,
-            notes: branchContext.skipAreaManagerApproval
-              ? "Area Manager-created New Hire skips Area Manager approval."
-              : null
-          },
-          {
-            requestId: request.id,
-            step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-            approverRole: UserRole.ADMIN,
-            approverId: null,
-            status: ApprovalStatus.PENDING
-          }
-        ]
-      });
-
-      await tx.auditLog.createMany({
-        data: [
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_CREATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              type: request.type,
-              targetRole: branchContext.targetRole,
-              targetUserId: request.targetUserId,
-              sourceVendorId: request.sourceVendorId,
-              sourceChainId: request.sourceChainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_SUBMITTED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              status: request.status,
-              currentStep: request.currentStep,
-              targetRole: branchContext.targetRole
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_GENERATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              step: ApprovalStep.AREA_MANAGER_APPROVAL,
-              approverRole: UserRole.AREA_MANAGER,
-              approverId: branchContext.areaManagerStep.approverId,
-              status: branchContext.skipAreaManagerApproval
-                ? ApprovalStatus.SKIPPED
-                : ApprovalStatus.PENDING,
-              chainId: branchContext.sourceVendor.chainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_GENERATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-              approverRole: UserRole.ADMIN,
-              approverId: null,
-              status: ApprovalStatus.PENDING
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          }
-        ]
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: context.actor.id,
-          type: "REQUEST_SUBMITTED",
-          title: "New Hire request submitted",
-          body: `${this.formatTargetRole(branchContext.targetRole)} New Hire request for ${candidate.phoneNumber} was submitted.`,
-          payload: {
-            requestId: request.id,
-            targetRole: branchContext.targetRole
-          }
-        }
-      });
-
-      if (branchContext.skipAreaManagerApproval) {
-        await this.createAdminPendingNotifications(tx, {
-          requestId: request.id,
-          targetRole: branchContext.targetRole
-        });
-      } else if (branchContext.areaManagerStep.approverId) {
-        await tx.notification.create({
-          data: {
-            userId: branchContext.areaManagerStep.approverId,
-            type: "APPROVAL_PENDING",
-            title: "New Hire approval pending",
-            body: `${this.formatTargetRole(branchContext.targetRole)} New Hire request for ${branchContext.sourceVendor.vendorName} requires your approval.`,
-            payload: {
-              requestId: request.id,
-              step: ApprovalStep.AREA_MANAGER_APPROVAL,
-              targetRole: branchContext.targetRole
-            }
-          }
-        });
-      }
-
-      return tx.request.findUniqueOrThrow({
-        where: { id: request.id },
-        include: requestInclude
-      });
-    });
-
-    return toRequestSummary(updated);
   }
 
   private async createCompletedAreaManagerNewHire(
@@ -1199,40 +1005,6 @@ export class NewHireWorkflowService {
         }))
       });
     }
-  }
-
-  private async createAdminPendingNotifications(
-    tx: Prisma.TransactionClient,
-    params: {
-      requestId: string;
-      targetRole: NewHireTargetRole;
-    }
-  ) {
-    const admins = await tx.user.findMany({
-      where: {
-        role: { in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] },
-        accountStatus: AccountStatus.ACTIVE
-      },
-      select: { id: true }
-    });
-
-    if (!admins.length) {
-      return;
-    }
-
-    await tx.notification.createMany({
-      data: admins.map((admin) => ({
-        userId: admin.id,
-        type: "APPROVAL_PENDING",
-        title: "Admin finalization pending",
-        body: `${this.formatTargetRole(params.targetRole)} New Hire requires Admin finalization.`,
-        payload: {
-          requestId: params.requestId,
-          step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-          targetRole: params.targetRole
-        }
-      }))
-    });
   }
 
   private normalizeTargetRole(
