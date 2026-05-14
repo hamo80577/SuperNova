@@ -9,6 +9,7 @@ import { RequestsController } from "./requests.controller";
 import { RequestsService } from "./requests.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
+import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
 
 @Module({
   controllers: [RequestsController],
@@ -17,7 +18,8 @@ import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.ser
     RequestApprovalRoutingService,
     RequestsService,
     NewHireWorkflowService,
-    OffboardingWorkflowService
+    OffboardingWorkflowService,
+    TransferWorkflowService
   ],
   exports: [RequestsService]
 })
