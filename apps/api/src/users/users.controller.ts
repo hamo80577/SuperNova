@@ -22,6 +22,7 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
+import { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -50,6 +51,19 @@ export class UsersController {
     }
 
     return currentUser;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch("me/preferences")
+  updatePreferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateUserPreferencesDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.updatePreferences(user.id, dto, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
   }
 
   @UseGuards(JwtAuthGuard)

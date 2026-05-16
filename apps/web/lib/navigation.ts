@@ -5,11 +5,11 @@ type ReplaceTarget = Parameters<AppRouterInstance["replace"]>[0];
 type PushTarget = Parameters<AppRouterInstance["push"]>[0];
 
 export function replaceRoute(router: AppRouterInstance, href: string) {
-  showGlobalLoading("Loading page", { delayMs: 180 });
+  showGlobalLoading("Loading page", { delayMs: 40 });
   router.replace(href as ReplaceTarget);
 }
 
 export function pushRoute(router: AppRouterInstance, href: string) {
-  showGlobalLoading("Loading page", { delayMs: 180 });
+  showGlobalLoading("Loading page", { delayMs: 40 });
   router.push(href as PushTarget);
 }

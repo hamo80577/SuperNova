@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { type RequestSummary } from "@/lib/api/requests";
 import { NewHireRequestForm } from "./new-hire/new-hire-form";
 import { ResignationRequestForm } from "./resignation/resignation-form";
@@ -35,6 +36,7 @@ export function NewRequestSheet({
   }
 
   return (
+    <ModalPortal>
     <div
       aria-modal="true"
       className="fixed inset-0 z-[130] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
@@ -79,5 +81,6 @@ export function NewRequestSheet({
         )}
       </section>
     </div>
+    </ModalPortal>
   );
 }

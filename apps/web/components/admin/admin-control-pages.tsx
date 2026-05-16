@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import {
   adminApi,
   type AccountStatus,
@@ -628,11 +629,7 @@ function GenericStatusBadge({ status }: { status: string }) {
 }
 
 function LoadingState() {
-  return (
-    <div className="rounded-lg border bg-background p-5 text-sm text-muted-foreground">
-      Loading Admin controls
-    </div>
-  );
+  return <DetailPanelSkeleton label="Loading Admin controls" />;
 }
 
 function ErrorState({ message }: { message: string }) {

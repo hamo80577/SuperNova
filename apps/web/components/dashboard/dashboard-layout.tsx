@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from "react";
@@ -52,6 +53,7 @@ export function DashboardLayout({
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [notificationItems, setNotificationItems] = useState<NotificationItem[]>(
     []
   );
@@ -59,6 +61,7 @@ export function DashboardLayout({
     null
   );
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [activeNotificationAction, setActiveNotificationAction] = useState<
     string | null
@@ -184,8 +187,20 @@ export function DashboardLayout({
     }
   }, [loadNotificationPreview, user?.id]);
 
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+
+    setIsScrolled(false);
+  }, [pathname]);
+
+  const updateScrolled = useCallback(() => {
+    setIsScrolled((contentRef.current?.scrollTop ?? window.scrollY) > 8);
+  }, []);
+
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[#f6f6f4] text-foreground">
+    <main className="min-h-dvh overflow-hidden bg-white text-foreground">
       <div className="min-h-dvh lg:flex">
         <DashboardSidebar
           collapsed={isCollapsed}
@@ -203,14 +218,15 @@ export function DashboardLayout({
 
         <section
           className={cn(
-            "min-w-0 flex-1 transition-[margin] duration-200",
-            isCollapsed ? "lg:ml-[84px]" : "lg:ml-[286px]"
+            "min-w-0 flex-1 bg-white transition-[margin] duration-200",
+            isCollapsed ? "lg:ml-[76px]" : "lg:ml-[266px]"
           )}
         >
           <DashboardHeader
             activeNotificationAction={activeNotificationAction}
             description={description}
             isCollapsed={isCollapsed}
+            isScrolled={isScrolled}
             isNotificationsOpen={isNotificationsOpen}
             isUserMenuOpen={isUserMenuOpen}
             notificationError={notificationError}
@@ -241,8 +257,24 @@ export function DashboardLayout({
             user={user}
             userInitials={userInitials}
           />
-          <div className="px-4 pb-4 pt-[92px] sm:px-5 lg:px-6 lg:pb-6">
-            {children}
+          <div
+            className={cn(
+              "fixed bottom-0 left-0 right-0 top-0 overflow-hidden bg-background transition-[left,border-radius] duration-300 ease-out motion-reduce:transition-none",
+              isCollapsed ? "lg:left-[76px]" : "lg:left-[266px]",
+              isScrolled
+                ? "lg:rounded-tl-none"
+                : "lg:rounded-tl-[28px]"
+            )}
+          >
+            <div
+              className="h-full overflow-y-auto overscroll-contain"
+              onScroll={updateScrolled}
+              ref={contentRef}
+            >
+              <div className="px-4 pb-4 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-[108px]">
+                {children}
+              </div>
+            </div>
           </div>
         </section>
       </div>

@@ -47,6 +47,15 @@ enum Gender {
   UNSPECIFIED
 }
 
+enum UiTheme {
+  ORANGE
+  TEAL
+  BLUE
+  EMERALD
+  VIOLET
+  SLATE
+}
+
 enum AssignmentStatus {
   ACTIVE
   CLOSED
@@ -105,6 +114,7 @@ model User {
   address                     String?
   dateOfBirth                 DateTime?
   gender                      Gender                           @default(UNSPECIFIED)
+  uiTheme                     UiTheme                          @default(ORANGE)
   joiningDate                 DateTime?
   employmentStatus            EmploymentStatus                 @default(NEW_HIRE_PENDING)
   resignationDate             DateTime?

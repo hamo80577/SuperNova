@@ -21,6 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
+  DetailPanelSkeleton,
+  PageHeaderSkeleton
+} from "@/components/ui/skeleton";
+import {
   usersApi,
   type ProfileCompletionResponse
 } from "@/lib/api/users";
@@ -420,13 +424,12 @@ function ReviewItem({ label, value }: { label: string; value: ReactNode }) {
 
 function LoadingState({ label }: { label: string }) {
   return (
-    <div className="grid gap-3">
-      <div className="h-32 animate-pulse rounded-lg border bg-muted/40" />
-      <div className="grid gap-3 md:grid-cols-[280px_1fr]">
-        <div className="h-72 animate-pulse rounded-lg border bg-muted/40" />
-        <div className="h-72 animate-pulse rounded-lg border bg-muted/40" />
+    <div aria-busy="true" aria-label={label} className="grid gap-4" role="status">
+      <PageHeaderSkeleton />
+      <div className="grid gap-4 md:grid-cols-[280px_1fr]">
+        <DetailPanelSkeleton />
+        <DetailPanelSkeleton />
       </div>
-      <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }

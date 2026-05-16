@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ListCardSkeleton } from "@/components/ui/skeleton";
 import { approvalsApi } from "@/lib/api/approvals";
 import {
   notificationsApi,
@@ -602,14 +603,7 @@ function ErrorState({ message }: { message: string }) {
 
 function LoadingState() {
   return (
-    <div className="grid gap-3">
-      {[0, 1, 2].map((item) => (
-        <div
-          className="h-28 animate-pulse rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm"
-          key={item}
-        />
-      ))}
-    </div>
+    <ListCardSkeleton rows={4} />
   );
 }
 

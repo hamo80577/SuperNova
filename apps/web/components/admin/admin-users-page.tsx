@@ -4,7 +4,6 @@ import {
   Archive,
   Download,
   Filter,
-  Loader2,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -19,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { TableRowsSkeleton } from "@/components/ui/skeleton";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import { usersApi } from "@/lib/api/users";
 import type {
@@ -294,14 +294,7 @@ function UsersStateView({
   users: SafeUser[];
 }) {
   if (state.status === "loading") {
-    return (
-      <div className="grid min-h-56 place-items-center rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-        <div className="text-center">
-          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-orange-600" />
-          Loading users
-        </div>
-      </div>
-    );
+    return <TableRowsSkeleton label="Loading users" rows={6} />;
   }
 
   if (state.status === "error") {

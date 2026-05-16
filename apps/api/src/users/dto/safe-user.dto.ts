@@ -4,6 +4,7 @@ import type {
   EmploymentStatus,
   Gender,
   ProfileStatus,
+  UiTheme,
   User,
   UserRole
 } from "@prisma/client";
@@ -20,6 +21,7 @@ export interface SafeUserDto {
   address: string | null;
   dateOfBirth: Date | null;
   gender: Gender;
+  uiTheme: UiTheme;
   joiningDate: Date | null;
   employmentStatus: EmploymentStatus;
   resignationDate: Date | null;
@@ -46,6 +48,7 @@ export function toSafeUser(user: User): SafeUserDto {
     address: user.address,
     dateOfBirth: user.dateOfBirth,
     gender: user.gender,
+    uiTheme: user.uiTheme,
     joiningDate: user.joiningDate,
     employmentStatus: user.employmentStatus,
     resignationDate: user.resignationDate,

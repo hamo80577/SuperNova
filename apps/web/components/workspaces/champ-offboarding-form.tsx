@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { AlertCircle, ArrowLeft, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ResignationRequestForm } from "@/components/requests/request-components";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import {
   type ChampBranchDetail,
   workspacesApi
@@ -125,12 +126,7 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
 }
 
 function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-      <Loader2 className="h-4 w-4 animate-spin" />
-      {label}
-    </div>
-  );
+  return <DetailPanelSkeleton label={label} />;
 }
 
 function ErrorState({ message }: { message: string }) {

@@ -26,7 +26,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import type { SafeUser } from "@/lib/auth/types";
 import {
   usersApi,
@@ -78,6 +80,7 @@ export function OperationalUserProfileModal({
   }, [userId]);
 
   return (
+    <ModalPortal>
     <div
       aria-modal="true"
       className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-3"
@@ -86,7 +89,10 @@ export function OperationalUserProfileModal({
       <div className="flex max-h-[90dvh] w-full max-w-[760px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
         {state.status === "loading" ? (
           <ProfileShell title="Loading profile" onClose={onClose}>
-            <CenteredState icon={<Loader2 className="h-5 w-5 animate-spin" />} label="Loading profile" />
+            <DetailPanelSkeleton
+              className="border-0 shadow-none"
+              label="Loading profile"
+            />
           </ProfileShell>
         ) : state.status === "error" ? (
           <ProfileShell title="Profile unavailable" onClose={onClose}>
@@ -108,6 +114,7 @@ export function OperationalUserProfileModal({
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

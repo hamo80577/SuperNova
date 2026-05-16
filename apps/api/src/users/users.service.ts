@@ -24,6 +24,7 @@ import type { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import type { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { toSafeUser } from "./dto/safe-user.dto";
+import type { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
 import { TemporaryPasswordService } from "./temporary-password.service";
 
 const MAX_PAGE_SIZE = 100;
@@ -99,6 +100,51 @@ export class UsersService {
     }
 
     return toSafeUser(user);
+  }
+
+  async updatePreferences(
+    userId: string,
+    dto: UpdateUserPreferencesDto,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException("Current user was not found.");
+    }
+
+    if (user.uiTheme === dto.uiTheme) {
+      return {
+        user: toSafeUser(user)
+      };
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { uiTheme: dto.uiTheme }
+    });
+
+    await this.auditService.log({
+      actorUserId: user.id,
+      action: "USER_PREFERENCES_UPDATED",
+      entityType: "User",
+      entityId: user.id,
+      oldValue: {
+        uiTheme: user.uiTheme
+      },
+      newValue: {
+        uiTheme: updatedUser.uiTheme
+      },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent
+    });
+
+    return {
+      user: toSafeUser(updatedUser)
+    };
   }
 
   async getProfileCompletion(userId: string) {

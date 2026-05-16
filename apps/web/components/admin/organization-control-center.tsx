@@ -30,7 +30,9 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import {
   NewHireRequestForm,
@@ -693,8 +695,9 @@ function BranchDetailSheet({
   }, [branchId]);
 
   return (
+    <ModalPortal>
     <div
-      className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/35 p-2 sm:p-4"
+      className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/35 p-2 sm:p-4"
       role="dialog"
     >
       <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
@@ -942,6 +945,7 @@ function BranchDetailSheet({
         />
       ) : null}
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1625,7 +1629,8 @@ function ModalFrame({
   title: string;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 z-[140] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
       <div
         className={cn(
           "max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5",
@@ -1641,6 +1646,7 @@ function ModalFrame({
         {children}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 
@@ -1749,6 +1755,10 @@ function PanelState({
   label: string;
   spin?: boolean;
 }) {
+  if (spin) {
+    return <DetailPanelSkeleton label={label} />;
+  }
+
   return (
     <div className="grid min-h-64 place-items-center rounded-[22px] border border-slate-200 bg-white p-6 text-center">
       <div>

@@ -22,7 +22,7 @@ export function DashboardNav({
   return (
     <nav
       aria-label="Primary navigation"
-      className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+      className="sn-sidebar-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-4"
     >
       <div className="grid gap-5">
         {navSections.map(([section, items]) => (
@@ -62,12 +62,16 @@ function DashboardNavItem({
   const Icon = item.icon;
   const isActive = item.href ? isActiveHref(pathname, item.href) : false;
   const itemClassName = cn(
-    "flex min-h-11 items-center rounded-xl border text-sm font-medium transition-colors",
+    "flex min-h-11 items-center rounded-xl border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/20",
     collapsed ? "justify-center px-0" : "gap-3 px-3",
     isActive
-      ? "border-orange-200 bg-orange-50 text-orange-700 shadow-[inset_3px_0_0_hsl(var(--primary))]"
+      ? "border-slate-200 bg-slate-100 text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
       : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950",
     item.disabled && "cursor-not-allowed opacity-45 hover:border-transparent hover:bg-transparent hover:text-slate-600"
+  );
+  const iconClassName = cn(
+    "h-5 w-5 shrink-0",
+    isActive ? "text-primary" : "text-slate-500"
   );
 
   if (!item.href || item.disabled) {
@@ -77,7 +81,7 @@ function DashboardNavItem({
         className={itemClassName}
         title={collapsed ? item.label : undefined}
       >
-        <Icon className="h-5 w-5 shrink-0" />
+        <Icon className={iconClassName} />
         {!collapsed ? <span className="truncate">{item.label}</span> : null}
       </span>
     );
@@ -92,7 +96,7 @@ function DashboardNavItem({
       prefetch
       title={collapsed ? item.label : undefined}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className={iconClassName} />
       {!collapsed ? <span className="truncate">{item.label}</span> : null}
     </Link>
   );
