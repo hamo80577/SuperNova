@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
@@ -437,11 +438,7 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-      {label}
-    </div>
-  );
+  return <DetailPanelSkeleton label={label} />;
 }
 
 function EmptyState({ message }: { message: string }) {

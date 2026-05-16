@@ -9,7 +9,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 
-import { AppLoadingOverlay } from "@/components/ui/app-loading-overlay";
+import { RouteProgressBar } from "@/components/ui/route-progress-bar";
 import {
   getGlobalLoadingSnapshot,
   hideGlobalLoading,
@@ -18,18 +18,14 @@ import {
 } from "@/lib/navigation-loading";
 
 const FAILSAFE_TIMEOUT_MS = 12_000;
-const EXIT_TRANSITION_MS = 200;
-const MIN_VISIBLE_MS = 350;
+const MIN_VISIBLE_MS = 280;
 
 export function AppLoadingProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(getGlobalLoadingSnapshot);
-  const [overlayVisible, setOverlayVisible] = useState(false);
-  const [renderOverlay, setRenderOverlay] = useState(false);
+  const [progressActive, setProgressActive] = useState(false);
   const [shownAt, setShownAt] = useState(0);
-  const exitTimerRef = useRef<number | null>(null);
   const previousPathnameRef = useRef(pathname);
-  const showFrameRef = useRef<number | null>(null);
   const showTimerRef = useRef<number | null>(null);
 
   useEffect(
@@ -46,32 +42,14 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
       showTimerRef.current = null;
     }
 
-    if (showFrameRef.current) {
-      window.cancelAnimationFrame(showFrameRef.current);
-      showFrameRef.current = null;
-    }
-
-    if (exitTimerRef.current) {
-      window.clearTimeout(exitTimerRef.current);
-      exitTimerRef.current = null;
-    }
-
     if (!loading.active) {
-      setOverlayVisible(false);
-      exitTimerRef.current = window.setTimeout(() => {
-        setRenderOverlay(false);
-        exitTimerRef.current = null;
-      }, EXIT_TRANSITION_MS);
+      setProgressActive(false);
       return;
     }
 
     showTimerRef.current = window.setTimeout(() => {
-      setRenderOverlay(true);
       setShownAt(Date.now());
-      showFrameRef.current = window.requestAnimationFrame(() => {
-        setOverlayVisible(true);
-        showFrameRef.current = null;
-      });
+      setProgressActive(true);
       showTimerRef.current = null;
     }, loading.delayMs);
   }, [loading.active, loading.delayMs]);
@@ -106,12 +84,6 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
     () => () => {
       if (showTimerRef.current) {
         window.clearTimeout(showTimerRef.current);
-      }
-      if (showFrameRef.current) {
-        window.cancelAnimationFrame(showFrameRef.current);
-      }
-      if (exitTimerRef.current) {
-        window.clearTimeout(exitTimerRef.current);
       }
     },
     []
@@ -154,7 +126,7 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
         nextPath === currentPath && anchor.hash !== window.location.hash;
 
       if (nextPath !== currentPath && !hashOnlyChange) {
-        showGlobalLoading("Loading page", { delayMs: 180 });
+        showGlobalLoading("Loading page", { delayMs: 40 });
       }
     }
 
@@ -165,9 +137,7 @@ export function AppLoadingProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {renderOverlay ? (
-        <AppLoadingOverlay label={loading.label} visible={overlayVisible} />
-      ) : null}
+      <RouteProgressBar active={progressActive} />
     </>
   );
 }

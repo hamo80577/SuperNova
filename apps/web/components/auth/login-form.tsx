@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff, LockKeyhole, Phone } from "lucide-react";
+import { Eye, EyeOff, Loader2, LockKeyhole, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -70,7 +70,7 @@ export function LoginForm() {
           <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             autoComplete="tel"
-            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 text-base shadow-none transition-colors focus-visible:border-[#FF5A00] focus-visible:ring-2 focus-visible:ring-[#FF5A00]/20"
+            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             disabled={busy}
             id="phone"
             inputMode="tel"
@@ -91,7 +91,7 @@ export function LoginForm() {
           <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             autoComplete="current-password"
-            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 pr-12 text-base shadow-none transition-colors focus-visible:border-[#FF5A00] focus-visible:ring-2 focus-visible:ring-[#FF5A00]/20"
+            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 pr-12 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             disabled={busy}
             id="password"
             onChange={(event) => setPassword(event.target.value)}
@@ -101,7 +101,7 @@ export function LoginForm() {
           <button
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
-            className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-orange-50 hover:text-[#FF5A00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A00]/30"
+            className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             disabled={busy}
             onClick={() => setShowPassword((current) => !current)}
             type="button"
@@ -122,7 +122,7 @@ export function LoginForm() {
         >
           <input
             checked={rememberMe}
-            className="h-4 w-4 rounded border-slate-300 accent-[#FF5A00] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5A00]/30"
+            className="h-4 w-4 rounded border-slate-300 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             disabled={busy}
             id="remember-me"
             onChange={(event) => setRememberMe(event.target.checked)}
@@ -142,10 +142,11 @@ export function LoginForm() {
       ) : null}
 
       <Button
-        className="h-12 w-full rounded-xl bg-[#FF5A00] text-base font-semibold text-white shadow-none transition-colors hover:bg-[#E65100] focus-visible:ring-2 focus-visible:ring-[#FF5A00]/30"
+        className="h-12 w-full rounded-xl bg-primary text-base font-semibold text-primary-foreground shadow-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-primary/30"
         disabled={busy}
         type="submit"
       >
+        {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         {busy ? "Logging in" : "Log in"}
       </Button>
     </form>

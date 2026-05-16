@@ -20,6 +20,7 @@ export function DashboardHeader({
   description,
   isCollapsed,
   isNotificationsOpen,
+  isScrolled,
   isUserMenuOpen,
   notificationError,
   notificationGroups,
@@ -42,6 +43,7 @@ export function DashboardHeader({
   description: string;
   isCollapsed: boolean;
   isNotificationsOpen: boolean;
+  isScrolled: boolean;
   isUserMenuOpen: boolean;
   notificationError: string | null;
   notificationGroups: NotificationGroup[];
@@ -63,11 +65,21 @@ export function DashboardHeader({
   return (
     <header
       className={cn(
-        "fixed left-0 right-0 top-0 z-[70] h-[76px] border-b border-slate-200/80 bg-white/95 px-4 shadow-[0_1px_0_rgba(15,23,42,0.03)] backdrop-blur transition-[left] duration-200 sm:px-5 lg:px-6",
-        isCollapsed ? "lg:left-[84px]" : "lg:left-[286px]"
+        "fixed left-0 right-0 top-0 z-[70] overflow-visible border-b px-4 backdrop-blur-xl backdrop-saturate-150 transition-[height,left,background-color,box-shadow,border-color] duration-300 ease-out sm:px-5 lg:px-6 motion-reduce:transition-none",
+        isScrolled
+          ? "h-16 border-slate-200/70 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.07)]"
+          : "h-[84px] border-transparent bg-white/80 shadow-none",
+        isCollapsed ? "lg:left-[76px]" : "lg:left-[266px]"
       )}
     >
-      <div className="flex h-full items-center justify-between gap-3">
+      <div
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 -bottom-8 h-8 bg-gradient-to-b from-white/85 via-slate-100/45 to-transparent transition-opacity duration-300 ease-out",
+          isScrolled ? "opacity-100" : "opacity-70"
+        )}
+      />
+      <div className="relative z-10 flex h-full items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             aria-label="Open navigation"
@@ -81,11 +93,23 @@ export function DashboardHeader({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <PanelLeft className="hidden h-4 w-4 text-primary sm:block lg:hidden" />
-              <h1 className="truncate text-base font-semibold tracking-normal text-slate-950 sm:text-lg">
+              <h1
+                className={cn(
+                  "truncate font-semibold tracking-normal text-slate-800 transition-[font-size,line-height,opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none",
+                  isScrolled
+                    ? "translate-y-0 text-lg leading-6 opacity-95 sm:text-xl sm:leading-7"
+                    : "translate-y-[1px] text-[28px] leading-8 opacity-100 sm:text-[34px] sm:leading-10"
+                )}
+              >
                 {title}
               </h1>
             </div>
-            <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-500 sm:text-sm">
+            <p
+              className={cn(
+                "mt-0.5 line-clamp-2 max-h-10 text-xs leading-5 text-slate-500 transition-[opacity,max-height] duration-200 sm:text-sm",
+                isScrolled && "max-h-0 overflow-hidden opacity-0"
+              )}
+            >
               {description}
             </p>
           </div>

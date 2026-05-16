@@ -270,8 +270,8 @@ export function DatePicker({
                       "grid h-9 place-items-center rounded-xl text-sm transition",
                       inMonth ? "text-slate-800" : "text-slate-300",
                       selected
-                        ? "bg-orange-600 font-semibold text-white"
-                        : "hover:bg-orange-50 hover:text-orange-700"
+                        ? "bg-primary font-semibold text-primary-foreground"
+                        : "hover:bg-primary/10 hover:text-primary"
                     )}
                     key={day.key}
                     onClick={() => selectDate(day.date)}
@@ -296,7 +296,7 @@ export function DatePicker({
                 ) : null}
                 {quickActions.includes("today") ? (
                   <button
-                    className="h-8 rounded-xl border border-orange-200 bg-orange-50 px-3 text-xs font-medium text-orange-700 hover:bg-orange-100"
+                    className="h-8 rounded-xl border border-brand-soft bg-primary/10 px-3 text-xs font-medium text-primary hover:bg-primary/15"
                     onClick={() => runQuickAction("today")}
                     type="button"
                   >
@@ -326,7 +326,7 @@ export function DatePicker({
     <div className="relative min-w-0" ref={rootRef}>
       <button
         className={cn(
-          "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-input bg-white px-3 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-60",
+          "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-input bg-white px-3 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60",
           value ? "text-slate-950" : "text-slate-500",
           className
         )}

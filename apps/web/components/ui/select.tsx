@@ -163,7 +163,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           aria-haspopup="listbox"
           aria-label={props["aria-label"]}
           className={cn(
-            "flex h-11 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-orange-200 hover:bg-white focus-visible:border-orange-200 focus-visible:ring-2 focus-visible:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60",
+            "flex h-11 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-primary/30 hover:bg-white focus-visible:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60",
             className,
             triggerClassName
           )}
@@ -186,7 +186,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           type="button"
         >
           {leadingIcon ? (
-            <span className="grid h-5 w-5 shrink-0 place-items-center text-orange-500">
+            <span className="grid h-5 w-5 shrink-0 place-items-center text-primary">
               {leadingIcon}
             </span>
           ) : null}
@@ -216,8 +216,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 <button
                   aria-selected={selected}
                   className={cn(
-                    "flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none transition hover:bg-orange-50 hover:text-slate-950 focus-visible:bg-orange-50 focus-visible:ring-2 focus-visible:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-45",
-                    selected && "bg-orange-50 text-slate-950"
+                    "flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none transition hover:bg-primary/10 hover:text-slate-950 focus-visible:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-45",
+                    selected && "bg-primary/10 text-slate-950"
                   )}
                   disabled={option.disabled}
                   key={option.value}
@@ -227,7 +227,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 >
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
                   {selected ? (
-                    <Check className="h-4 w-4 shrink-0 text-orange-500" />
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
                   ) : null}
                 </button>
               );

@@ -58,6 +58,10 @@ export function groupNavItems(items: NavItem[]) {
 }
 
 export function isActiveHref(pathname: string, href: string) {
+  if (href === "/settings" && pathname === "/admin/settings") {
+    return true;
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -95,7 +99,7 @@ export function getNotificationTone(category: NotificationCategory): {
     },
     requests: {
       icon: FileText,
-      iconClassName: "bg-orange-50 text-primary"
+      iconClassName: "bg-primary/10 text-primary"
     },
     system: {
       icon: Bell,

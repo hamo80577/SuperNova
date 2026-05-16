@@ -19,7 +19,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
       description={copy.description}
       title={copy.title}
     >
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">

@@ -14,6 +14,13 @@ export type EmploymentStatus =
 export type ProfileStatus = "INCOMPLETE" | "PENDING_REVIEW" | "COMPLETE";
 export type BlockStatus = "NO_BLOCK" | "TEMPORARY_BLOCK" | "PERMANENT_BLOCK";
 export type Gender = "MALE" | "FEMALE" | "UNSPECIFIED";
+export type UiTheme =
+  | "ORANGE"
+  | "TEAL"
+  | "BLUE"
+  | "EMERALD"
+  | "VIOLET"
+  | "SLATE";
 
 export interface SafeUser {
   id: string;
@@ -27,6 +34,7 @@ export interface SafeUser {
   address: string | null;
   dateOfBirth: string | null;
   gender: Gender;
+  uiTheme: UiTheme;
   joiningDate: string | null;
   employmentStatus: EmploymentStatus;
   resignationDate: string | null;

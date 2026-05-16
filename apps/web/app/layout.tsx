@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { APP_NAME } from "@supernova/shared";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import { AppLoadingProvider } from "@/components/ui/app-loading-provider";
 
 import "./globals.css";
@@ -20,10 +21,18 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('supernova-ui-theme');if(['ORANGE','TEAL','BLUE','EMERALD','VIOLET','SLATE'].indexOf(t)>-1){document.documentElement.dataset.theme=t;}}catch(e){}"
+          }}
+        />
         <AppLoadingProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ThemeProvider>{children}</ThemeProvider>
+          </AuthProvider>
         </AppLoadingProvider>
       </body>
     </html>

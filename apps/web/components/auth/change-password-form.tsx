@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -125,6 +125,7 @@ function ChangePasswordFormInner() {
       ) : null}
 
       <Button className="w-full" disabled={submitting} type="submit">
+        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         {submitting ? "Changing password" : "Change password"}
       </Button>
     </form>

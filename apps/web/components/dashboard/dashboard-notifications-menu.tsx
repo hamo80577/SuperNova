@@ -52,7 +52,7 @@ export function DashboardNotificationsMenu({
           </p>
         </div>
         <Badge
-          className="border-orange-200 bg-orange-50 text-orange-700"
+          className="border-brand-soft bg-primary/10 text-primary"
           variant="outline"
         >
           Unread first
@@ -128,7 +128,7 @@ function NotificationPreviewCard({
       className={cn(
         "flex items-start gap-2 rounded-xl border bg-white p-2.5 transition-colors",
         group.unreadCount
-          ? "border-orange-200 bg-orange-50/35"
+          ? "border-brand-soft bg-primary/5"
           : "border-slate-100"
       )}
     >

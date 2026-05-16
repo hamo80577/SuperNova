@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NewHireRequestForm } from "@/components/requests/request-components";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import {
   type ChampBranchDetail,
   workspacesApi
@@ -175,11 +176,7 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-      {label}
-    </div>
-  );
+  return <DetailPanelSkeleton label={label} />;
 }
 
 function formatEnum(value: string) {

@@ -25,7 +25,12 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import {
+  DetailPanelSkeleton,
+  StatsCardSkeleton
+} from "@/components/ui/skeleton";
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
@@ -454,10 +459,10 @@ export function AdminWorkspaceDashboard() {
             label="View audit logs"
           />
           <AdminControlLink
-            description="Read-only Phase 10 placeholders for future system settings."
-            href="/admin/settings"
+            description="Choose the workspace appearance theme for your account."
+            href="/settings"
             icon={Settings}
-            label="Open settings placeholders"
+            label="Open settings"
           />
         </InfoCard>
 
@@ -547,8 +552,19 @@ function useWorkspaceData<T>(loader: () => Promise<T>) {
 function WorkspaceState<T>({ state }: { state: AsyncState<T> }) {
   if (state.status === "loading") {
     return (
-      <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-        Loading workspace
+      <div
+        aria-busy="true"
+        aria-label="Loading workspace"
+        className="grid gap-4"
+        role="status"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+          <StatsCardSkeleton />
+        </div>
+        <DetailPanelSkeleton />
       </div>
     );
   }
@@ -808,7 +824,8 @@ function AreaManagerTransferModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
+    <ModalPortal>
+    <div className="fixed inset-0 z-[140] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
       <div className="max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:max-w-lg sm:rounded-[28px] sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
@@ -908,6 +925,7 @@ function AreaManagerTransferModal({
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

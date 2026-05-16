@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { approvalsApi, type PendingApproval } from "@/lib/api/approvals";
 import { type OffboardingBlockDecision } from "@/lib/api/requests";
 import { ApprovalQueueCard } from "./approvals-center";
@@ -132,9 +133,10 @@ export function LegacyApprovalsCenter() {
         <EmptyState message="No pending approvals are assigned to you." />
       )}
       {decision ? (
+        <ModalPortal>
         <div
           aria-modal="true"
-          className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+          className="fixed inset-0 z-[140] grid place-items-center bg-black/40 p-4"
           role="dialog"
         >
           <section className="w-full max-w-lg rounded-lg border bg-card p-5 shadow-xl">
@@ -197,6 +199,7 @@ export function LegacyApprovalsCenter() {
             </div>
           </section>
         </div>
+        </ModalPortal>
       ) : null}
     </div>
   );

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
@@ -59,6 +60,7 @@ export function RequestDetailModal({
   );
 
   return (
+    <ModalPortal>
     <div
       aria-modal="true"
       className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
@@ -155,5 +157,6 @@ export function RequestDetailModal({
         </div>
       </section>
     </div>
+    </ModalPortal>
   );
 }

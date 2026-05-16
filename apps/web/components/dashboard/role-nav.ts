@@ -51,6 +51,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       href: "/picker/profile-completion",
       icon: ShieldCheck,
       section: "Profile"
+    },
+    {
+      label: "Settings",
+      href: "/settings",
+      icon: Settings,
+      section: "Settings"
     }
   ],
   CHAMP: [
@@ -84,6 +90,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       href: "/notifications",
       icon: Bell,
       section: "Workspace"
+    },
+    {
+      label: "Settings",
+      href: "/settings",
+      icon: Settings,
+      section: "Settings"
     }
   ],
   AREA_MANAGER: [
@@ -123,6 +135,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       href: "/area-manager/reports",
       icon: BarChart3,
       section: "Reports"
+    },
+    {
+      label: "Settings",
+      href: "/settings",
+      icon: Settings,
+      section: "Settings"
     }
   ],
   ADMIN: [
@@ -176,7 +194,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     },
     {
       label: "Settings",
-      href: "/admin/settings",
+      href: "/settings",
       icon: Settings,
       section: "Settings"
     }
@@ -232,7 +250,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     },
     {
       label: "Settings",
-      href: "/admin/settings",
+      href: "/settings",
       icon: Settings,
       section: "Settings"
     }

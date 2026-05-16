@@ -20,8 +20,8 @@ export function DashboardSidebar({
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-[80] hidden shrink-0 border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex lg:flex-col",
-        collapsed ? "w-[84px]" : "w-[286px]"
+        "fixed inset-y-0 left-0 z-[80] hidden shrink-0 bg-white transition-[width] duration-200 lg:flex lg:flex-col",
+        collapsed ? "w-[76px]" : "w-[266px]"
       )}
     >
       <SidebarHeader collapsed={collapsed} />
@@ -30,27 +30,19 @@ export function DashboardSidebar({
         navSections={navSections}
         pathname={pathname}
       />
-      <div className="border-t border-slate-100 p-3">
-        <Button
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={cn(
-            "h-11 w-full justify-center rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50",
-            !collapsed && "justify-start"
-          )}
-          onClick={onToggleCollapsed}
-          type="button"
-          variant="outline"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Collapse
-            </>
-          )}
-        </Button>
-      </div>
+      <Button
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="absolute -right-5 bottom-7 z-10 h-10 w-10 rounded-full border-slate-200 bg-white p-0 text-slate-600 shadow-[0_12px_30px_rgba(15,23,42,0.14)] transition hover:border-primary/30 hover:bg-white hover:text-primary focus-visible:ring-primary/30"
+        onClick={onToggleCollapsed}
+        type="button"
+        variant="outline"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-4 w-4" />
+        ) : (
+          <ChevronLeft className="h-4 w-4" />
+        )}
+      </Button>
     </aside>
   );
 }
@@ -113,11 +105,11 @@ function SidebarHeader({
     <div
       className={cn(
         "flex items-center gap-3",
-        compact ? "p-0" : "border-b border-slate-100 p-4",
+        compact ? "p-0" : "p-4",
         collapsed && !compact && "justify-center px-3"
       )}
     >
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-[0_10px_24px_rgba(255,90,0,0.18)]">
+      <div className="shadow-brand-soft grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground">
         SN
       </div>
       {!collapsed ? (

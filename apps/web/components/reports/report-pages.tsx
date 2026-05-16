@@ -17,6 +17,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  DetailPanelSkeleton,
+  StatsCardSkeleton
+} from "@/components/ui/skeleton";
+import {
   reportsApi,
   type AdminReportsOverview,
   type AreaManagerReportsOverview,
@@ -340,8 +344,18 @@ function StateView<T>({
 }) {
   if (state.status === "loading") {
     return (
-      <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-        Loading operational counts
+      <div
+        aria-busy="true"
+        aria-label="Loading operational counts"
+        className="grid gap-4 lg:grid-cols-4"
+        role="status"
+      >
+        <StatsCardSkeleton />
+        <StatsCardSkeleton />
+        <StatsCardSkeleton />
+        <StatsCardSkeleton />
+        <DetailPanelSkeleton className="lg:col-span-2" />
+        <DetailPanelSkeleton className="lg:col-span-2" />
       </div>
     );
   }

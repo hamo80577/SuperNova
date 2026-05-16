@@ -39,7 +39,7 @@ export function DashboardUserMenu({
             {user?.phoneNumber ?? "No phone number"}
           </p>
           <Badge
-            className="mt-2 border-orange-200 bg-orange-50 text-orange-700"
+            className="mt-2 border-brand-soft bg-primary/10 text-primary"
             variant="outline"
           >
             {user ? getRoleLabel(user.role) : "Admin"}
@@ -50,7 +50,7 @@ export function DashboardUserMenu({
       <div className="my-3 h-px bg-slate-100" />
 
       <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white p-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-50 text-primary">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           <CircleHelp className="h-4 w-4" />
         </div>
         <div className="min-w-0">

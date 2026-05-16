@@ -3,6 +3,10 @@
 import { Inbox } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import {
+  BranchCardSkeleton,
+  DetailPanelSkeleton
+} from "@/components/ui/skeleton";
 import type { AsyncState } from "./champ-branch-types";
 
 export function useAsyncData<T>(loader: () => Promise<T>, reloadVersion = 0) {
@@ -69,17 +73,20 @@ export function LoadingCard({
 }) {
   if (quiet) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-500">
-        {label}
+      <div
+        aria-busy="true"
+        aria-label={label}
+        className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        role="status"
+      >
+        <BranchCardSkeleton />
+        <BranchCardSkeleton />
+        <BranchCardSkeleton />
       </div>
     );
   }
 
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-      {label}
-    </div>
-  );
+  return <DetailPanelSkeleton label={label} />;
 }
 
 export function EmptyState({

@@ -1,4 +1,4 @@
-import type { SafeUser, UserRole } from "@/lib/auth/types";
+import type { SafeUser, UiTheme, UserRole } from "@/lib/auth/types";
 import { apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 import type { AssignmentStatus, ChainSummary, VendorSummary } from "./workspaces";
@@ -37,6 +37,10 @@ export interface UpdateProfileCompletionInput {
   dateOfBirth?: string;
   gender?: SafeUser["gender"];
   joiningDate?: string;
+}
+
+export interface UpdateUserPreferencesInput {
+  uiTheme: UiTheme;
 }
 
 export interface OperationalProfileAssignment {
@@ -173,6 +177,17 @@ export const usersApi = {
   },
   profileCompletion() {
     return apiRequest<ProfileCompletionResponse>("/users/me/profile-completion");
+  },
+  async updatePreferences(input: UpdateUserPreferencesInput) {
+    const response = await apiRequest<{ user: SafeUser }>(
+      "/users/me/preferences",
+      {
+        method: "PATCH",
+        body: JSON.stringify(input)
+      }
+    );
+    clearApiCache();
+    return response;
   },
   async updateProfileCompletion(input: UpdateProfileCompletionInput) {
     const response = await apiRequest<ProfileCompletionResponse>(

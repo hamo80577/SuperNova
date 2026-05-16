@@ -1,11 +1,9 @@
 import { AlertCircle, Inbox } from "lucide-react";
 
+import { TableRowsSkeleton } from "@/components/ui/skeleton";
+
 export function LoadingRows({ label }: { label: string }) {
-  return (
-    <div className="rounded-md border bg-card p-5 text-sm text-muted-foreground">
-      {label}
-    </div>
-  );
+  return <TableRowsSkeleton label={label} rows={4} />;
 }
 
 export function EmptyState({
