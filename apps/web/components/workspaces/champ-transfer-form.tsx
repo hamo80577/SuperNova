@@ -11,6 +11,7 @@ import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
@@ -255,7 +256,8 @@ export function ChampTransferForm() {
                 </div>
               ) : (
                 <Field error={errors.targetUserId?.message} label="Active Picker">
-                  <select
+                  <Select
+                    aria-label="Active Picker"
                     className="h-11 rounded-md border border-input bg-background px-3 text-sm"
                     {...register("targetUserId")}
                   >
@@ -265,14 +267,15 @@ export function ChampTransferForm() {
                         {picker.nameEn} · {picker.phoneNumber}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
               )}
               <Field
                 error={errors.destinationVendorId?.message}
                 label="Destination Branch"
               >
-                <select
+                <Select
+                  aria-label="Destination Branch"
                   className="h-11 rounded-md border border-input bg-background px-3 text-sm"
                   {...register("destinationVendorId")}
                 >
@@ -282,7 +285,7 @@ export function ChampTransferForm() {
                       {vendor.vendorName} · {vendor.chain.chainName}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
               <div className="grid gap-4 md:grid-cols-2">
                 <Field error={errors.reason?.message} label="Reason">

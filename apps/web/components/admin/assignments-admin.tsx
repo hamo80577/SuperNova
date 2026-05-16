@@ -20,6 +20,7 @@ import {
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   type AssignmentStatus,
   assignmentsApi,
@@ -441,7 +442,8 @@ export function AssignmentsAdmin() {
             placeholder="Search assignment users, vendors, or chains"
             value={query}
           />
-          <select
+          <Select
+            aria-label="Assignment status filter"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => {
               setPage(1);
@@ -452,7 +454,7 @@ export function AssignmentsAdmin() {
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
             <option value="CLOSED">Closed</option>
-          </select>
+          </Select>
         </div>
 
         {loading ? (
@@ -590,13 +592,13 @@ function SelectField({
   label: string;
 }) {
   return (
-    <select
+    <Select
       aria-label={label}
       className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
       {...props}
     >
       {children}
-    </select>
+    </Select>
   );
 }
 

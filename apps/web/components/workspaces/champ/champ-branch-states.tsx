@@ -42,13 +42,15 @@ export function useAsyncData<T>(loader: () => Promise<T>, reloadVersion = 0) {
 
 export function WorkspaceState<T>({
   label,
+  quiet = false,
   state
 }: {
   label: string;
+  quiet?: boolean;
   state: AsyncState<T>;
 }) {
   if (state.status === "loading") {
-    return <LoadingCard label={label} />;
+    return <LoadingCard label={label} quiet={quiet} />;
   }
 
   return (
@@ -58,7 +60,21 @@ export function WorkspaceState<T>({
   );
 }
 
-export function LoadingCard({ label }: { label: string }) {
+export function LoadingCard({
+  label,
+  quiet = false
+}: {
+  label: string;
+  quiet?: boolean;
+}) {
+  if (quiet) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-500">
+        {label}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
       {label}
@@ -66,7 +82,24 @@ export function LoadingCard({ label }: { label: string }) {
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({
+  compact = false,
+  message
+}: {
+  compact?: boolean;
+  message: string;
+}) {
+  if (compact) {
+    return (
+      <div className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-white/90 p-5 text-center">
+        <span className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-orange-50 text-orange-600">
+          <Inbox className="h-5 w-5" />
+        </span>
+        <p className="max-w-sm text-sm leading-6 text-slate-500">{message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid place-items-center rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       <Inbox className="mb-3 h-8 w-8 text-slate-400" />

@@ -2,6 +2,7 @@ import { Filter } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { RequestType } from "@/lib/api/requests";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,8 @@ export function RequestFilters({
           placeholder="Search picker, branch, chain, creator"
           value={query}
         />
-        <select
+        <Select
+          aria-label="Request type"
           className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
           onChange={(event) => onTypeChange(event.target.value as RequestType | "")}
           value={type}
@@ -72,7 +74,7 @@ export function RequestFilters({
               {formatEnum(value)}
             </option>
           ))}
-        </select>
+        </Select>
         <Button
           className="h-11 rounded-xl"
           onClick={onApply}

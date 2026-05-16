@@ -15,6 +15,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   adminApi,
   type AccountStatus,
@@ -574,7 +575,7 @@ function SelectFilter({
   value: string;
 }) {
   return (
-    <select
+    <Select
       aria-label={label}
       className="h-11 rounded-md border border-input bg-background px-3 text-sm"
       onChange={(event) => onChange(event.target.value)}
@@ -585,7 +586,7 @@ function SelectFilter({
           {option ? formatEnum(option) : `All ${label}`}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 

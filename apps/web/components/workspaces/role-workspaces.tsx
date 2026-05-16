@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
@@ -859,7 +860,8 @@ function AreaManagerTransferModal({
             </div>
             <label className="grid gap-1 text-sm font-medium">
               Destination Branch
-              <select
+              <Select
+                aria-label="Destination Branch"
                 className="h-11 rounded-md border border-input bg-background px-3 text-sm"
                 disabled={isLoading}
                 onChange={(event) => setDestinationVendorId(event.target.value)}
@@ -876,7 +878,7 @@ function AreaManagerTransferModal({
                       {vendor.vendorName} · {vendor.chain.chainName}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             <label className="grid gap-1 text-sm font-medium">
               Reason

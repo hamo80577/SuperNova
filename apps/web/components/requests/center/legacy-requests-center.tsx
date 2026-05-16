@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { requestsApi, type CreateRequestPayload, type RequestStatus, type RequestSummary, type RequestType } from "@/lib/api/requests";
 import { pushRoute } from "@/lib/navigation";
 import { internalRequestEngineTypes, requestStatuses, requestTypes } from "../shared/request-constants";
@@ -126,7 +127,8 @@ export function LegacyRequestsCenter() {
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">
-              <select
+              <Select
+                aria-label="Type"
                 className="h-11 rounded-md border border-input bg-background px-3 text-sm"
                 onChange={(event) =>
                   setForm((current) => ({
@@ -141,7 +143,7 @@ export function LegacyRequestsCenter() {
                     {formatEnum(value)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Source Chain ID">
               <Input
@@ -225,7 +227,8 @@ export function LegacyRequestsCenter() {
             placeholder="Search request context"
             value={query}
           />
-          <select
+          <Select
+            aria-label="Request status"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => setStatus(event.target.value as RequestStatus | "")}
             value={status}
@@ -236,8 +239,9 @@ export function LegacyRequestsCenter() {
                 {formatEnum(value)}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
+            aria-label="Request type"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => setType(event.target.value as RequestType | "")}
             value={type}
@@ -248,7 +252,7 @@ export function LegacyRequestsCenter() {
                 {formatEnum(value)}
               </option>
             ))}
-          </select>
+          </Select>
           <Button onClick={() => void loadRequests()} type="button" variant="outline">
             Search
           </Button>

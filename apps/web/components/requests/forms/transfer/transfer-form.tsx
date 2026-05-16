@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { assignmentsApi, type PickerBranchAssignment } from "@/lib/api/assignments";
 import { organizationApi, type Chain, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
@@ -220,7 +221,8 @@ export function LifecyclePickerRequestForm({
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Source Chain">
-            <select
+            <Select
+              aria-label="Source Chain"
               className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={loading}
               onChange={(event) => selectSourceChain(event.target.value)}
@@ -232,7 +234,7 @@ export function LifecyclePickerRequestForm({
                   {chain.chainName}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Branch search">
             <Input
@@ -315,7 +317,8 @@ export function LifecyclePickerRequestForm({
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Destination Chain">
-            <select
+            <Select
+              aria-label="Destination Chain"
               className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={loading}
               onChange={(event) => selectDestinationChain(event.target.value)}
@@ -329,7 +332,7 @@ export function LifecyclePickerRequestForm({
                   {chain.chainName}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Destination Branch search">
             <Input

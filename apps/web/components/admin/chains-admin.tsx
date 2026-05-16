@@ -19,6 +19,7 @@ import {
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   type Chain,
   type ChainStatus,
@@ -161,13 +162,14 @@ export function ChainsAdmin() {
               }}
             />
           </FieldError>
-          <select
+          <Select
+            aria-label="Status"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             {...form.register("status")}
           >
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
-          </select>
+          </Select>
           <div className="flex gap-2">
             <Button disabled={isPending} type="submit">
               {editing ? "Update" : "Create"}
@@ -191,7 +193,8 @@ export function ChainsAdmin() {
             placeholder="Search chain name or code"
             value={query}
           />
-          <select
+          <Select
+            aria-label="Status filter"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => {
               setPage(1);
@@ -202,7 +205,7 @@ export function ChainsAdmin() {
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
-          </select>
+          </Select>
         </div>
         {loading ? (
           <LoadingRows label="Loading chains" />

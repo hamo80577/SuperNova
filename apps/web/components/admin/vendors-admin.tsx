@@ -19,6 +19,7 @@ import {
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   type Chain,
   organizationApi,
@@ -215,7 +216,8 @@ export function VendorsAdmin() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <FieldError error={form.formState.errors.chainId?.message}>
-              <select
+              <Select
+                aria-label="Chain"
                 className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                 {...form.register("chainId")}
               >
@@ -225,15 +227,16 @@ export function VendorsAdmin() {
                     {chain.chainName} ({chain.chainCode})
                   </option>
                 ))}
-              </select>
+              </Select>
             </FieldError>
-            <select
+            <Select
+              aria-label="Status"
               className="h-11 rounded-md border border-input bg-background px-3 text-sm"
               {...form.register("status")}
             >
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
-            </select>
+            </Select>
             <Input placeholder="City" {...form.register("city")} />
           </div>
           <div className="grid gap-3 md:grid-cols-3">
@@ -267,7 +270,8 @@ export function VendorsAdmin() {
             placeholder="Search vendor, code, external ID, area, or city"
             value={query}
           />
-          <select
+          <Select
+            aria-label="Status filter"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => {
               setPage(1);
@@ -278,8 +282,9 @@ export function VendorsAdmin() {
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
-          </select>
-          <select
+          </Select>
+          <Select
+            aria-label="Chain filter"
             className="h-11 rounded-md border border-input bg-background px-3 text-sm"
             onChange={(event) => {
               setPage(1);
@@ -293,7 +298,7 @@ export function VendorsAdmin() {
                 {chain.chainName}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         {loading ? (
           <LoadingRows label="Loading vendors" />

@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { SafeUser } from "@/lib/auth/types";
 import {
   usersApi,
@@ -507,7 +508,8 @@ function AdminEditPanel({
         <EditField label="Joining date" type="date" value={form.joiningDate ?? ""} onChange={(value) => updateField("joiningDate", value)} />
         <label className="grid gap-1.5 text-sm font-medium text-slate-700">
           Gender
-          <select
+          <Select
+            aria-label="Gender"
             className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
             onChange={(event) => updateField("gender", event.target.value as SafeUser["gender"])}
             value={form.gender ?? "UNSPECIFIED"}
@@ -515,7 +517,7 @@ function AdminEditPanel({
             <option value="UNSPECIFIED">Unspecified</option>
             <option value="MALE">Male</option>
             <option value="FEMALE">Female</option>
-          </select>
+          </Select>
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-slate-700 sm:col-span-2">
           Address

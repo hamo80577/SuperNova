@@ -19,6 +19,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   usersApi,
   type ProfileCompletionResponse
@@ -249,14 +250,15 @@ export function PickerProfileCompletion() {
                   <Input placeholder="Optional Arabic name" {...register("nameAr")} />
                 </Field>
                 <Field error={errors.gender?.message} label="Gender">
-                  <select
+                  <Select
+                    aria-label="Gender"
                     className="h-11 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
                     {...register("gender")}
                   >
                     <option value="UNSPECIFIED">Unspecified</option>
                     <option value="MALE">Male</option>
                     <option value="FEMALE">Female</option>
-                  </select>
+                  </Select>
                 </Field>
               </div>
             </StepSection>

@@ -1,25 +1,46 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ListFilter, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { workspacesApi } from "@/lib/api/workspaces";
+import { Select } from "@/components/ui/select";
+import { type ChampBranch, workspacesApi } from "@/lib/api/workspaces";
 import { replaceRoute } from "@/lib/navigation";
 import { BranchCard } from "./champ-branch-card";
 import {
   EmptyState,
-  LoadingCard,
   useAsyncData,
   WorkspaceState
 } from "./champ-branch-states";
+
+type BranchSort =
+  | "DEFAULT"
+  | "BRANCH_NAME"
+  | "MOST_PICKERS"
+  | "MOST_PENDING"
+  | "CHAIN_NAME";
+
+const sortLabels: Record<BranchSort, string> = {
+  DEFAULT: "Default",
+  BRANCH_NAME: "Branch name A-Z",
+  MOST_PICKERS: "Most Pickers",
+  MOST_PENDING: "Most Pending Requests",
+  CHAIN_NAME: "Chain name A-Z"
+};
+
+const textCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base"
+});
+const emptyBranches: ChampBranch[] = [];
 
 export function ChampBranchesIndex() {
   const router = useRouter();
   const state = useAsyncData(workspacesApi.champBranches);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<BranchSort>("DEFAULT");
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
   useEffect(() => {
@@ -28,56 +49,67 @@ export function ChampBranchesIndex() {
     }
   }, [router, state]);
 
+  const sourceBranches =
+    state.status === "ready" ? state.data.branches : emptyBranches;
+  const branches = useMemo(
+    () =>
+      sortBranches(
+        sourceBranches.filter((branch) => {
+          if (!deferredQuery) {
+            return true;
+          }
+
+          return [
+            branch.vendor.vendorName,
+            branch.vendor.vendorCode,
+            branch.chain.chainName,
+            branch.vendor.area,
+            branch.vendor.city
+          ]
+            .filter(Boolean)
+            .some((value) => value?.toLowerCase().includes(deferredQuery));
+        }),
+        sort
+      ),
+    [deferredQuery, sort, sourceBranches]
+  );
+
   if (state.status !== "ready") {
-    return <WorkspaceState state={state} label="Loading assigned Branches" />;
+    return <WorkspaceState quiet state={state} label="Loading assigned Branches" />;
   }
 
   if (state.data.branches.length === 1) {
-    return <LoadingCard label="Opening your Branch" />;
+    return null;
   }
-
-  const branches = state.data.branches.filter((branch) => {
-    if (!deferredQuery) {
-      return true;
-    }
-
-    return [
-      branch.vendor.vendorName,
-      branch.vendor.vendorCode,
-      branch.chain.chainName,
-      branch.vendor.area,
-      branch.vendor.city
-    ]
-      .filter(Boolean)
-      .some((value) => value?.toLowerCase().includes(deferredQuery));
-  });
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <Badge
-              className="border-orange-200 bg-orange-50 text-orange-700"
-              variant="outline"
-            >
-              Champ workspace
-            </Badge>
-            <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
-              My Branches
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Choose a Branch workspace to manage Pickers and request actions.
-            </p>
-          </div>
-          <label className="relative w-full md:w-80">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+      <section className="flex justify-center md:justify-end">
+        <div className="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:items-center md:justify-end md:gap-3">
+          <label className="relative min-w-0 md:flex-1">
+            <span className="sr-only">Search branches</span>
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-orange-500" />
             <Input
-              className="h-11 rounded-xl pl-9"
+              className="h-11 rounded-xl border-slate-200 bg-white/80 pl-9 shadow-sm placeholder:text-slate-400 focus-visible:border-orange-200 focus-visible:ring-orange-100"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search Branches"
+              placeholder="Search branches"
               value={query}
             />
+          </label>
+          <label className="relative min-w-0 md:w-64">
+            <span className="sr-only">Sort branches</span>
+            <Select
+              aria-label="Sort branches"
+              leadingIcon={<ListFilter className="h-4 w-4" />}
+              onChange={(event) => setSort(event.target.value as BranchSort)}
+              value={sort}
+            >
+              {(Object.keys(sortLabels) as BranchSort[]).map((option) => (
+                <option key={option} value={option}>
+                  {sortLabels[option]}
+                </option>
+              ))}
+            </Select>
           </label>
         </div>
       </section>
@@ -89,8 +121,38 @@ export function ChampBranchesIndex() {
           ))}
         </section>
       ) : (
-        <EmptyState message="No assigned Branches match the current search." />
+        <EmptyState compact message="No branches match this search. Try a branch name, code, chain, area, or city." />
       )}
     </div>
   );
+}
+
+function sortBranches(branches: ChampBranch[], sort: BranchSort) {
+  const sorted = [...branches];
+
+  if (sort === "BRANCH_NAME") {
+    return sorted.sort((first, second) =>
+      textCollator.compare(first.vendor.vendorName, second.vendor.vendorName)
+    );
+  }
+
+  if (sort === "MOST_PICKERS") {
+    return sorted.sort(
+      (first, second) => second.activePickerCount - first.activePickerCount
+    );
+  }
+
+  if (sort === "MOST_PENDING") {
+    return sorted.sort(
+      (first, second) => second.pendingRequestCount - first.pendingRequestCount
+    );
+  }
+
+  if (sort === "CHAIN_NAME") {
+    return sorted.sort((first, second) =>
+      textCollator.compare(first.chain.chainName, second.chain.chainName)
+    );
+  }
+
+  return sorted;
 }

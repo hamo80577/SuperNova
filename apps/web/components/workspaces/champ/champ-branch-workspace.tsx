@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 
 import { RequestDetailModal } from "@/components/requests/request-components";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import { type ScopedPicker, workspacesApi } from "@/lib/api/workspaces";
 import { pushRoute } from "@/lib/navigation";
@@ -68,7 +69,8 @@ export function ChampBranchWorkspace() {
             {allBranches.length > 1 ? (
               <label className="grid gap-1 text-xs font-medium text-slate-500">
                 Switch Branch
-                <select
+                <Select
+                  aria-label="Switch Branch"
                   className="h-11 min-w-56 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800"
                   onChange={(event) =>
                     pushRoute(router, `/champ/branches/${event.target.value}`)
@@ -80,7 +82,7 @@ export function ChampBranchWorkspace() {
                       {item.vendor.vendorName}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             ) : null}
             <div className="relative">

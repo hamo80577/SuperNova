@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import { usersApi } from "@/lib/api/users";
 import type {
@@ -443,7 +444,8 @@ function SelectFilter({
   return (
     <label className="grid gap-1.5 text-xs font-semibold uppercase text-slate-500">
       {label}
-      <select
+      <Select
+        aria-label={label}
         className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium normal-case text-slate-700"
         onChange={(event) => onChange(event.target.value)}
         value={value}
@@ -454,7 +456,7 @@ function SelectFilter({
             {formatEnum(option)}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

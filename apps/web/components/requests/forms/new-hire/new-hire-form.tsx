@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { organizationApi } from "@/lib/api/organization";
 import { workspacesApi } from "@/lib/api/workspaces";
 import { requestsApi, type NewHireLookupResponse, type NewHireTargetRole, type RequestSummary } from "@/lib/api/requests";
@@ -860,7 +861,8 @@ export function NewHireRequestForm({
                 />
               </Field>
               <Field label="Gender">
-                <select
+                <Select
+                  aria-label="Gender"
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
                   onChange={(event) => updateField("gender", event.target.value)}
                   value={form.gender}
@@ -868,7 +870,7 @@ export function NewHireRequestForm({
                   <option value="UNSPECIFIED">Unspecified</option>
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
-                </select>
+                </Select>
               </Field>
             </div>
           </NewHireFormSection>

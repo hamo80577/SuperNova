@@ -30,6 +30,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import {
   NewHireRequestForm,
@@ -601,7 +602,8 @@ function AddResourceModal({
               />
             </FormField>
             <FormField label="Chain">
-              <select
+              <Select
+                aria-label="Chain"
                 className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
                 onChange={(event) => setChainId(event.target.value)}
                 required
@@ -613,12 +615,13 @@ function AddResourceModal({
                     {chain.chainName}
                   </option>
                 ))}
-              </select>
+              </Select>
             </FormField>
           </>
         )}
         <FormField label="Status">
-          <select
+          <Select
+            aria-label="Status"
             className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
             onChange={(event) => setStatus(event.target.value as "ACTIVE" | "INACTIVE")}
             required
@@ -626,7 +629,7 @@ function AddResourceModal({
           >
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
-          </select>
+          </Select>
         </FormField>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} type="button" variant="outline">
@@ -998,7 +1001,8 @@ function BranchEditForm({
         required
         value={vendorCode}
       />
-      <select
+      <Select
+        aria-label="Chain"
         className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
         onChange={(event) => setChainId(event.target.value)}
         required
@@ -1009,9 +1013,10 @@ function BranchEditForm({
             {chain.chainName}
           </option>
         ))}
-      </select>
+      </Select>
       <div className="flex gap-2">
-        <select
+        <Select
+          aria-label="Status"
           className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-sm"
           onChange={(event) => setStatus(event.target.value as "ACTIVE" | "INACTIVE")}
           required
@@ -1019,7 +1024,7 @@ function BranchEditForm({
         >
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
-        </select>
+        </Select>
         <Button disabled={isPending} type="submit">
           Save
         </Button>
@@ -1338,7 +1343,8 @@ function AreaManagerModal({
           />
         </FormField>
         <FormField label="Area Manager">
-          <select
+          <Select
+            aria-label="Area Manager"
             className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
             onChange={(event) => setSelectedUserId(event.target.value)}
             required
@@ -1350,7 +1356,7 @@ function AreaManagerModal({
                 {user.nameEn} · {user.phoneNumber}
               </option>
             ))}
-          </select>
+          </Select>
         </FormField>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} type="button" variant="outline">
@@ -1471,7 +1477,8 @@ function PickerActionModal({
         </div>
         {action.type === "transfer" ? (
           <FormField label="Destination Branch">
-            <select
+            <Select
+              aria-label="Destination Branch"
               className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               onChange={(event) => setDestinationVendorId(event.target.value)}
               required
@@ -1485,7 +1492,7 @@ function PickerActionModal({
                     {branch.vendorName} · {branch.chain.chainName}
                   </option>
                 ))}
-            </select>
+            </Select>
           </FormField>
         ) : null}
         <FormField label="Reason">

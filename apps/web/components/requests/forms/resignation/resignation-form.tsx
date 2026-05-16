@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { requestsApi, type OffboardingBlockDecision, type OffboardingPickerSearchItem, type OffboardingReasonCode, type RequestSummary, offboardingReasonLabels } from "@/lib/api/requests";
 import { cn } from "@/lib/utils";
 import { BlockDecisionFields } from "./block-decision-fields";
@@ -277,7 +278,8 @@ export function ResignationRequestForm({
             />
           </Field>
           <Field label="Reason">
-            <select
+            <Select
+              aria-label="Reason"
               className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               onChange={(event) =>
                 setForm((current) => ({
@@ -294,7 +296,7 @@ export function ResignationRequestForm({
                   {offboardingReasonLabels[reasonCode]}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           {form.reasonCode === "OTHER" ? (
             <Field label="Reason details">

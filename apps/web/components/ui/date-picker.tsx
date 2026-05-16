@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
+import { Select } from "./select";
 
 type QuickAction = "today" | "yesterday";
 
@@ -219,7 +220,8 @@ export function DatePicker({
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-2">
-                <select
+                <Select
+                  aria-label="Month"
                   className="h-9 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium text-slate-950"
                   onChange={(event) => setViewMonth(Number(event.target.value))}
                   value={viewMonth}
@@ -229,8 +231,9 @@ export function DatePicker({
                       {month}
                     </option>
                   ))}
-                </select>
-                <select
+                </Select>
+                <Select
+                  aria-label="Year"
                   className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium text-slate-950"
                   onChange={(event) => setViewYear(Number(event.target.value))}
                   value={viewYear}
@@ -240,7 +243,7 @@ export function DatePicker({
                       {year}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <button
                 aria-label="Next month"
