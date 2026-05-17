@@ -147,9 +147,11 @@ export function RequestDetailView() {
           />
           <Definition label="Target User" value={request.targetUser?.nameEn ?? "None"} />
         </InfoCard>
-        <InfoCard title="Workflow State">
-          <WorkflowStateSummary request={request} />
-        </InfoCard>
+        {request.type !== "NEW_HIRE" ? (
+          <InfoCard title="Workflow State">
+            <WorkflowStateSummary request={request} />
+          </InfoCard>
+        ) : null}
         {request.type === "NEW_HIRE" ? (
           <NewHireRequestDetailPanel request={request} />
         ) : null}
@@ -161,9 +163,11 @@ export function RequestDetailView() {
             <TransferContext payload={request.payload} request={request} />
           </InfoCard>
         ) : null}
-        <InfoCard title="Approval Steps">
-          <ApprovalStepsList approvals={request.approvals} />
-        </InfoCard>
+        {request.type !== "NEW_HIRE" ? (
+          <InfoCard title="Approval Steps">
+            <ApprovalStepsList approvals={request.approvals} />
+          </InfoCard>
+        ) : null}
       </section>
 
       {request.type === "NEW_HIRE" &&
@@ -193,7 +197,10 @@ export function RequestDetailView() {
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="text-base font-semibold">Timeline</h2>
-        <RequestTimeline items={request.timeline} />
+        <RequestTimeline
+          importantOnly={request.type === "NEW_HIRE"}
+          items={request.timeline}
+        />
       </section>
     </div>
   );

@@ -1,9 +1,7 @@
 import { MoveRight } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { type NewHireTargetRole, type RequestDetail } from "@/lib/api/requests";
-import { cn } from "@/lib/utils";
-import { buildNewHireApprovalSteps, maskNationalId } from "../forms/new-hire/new-hire-utils";
+import { type RequestDetail } from "@/lib/api/requests";
 import { PickerAvatar } from "../forms/resignation/offboarding-picker-search";
 import { EmptyState } from "../shared/request-empty-state";
 import { Definition } from "../shared/request-field";
@@ -156,47 +154,51 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
 
   return (
     <InfoCard title="New Hire">
-      <div className="flex flex-wrap gap-2">
-        <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
-          {formatEnum(context.targetRole)}
-        </Badge>
-        <Badge variant="outline">{isRehire ? "Rehire" : "New User"}</Badge>
-      </div>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <PickerAvatar name={context.nameEn ?? "New Hire"} />
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-slate-950">
+                {context.nameEn ?? "Not available"}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {context.candidatePhone}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+              {formatEnum(context.targetRole)}
+            </Badge>
+            <Badge variant="outline">{isRehire ? "Rehire" : "New User"}</Badge>
+          </div>
+        </div>
 
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <Definition label="Candidate" value={context.nameEn ?? "Not available"} />
-        <Definition label="Phone" value={context.candidatePhone} />
-        <Definition
-          label="National ID"
-          value={context.nationalId ? maskNationalId(context.nationalId) : "Not available"}
-        />
-        <Definition label="Arabic name" value={context.nameAr ?? "Not available"} />
-        <Definition label="Date of birth" value={context.dateOfBirth ?? "Not available"} />
-        <Definition label="Gender" value={formatEnum(context.gender)} />
-        <Definition label="Address" value={context.address ?? "Not available"} />
-        <Definition label="Notes" value={context.notes ?? "None"} />
+        <div className="grid gap-0 p-4">
+          <ProfileRow label="National ID" value={context.nationalId ?? "Not available"} />
+          <ProfileRow label="Arabic name" value={context.nameAr ?? "Not available"} />
+          <ProfileRow label="Date of birth" value={context.dateOfBirth ?? "Not available"} />
+          <ProfileRow label="Gender" value={formatEnum(context.gender)} />
+          <ProfileRow label="Address" value={context.address ?? "Not available"} />
+          <ProfileRow label="Source Chain" value={selectedChainText} />
+          {context.targetRole !== "AREA_MANAGER" ? (
+            <ProfileRow
+              label="Source Branch"
+              value={request.sourceVendor?.vendorName ?? context.source.vendorId ?? "Not available"}
+            />
+          ) : (
+            <ProfileRow
+              label="Selected Chain IDs"
+              value={(context.source.chainIds ?? []).join(", ") || "Not available"}
+            />
+          )}
+          {context.rehireUserId ? (
+            <ProfileRow label="Previous Picker ID" value={context.rehireUserId} />
+          ) : null}
+          <ProfileRow label="Notes" value={context.notes ?? "None"} />
+        </div>
       </div>
-
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-        <Definition label="Source Chain" value={selectedChainText} />
-        {context.targetRole !== "AREA_MANAGER" ? (
-          <Definition
-            label="Source Branch"
-            value={request.sourceVendor?.vendorName ?? context.source.vendorId ?? "Not available"}
-          />
-        ) : (
-          <Definition
-            label="Selected Chain IDs"
-            value={(context.source.chainIds ?? []).join(", ") || "Not available"}
-          />
-        )}
-        <Definition label="Creator" value={request.createdBy.nameEn} />
-        {context.rehireUserId ? (
-          <Definition label="Previous Picker ID" value={context.rehireUserId} />
-        ) : null}
-      </div>
-
-      <NewHireApprovalPathDetail request={request} targetRole={context.targetRole} />
 
       {context.finalization ? (
         <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
@@ -240,48 +242,15 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
   );
 }
 
-export function NewHireApprovalPathDetail({
-  request,
-  targetRole
-}: {
-  request: RequestDetail;
-  targetRole: NewHireTargetRole;
-}) {
-  const steps = buildNewHireApprovalSteps(request.createdBy.role, targetRole);
-  const areaManagerApproval = request.approvals.find(
-    (approval) => approval.step === "AREA_MANAGER_APPROVAL"
-  );
-
+function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-      <p className="text-sm font-semibold text-slate-950">Approval path</p>
-      {steps.map((step, index) => {
-        const isAreaManagerStep = step.label === "Area Manager approval";
-        const skipped = isAreaManagerStep
-          ? areaManagerApproval?.status === "SKIPPED" || step.skipped
-          : step.skipped;
-        return (
-          <div className="flex items-start gap-3 text-sm" key={`${step.label}:${index}`}>
-            <span
-              className={cn(
-                "mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold",
-                skipped
-                  ? "bg-slate-100 text-slate-500"
-                  : "bg-orange-50 text-orange-700"
-              )}
-            >
-              {index + 1}
-            </span>
-            <div>
-              <p className="font-medium text-slate-950">
-                {step.label}
-                {skipped ? " (skipped)" : ""}
-              </p>
-              <p className="text-xs leading-5 text-slate-500">{step.description}</p>
-            </div>
-          </div>
-        );
-      })}
+    <div className="grid gap-1 border-b border-slate-100 py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr] sm:gap-4">
+      <span className="text-xs font-medium text-slate-500">
+        {label}
+      </span>
+      <span className="min-w-0 break-words text-sm font-medium text-slate-950">
+        {value}
+      </span>
     </div>
   );
 }

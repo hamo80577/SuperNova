@@ -15,6 +15,7 @@ import { RequestModalHero } from "./request-modal-hero";
 import { RequestTimeline } from "./request-timeline";
 import { RequestTypePanel } from "./request-type-panel";
 import { WorkflowStateSummary } from "./workflow-state-summary";
+import { RequestStatusBadge } from "../shared/request-badges";
 import { InfoCard } from "../shared/request-info-card";
 import { ErrorState, LoadingState } from "../shared/request-states";
 import { formatEnum, getRequestLoadErrorMessage } from "../shared/request-utils";
@@ -69,9 +70,12 @@ export function RequestDetailModal({
       <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-[1.75rem] border border-slate-200 bg-white shadow-2xl sm:max-w-4xl sm:rounded-[1.75rem]">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
           <div>
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
-              Request profile
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                Request profile
+              </Badge>
+              {request ? <RequestStatusBadge status={request.status} /> : null}
+            </div>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">
               {request ? formatEnum(request.type) : "Loading request"}
             </h2>
@@ -92,16 +96,22 @@ export function RequestDetailModal({
           {error ? <ErrorState message={error} /> : null}
           {request ? (
             <div className="grid gap-4">
-              <RequestModalHero request={request} />
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              {request.type !== "NEW_HIRE" ? <RequestModalHero request={request} /> : null}
+              {request.type === "NEW_HIRE" ? (
                 <RequestTypePanel request={request} />
-                <InfoCard title="Workflow">
-                  <WorkflowStateSummary request={request} />
-                </InfoCard>
-              </div>
-              <InfoCard title="Approval Steps">
-                <ApprovalStepsList approvals={request.approvals} variant="modal" />
-              </InfoCard>
+              ) : (
+                <>
+                  <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                    <RequestTypePanel request={request} />
+                    <InfoCard title="Workflow">
+                      <WorkflowStateSummary request={request} />
+                    </InfoCard>
+                  </div>
+                  <InfoCard title="Approval Steps">
+                    <ApprovalStepsList approvals={request.approvals} variant="modal" />
+                  </InfoCard>
+                </>
+              )}
 
               {actionableApproval &&
               !(
@@ -118,6 +128,7 @@ export function RequestDetailModal({
                     await loadRequest();
                     await onChanged();
                   }}
+                  onRejected={onClose}
                   request={request}
                 />
               ) : null}
@@ -150,7 +161,12 @@ export function RequestDetailModal({
               ) : null}
 
               <InfoCard title="Timeline">
-                <RequestTimeline items={request.timeline} limit={8} variant="modal" />
+                <RequestTimeline
+                  importantOnly={request.type === "NEW_HIRE"}
+                  items={request.timeline}
+                  limit={request.type === "NEW_HIRE" ? undefined : 8}
+                  variant="modal"
+                />
               </InfoCard>
             </div>
           ) : null}
