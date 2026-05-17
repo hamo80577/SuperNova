@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { RequestDetailModal } from "@/components/requests/request-components";
+import {
+  NewHireRequestModal,
+  RequestDetailModal
+} from "@/components/requests/request-components";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
@@ -33,6 +36,7 @@ export function ChampBranchWorkspace() {
   const branchesState = useAsyncData(workspacesApi.champBranches);
   const [activeTab, setActiveTab] = useState<BranchTab>("Pickers");
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [newHireOpen, setNewHireOpen] = useState(false);
   const [selectedPicker, setSelectedPicker] = useState<ScopedPicker | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
@@ -99,6 +103,7 @@ export function ChampBranchWorkspace() {
                 <BranchActionMenu
                   branch={branch}
                   onClose={() => setActionMenuOpen(false)}
+                  onNewHire={() => setNewHireOpen(true)}
                 />
               ) : null}
             </div>
@@ -170,6 +175,24 @@ export function ChampBranchWorkspace() {
           }}
           onClose={() => setSelectedRequestId(null)}
           requestId={selectedRequestId}
+        />
+      ) : null}
+
+      {newHireOpen ? (
+        <NewHireRequestModal
+          description="Create a Branch-scoped New Hire request without leaving this Branch workspace."
+          fixedSourceVendorId={branch.vendor.id}
+          initialTargetRole="PICKER"
+          lockedBranchContext={branch}
+          lockTargetRole
+          onClose={() => setNewHireOpen(false)}
+          onCreated={(request) => {
+            setNewHireOpen(false);
+            setActiveTab("Requests");
+            setSelectedRequestId(request.id);
+            setReloadVersion((current) => current + 1);
+          }}
+          title="Picker New Hire request"
         />
       ) : null}
     </div>

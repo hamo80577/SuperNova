@@ -8,18 +8,14 @@ import { cn } from "@/lib/utils";
 
 export function BranchActionMenu({
   branch,
-  onClose
+  onClose,
+  onNewHire
 }: {
   branch: ChampBranchDetail;
   onClose: () => void;
+  onNewHire: () => void;
 }) {
   const actions = [
-    {
-      href: `/champ/branches/${branch.vendor.id}/new-hire`,
-      icon: UserPlus,
-      label: "New Hire",
-      tone: "text-orange-700 bg-orange-50"
-    },
     {
       href: `/champ/branches/${branch.vendor.id}/transfer`,
       icon: ArrowRight,
@@ -50,6 +46,19 @@ export function BranchActionMenu({
           </p>
         </div>
         <div className="grid gap-1">
+          <button
+            className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => {
+              onClose();
+              onNewHire();
+            }}
+            type="button"
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-50 text-orange-700">
+              <UserPlus className="h-4 w-4" />
+            </span>
+            New Hire
+          </button>
           {actions.map((action) => {
             const Icon = action.icon;
             return (

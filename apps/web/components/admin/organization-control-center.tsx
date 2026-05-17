@@ -35,7 +35,7 @@ import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import { OperationalUserProfileModal } from "@/components/users/operational-user-profile-modal";
 import {
-  NewHireRequestForm,
+  NewHireRequestModal,
   ResignationRequestForm
 } from "@/components/requests/request-components";
 import {
@@ -1389,29 +1389,19 @@ function NewHireModal({
   onSaved: () => void;
   targetRole: BranchNewHireTargetRole;
 }) {
-  const [isDirty, setIsDirty] = useState(false);
-
-  function requestClose() {
-    if (isDirty && !window.confirm("Discard the New Hire data you entered?")) {
-      return;
-    }
-
-    onClose();
-  }
-
   return (
-    <ModalFrame onClose={requestClose} size="wide" title="New Hire request">
-      <NewHireRequestForm
-        fixedSourceVendorId={branch.id}
-        initialTargetRole={targetRole}
-        lockedBranchContext={{ vendor: branch, chain }}
-        lockTargetRole
-        onCreated={() => {
-          onSaved();
-        }}
-        onDirtyChange={setIsDirty}
-      />
-    </ModalFrame>
+    <NewHireRequestModal
+      description="Create a Branch-scoped New Hire request from Admin Organization Control Center."
+      fixedSourceVendorId={branch.id}
+      initialTargetRole={targetRole}
+      lockedBranchContext={{ vendor: branch, chain }}
+      lockTargetRole
+      onClose={onClose}
+      onCreated={() => {
+        onSaved();
+      }}
+      title={`${formatEnum(targetRole)} New Hire request`}
+    />
   );
 }
 

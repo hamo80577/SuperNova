@@ -13,7 +13,6 @@ import { requestsApi, type NewHireLookupResponse, type NewHireTargetRole, type R
 import { cn } from "@/lib/utils";
 import { SelectedContextCard } from "./new-hire-branch-context";
 import { NewHireLookupResultCard, PreviousPickerCard } from "./new-hire-lookup";
-import { NewHireApprovalPreview, NewHireReviewCard } from "./new-hire-review";
 import { NewHireFormSection } from "./new-hire-section";
 import { applyFixedNewHireBranch, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
 import { EmptyState } from "../../shared/request-empty-state";
@@ -605,7 +604,10 @@ export function NewHireRequestForm({
   }
 
   return (
-    <form className="grid min-w-0 gap-4" onSubmit={submit}>
+    <form
+      className="grid min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+      onSubmit={submit}
+    >
       {error ? <ErrorState message={error} /> : null}
 
       {!lockTargetRole ? (
@@ -817,7 +819,7 @@ export function NewHireRequestForm({
       </NewHireFormSection>
 
       {lookupState === "checking" ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+        <div className="border-b border-slate-100 px-4 py-3 text-sm text-slate-600 sm:px-5">
           Checking existing user records...
         </div>
       ) : null}
@@ -907,22 +909,7 @@ export function NewHireRequestForm({
         </NewHireFormSection>
       ) : null}
 
-      <NewHireApprovalPreview
-        creatorRole={user?.role}
-        targetRole={form.targetRole}
-      />
-
-      <NewHireReviewCard
-        creatorName={user?.nameEn ?? "Current user"}
-        mode={lookupStatus === "REHIRE_AVAILABLE" ? "REHIRE" : "NEW_USER"}
-        nationalId={form.nationalId}
-        phoneNumber={form.phoneNumber}
-        selectedChains={selectedChains}
-        selectedVendor={selectedVendor ?? null}
-        targetRole={form.targetRole}
-      />
-
-      <div className="flex justify-end">
+      <div className="flex justify-end bg-slate-50/70 px-4 py-4 sm:px-5">
         <Button
           className="min-h-11 rounded-xl bg-orange-600 hover:bg-orange-700"
           disabled={!canSubmit}

@@ -1,6 +1,7 @@
 export default () => ({
   api: {
-    port: Number(process.env.API_PORT ?? 4000)
+    port: Number(process.env.API_PORT ?? 4000),
+    requestLogger: process.env.API_REQUEST_LOGGER
   },
   database: {
     url: process.env.DATABASE_URL ?? ""

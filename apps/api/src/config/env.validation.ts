@@ -8,6 +8,10 @@ class EnvironmentVariables {
   @IsNumberString()
   API_PORT!: string;
 
+  @IsOptional()
+  @IsString()
+  API_REQUEST_LOGGER?: string;
+
   @IsString()
   WEB_ORIGIN!: string;
 

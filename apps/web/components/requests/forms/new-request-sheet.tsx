@@ -1,12 +1,11 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { type RequestSummary } from "@/lib/api/requests";
-import { NewHireRequestForm } from "./new-hire/new-hire-form";
+import { NewHireRequestModal } from "./new-hire/new-hire-request-modal";
 import { ResignationRequestForm } from "./resignation/resignation-form";
 import { LifecyclePickerRequestForm } from "./transfer/transfer-form";
 import { type NewRequestDraft } from "../shared/request-types";
@@ -21,17 +20,25 @@ export function NewRequestSheet({
   onClose: () => void;
   onCreated: (request: RequestSummary) => void;
 }) {
-  const [isDirty, setIsDirty] = useState(false);
   const title =
     draft.type === "NEW_HIRE"
       ? `${formatEnum(draft.targetRole)} New Hire`
       : `${formatEnum(draft.type)} request`;
 
-  function requestClose() {
-    if (isDirty && !window.confirm("Discard the New Hire data you entered?")) {
-      return;
-    }
+  if (draft.type === "NEW_HIRE") {
+    return (
+      <NewHireRequestModal
+        description="Create a New Hire workflow request from the current workspace."
+        initialTargetRole={draft.targetRole}
+        lockTargetRole
+        onClose={onClose}
+        onCreated={onCreated}
+        title={title}
+      />
+    );
+  }
 
+  function requestClose() {
     onClose();
   }
 
@@ -62,15 +69,7 @@ export function NewRequestSheet({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        {draft.type === "NEW_HIRE" ? (
-          <NewHireRequestForm
-            initialTargetRole={draft.targetRole}
-            key={draft.targetRole}
-            lockTargetRole
-            onCreated={onCreated}
-            onDirtyChange={setIsDirty}
-          />
-        ) : draft.type === "RESIGNATION" ? (
+        {draft.type === "RESIGNATION" ? (
           <ResignationRequestForm onCreated={onCreated} />
         ) : draft.type === "TRANSFER" ? (
           <LifecyclePickerRequestForm onCreated={onCreated} type={draft.type} />
