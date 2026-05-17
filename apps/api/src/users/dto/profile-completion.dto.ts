@@ -47,10 +47,6 @@ export class UpdateProfileCompletionDto {
   dateOfBirth?: string;
 
   @IsOptional()
-  @IsISO8601({ strict: true })
-  joiningDate?: string;
-
-  @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
 }

@@ -4,6 +4,7 @@ import { ArrowRight, Clock, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { type PendingApproval } from "@/lib/api/approvals";
 import { type RequestSummary } from "@/lib/api/requests";
+import { ApprovalProgressDots } from "../detail/approval-steps-indicator";
 import { RequestStatusBadge } from "../shared/request-badges";
 import { formatEnum, getRequestIcon, getRequestPrimaryContext, relativeTime } from "../shared/request-utils";
 
@@ -52,6 +53,8 @@ export function RequestOperationCard({
           {context.subtitle}
         </p>
       </div>
+
+      <ApprovalProgressDots className="mt-4" request={request} />
 
       <div className="mt-4 grid gap-2 text-xs text-slate-500">
         <span className="inline-flex items-center gap-1.5">

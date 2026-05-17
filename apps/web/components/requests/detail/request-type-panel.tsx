@@ -193,6 +193,14 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
               value={(context.source.chainIds ?? []).join(", ") || "Not available"}
             />
           )}
+          <ProfileRow
+            label="Hiring date"
+            value={
+              context.finalization?.completedAt
+                ? `${new Date(context.finalization.completedAt).toLocaleDateString()} · Admin controlled`
+                : "Set by Admin during final action"
+            }
+          />
           {context.rehireUserId ? (
             <ProfileRow label="Previous Picker ID" value={context.rehireUserId} />
           ) : null}

@@ -36,7 +36,6 @@ export interface UpdateProfileCompletionInput {
   address?: string;
   dateOfBirth?: string;
   gender?: SafeUser["gender"];
-  joiningDate?: string;
 }
 
 export interface UpdateUserPreferencesInput {

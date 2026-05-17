@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
+import { ApprovalStepsIndicator } from "./approval-steps-indicator";
 import { ApprovalStepsList } from "./approval-steps-list";
 import { RequestTimeline } from "./request-timeline";
 import { NewHireRequestDetailPanel, ResignationRequestDetailPanel, TransferContext } from "./request-type-panel";
@@ -194,6 +195,8 @@ export function RequestDetailView() {
         type="RESIGNATION"
       />
       ) : null}
+
+      <ApprovalStepsIndicator request={request} />
 
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="text-base font-semibold">Timeline</h2>

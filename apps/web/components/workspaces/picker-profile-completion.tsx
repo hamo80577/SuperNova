@@ -54,8 +54,7 @@ const profileCompletionSchema = z
       .max(40),
     dateOfBirth: z.string().min(1, "Date of birth is required."),
     gender: z.enum(["MALE", "FEMALE", "UNSPECIFIED"]),
-    address: z.string().trim().min(5, "Address is required.").max(500),
-    joiningDate: z.string().min(1, "Joining date is required.")
+    address: z.string().trim().min(5, "Address is required.").max(500)
   })
   .refine((value) => Boolean(value.nameEn || value.nameAr), {
     message: "English or Arabic name is required.",
@@ -110,8 +109,7 @@ export function PickerProfileCompletion() {
           nationalId: response.user.nationalId ?? "",
           dateOfBirth: toDateInput(response.user.dateOfBirth),
           gender: response.user.gender,
-          address: response.user.address ?? "",
-          joiningDate: toDateInput(response.user.joiningDate)
+          address: response.user.address ?? ""
         });
       } catch (caughtError) {
         if (mounted) {
@@ -287,7 +285,7 @@ export function PickerProfileCompletion() {
 
           {activeStep === 2 ? (
             <StepSection
-              description="Confirm contact and joining details before opening the full Picker workspace."
+              description="Confirm contact details before opening the full Picker workspace."
               icon={<MapPin className="h-5 w-5 text-primary" />}
               title="Contact Info"
             >
@@ -295,9 +293,15 @@ export function PickerProfileCompletion() {
                 <Field error={errors.address?.message} label="Address">
                   <Input placeholder="Required operational address" {...register("address")} />
                 </Field>
-                <Field error={errors.joiningDate?.message} label="Joining date">
-                  <Input type="date" {...register("joiningDate")} />
-                </Field>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                  <p className="font-medium text-slate-900">Joining date</p>
+                  <p className="mt-1">
+                    {state.data.user.joiningDate
+                      ? toDateInput(state.data.user.joiningDate)
+                      : "Not set"}
+                    {" "}· Admin controlled only.
+                  </p>
+                </div>
               </div>
             </StepSection>
           ) : null}
@@ -312,9 +316,16 @@ export function PickerProfileCompletion() {
                 <ReviewItem label="Name" value={values.nameEn || values.nameAr || "Missing"} />
                 <ReviewItem label="National ID" value={values.nationalId || "Missing"} />
                 <ReviewItem label="Date of birth" value={values.dateOfBirth || "Missing"} />
-                <ReviewItem label="Joining date" value={values.joiningDate || "Missing"} />
                 <ReviewItem label="Gender" value={values.gender} />
                 <ReviewItem label="Address" value={values.address || "Missing"} />
+                <ReviewItem
+                  label="Joining date"
+                  value={
+                    state.data.user.joiningDate
+                      ? `${toDateInput(state.data.user.joiningDate)} · Admin controlled`
+                      : "Admin controlled"
+                  }
+                />
               </div>
               <div className="mt-4 rounded-md border bg-background p-3 text-sm text-muted-foreground">
                 Documents are intentionally not collected in Phase 7. This

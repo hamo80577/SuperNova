@@ -10,6 +10,7 @@ import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
 import { RequestApprovalDecisionPanel } from "../actions/request-approval-decision-panel";
+import { ApprovalStepsIndicator } from "./approval-steps-indicator";
 import { ApprovalStepsList } from "./approval-steps-list";
 import { RequestModalHero } from "./request-modal-hero";
 import { RequestTimeline } from "./request-timeline";
@@ -159,6 +160,8 @@ export function RequestDetailModal({
                   type="RESIGNATION"
                 />
               ) : null}
+
+              <ApprovalStepsIndicator request={request} />
 
               <InfoCard title="Timeline">
                 <RequestTimeline

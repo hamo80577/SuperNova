@@ -33,8 +33,7 @@ const TEMPORARY_PASSWORD_EXPIRY_HOURS = 72;
 const REQUIRED_PICKER_PROFILE_FIELDS = [
   "nationalId",
   "address",
-  "dateOfBirth",
-  "joiningDate"
+  "dateOfBirth"
 ] as const;
 
 @Injectable()
@@ -179,7 +178,6 @@ export class UsersService {
       nationalId: dto.nationalId ?? user.nationalId,
       address: dto.address ?? user.address,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : user.dateOfBirth,
-      joiningDate: dto.joiningDate ? new Date(dto.joiningDate) : user.joiningDate,
       gender: dto.gender ?? user.gender
     };
 
@@ -204,7 +202,6 @@ export class UsersService {
           nationalId: mergedProfile.nationalId,
           address: mergedProfile.address,
           dateOfBirth: mergedProfile.dateOfBirth,
-          joiningDate: mergedProfile.joiningDate,
           gender: mergedProfile.gender,
           profileStatus: ProfileStatus.COMPLETE
         }
@@ -890,14 +887,13 @@ export class UsersService {
         "nationalId",
         "address",
         "dateOfBirth",
-        "gender",
-        "joiningDate"
+        "gender"
       ]
     };
   }
 
   private getMissingProfileFields(
-    user: Pick<User, "nationalId" | "address" | "dateOfBirth" | "joiningDate">
+    user: Pick<User, "nationalId" | "address" | "dateOfBirth">
   ) {
     return REQUIRED_PICKER_PROFILE_FIELDS.filter((field) => !user[field]);
   }
