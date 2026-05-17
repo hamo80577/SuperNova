@@ -38,6 +38,7 @@ import {
   NewHireRequestModal,
   ResignationRequestForm
 } from "@/components/requests/request-components";
+import { RequestDiscardDialog } from "@/components/requests/forms/request-discard-dialog";
 import {
   adminOrganizationApi,
   type AdminOrganizationBranchDetail,
@@ -1420,20 +1421,44 @@ function PickerActionModal({
 }) {
   const [destinationVendorId, setDestinationVendorId] = useState("");
   const [reason, setReason] = useState("");
+  const [resignationDirty, setResignationDirty] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const isDirty =
+    action.type === "resignation"
+      ? resignationDirty
+      : Boolean(destinationVendorId || reason.trim());
+
+  function requestClose() {
+    if (isDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
+    onClose();
+  }
 
   if (action.type === "resignation") {
     return (
-      <ModalFrame onClose={onClose} title="Resignation request">
-        <ResignationRequestForm
-          fixedSourceVendorId={sourceBranch.id}
-          initialPicker={action.picker}
-          onCreated={() => {
-            onSaved();
-          }}
+      <>
+        <ModalFrame onClose={requestClose} title="Resignation request">
+          <ResignationRequestForm
+            fixedSourceVendorId={sourceBranch.id}
+            initialPicker={action.picker}
+            onCancel={requestClose}
+            onCreated={() => {
+              onSaved();
+            }}
+            onDirtyChange={setResignationDirty}
+          />
+        </ModalFrame>
+        <RequestDiscardDialog
+          onConfirm={onClose}
+          onKeepEditing={() => setConfirmCloseOpen(false)}
+          open={confirmCloseOpen}
         />
-      </ModalFrame>
+      </>
     );
   }
 
@@ -1462,7 +1487,8 @@ function PickerActionModal({
   }
 
   return (
-    <ModalFrame onClose={onClose} title={`${formatEnum(action.type)} request`}>
+    <>
+    <ModalFrame onClose={requestClose} title={`${formatEnum(action.type)} request`}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         {error ? <InlineError message={error} /> : null}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -1498,7 +1524,7 @@ function PickerActionModal({
           />
         </FormField>
         <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
+          <Button onClick={requestClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button disabled={isPending} type="submit">
@@ -1508,6 +1534,12 @@ function PickerActionModal({
         </div>
       </form>
     </ModalFrame>
+    <RequestDiscardDialog
+      onConfirm={onClose}
+      onKeepEditing={() => setConfirmCloseOpen(false)}
+      open={confirmCloseOpen}
+    />
+    </>
   );
 }
 

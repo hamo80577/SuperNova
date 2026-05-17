@@ -1,31 +1,31 @@
 "use client";
 
 import { ArrowRight, ShieldAlert, UserPlus } from "lucide-react";
-import Link from "next/link";
 
-import type { ChampBranchDetail } from "@/lib/api/workspaces";
 import { cn } from "@/lib/utils";
 
 export function BranchActionMenu({
-  branch,
   onClose,
-  onNewHire
+  onNewHire,
+  onResignation,
+  onTransfer
 }: {
-  branch: ChampBranchDetail;
   onClose: () => void;
   onNewHire: () => void;
+  onResignation: () => void;
+  onTransfer: () => void;
 }) {
   const actions = [
     {
-      href: `/champ/branches/${branch.vendor.id}/transfer`,
       icon: ArrowRight,
       label: "Transfer",
+      onClick: onTransfer,
       tone: "text-blue-700 bg-blue-50"
     },
     {
-      href: `/champ/branches/${branch.vendor.id}/resignation`,
       icon: ShieldAlert,
       label: "Resignation",
+      onClick: onResignation,
       tone: "text-amber-700 bg-amber-50"
     },
   ];
@@ -62,11 +62,14 @@ export function BranchActionMenu({
           {actions.map((action) => {
             const Icon = action.icon;
             return (
-              <Link
+              <button
                 className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                href={action.href}
                 key={action.label}
-                prefetch
+                onClick={() => {
+                  onClose();
+                  action.onClick();
+                }}
+                type="button"
               >
                 <span
                   className={cn(
@@ -77,7 +80,7 @@ export function BranchActionMenu({
                   <Icon className="h-4 w-4" />
                 </span>
                 {action.label}
-              </Link>
+              </button>
             );
           })}
         </div>

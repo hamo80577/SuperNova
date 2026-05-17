@@ -197,212 +197,236 @@ export class NewHireFinalizationService {
       }
     }
 
+    if (payload.targetRole === UserRole.CHAMP) {
+      await this.assertBranchCanReceiveChampNewHire(sourceVendor.id);
+    }
+
     const temporaryPasswordBundle = await this.createTemporaryPasswordBundle();
     const completedAt = new Date();
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const user = isRehire && rehireUser
-        ? await tx.user.update({
-            where: { id: rehireUser.id },
-            data: {
-              ...this.toUserProfileFields(
-                payload.targetRole,
-                payload.candidate,
-                temporaryPasswordBundle,
-                shopperId,
-                rehireUser
-              ),
-              blockStatus: BlockStatus.NO_BLOCK,
-              blockedUntil: null,
-              blockReason: null
-            }
-          })
-        : await tx.user.create({
-            data: {
-              role: payload.targetRole,
-              ...this.toUserProfileFields(
-                payload.targetRole,
-                payload.candidate,
-                temporaryPasswordBundle,
-                shopperId
-              ),
-              profileStatus:
-                payload.targetRole === UserRole.PICKER
-                  ? ProfileStatus.INCOMPLETE
-                  : ProfileStatus.COMPLETE
-            }
-          });
+    let result: {
+      assignment: FinalizedAssignment;
+      completedRequest: RequestWithRelations;
+      user: User;
+    };
 
-      const assignment =
-        payload.targetRole === UserRole.PICKER
-          ? await tx.pickerBranchAssignment.create({
+    try {
+      result = await this.prisma.$transaction(async (tx) => {
+        const user = isRehire && rehireUser
+          ? await tx.user.update({
+              where: { id: rehireUser.id },
               data: {
-                pickerId: user.id,
-                vendorId: sourceVendor.id,
-                status: AssignmentStatus.ACTIVE,
-                createdByRequestId: request.id
+                ...this.toUserProfileFields(
+                  payload.targetRole,
+                  payload.candidate,
+                  temporaryPasswordBundle,
+                  shopperId,
+                  rehireUser
+                ),
+                blockStatus: BlockStatus.NO_BLOCK,
+                blockedUntil: null,
+                blockReason: null
               }
             })
-          : await tx.vendorChampAssignment.create({
+          : await tx.user.create({
               data: {
-                champId: user.id,
-                vendorId: sourceVendor.id,
-                status: AssignmentStatus.ACTIVE
+                role: payload.targetRole,
+                ...this.toUserProfileFields(
+                  payload.targetRole,
+                  payload.candidate,
+                  temporaryPasswordBundle,
+                  shopperId
+                ),
+                profileStatus:
+                  payload.targetRole === UserRole.PICKER
+                    ? ProfileStatus.INCOMPLETE
+                    : ProfileStatus.COMPLETE
               }
             });
 
-      await tx.requestApproval.update({
-        where: { id: adminApproval.id },
-        data: {
-          status: ApprovalStatus.APPROVED,
-          decisionAt: completedAt,
-          approverId: context.actor.id,
-          notes: `${this.formatTargetRole(payload.targetRole)} New Hire finalized.`
-        }
-      });
+        const assignment =
+          payload.targetRole === UserRole.PICKER
+            ? await tx.pickerBranchAssignment.create({
+                data: {
+                  pickerId: user.id,
+                  vendorId: sourceVendor.id,
+                  status: AssignmentStatus.ACTIVE,
+                  createdByRequestId: request.id
+                }
+              })
+            : await tx.vendorChampAssignment.create({
+                data: {
+                  champId: user.id,
+                  vendorId: sourceVendor.id,
+                  status: AssignmentStatus.ACTIVE
+                }
+              });
 
-      const completedPayload: NewHirePayload = {
-        ...payload,
-        finalization: {
-          userId: user.id,
-          assignmentId: assignment.id,
-          assignmentType:
-            payload.targetRole === UserRole.PICKER
-              ? "PickerBranchAssignment"
-              : "VendorChampAssignment",
-          ...(payload.targetRole === UserRole.PICKER ? { shopperId } : {}),
-          completedAt: completedAt.toISOString()
-        }
-      };
-
-      const completedRequest = await tx.request.update({
-        where: { id: request.id },
-        data: {
-          status: RequestStatus.COMPLETED,
-          currentStep: null,
-          completedAt,
-          targetUserId: user.id,
-          payload: completedPayload as Prisma.InputJsonValue
-        },
-        include: requestInclude
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: request.createdById,
-          type: "NEW_HIRE_COMPLETED",
-          title: "New Hire completed",
-          body: `${this.formatTargetRole(payload.targetRole)} New Hire for ${user.phoneNumber} was completed. Open the user profile for credential handoff.`,
-          payload: {
-            requestId: request.id,
-            userId: user.id,
-            targetRole: payload.targetRole
+        await tx.requestApproval.update({
+          where: { id: adminApproval.id },
+          data: {
+            status: ApprovalStatus.APPROVED,
+            decisionAt: completedAt,
+            approverId: context.actor.id,
+            notes: `${this.formatTargetRole(payload.targetRole)} New Hire finalized.`
           }
-        }
-      });
+        });
 
-      await this.notifyBranchCredentialHandoff(tx, {
-        requestId: request.id,
-        user,
-        sourceVendor,
-        targetRole: finalizableTargetRole
-      });
-
-      await tx.auditLog.createMany({
-        data: [
-          {
-            actorUserId: context.actor.id,
-            action: "APPROVAL_APPROVED",
-            entityType: "RequestApproval",
-            entityId: adminApproval.id,
-            oldValue: {
-              status: adminApproval.status,
-              step: adminApproval.step,
-              requestId: request.id
-            },
-            newValue: {
-              status: ApprovalStatus.APPROVED,
-              step: adminApproval.step,
-              requestId: request.id
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "ADMIN_FINALIZED_NEW_HIRE",
-            entityType: "Request",
-            entityId: request.id,
-            oldValue: { status: request.status, currentStep: request.currentStep },
-            newValue: {
-              status: RequestStatus.COMPLETED,
-              targetRole: payload.targetRole,
-              userId: user.id,
-              mode: payload.mode
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: isRehire ? "USER_REACTIVATED" : "USER_CREATED",
-            entityType: "User",
-            entityId: user.id,
-            newValue: {
-              role: user.role,
-              phoneNumber: user.phoneNumber,
-              shopperId: user.shopperId,
-              profileStatus: user.profileStatus,
-              mustChangePassword: user.mustChangePassword
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "TEMPORARY_PASSWORD_GENERATED",
-            entityType: "User",
-            entityId: user.id,
-            newValue: {
-              temporaryPasswordExpiresAt:
-                temporaryPasswordBundle.temporaryPasswordExpiresAt.toISOString()
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action:
-              finalizableTargetRole === UserRole.PICKER
-                ? "PICKER_BRANCH_ASSIGNMENT_CREATED"
-                : "VENDOR_CHAMP_ASSIGNMENT_CREATED",
-            entityType:
-              finalizableTargetRole === UserRole.PICKER
+        const completedPayload: NewHirePayload = {
+          ...payload,
+          finalization: {
+            userId: user.id,
+            assignmentId: assignment.id,
+            assignmentType:
+              payload.targetRole === UserRole.PICKER
                 ? "PickerBranchAssignment"
                 : "VendorChampAssignment",
-            entityId: assignment.id,
-            newValue: this.toAssignmentAuditValue(
-              assignment,
-              finalizableTargetRole
-            ),
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_COMPLETED",
-            entityType: "Request",
-            entityId: request.id,
-            oldValue: { status: request.status },
-            newValue: { status: RequestStatus.COMPLETED, targetUserId: user.id },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
+            ...(payload.targetRole === UserRole.PICKER ? { shopperId } : {}),
+            completedAt: completedAt.toISOString()
           }
-        ]
-      });
+        };
 
-      return { completedRequest, user, assignment };
-    });
+        const completedRequest = await tx.request.update({
+          where: { id: request.id },
+          data: {
+            status: RequestStatus.COMPLETED,
+            currentStep: null,
+            completedAt,
+            targetUserId: user.id,
+            payload: completedPayload as Prisma.InputJsonValue
+          },
+          include: requestInclude
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: request.createdById,
+            type: "NEW_HIRE_COMPLETED",
+            title: "New Hire completed",
+            body: `${this.formatTargetRole(payload.targetRole)} New Hire for ${user.phoneNumber} was completed. Open the user profile for credential handoff.`,
+            payload: {
+              requestId: request.id,
+              userId: user.id,
+              targetRole: payload.targetRole
+            }
+          }
+        });
+
+        await this.notifyBranchCredentialHandoff(tx, {
+          requestId: request.id,
+          user,
+          sourceVendor,
+          targetRole: finalizableTargetRole
+        });
+
+        await tx.auditLog.createMany({
+          data: [
+            {
+              actorUserId: context.actor.id,
+              action: "APPROVAL_APPROVED",
+              entityType: "RequestApproval",
+              entityId: adminApproval.id,
+              oldValue: {
+                status: adminApproval.status,
+                step: adminApproval.step,
+                requestId: request.id
+              },
+              newValue: {
+                status: ApprovalStatus.APPROVED,
+                step: adminApproval.step,
+                requestId: request.id
+              },
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            },
+            {
+              actorUserId: context.actor.id,
+              action: "ADMIN_FINALIZED_NEW_HIRE",
+              entityType: "Request",
+              entityId: request.id,
+              oldValue: {
+                status: request.status,
+                currentStep: request.currentStep
+              },
+              newValue: {
+                status: RequestStatus.COMPLETED,
+                targetRole: payload.targetRole,
+                userId: user.id,
+                mode: payload.mode
+              },
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            },
+            {
+              actorUserId: context.actor.id,
+              action: isRehire ? "USER_REACTIVATED" : "USER_CREATED",
+              entityType: "User",
+              entityId: user.id,
+              newValue: {
+                role: user.role,
+                phoneNumber: user.phoneNumber,
+                shopperId: user.shopperId,
+                profileStatus: user.profileStatus,
+                mustChangePassword: user.mustChangePassword
+              },
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            },
+            {
+              actorUserId: context.actor.id,
+              action: "TEMPORARY_PASSWORD_GENERATED",
+              entityType: "User",
+              entityId: user.id,
+              newValue: {
+                temporaryPasswordExpiresAt:
+                  temporaryPasswordBundle.temporaryPasswordExpiresAt.toISOString()
+              },
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            },
+            {
+              actorUserId: context.actor.id,
+              action:
+                finalizableTargetRole === UserRole.PICKER
+                  ? "PICKER_BRANCH_ASSIGNMENT_CREATED"
+                  : "VENDOR_CHAMP_ASSIGNMENT_CREATED",
+              entityType:
+                finalizableTargetRole === UserRole.PICKER
+                  ? "PickerBranchAssignment"
+                  : "VendorChampAssignment",
+              entityId: assignment.id,
+              newValue: this.toAssignmentAuditValue(
+                assignment,
+                finalizableTargetRole
+              ),
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            },
+            {
+              actorUserId: context.actor.id,
+              action: "REQUEST_COMPLETED",
+              entityType: "Request",
+              entityId: request.id,
+              oldValue: { status: request.status },
+              newValue: {
+                status: RequestStatus.COMPLETED,
+                targetUserId: user.id
+              },
+              ipAddress: context.ipAddress ?? null,
+              userAgent: context.userAgent ?? null
+            }
+          ]
+        });
+
+        return { completedRequest, user, assignment };
+      });
+    } catch (error) {
+      if (this.isActiveChampAssignmentConflict(error)) {
+        throw new ConflictException(this.activeChampConflictMessage());
+      }
+
+      throw error;
+    }
 
     return {
       request: toRequestSummary(result.completedRequest),
@@ -426,6 +450,24 @@ export class NewHireFinalizationService {
     }
 
     return request;
+  }
+
+  private async assertBranchCanReceiveChampNewHire(sourceVendorId: string) {
+    const activeChampAssignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: {
+        vendorId: sourceVendorId,
+        status: AssignmentStatus.ACTIVE
+      },
+      include: { champ: true }
+    });
+
+    if (!activeChampAssignment) {
+      return;
+    }
+
+    throw new ConflictException(
+      this.activeChampConflictMessage(activeChampAssignment.champ.nameEn)
+    );
   }
 
   private async createTemporaryPasswordBundle() {
@@ -641,5 +683,27 @@ export class NewHireFinalizationService {
 
   private isAdmin(user: AuthenticatedUser) {
     return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+  }
+
+  private activeChampConflictMessage(champName?: string | null) {
+    return champName
+      ? `Selected Branch already has an active Champ: ${champName}. One Branch can have one active Champ only.`
+      : "Selected Branch already has an active Champ. One Branch can have one active Champ only.";
+  }
+
+  private isActiveChampAssignmentConflict(error: unknown) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== "P2002"
+    ) {
+      return false;
+    }
+
+    const target = error.meta?.target;
+    return (
+      error.meta?.modelName === "VendorChampAssignment" &&
+      Array.isArray(target) &&
+      target.includes("vendorId")
+    );
   }
 }

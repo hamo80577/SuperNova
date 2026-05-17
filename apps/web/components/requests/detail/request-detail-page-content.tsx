@@ -12,14 +12,10 @@ import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
 import { ApprovalStepsIndicator } from "./approval-steps-indicator";
-import { ApprovalStepsList } from "./approval-steps-list";
 import { RequestTimeline } from "./request-timeline";
-import { NewHireRequestDetailPanel, ResignationRequestDetailPanel, TransferContext } from "./request-type-panel";
-import { WorkflowStateSummary } from "./workflow-state-summary";
+import { RequestTypePanel } from "./request-type-panel";
 import { RequestStatusBadge } from "../shared/request-badges";
 import { EmptyState } from "../shared/request-empty-state";
-import { Definition } from "../shared/request-field";
-import { InfoCard } from "../shared/request-info-card";
 import { ErrorState, LoadingState } from "../shared/request-states";
 import { formatEnum, getRequestLoadErrorMessage } from "../shared/request-utils";
 
@@ -134,42 +130,7 @@ export function RequestDetailView() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <InfoCard title="Context">
-          <Definition label="Source Chain" value={request.sourceChain?.chainName ?? "None"} />
-          <Definition label="Source Vendor" value={request.sourceVendor?.vendorName ?? "None"} />
-          <Definition
-            label="Destination Chain"
-            value={request.destinationChain?.chainName ?? "None"}
-          />
-          <Definition
-            label="Destination Vendor"
-            value={request.destinationVendor?.vendorName ?? "None"}
-          />
-          <Definition label="Target User" value={request.targetUser?.nameEn ?? "None"} />
-        </InfoCard>
-        {request.type !== "NEW_HIRE" ? (
-          <InfoCard title="Workflow State">
-            <WorkflowStateSummary request={request} />
-          </InfoCard>
-        ) : null}
-        {request.type === "NEW_HIRE" ? (
-          <NewHireRequestDetailPanel request={request} />
-        ) : null}
-        {request.type === "RESIGNATION" ? (
-          <ResignationRequestDetailPanel request={request} />
-        ) : null}
-        {request.type === "TRANSFER" ? (
-          <InfoCard title="Transfer Context">
-            <TransferContext payload={request.payload} request={request} />
-          </InfoCard>
-        ) : null}
-        {request.type !== "NEW_HIRE" ? (
-          <InfoCard title="Approval Steps">
-            <ApprovalStepsList approvals={request.approvals} />
-          </InfoCard>
-        ) : null}
-      </section>
+      <RequestTypePanel request={request} />
 
       {request.type === "NEW_HIRE" &&
       request.status === "PENDING_ADMIN" &&
@@ -192,8 +153,8 @@ export function RequestDetailView() {
             await loadRequest();
           }}
           request={request}
-        type="RESIGNATION"
-      />
+          type="RESIGNATION"
+        />
       ) : null}
 
       <ApprovalStepsIndicator request={request} />
@@ -201,7 +162,7 @@ export function RequestDetailView() {
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <h2 className="text-base font-semibold">Timeline</h2>
         <RequestTimeline
-          importantOnly={request.type === "NEW_HIRE"}
+          importantOnly
           items={request.timeline}
         />
       </section>

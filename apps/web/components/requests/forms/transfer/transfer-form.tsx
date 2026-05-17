@@ -1,36 +1,56 @@
 "use client";
 
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { assignmentsApi, type PickerBranchAssignment } from "@/lib/api/assignments";
 import { organizationApi, type Chain, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
-import { cn } from "@/lib/utils";
-import { BranchChoiceList } from "./transfer-picker-search";
+import {
+  type ChampBranch,
+  type ScopedPicker,
+  workspacesApi
+} from "@/lib/api/workspaces";
 import { filterVendors } from "./transfer-utils";
-import { EmptyState } from "../../shared/request-empty-state";
 import { Definition, Field } from "../../shared/request-field";
 import { ErrorState, LoadingState } from "../../shared/request-states";
 import { formatEnum } from "../../shared/request-utils";
 
-export function LifecyclePickerRequestForm({
-  onCreated,
-  type
-}: {
+type LifecyclePickerRequestFormProps = {
+  onCancel?: () => void;
   onCreated: (request: RequestSummary) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   type: "TRANSFER";
-}) {
+};
+
+export function LifecyclePickerRequestForm(props: LifecyclePickerRequestFormProps) {
+  const { loading, user } = useAuth();
+
+  if (loading) {
+    return <LoadingState label="Loading workspace access" />;
+  }
+
+  if (user?.role === "CHAMP") {
+    return <ChampScopedTransferRequestForm {...props} />;
+  }
+
+  return <OrganizationTransferRequestForm {...props} />;
+}
+
+function OrganizationTransferRequestForm({
+  onCancel,
+  onCreated,
+  onDirtyChange,
+  type
+}: LifecyclePickerRequestFormProps) {
   const [chains, setChains] = useState<Chain[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [sourceChainId, setSourceChainId] = useState("");
   const [sourceVendorId, setSourceVendorId] = useState("");
-  const [sourceBranchQuery, setSourceBranchQuery] = useState("");
   const [destinationChainId, setDestinationChainId] = useState("");
   const [destinationVendorId, setDestinationVendorId] = useState("");
-  const [destinationBranchQuery, setDestinationBranchQuery] = useState("");
-  const [pickerQuery, setPickerQuery] = useState("");
   const [pickerAssignments, setPickerAssignments] = useState<PickerBranchAssignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] =
     useState<PickerBranchAssignment | null>(null);
@@ -115,8 +135,7 @@ export function LifecyclePickerRequestForm({
         .listPickerBranchAssignments({
           page: 1,
           pageSize: 100,
-          status: "ACTIVE",
-          q: pickerQuery || undefined
+          status: "ACTIVE"
         })
         .then((response) => {
           if (mounted) {
@@ -145,37 +164,58 @@ export function LifecyclePickerRequestForm({
       mounted = false;
       window.clearTimeout(timeout);
     };
-  }, [pickerQuery, sourceVendorId]);
+  }, [sourceVendorId]);
 
-  const sourceVendors = filterVendors(vendors, sourceChainId, sourceBranchQuery);
+  const sourceVendors = filterVendors(vendors, sourceChainId, "");
   const destinationVendors = filterVendors(
     vendors,
     destinationChainId,
-    destinationBranchQuery
+    ""
   ).filter((vendor) => vendor.id !== sourceVendorId);
   const sourceVendor = vendors.find((vendor) => vendor.id === sourceVendorId);
   const destinationVendor = vendors.find((vendor) => vendor.id === destinationVendorId);
+
+  useEffect(() => {
+    onDirtyChange?.(
+      Boolean(
+        sourceChainId ||
+          sourceVendorId ||
+          selectedAssignment ||
+          destinationChainId ||
+          destinationVendorId ||
+          form.reason.trim() ||
+          form.effectiveDate ||
+          form.notes.trim()
+      )
+    );
+  }, [
+    destinationChainId,
+    destinationVendorId,
+    form.effectiveDate,
+    form.notes,
+    form.reason,
+    onDirtyChange,
+    selectedAssignment,
+    sourceChainId,
+    sourceVendorId
+  ]);
 
   function selectSourceChain(chainId: string) {
     setSourceChainId(chainId);
     setSourceVendorId("");
     setSelectedAssignment(null);
     setPickerAssignments([]);
-    setPickerQuery("");
-    setSourceBranchQuery("");
   }
 
   function selectSourceVendor(vendor: Vendor) {
     setSourceChainId(vendor.chainId);
     setSourceVendorId(vendor.id);
     setSelectedAssignment(null);
-    setPickerQuery("");
   }
 
   function selectDestinationChain(chainId: string) {
     setDestinationChainId(chainId);
     setDestinationVendorId("");
-    setDestinationBranchQuery("");
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -225,7 +265,10 @@ export function LifecyclePickerRequestForm({
               aria-label="Source Chain"
               className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={loading}
+              emptyMessage="No Chain matches this search."
               onChange={(event) => selectSourceChain(event.target.value)}
+              searchable
+              searchPlaceholder="Search Chain"
               value={sourceChainId}
             >
               <option value="">{loading ? "Loading Chains..." : "Select Chain"}</option>
@@ -236,23 +279,35 @@ export function LifecyclePickerRequestForm({
               ))}
             </Select>
           </Field>
-          <Field label="Branch search">
-            <Input
-              className="h-11 rounded-xl bg-white"
+          <Field label="Source Branch">
+            <Select
+              aria-label="Source Branch"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={!sourceChainId || loading}
-              onChange={(event) => setSourceBranchQuery(event.target.value)}
-              placeholder="Search Branch"
-              value={sourceBranchQuery}
-            />
+              emptyMessage="No Branch matches this Chain/search."
+              onChange={(event) => {
+                const vendor = sourceVendors.find(
+                  (item) => item.id === event.target.value
+                );
+                if (vendor) {
+                  selectSourceVendor(vendor);
+                }
+              }}
+              searchable
+              searchPlaceholder="Search Branch"
+              value={sourceVendorId}
+            >
+              <option value="">
+                {sourceChainId ? "Select Branch" : "Select Chain first"}
+              </option>
+              {sourceVendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>
+                  {vendor.vendorName} / {vendor.vendorCode} / {vendor.chain.chainName}
+                </option>
+              ))}
+            </Select>
           </Field>
         </div>
-        {sourceChainId ? (
-          <BranchChoiceList
-            onSelect={selectSourceVendor}
-            selectedVendorId={sourceVendorId}
-            vendors={sourceVendors}
-          />
-        ) : null}
       </div>
 
       {sourceVendor ? (
@@ -264,44 +319,37 @@ export function LifecyclePickerRequestForm({
       ) : null}
 
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-        <Field label="Picker search">
-          <Input
-            className="h-11 rounded-xl"
-            disabled={!sourceVendorId}
-            onChange={(event) => setPickerQuery(event.target.value)}
-            placeholder="Search by name, phone, or ID"
-            value={pickerQuery}
-          />
-        </Field>
-        {pickerLoading ? (
-          <LoadingState label="Loading active Pickers" />
-        ) : sourceVendorId ? (
-          <div className="grid max-h-48 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {pickerAssignments.slice(0, 12).map((assignment) => (
-              <button
-                className={cn(
-                  "rounded-xl border p-3 text-left text-sm transition-colors",
-                  selectedAssignment?.id === assignment.id
-                    ? "border-orange-300 bg-orange-50"
-                    : "border-slate-200 bg-slate-50 hover:border-orange-200"
-                )}
-                key={assignment.id}
-                onClick={() => setSelectedAssignment(assignment)}
-                type="button"
-              >
-                <span className="block font-semibold text-slate-950">
-                  {assignment.picker.nameEn}
-                </span>
-                <span className="block text-xs text-slate-500">
-                  {assignment.picker.phoneNumber} · {assignment.vendor.vendorName}
-                </span>
-              </button>
+        <Field label="Picker">
+          <Select
+            aria-label="Picker"
+            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            disabled={!sourceVendorId || pickerLoading}
+            emptyMessage="No active Picker matches this Branch/search."
+            onChange={(event) => {
+              const assignment = pickerAssignments.find(
+                (item) => item.id === event.target.value
+              );
+              setSelectedAssignment(assignment ?? null);
+            }}
+            searchable
+            searchPlaceholder="Search by name, phone, or ID"
+            value={selectedAssignment?.id ?? ""}
+          >
+            <option value="">
+              {sourceVendorId
+                ? pickerLoading
+                  ? "Loading active Pickers..."
+                  : "Select Picker"
+                : "Select Branch first"}
+            </option>
+            {pickerAssignments.map((assignment) => (
+              <option key={assignment.id} value={assignment.id}>
+                {assignment.picker.nameEn} / {assignment.picker.phoneNumber} /{" "}
+                {assignment.vendor.vendorName}
+              </option>
             ))}
-            {!pickerAssignments.length ? (
-              <EmptyState message="No active Picker matches this Branch/search." compact />
-            ) : null}
-          </div>
-        ) : null}
+          </Select>
+        </Field>
       </div>
 
       {selectedAssignment ? (
@@ -321,7 +369,10 @@ export function LifecyclePickerRequestForm({
               aria-label="Destination Chain"
               className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={loading}
+              emptyMessage="No Chain matches this search."
               onChange={(event) => selectDestinationChain(event.target.value)}
+              searchable
+              searchPlaceholder="Search Chain"
               value={destinationChainId}
             >
               <option value="">
@@ -334,26 +385,36 @@ export function LifecyclePickerRequestForm({
               ))}
             </Select>
           </Field>
-          <Field label="Destination Branch search">
-            <Input
-              className="h-11 rounded-xl bg-white"
+          <Field label="Destination Branch">
+            <Select
+              aria-label="Destination Branch"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
               disabled={!destinationChainId || loading}
-              onChange={(event) => setDestinationBranchQuery(event.target.value)}
-              placeholder="Search destination Branch"
-              value={destinationBranchQuery}
-            />
+              emptyMessage="No destination Branch matches this Chain/search."
+              onChange={(event) => {
+                const vendor = destinationVendors.find(
+                  (item) => item.id === event.target.value
+                );
+                if (vendor) {
+                  setDestinationChainId(vendor.chainId);
+                  setDestinationVendorId(vendor.id);
+                }
+              }}
+              searchable
+              searchPlaceholder="Search destination Branch"
+              value={destinationVendorId}
+            >
+              <option value="">
+                {destinationChainId ? "Select destination Branch" : "Select Chain first"}
+              </option>
+              {destinationVendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>
+                  {vendor.vendorName} / {vendor.vendorCode} / {vendor.chain.chainName}
+                </option>
+              ))}
+            </Select>
           </Field>
         </div>
-        {destinationChainId ? (
-          <BranchChoiceList
-            onSelect={(vendor) => {
-              setDestinationChainId(vendor.chainId);
-              setDestinationVendorId(vendor.id);
-            }}
-            selectedVendorId={destinationVendorId}
-            vendors={destinationVendors}
-          />
-        ) : null}
         {destinationVendor ? (
           <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
             {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
@@ -391,9 +452,19 @@ export function LifecyclePickerRequestForm({
           value={form.notes}
         />
       </Field>
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {onCancel ? (
+          <Button
+            className="min-h-11 w-full rounded-xl sm:w-auto"
+            onClick={onCancel}
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        ) : null}
         <Button
-          className="rounded-xl bg-orange-600 hover:bg-orange-700"
+          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
           disabled={isPending}
           type="submit"
         >
@@ -402,4 +473,427 @@ export function LifecyclePickerRequestForm({
       </div>
     </form>
   );
+}
+
+function ChampScopedTransferRequestForm({
+  onCancel,
+  onCreated,
+  onDirtyChange,
+  type
+}: LifecyclePickerRequestFormProps) {
+  const [branches, setBranches] = useState<ChampBranch[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [sourceChainId, setSourceChainId] = useState("");
+  const [sourceVendorId, setSourceVendorId] = useState("");
+  const [destinationChainId, setDestinationChainId] = useState("");
+  const [destinationVendorId, setDestinationVendorId] = useState("");
+  const [selectedPicker, setSelectedPicker] = useState<ScopedPicker | null>(null);
+  const [form, setForm] = useState({
+    reason: "",
+    effectiveDate: "",
+    notes: ""
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOptions() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [branchesResponse, allVendors] = await Promise.all([
+          workspacesApi.champBranches(),
+          loadAllActiveVendors()
+        ]);
+
+        if (mounted) {
+          const scopedBranches = branchesResponse.branches;
+          setBranches(scopedBranches);
+          setVendors(allVendors);
+          if (scopedBranches.length === 1) {
+            setSourceChainId(scopedBranches[0].chain.id);
+            setSourceVendorId(scopedBranches[0].vendor.id);
+          }
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load your scoped Transfer options."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const sourceChains = useMemo(() => {
+    const chainsById = new Map<string, ChampBranch["chain"]>();
+    branches.forEach((branch) => chainsById.set(branch.chain.id, branch.chain));
+    return Array.from(chainsById.values()).sort((first, second) =>
+      first.chainName.localeCompare(second.chainName)
+    );
+  }, [branches]);
+
+  const destinationChains = useMemo(() => {
+    const chainsById = new Map<string, Vendor["chain"]>();
+    vendors.forEach((vendor) => chainsById.set(vendor.chain.id, vendor.chain));
+    return Array.from(chainsById.values()).sort((first, second) =>
+      first.chainName.localeCompare(second.chainName)
+    );
+  }, [vendors]);
+
+  const sourceBranches = branches.filter(
+    (branch) => !sourceChainId || branch.chain.id === sourceChainId
+  );
+
+  const selectedSourceBranch = branches.find(
+    (branch) => branch.vendor.id === sourceVendorId
+  );
+  const pickerOptions = selectedSourceBranch?.pickers ?? [];
+  const destinationVendors = filterVendors(
+    vendors,
+    destinationChainId,
+    ""
+  ).filter((vendor) => vendor.id !== sourceVendorId);
+  const destinationVendor = vendors.find((vendor) => vendor.id === destinationVendorId);
+
+  useEffect(() => {
+    onDirtyChange?.(
+      Boolean(
+        selectedPicker ||
+          destinationChainId ||
+          destinationVendorId ||
+          form.reason.trim() ||
+          form.effectiveDate ||
+          form.notes.trim()
+      )
+    );
+  }, [
+    destinationChainId,
+    destinationVendorId,
+    form.effectiveDate,
+    form.notes,
+    form.reason,
+    onDirtyChange,
+    selectedPicker
+  ]);
+
+  function selectSourceChain(chainId: string) {
+    setSourceChainId(chainId);
+    setSourceVendorId("");
+    setSelectedPicker(null);
+  }
+
+  function selectSourceBranch(branch: ChampBranch) {
+    setSourceChainId(branch.chain.id);
+    setSourceVendorId(branch.vendor.id);
+    setSelectedPicker(null);
+  }
+
+  function selectDestinationChain(chainId: string) {
+    setDestinationChainId(chainId);
+    setDestinationVendorId("");
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!sourceVendorId || !selectedPicker) {
+      setError("Select your source Branch and active Picker before submitting.");
+      return;
+    }
+
+    if (!destinationVendorId) {
+      setError("Select destination Chain and Branch.");
+      return;
+    }
+
+    if (!form.reason.trim()) {
+      setError("Reason is required.");
+      return;
+    }
+
+    startTransition(async () => {
+      setError(null);
+      try {
+        const created = await requestsApi.createTransfer({
+          sourceVendorId,
+          targetUserId: selectedPicker.picker.id,
+          destinationVendorId,
+          reason: form.reason,
+          requestedTransferDate: form.effectiveDate || undefined,
+          notes: form.notes || undefined
+        });
+        onCreated(created);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : `Unable to submit ${formatEnum(type)} request.`
+        );
+      }
+    });
+  }
+
+  return (
+    <form className="grid min-w-0 gap-4" onSubmit={submit}>
+      {error ? <ErrorState message={error} /> : null}
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Source Chain">
+            <Select
+              aria-label="Source Chain"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              disabled={loading}
+              emptyMessage="No Chain matches this search."
+              onChange={(event) => selectSourceChain(event.target.value)}
+              searchable
+              searchPlaceholder="Search Chain"
+              value={sourceChainId}
+            >
+              <option value="">
+                {loading ? "Loading your Chains..." : "Select Chain"}
+              </option>
+              {sourceChains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.chainName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Source Branch">
+            <Select
+              aria-label="Source Branch"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              disabled={!sourceChainId || loading}
+              emptyMessage="No assigned Branch matches this Chain/search."
+              onChange={(event) => {
+                const branch = sourceBranches.find(
+                  (item) => item.vendor.id === event.target.value
+                );
+                if (branch) {
+                  selectSourceBranch(branch);
+                }
+              }}
+              searchable
+              searchPlaceholder="Search your Branch"
+              value={sourceVendorId}
+            >
+              <option value="">
+                {sourceChainId ? "Select Branch" : "Select Chain first"}
+              </option>
+              {sourceBranches.map((branch) => (
+                <option key={branch.vendor.id} value={branch.vendor.id}>
+                  {branch.vendor.vendorName} / {branch.vendor.vendorCode} /{" "}
+                  {branch.chain.chainName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      </div>
+
+      {selectedSourceBranch ? (
+        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+          <span className="font-semibold">
+            {selectedSourceBranch.chain.chainName}
+          </span>
+          <span className="mx-2 text-orange-400">/</span>
+          <span>{selectedSourceBranch.vendor.vendorName}</span>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+        <Field label="Picker">
+          <Select
+            aria-label="Picker"
+            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            disabled={!sourceVendorId}
+            emptyMessage="No active Picker matches this Branch/search."
+            onChange={(event) => {
+              const picker = pickerOptions.find(
+                (item) => item.assignment.id === event.target.value
+              );
+              setSelectedPicker(picker ?? null);
+            }}
+            searchable
+            searchPlaceholder="Search by name, phone, or ID"
+            value={selectedPicker?.assignment.id ?? ""}
+          >
+            <option value="">
+              {sourceVendorId ? "Select Picker" : "Select Branch first"}
+            </option>
+            {pickerOptions.map((scopedPicker) => (
+              <option
+                key={scopedPicker.assignment.id}
+                value={scopedPicker.assignment.id}
+              >
+                {scopedPicker.picker.nameEn} / {scopedPicker.picker.phoneNumber} /{" "}
+                {selectedSourceBranch?.vendor.vendorName}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+
+      {selectedPicker && selectedSourceBranch ? (
+        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
+          <p className="font-semibold text-emerald-950">Selected Picker</p>
+          <Definition label="Name" value={selectedPicker.picker.nameEn} />
+          <Definition label="Phone" value={selectedPicker.picker.phoneNumber} />
+          <Definition
+            label="Branch"
+            value={selectedSourceBranch.vendor.vendorName}
+          />
+          <Definition label="Chain" value={selectedSourceBranch.chain.chainName} />
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Destination Chain">
+            <Select
+              aria-label="Destination Chain"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              disabled={loading}
+              emptyMessage="No Chain matches this search."
+              onChange={(event) => selectDestinationChain(event.target.value)}
+              searchable
+              searchPlaceholder="Search Chain"
+              value={destinationChainId}
+            >
+              <option value="">
+                {loading ? "Loading Chains..." : "Select Chain"}
+              </option>
+              {destinationChains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.chainName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Destination Branch">
+            <Select
+              aria-label="Destination Branch"
+              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              disabled={!destinationChainId || loading}
+              emptyMessage="No destination Branch matches this Chain/search."
+              onChange={(event) => {
+                const vendor = destinationVendors.find(
+                  (item) => item.id === event.target.value
+                );
+                if (vendor) {
+                  setDestinationChainId(vendor.chainId);
+                  setDestinationVendorId(vendor.id);
+                }
+              }}
+              searchable
+              searchPlaceholder="Search destination Branch"
+              value={destinationVendorId}
+            >
+              <option value="">
+                {destinationChainId ? "Select destination Branch" : "Select Chain first"}
+              </option>
+              {destinationVendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>
+                  {vendor.vendorName} / {vendor.vendorCode} / {vendor.chain.chainName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        {destinationVendor ? (
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+            {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Transfer date">
+          <Input
+            className="h-11 rounded-xl"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, effectiveDate: event.target.value }))
+            }
+            type="date"
+            value={form.effectiveDate}
+          />
+        </Field>
+        <Field label="Reason">
+          <Input
+            className="h-11 rounded-xl"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, reason: event.target.value }))
+            }
+            value={form.reason}
+          />
+        </Field>
+      </div>
+      <Field label="Notes">
+        <Input
+          className="h-11 rounded-xl"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, notes: event.target.value }))
+          }
+          value={form.notes}
+        />
+      </Field>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        {onCancel ? (
+          <Button
+            className="min-h-11 w-full rounded-xl sm:w-auto"
+            onClick={onCancel}
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        ) : null}
+        <Button
+          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
+          disabled={isPending}
+          type="submit"
+        >
+          {isPending ? "Submitting..." : `Submit ${formatEnum(type)}`}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+async function loadAllActiveVendors() {
+  const firstPage = await organizationApi.listVendors({
+    page: 1,
+    pageSize: 100,
+    status: "ACTIVE"
+  });
+
+  const restPages = await Promise.all(
+    Array.from(
+      { length: Math.max(0, firstPage.meta.totalPages - 1) },
+      (_, index) =>
+        organizationApi.listVendors({
+          page: index + 2,
+          pageSize: 100,
+          status: "ACTIVE"
+        })
+    )
+  );
+
+  return [firstPage.items, ...restPages.map((page) => page.items)].flat();
 }

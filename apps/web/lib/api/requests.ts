@@ -79,12 +79,19 @@ export interface RequestSummary {
   createdAt: string;
   updatedAt: string;
   createdBy: UserSummary;
-  targetUser: UserSummary | null;
+  targetUser: RequestTargetUserSummary | null;
   sourceChain: ChainSummary | null;
   sourceVendor: VendorSummary | null;
   destinationChain: ChainSummary | null;
   destinationVendor: VendorSummary | null;
   approvals: RequestApprovalSummary[];
+}
+
+export interface RequestTargetUserSummary extends UserSummary {
+  ibsId?: string | null;
+  joiningDate?: string | null;
+  nationalId?: string | null;
+  shopperId?: string | null;
 }
 
 export interface RequestTimelineItem {

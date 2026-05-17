@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -385,6 +386,7 @@ export class NewHireWorkflowService {
         sourceVendor.chainId,
         "Area Managers can submit New Hire requests only within assigned Chain scope."
       );
+      await this.assertBranchCanReceiveChampNewHire(targetRole, sourceVendor.id);
 
       return {
         targetRole,
@@ -399,6 +401,8 @@ export class NewHireWorkflowService {
       };
     }
 
+    await this.assertBranchCanReceiveChampNewHire(targetRole, sourceVendor.id);
+
     return {
       targetRole,
       sourceVendor,
@@ -409,6 +413,31 @@ export class NewHireWorkflowService {
         ),
       skipAreaManagerApproval: false
     };
+  }
+
+  private async assertBranchCanReceiveChampNewHire(
+    targetRole: Extract<UserRole, "PICKER" | "CHAMP">,
+    sourceVendorId: string
+  ) {
+    if (targetRole !== UserRole.CHAMP) {
+      return;
+    }
+
+    const activeChampAssignment = await this.prisma.vendorChampAssignment.findFirst({
+      where: {
+        vendorId: sourceVendorId,
+        status: AssignmentStatus.ACTIVE
+      },
+      include: { champ: true }
+    });
+
+    if (!activeChampAssignment) {
+      return;
+    }
+
+    throw new ConflictException(
+      `Selected Branch already has an active Champ: ${activeChampAssignment.champ.nameEn}. One Branch can have one active Champ only.`
+    );
   }
 
   private async resolveAreaManagerNewHireContext(

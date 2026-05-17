@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import { SelectedContextCard } from "./new-hire-branch-context";
 import { NewHireLookupResultCard, PreviousPickerCard } from "./new-hire-lookup";
 import { NewHireFormSection } from "./new-hire-section";
 import { applyFixedNewHireBranch, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
-import { EmptyState } from "../../shared/request-empty-state";
 import { Field } from "../../shared/request-field";
 import { ErrorState } from "../../shared/request-states";
 import { type LockedNewHireBranchContext, type NewHireChainOption, type NewHireVendorOption } from "../../shared/request-types";
@@ -26,6 +25,7 @@ export function NewHireRequestForm({
   initialTargetRole = "PICKER",
   lockedBranchContext,
   lockTargetRole = false,
+  onCancel,
   onDirtyChange,
   onCreated
 }: {
@@ -33,6 +33,7 @@ export function NewHireRequestForm({
   initialTargetRole?: NewHireTargetRole;
   lockedBranchContext?: LockedNewHireBranchContext;
   lockTargetRole?: boolean;
+  onCancel?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onCreated: (request: RequestSummary) => void;
 }) {
@@ -53,8 +54,6 @@ export function NewHireRequestForm({
     address: "",
     notes: ""
   });
-  const [chainQuery, setChainQuery] = useState("");
-  const [branchQuery, setBranchQuery] = useState("");
   const [lookupResponse, setLookupResponse] =
     useState<NewHireLookupResponse | null>(null);
   const [selectedRehireUserId, setSelectedRehireUserId] = useState("");
@@ -393,28 +392,11 @@ export function NewHireRequestForm({
     : Boolean(form.sourceVendorId);
   const canLookupCandidate =
     lookupContextReady && (isPhoneValid || isNationalIdValid);
-  const chainSearchResults = chains
-    .filter((chain) => {
-      const query = chainQuery.trim().toLowerCase();
-      if (!query) {
-        return true;
-      }
-      return [chain.chainName, chain.chainCode]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    })
-    .slice(0, 10);
+  const availableAreaManagerChains = chains.filter(
+    (chain) => !form.chainIds.includes(chain.id)
+  );
   const filteredVendors = vendors
-    .filter((vendor) => !form.sourceChainId || vendor.chainId === form.sourceChainId)
-    .filter((vendor) => {
-      const query = branchQuery.trim().toLowerCase();
-      if (!query) {
-        return true;
-      }
-      return [vendor.vendorName, vendor.vendorCode, vendor.chain.chainName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
+    .filter((vendor) => !form.sourceChainId || vendor.chainId === form.sourceChainId);
   const lookupStatus = lookupResponse?.status;
   const lookupCandidates = lookupResponse?.candidates ?? [];
   const rehireCandidate =
@@ -502,7 +484,6 @@ export function NewHireRequestForm({
       sourceChainId: chainId,
       sourceVendorId: ""
     }));
-    setBranchQuery("");
     resetLookup();
   }
 
@@ -641,7 +622,7 @@ export function NewHireRequestForm({
             ? "The Branch is locked from the current workspace."
             : isAreaManagerTarget
               ? "Area Managers are assigned directly to one or more Chains."
-              : "Select a Chain first, then choose a Branch from the scoped search."
+              : "Select the Chain and Branch for this New Hire request."
         }
         title="Operational context"
       >
@@ -653,122 +634,93 @@ export function NewHireRequestForm({
           />
         ) : isAreaManagerTarget ? (
           <div className="grid gap-3">
-            <Field label="Chain search">
-              <Input
-                className="h-11 rounded-xl bg-white"
+            <Field label="Chain">
+              <Select
+                aria-label="Chain"
                 disabled={isLoadingVendors}
-                onChange={(event) => setChainQuery(event.target.value)}
-                placeholder="Search Chain name or code"
-                value={chainQuery}
-              />
+                emptyMessage="No Chain matches this search."
+                onChange={(event) => {
+                  if (event.target.value) {
+                    toggleChain(event.target.value);
+                  }
+                }}
+                searchable
+                searchPlaceholder="Search Chain name or code"
+                value=""
+              >
+                <option value="">Select Chain</option>
+                {availableAreaManagerChains.map((chain) => (
+                  <option key={chain.id} value={chain.id}>
+                    {chain.chainName} / {chain.chainCode}
+                  </option>
+                ))}
+              </Select>
             </Field>
-            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {chainSearchResults.map((chain) => (
-                <button
-                  className={cn(
-                    "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
-                    form.chainIds.includes(chain.id)
-                      ? "border-orange-300 bg-orange-50 text-orange-950"
-                      : "border-slate-200 text-slate-700 hover:border-orange-200"
-                  )}
-                  key={chain.id}
-                  onClick={() => toggleChain(chain.id)}
-                  type="button"
-                >
-                  <span className="block font-semibold">{chain.chainName}</span>
-                  <span className="block text-xs text-slate-500">
-                    {chain.chainCode}
-                  </span>
-                </button>
-              ))}
-              {!chainSearchResults.length ? (
-                <EmptyState message="No Chain matches this search." compact />
-              ) : null}
-            </div>
             {selectedChains.length ? (
               <div className="flex flex-wrap gap-2">
                 {selectedChains.map((chain) => (
-                  <Badge key={chain.id} variant="outline">
+                  <button
+                    className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-800"
+                    key={chain.id}
+                    onClick={() => toggleChain(chain.id)}
+                    type="button"
+                  >
                     {chain.chainName}
-                  </Badge>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 ))}
               </div>
             ) : null}
           </div>
         ) : (
-          <div className="grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Chain search">
-                <Input
-                  className="h-11 rounded-xl bg-white"
-                  disabled={isLoadingVendors}
-                  onChange={(event) => setChainQuery(event.target.value)}
-                  placeholder="Search Chain name or code"
-                  value={chainQuery}
-                />
-              </Field>
-              <Field label="Branch search">
-                <Input
-                  className="h-11 rounded-xl bg-white"
-                  disabled={!form.sourceChainId || isLoadingVendors}
-                  onChange={(event) => setBranchQuery(event.target.value)}
-                  placeholder="Search Branch name or code"
-                  value={branchQuery}
-                />
-              </Field>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {chainSearchResults.map((chain) => (
-                  <button
-                    className={cn(
-                      "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
-                      form.sourceChainId === chain.id
-                        ? "border-orange-300 bg-orange-50 text-orange-950"
-                        : "border-slate-200 text-slate-700 hover:border-orange-200"
-                    )}
-                    key={chain.id}
-                    onClick={() => updateSourceChain(chain.id)}
-                    type="button"
-                  >
-                    <span className="block font-semibold">{chain.chainName}</span>
-                    <span className="block text-xs text-slate-500">
-                      {chain.chainCode}
-                    </span>
-                  </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Chain">
+              <Select
+                aria-label="Chain"
+                disabled={isLoadingVendors}
+                emptyMessage="No Chain matches this search."
+                onChange={(event) => updateSourceChain(event.target.value)}
+                searchable
+                searchPlaceholder="Search Chain name or code"
+                value={form.sourceChainId}
+              >
+                <option value="">Select Chain</option>
+                {chains.map((chain) => (
+                  <option key={chain.id} value={chain.id}>
+                    {chain.chainName} / {chain.chainCode}
+                  </option>
                 ))}
-                {!chainSearchResults.length ? (
-                  <EmptyState message="No Chain matches this search." compact />
-                ) : null}
-              </div>
-              <div className="grid max-h-52 gap-2 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {form.sourceChainId ? (
-                  filteredVendors.slice(0, 12).map((vendor) => (
-                    <button
-                      className={cn(
-                        "min-h-12 rounded-xl border bg-white p-3 text-left text-sm transition-colors",
-                        form.sourceVendorId === vendor.id
-                          ? "border-orange-300 bg-orange-50 text-orange-950"
-                          : "border-slate-200 text-slate-700 hover:border-orange-200"
-                      )}
-                      key={vendor.id}
-                      onClick={() => selectBranch(vendor)}
-                      type="button"
-                    >
-                      <span className="block font-semibold">{vendor.vendorName}</span>
-                      <span className="block text-xs text-slate-500">
-                        {vendor.vendorCode} / {vendor.chain.chainName}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <EmptyState message="Select a Chain to load Branches." compact />
-                )}
-                {form.sourceChainId && !filteredVendors.length ? (
-                  <EmptyState message="No Branch matches this Chain/search." compact />
-                ) : null}
-              </div>
-            </div>
+              </Select>
+            </Field>
+            <Field label="Branch">
+              <Select
+                aria-label="Branch"
+                disabled={!form.sourceChainId || isLoadingVendors}
+                emptyMessage="No Branch matches this Chain/search."
+                onChange={(event) => {
+                  const vendorId = event.target.value;
+                  const vendor = filteredVendors.find((item) => item.id === vendorId);
+                  if (vendor) {
+                    selectBranch(vendor);
+                    return;
+                  }
+                  setForm((current) => ({ ...current, sourceVendorId: "" }));
+                  resetLookup();
+                }}
+                searchable
+                searchPlaceholder="Search Branch name or code"
+                value={form.sourceVendorId}
+              >
+                <option value="">
+                  {form.sourceChainId ? "Select Branch" : "Select Chain first"}
+                </option>
+                {filteredVendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.vendorName} / {vendor.vendorCode}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
         )}
       </NewHireFormSection>
@@ -909,9 +861,19 @@ export function NewHireRequestForm({
         </NewHireFormSection>
       ) : null}
 
-      <div className="flex justify-end bg-slate-50/70 px-4 py-4 sm:px-5">
+      <div className="flex flex-col gap-2 bg-slate-50/70 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
+        {onCancel ? (
+          <Button
+            className="min-h-11 w-full rounded-xl sm:w-auto"
+            onClick={onCancel}
+            type="button"
+            variant="outline"
+          >
+            Cancel
+          </Button>
+        ) : null}
         <Button
-          className="min-h-11 rounded-xl bg-orange-600 hover:bg-orange-700"
+          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
           disabled={!canSubmit}
           type="submit"
         >

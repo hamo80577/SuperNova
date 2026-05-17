@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -13,9 +13,14 @@ type SelectOption = {
 
 export interface SelectProps
   extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size"> {
+  emptyMessage?: string;
   leadingIcon?: React.ReactNode;
   menuClassName?: string;
+  onSearchChange?: (value: string) => void;
   placeholder?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchValue?: string;
   triggerClassName?: string;
   wrapperClassName?: string;
 }
@@ -26,11 +31,16 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       children,
       className,
       disabled,
+      emptyMessage = "No options found.",
       leadingIcon,
       menuClassName,
       onBlur,
       onChange,
+      onSearchChange,
       placeholder = "Select",
+      searchable = false,
+      searchPlaceholder = "Search options",
+      searchValue,
       triggerClassName,
       id,
       value,
@@ -46,13 +56,30 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     const [internalValue, setInternalValue] = React.useState(
       String(defaultValue ?? options[0]?.value ?? "")
     );
+    const [internalSearchValue, setInternalSearchValue] = React.useState("");
     const wrapperRef = React.useRef<HTMLDivElement>(null);
+    const searchInputRef = React.useRef<HTMLInputElement>(null);
     const selectRef = React.useRef<HTMLSelectElement | null>(null);
     const nativeSelectId = id ? `${id}-native` : undefined;
 
     const selectedValue = String(isControlled ? value ?? "" : internalValue);
+    const resolvedSearchValue = searchValue ?? internalSearchValue;
     const selectedOption =
       options.find((option) => option.value === selectedValue) ?? options[0];
+    const visibleOptions = React.useMemo(() => {
+      if (!searchable) {
+        return options;
+      }
+
+      const query = resolvedSearchValue.trim().toLowerCase();
+      if (!query) {
+        return options;
+      }
+
+      return options.filter((option) =>
+        option.label.toLowerCase().includes(query)
+      );
+    }, [options, resolvedSearchValue, searchable]);
 
     React.useEffect(() => {
       if (isControlled || options.length === 0) {
@@ -66,7 +93,16 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
     React.useEffect(() => {
       if (!isOpen) {
+        if (searchValue === undefined) {
+          setInternalSearchValue("");
+        }
         return;
+      }
+
+      if (searchable) {
+        window.requestAnimationFrame(() => {
+          searchInputRef.current?.focus();
+        });
       }
 
       function handlePointerDown(event: PointerEvent) {
@@ -91,7 +127,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         document.removeEventListener("pointerdown", handlePointerDown);
         document.removeEventListener("keydown", handleKeyDown);
       };
-    }, [isOpen]);
+    }, [isOpen, searchable, searchValue]);
 
     function setSelectRefs(node: HTMLSelectElement | null) {
       selectRef.current = node;
@@ -125,6 +161,13 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           value: nextValue
         }
       } as React.ChangeEvent<HTMLSelectElement>);
+    }
+
+    function updateSearchValue(nextValue: string) {
+      if (searchValue === undefined) {
+        setInternalSearchValue(nextValue);
+      }
+      onSearchChange?.(nextValue);
     }
 
     function handleOptionSelect(option: SelectOption) {
@@ -204,12 +247,28 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         {isOpen ? (
           <div
             className={cn(
-              "absolute left-0 top-full z-50 mt-1 max-h-64 w-full min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.16)]",
+              "absolute left-0 top-full z-50 mt-1 max-h-72 w-full min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.16)]",
               menuClassName
             )}
             role="listbox"
           >
-            {options.map((option) => {
+            {searchable ? (
+              <div className="sticky top-0 z-10 bg-white p-1">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    aria-label={searchPlaceholder}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
+                    onChange={(event) => updateSearchValue(event.target.value)}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    placeholder={searchPlaceholder}
+                    ref={searchInputRef}
+                    value={resolvedSearchValue}
+                  />
+                </div>
+              </div>
+            ) : null}
+            {visibleOptions.map((option) => {
               const selected = option.value === selectedValue;
 
               return (
@@ -232,6 +291,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 </button>
               );
             })}
+            {!visibleOptions.length ? (
+              <div className="px-3 py-3 text-sm text-slate-500">
+                {emptyMessage}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -11,11 +11,8 @@ import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
 import { RequestApprovalDecisionPanel } from "../actions/request-approval-decision-panel";
 import { ApprovalStepsIndicator } from "./approval-steps-indicator";
-import { ApprovalStepsList } from "./approval-steps-list";
-import { RequestModalHero } from "./request-modal-hero";
 import { RequestTimeline } from "./request-timeline";
 import { RequestTypePanel } from "./request-type-panel";
-import { WorkflowStateSummary } from "./workflow-state-summary";
 import { RequestStatusBadge } from "../shared/request-badges";
 import { InfoCard } from "../shared/request-info-card";
 import { ErrorState, LoadingState } from "../shared/request-states";
@@ -97,22 +94,7 @@ export function RequestDetailModal({
           {error ? <ErrorState message={error} /> : null}
           {request ? (
             <div className="grid gap-4">
-              {request.type !== "NEW_HIRE" ? <RequestModalHero request={request} /> : null}
-              {request.type === "NEW_HIRE" ? (
-                <RequestTypePanel request={request} />
-              ) : (
-                <>
-                  <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                    <RequestTypePanel request={request} />
-                    <InfoCard title="Workflow">
-                      <WorkflowStateSummary request={request} />
-                    </InfoCard>
-                  </div>
-                  <InfoCard title="Approval Steps">
-                    <ApprovalStepsList approvals={request.approvals} variant="modal" />
-                  </InfoCard>
-                </>
-              )}
+              <RequestTypePanel request={request} />
 
               {actionableApproval &&
               !(
@@ -165,9 +147,8 @@ export function RequestDetailModal({
 
               <InfoCard title="Timeline">
                 <RequestTimeline
-                  importantOnly={request.type === "NEW_HIRE"}
+                  importantOnly
                   items={request.timeline}
-                  limit={request.type === "NEW_HIRE" ? undefined : 8}
                   variant="modal"
                 />
               </InfoCard>

@@ -12,7 +12,16 @@ import {
 import { redactJson } from "../security/sensitive-data.utils";
 import type { RequestWithRelations } from "./request-includes";
 
-export function toRequestSummary(request: RequestWithRelations) {
+type RequestSummaryOptions = {
+  includeTargetOperationalFields?: boolean;
+};
+
+export function toRequestSummary(
+  request: RequestWithRelations,
+  options: RequestSummaryOptions | number = {}
+) {
+  const normalizedOptions = typeof options === "number" ? {} : options;
+
   return {
     id: request.id,
     type: request.type,
@@ -23,7 +32,12 @@ export function toRequestSummary(request: RequestWithRelations) {
     createdAt: request.createdAt,
     updatedAt: request.updatedAt,
     createdBy: toUserSummary(request.createdBy),
-    targetUser: request.targetUser ? toUserSummary(request.targetUser) : null,
+    targetUser: request.targetUser
+      ? toRequestTargetUserSummary(
+          request.targetUser,
+          normalizedOptions.includeTargetOperationalFields
+        )
+      : null,
     sourceChain: request.sourceChain
       ? toChainSummary(request.sourceChain)
       : null,
@@ -37,6 +51,25 @@ export function toRequestSummary(request: RequestWithRelations) {
       ? toVendorSummary(request.destinationVendor)
       : null,
     approvals: request.approvals.map(toApprovalSummary)
+  };
+}
+
+function toRequestTargetUserSummary(
+  user: User,
+  includeOperationalFields = false
+) {
+  const summary = toUserSummary(user);
+
+  if (!includeOperationalFields) {
+    return summary;
+  }
+
+  return {
+    ...summary,
+    ibsId: user.ibsId,
+    joiningDate: user.joiningDate,
+    nationalId: user.nationalId,
+    shopperId: user.shopperId
   };
 }
 

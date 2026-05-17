@@ -138,7 +138,7 @@ export class RequestsService {
     });
 
     return {
-      ...toRequestSummary(request),
+      ...toRequestSummary(request, { includeTargetOperationalFields: true }),
       timeline: toTimeline(request, auditLogs)
     };
   }

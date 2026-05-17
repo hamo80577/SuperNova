@@ -1,11 +1,13 @@
 "use client";
 
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { type RequestSummary } from "@/lib/api/requests";
 import { NewHireRequestModal } from "./new-hire/new-hire-request-modal";
+import { RequestDiscardDialog } from "./request-discard-dialog";
 import { ResignationRequestForm } from "./resignation/resignation-form";
 import { LifecyclePickerRequestForm } from "./transfer/transfer-form";
 import { type NewRequestDraft } from "../shared/request-types";
@@ -20,10 +22,14 @@ export function NewRequestSheet({
   onClose: () => void;
   onCreated: (request: RequestSummary) => void;
 }) {
+  const [isDirty, setIsDirty] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const title =
     draft.type === "NEW_HIRE"
       ? `${formatEnum(draft.targetRole)} New Hire`
       : `${formatEnum(draft.type)} request`;
+  const draftKey =
+    draft.type === "NEW_HIRE" ? `${draft.type}:${draft.targetRole}` : draft.type;
 
   if (draft.type === "NEW_HIRE") {
     return (
@@ -39,8 +45,34 @@ export function NewRequestSheet({
   }
 
   function requestClose() {
+    if (isDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
     onClose();
   }
+
+  useEffect(() => {
+    setIsDirty(false);
+    setConfirmCloseOpen(false);
+  }, [draftKey]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (isDirty) {
+          setConfirmCloseOpen(true);
+          return;
+        }
+
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDirty, onClose]);
 
   return (
     <ModalPortal>
@@ -70,9 +102,18 @@ export function NewRequestSheet({
           </Button>
         </div>
         {draft.type === "RESIGNATION" ? (
-          <ResignationRequestForm onCreated={onCreated} />
+          <ResignationRequestForm
+            onCancel={requestClose}
+            onCreated={onCreated}
+            onDirtyChange={setIsDirty}
+          />
         ) : draft.type === "TRANSFER" ? (
-          <LifecyclePickerRequestForm onCreated={onCreated} type={draft.type} />
+          <LifecyclePickerRequestForm
+            onCancel={requestClose}
+            onCreated={onCreated}
+            onDirtyChange={setIsDirty}
+            type={draft.type}
+          />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
             This request type is not available in the current workflow.
@@ -80,6 +121,11 @@ export function NewRequestSheet({
         )}
       </section>
     </div>
+    <RequestDiscardDialog
+      onConfirm={onClose}
+      onKeepEditing={() => setConfirmCloseOpen(false)}
+      open={confirmCloseOpen}
+    />
     </ModalPortal>
   );
 }

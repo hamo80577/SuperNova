@@ -16,6 +16,7 @@ import { type ScopedPicker, workspacesApi } from "@/lib/api/workspaces";
 import { pushRoute } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { BranchActionMenu } from "./champ-branch-action-menu";
+import { ChampLifecycleRequestModal } from "./champ-lifecycle-request-modal";
 import { BranchPickers } from "./champ-branch-pickers";
 import { BranchRequests } from "./champ-branch-requests";
 import {
@@ -37,6 +38,10 @@ export function ChampBranchWorkspace() {
   const [activeTab, setActiveTab] = useState<BranchTab>("Pickers");
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [newHireOpen, setNewHireOpen] = useState(false);
+  const [lifecycleAction, setLifecycleAction] = useState<{
+    pickerId?: string;
+    type: "RESIGNATION" | "TRANSFER";
+  } | null>(null);
   const [selectedPicker, setSelectedPicker] = useState<ScopedPicker | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
@@ -101,9 +106,12 @@ export function ChampBranchWorkspace() {
               </Button>
               {actionMenuOpen ? (
                 <BranchActionMenu
-                  branch={branch}
                   onClose={() => setActionMenuOpen(false)}
                   onNewHire={() => setNewHireOpen(true)}
+                  onResignation={() =>
+                    setLifecycleAction({ type: "RESIGNATION" })
+                  }
+                  onTransfer={() => setLifecycleAction({ type: "TRANSFER" })}
                 />
               ) : null}
             </div>
@@ -150,17 +158,11 @@ export function ChampBranchWorkspace() {
           actions={{
             onTransfer: (user) => {
               setSelectedPicker(null);
-              pushRoute(
-                router,
-                `/champ/branches/${branch.vendor.id}/transfer?pickerId=${user.id}`
-              );
+              setLifecycleAction({ pickerId: user.id, type: "TRANSFER" });
             },
             onResignation: (user) => {
               setSelectedPicker(null);
-              pushRoute(
-                router,
-                `/champ/branches/${branch.vendor.id}/resignation?pickerId=${user.id}`
-              );
+              setLifecycleAction({ pickerId: user.id, type: "RESIGNATION" });
             }
           }}
           onClose={() => setSelectedPicker(null)}
@@ -193,6 +195,20 @@ export function ChampBranchWorkspace() {
             setReloadVersion((current) => current + 1);
           }}
           title="Picker New Hire request"
+        />
+      ) : null}
+
+      {lifecycleAction ? (
+        <ChampLifecycleRequestModal
+          initialPickerId={lifecycleAction.pickerId}
+          onClose={() => setLifecycleAction(null)}
+          onCreated={(request) => {
+            setLifecycleAction(null);
+            setActiveTab("Requests");
+            setSelectedRequestId(request.id);
+            setReloadVersion((current) => current + 1);
+          }}
+          type={lifecycleAction.type}
         />
       ) : null}
     </div>

@@ -3,11 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ArrowLeft, CheckCircle2, MoveRight } from "lucide-react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { RequestDiscardDialog } from "@/components/requests/forms/request-discard-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,19 +38,33 @@ const transferSchema = z.object({
 
 type TransferFormValues = z.infer<typeof transferSchema>;
 
-export function ChampTransferForm() {
+export function ChampTransferForm({
+  initialPickerId,
+  mode = "page",
+  onCancel,
+  onCreated,
+  onDirtyChange
+}: {
+  initialPickerId?: string | null;
+  mode?: "modal" | "page";
+  onCancel?: () => void;
+  onCreated?: (request: RequestSummary) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
+}) {
   const params = useParams<{ vendorId: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const preselectedPickerId = searchParams.get("pickerId");
+  const preselectedPickerId = initialPickerId ?? searchParams.get("pickerId");
   const [state, setState] = useState<
     AsyncState<{ branch: ChampBranchDetail; vendors: Vendor[] }>
   >({ status: "loading" });
   const [createdRequest, setCreatedRequest] = useState<RequestSummary | null>(null);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const {
-    formState: { errors },
+    formState: { errors, isDirty },
     handleSubmit,
     register,
     setValue,
@@ -110,11 +125,15 @@ export function ChampTransferForm() {
 
     if (pickerExists) {
       setValue("targetUserId", preselectedPickerId, {
-        shouldDirty: true,
+        shouldDirty: false,
         shouldValidate: true
       });
     }
   }, [preselectedPickerId, setValue, state]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const selectedPickerId = watch("targetUserId");
   const selectedDestinationId = watch("destinationVendorId");
@@ -156,6 +175,7 @@ export function ChampTransferForm() {
           ...(values.notes ? { notes: values.notes } : {})
         });
         setCreatedRequest(created);
+        onCreated?.(created);
       } catch (caughtError) {
         setSubmitError(
           caughtError instanceof Error
@@ -175,6 +195,7 @@ export function ChampTransferForm() {
   }
 
   const { branch, vendors } = state.data;
+  const branchHref = `/champ/branches/${branch.vendor.id}`;
   const approvalPath =
     selectedDestination && selectedDestination.chainId !== branch.chain.id
       ? "Cross-chain: source Area Manager, then destination Area Manager"
@@ -182,12 +203,186 @@ export function ChampTransferForm() {
         ? "Same-chain: source Area Manager approval only"
         : "Select a destination Branch to preview the approval path";
 
+  function requestPageCancel() {
+    if (isDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
+    router.push(branchHref);
+  }
+
+  const formContent = (
+    <section className={cn("grid gap-4", mode === "page" && "lg:grid-cols-3")}>
+      <ContextCard branch={branch} />
+      <section
+        className={cn(
+          "rounded-lg border bg-card p-5 shadow-sm",
+          mode === "page" && "lg:col-span-2"
+        )}
+      >
+        <h2 className="text-base font-semibold">Transfer request details</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Select one active Picker from this Branch and one active destination
+          Branch. This is not a direct assignment edit.
+        </p>
+
+        {createdRequest ? (
+          <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5" />
+              <div>
+                <p className="font-medium">Transfer request submitted.</p>
+                <p className="mt-1">
+                  Status: {formatEnum(createdRequest.status)}. Current step:{" "}
+                  {createdRequest.currentStep
+                    ? formatEnum(createdRequest.currentStep)
+                    : "None"}.
+                </p>
+                <Link
+                  className={cn(
+                    buttonVariants({ size: "sm", variant: "outline" }),
+                    "mt-3 bg-white"
+                  )}
+                  href={`/tickets?requestId=${createdRequest.id}`}
+                  prefetch
+                >
+                  Open request detail
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : branch.pickers.length && vendors.length ? (
+          <form className="mt-5 grid gap-4" onSubmit={handleSubmit(onSubmit)}>
+            {preselectedPickerId && selectedPicker ? (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm">
+                <input type="hidden" {...register("targetUserId")} />
+                <p className="font-medium text-orange-950">
+                  Picker selected from Branch profile
+                </p>
+                <p className="mt-1 text-orange-800">
+                  {selectedPicker.nameEn} · {selectedPicker.phoneNumber}
+                </p>
+              </div>
+            ) : (
+              <Field error={errors.targetUserId?.message} label="Active Picker">
+                <Select
+                  aria-label="Active Picker"
+                  className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                  emptyMessage="No Picker matches this search."
+                  searchable
+                  searchPlaceholder="Search Picker"
+                  {...register("targetUserId")}
+                >
+                  <option value="">Select Picker</option>
+                  {branch.pickers.map(({ picker }) => (
+                    <option key={picker.id} value={picker.id}>
+                      {picker.nameEn} · {picker.phoneNumber}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            <Field
+              error={errors.destinationVendorId?.message}
+              label="Destination Branch"
+            >
+              <Select
+                aria-label="Destination Branch"
+                className="h-11 rounded-md border border-input bg-background px-3 text-sm"
+                emptyMessage="No destination Branch matches this search."
+                searchable
+                searchPlaceholder="Search destination Branch"
+                {...register("destinationVendorId")}
+              >
+                <option value="">Select destination Branch</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.vendorName} · {vendor.chain.chainName}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field error={errors.reason?.message} label="Reason">
+                <Input
+                  placeholder="Example: Picker moved to another operating Branch"
+                  {...register("reason")}
+                />
+              </Field>
+              <Field
+                error={errors.requestedTransferDate?.message}
+                label="Requested transfer date"
+              >
+                <Input type="date" {...register("requestedTransferDate")} />
+              </Field>
+            </div>
+            <Field error={errors.notes?.message} label="Notes">
+              <textarea
+                className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Optional context for source and destination Area Managers"
+                {...register("notes")}
+              />
+            </Field>
+            <ReviewBlock
+              approvalPath={approvalPath}
+              branchName={branch.vendor.vendorName}
+              destination={selectedDestination}
+              picker={selectedPicker}
+            />
+            {submitError ? <ErrorState message={submitError} /> : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              {mode === "modal" ? (
+                <Button
+                  className="min-h-11 w-full rounded-xl sm:w-auto"
+                  onClick={onCancel}
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  className="min-h-11 w-full rounded-xl sm:w-auto"
+                  onClick={requestPageCancel}
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+              )}
+              <Button
+                className="min-h-11 w-full rounded-xl sm:w-auto"
+                disabled={isPending}
+                type="submit"
+              >
+                {isPending ? "Submitting..." : "Submit Transfer"}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <EmptyState
+            message={
+              !branch.pickers.length
+                ? "No active Pickers are available in this source Branch."
+                : "No active destination Branches are available."
+            }
+          />
+        )}
+      </section>
+    </section>
+  );
+
+  if (mode === "modal") {
+    return formContent;
+  }
+
   return (
     <div className="grid gap-5">
       <section className="rounded-lg border bg-card p-5 shadow-sm">
         <Link
           className="mb-4 inline-flex items-center text-sm font-medium text-primary"
-          href={`/champ/branches/${branch.vendor.id}`}
+          href={branchHref}
           prefetch
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -208,138 +403,12 @@ export function ChampTransferForm() {
           <MoveRight className="h-7 w-7 text-primary" />
         </div>
       </section>
-
-      <section className="grid gap-4 lg:grid-cols-3">
-        <ContextCard branch={branch} />
-        <section className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-2">
-          <h2 className="text-base font-semibold">Transfer request details</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Select one active Picker from this Branch and one active destination
-            Branch. This is not a direct assignment edit.
-          </p>
-
-          {createdRequest ? (
-            <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5" />
-                <div>
-                  <p className="font-medium">Transfer request submitted.</p>
-                  <p className="mt-1">
-                    Status: {formatEnum(createdRequest.status)}. Current step:{" "}
-                    {createdRequest.currentStep
-                      ? formatEnum(createdRequest.currentStep)
-                      : "None"}.
-                  </p>
-                  <Link
-                    className={cn(
-                      buttonVariants({ size: "sm", variant: "outline" }),
-                      "mt-3 bg-white"
-                    )}
-                    href={`/tickets?requestId=${createdRequest.id}`}
-                    prefetch
-                  >
-                    Open request detail
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : branch.pickers.length && vendors.length ? (
-            <form className="mt-5 grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-              {preselectedPickerId && selectedPicker ? (
-                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm">
-                  <input type="hidden" {...register("targetUserId")} />
-                  <p className="font-medium text-orange-950">
-                    Picker selected from Branch profile
-                  </p>
-                  <p className="mt-1 text-orange-800">
-                    {selectedPicker.nameEn} · {selectedPicker.phoneNumber}
-                  </p>
-                </div>
-              ) : (
-                <Field error={errors.targetUserId?.message} label="Active Picker">
-                  <Select
-                    aria-label="Active Picker"
-                    className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-                    {...register("targetUserId")}
-                  >
-                    <option value="">Select Picker</option>
-                    {branch.pickers.map(({ picker }) => (
-                      <option key={picker.id} value={picker.id}>
-                        {picker.nameEn} · {picker.phoneNumber}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )}
-              <Field
-                error={errors.destinationVendorId?.message}
-                label="Destination Branch"
-              >
-                <Select
-                  aria-label="Destination Branch"
-                  className="h-11 rounded-md border border-input bg-background px-3 text-sm"
-                  {...register("destinationVendorId")}
-                >
-                  <option value="">Select destination Branch</option>
-                  {vendors.map((vendor) => (
-                    <option key={vendor.id} value={vendor.id}>
-                      {vendor.vendorName} · {vendor.chain.chainName}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field error={errors.reason?.message} label="Reason">
-                  <Input
-                    placeholder="Example: Picker moved to another operating Branch"
-                    {...register("reason")}
-                  />
-                </Field>
-                <Field
-                  error={errors.requestedTransferDate?.message}
-                  label="Requested transfer date"
-                >
-                  <Input type="date" {...register("requestedTransferDate")} />
-                </Field>
-              </div>
-              <Field error={errors.notes?.message} label="Notes">
-                <textarea
-                  className="min-h-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Optional context for source and destination Area Managers"
-                  {...register("notes")}
-                />
-              </Field>
-              <ReviewBlock
-                approvalPath={approvalPath}
-                branchName={branch.vendor.vendorName}
-                destination={selectedDestination}
-                picker={selectedPicker}
-              />
-              {submitError ? <ErrorState message={submitError} /> : null}
-              <div className="flex flex-wrap justify-end gap-2">
-                <Link
-                  className={buttonVariants({ variant: "outline" })}
-                  href={`/champ/branches/${branch.vendor.id}`}
-                  prefetch
-                >
-                  Cancel
-                </Link>
-                <Button disabled={isPending} type="submit">
-                  {isPending ? "Submitting..." : "Submit Transfer"}
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <EmptyState
-              message={
-                !branch.pickers.length
-                  ? "No active Pickers are available in this source Branch."
-                  : "No active destination Branches are available."
-              }
-            />
-          )}
-        </section>
-      </section>
+      {formContent}
+      <RequestDiscardDialog
+        onConfirm={() => router.push(branchHref)}
+        onKeepEditing={() => setConfirmCloseOpen(false)}
+        open={confirmCloseOpen}
+      />
     </div>
   );
 }

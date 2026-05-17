@@ -2,13 +2,15 @@
 
 import { AlertCircle, ArrowLeft, ShieldAlert } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { RequestDiscardDialog } from "@/components/requests/forms/request-discard-dialog";
 import { ResignationRequestForm } from "@/components/requests/request-components";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
+import type { RequestSummary } from "@/lib/api/requests";
 import {
   type ChampBranchDetail,
   workspacesApi
@@ -21,20 +23,30 @@ type AsyncState<T> =
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
 
-export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
+export function ChampOffboardingForm({
+  initialPickerId,
+  mode = "page",
+  onCancel,
+  onCreated,
+  onDirtyChange,
+  type
+}: {
+  initialPickerId?: string | null;
+  mode?: "modal" | "page";
+  onCancel?: () => void;
+  onCreated?: (request: RequestSummary) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
+  type: OffboardingType;
+}) {
   const params = useParams<{ vendorId: string }>();
-  const [preselectedPickerId, setPreselectedPickerId] = useState<string | null>(
-    null
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedPickerId = initialPickerId ?? searchParams.get("pickerId");
+  const [formDirty, setFormDirty] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [branchState, setBranchState] = useState<AsyncState<ChampBranchDetail>>({
     status: "loading"
   });
-
-  useEffect(() => {
-    setPreselectedPickerId(
-      new URLSearchParams(window.location.search).get("pickerId")
-    );
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -78,13 +90,50 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
   }
 
   const branch = branchState.data;
+  const branchHref = `/champ/branches/${branch.vendor.id}`;
+
+  function handleDirtyChange(isDirty: boolean) {
+    setFormDirty(isDirty);
+    onDirtyChange?.(isDirty);
+  }
+
+  function requestPageCancel() {
+    if (formDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
+    router.push(branchHref);
+  }
+
+  const formContent = (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
+        <p className="font-semibold">{branch.vendor.vendorName}</p>
+        <p className="mt-1 text-orange-800">
+          {branch.vendor.vendorCode} · {branch.chain.chainName}
+        </p>
+      </div>
+      <ResignationRequestForm
+        fixedSourceVendorId={branch.vendor.id}
+        initialPicker={preselectedPicker}
+        onCancel={mode === "modal" ? onCancel : requestPageCancel}
+        onCreated={(request) => onCreated?.(request)}
+        onDirtyChange={handleDirtyChange}
+      />
+    </section>
+  );
+
+  if (mode === "modal") {
+    return formContent;
+  }
 
   return (
     <div className="grid gap-5">
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <Link
           className="mb-4 inline-flex items-center text-sm font-medium text-orange-700"
-          href={`/champ/branches/${branch.vendor.id}`}
+          href={branchHref}
           prefetch
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -107,20 +156,12 @@ export function ChampOffboardingForm({ type }: { type: OffboardingType }) {
           <ShieldAlert className="h-7 w-7 text-orange-600" />
         </div>
       </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
-          <p className="font-semibold">{branch.vendor.vendorName}</p>
-          <p className="mt-1 text-orange-800">
-            {branch.vendor.vendorCode} · {branch.chain.chainName}
-          </p>
-        </div>
-        <ResignationRequestForm
-          fixedSourceVendorId={branch.vendor.id}
-          initialPicker={preselectedPicker}
-          onCreated={() => undefined}
-        />
-      </section>
+      {formContent}
+      <RequestDiscardDialog
+        onConfirm={() => router.push(branchHref)}
+        onKeepEditing={() => setConfirmCloseOpen(false)}
+        open={confirmCloseOpen}
+      />
     </div>
   );
 }

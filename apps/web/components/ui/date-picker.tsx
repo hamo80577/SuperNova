@@ -90,7 +90,7 @@ export function DatePicker({
     const estimatedHeight = 390;
     const anchor = buttonRef.current.getBoundingClientRect();
     const availableWidth = window.innerWidth - viewportPadding * 2;
-    const width = Math.min(Math.max(anchor.width, 288), 320, availableWidth);
+    const width = Math.min(Math.max(anchor.width, 336), 360, availableWidth);
     const hasRoomBelow =
       window.innerHeight - anchor.bottom >= estimatedHeight + viewportPadding;
     const placement = hasRoomBelow ? "bottom" : "top";
@@ -219,12 +219,13 @@ export function DatePicker({
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <div className="grid min-w-0 flex-1 grid-cols-[1fr_auto] gap-2">
+              <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_6.25rem] gap-2">
                 <Select
                   aria-label="Month"
                   className="h-9 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium text-slate-950"
                   onChange={(event) => setViewMonth(Number(event.target.value))}
                   value={viewMonth}
+                  wrapperClassName="min-w-0"
                 >
                   {monthNames.map((month, index) => (
                     <option key={month} value={index}>
@@ -234,9 +235,11 @@ export function DatePicker({
                 </Select>
                 <Select
                   aria-label="Year"
-                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium text-slate-950"
+                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium tabular-nums text-slate-950"
+                  menuClassName="min-w-[6.25rem]"
                   onChange={(event) => setViewYear(Number(event.target.value))}
                   value={viewYear}
+                  wrapperClassName="min-w-[6.25rem]"
                 >
                   {years.map((year) => (
                     <option key={year} value={year}>
