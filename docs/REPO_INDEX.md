@@ -148,6 +148,14 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/components/workspaces/champ-offboarding-form.tsx`
 - Main API files:
   - `apps/api/src/requests/workflows/offboarding-workflow.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-types.ts`
+  - `apps/api/src/requests/workflows/offboarding-payload.ts`
+  - `apps/api/src/requests/workflows/offboarding-search.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-target.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-request-creation.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-approval.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-finalization.service.ts`
+  - `apps/api/src/requests/workflows/offboarding-response.utils.ts`
   - `apps/api/src/requests/workflows/offboarding-workflow.policy.ts`
 - Important DTO/types:
   - `apps/api/src/requests/dto/create-offboarding-request.dto.ts`
@@ -156,6 +164,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/lib/api/requests.ts`
 - Important tests:
   - `apps/api/test/offboarding-workflow.policy.test.ts`
+  - `apps/api/test/offboarding-payload.test.ts`
 
 ### Transfer workflow
 
@@ -276,6 +285,7 @@ npm run db:seed
 npx tsx apps/api/test/new-hire-workflow.policy.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire.test.ts
 npx tsx apps/api/test/offboarding-workflow.policy.test.ts
+npx tsx apps/api/test/offboarding-payload.test.ts
 npx tsx apps/api/test/env-validation.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts
