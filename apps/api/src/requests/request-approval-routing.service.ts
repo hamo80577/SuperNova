@@ -1,6 +1,15 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
-import { ApprovalStep, AssignmentStatus, UserRole } from "@prisma/client";
+import {
+  AccountStatus,
+  ApprovalStep,
+  AssignmentStatus,
+  BlockStatus,
+  EmploymentStatus,
+  UserRole,
+  type User
+} from "@prisma/client";
 
+import { getAccountAccessFailure } from "../auth/account-access.utils";
 import { PrismaService } from "../prisma/prisma.service";
 
 export type GeneratedApprovalStep = {
@@ -18,18 +27,30 @@ export class RequestApprovalRoutingService {
     step: ApprovalStep,
     chainId: string
   ): Promise<GeneratedApprovalStep> {
+    const now = new Date();
     const assignment = await this.prisma.chainAreaManagerAssignment.findFirst({
       where: {
         chainId,
         status: AssignmentStatus.ACTIVE,
-        areaManager: { accountStatus: "ACTIVE" }
+        areaManager: {
+          role: UserRole.AREA_MANAGER,
+          accountStatus: AccountStatus.ACTIVE,
+          employmentStatus: EmploymentStatus.ACTIVE,
+          OR: [
+            { blockStatus: BlockStatus.NO_BLOCK },
+            {
+              blockStatus: BlockStatus.TEMPORARY_BLOCK,
+              blockedUntil: { lte: now }
+            }
+          ]
+        }
       },
       include: { areaManager: true }
     });
 
-    if (!assignment) {
+    if (!assignment || !this.isEligibleAreaManager(assignment.areaManager)) {
       throw new BadRequestException(
-        "No active Area Manager assignment exists for the Chain context."
+        "No eligible active Area Manager assignment exists for the Chain context."
       );
     }
 
@@ -39,5 +60,22 @@ export class RequestApprovalRoutingService {
       approverId: assignment.areaManagerId,
       chainId
     };
+  }
+
+  private isEligibleAreaManager(
+    areaManager: Pick<
+      User,
+      | "role"
+      | "accountStatus"
+      | "employmentStatus"
+      | "blockStatus"
+      | "blockedUntil"
+    >
+  ) {
+    return (
+      areaManager.role === UserRole.AREA_MANAGER &&
+      areaManager.employmentStatus === EmploymentStatus.ACTIVE &&
+      getAccountAccessFailure(areaManager) === null
+    );
   }
 }

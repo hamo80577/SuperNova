@@ -22,6 +22,8 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/lib/auth/role-redirects.ts`
   - `apps/web/lib/auth/types.ts`
 - Main API files:
+  - `apps/api/src/config/configuration.ts`
+  - `apps/api/src/config/env.validation.ts`
   - `apps/api/src/auth/auth.controller.ts`
   - `apps/api/src/auth/auth.service.ts`
   - `apps/api/src/auth/auth.module.ts`
@@ -34,6 +36,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/auth/types/authenticated-user.ts`
   - `apps/api/src/auth/types/authenticated-request.ts`
 - Important tests:
+  - `apps/api/test/env-validation.test.ts`
   - `apps/api/test/request-logger.middleware.test.ts`
 
 ### Users/Profile
@@ -103,6 +106,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/components/requests/shared/request-types.ts`
   - `apps/web/components/requests/shared/request-utils.ts`
 - Important tests:
+  - `apps/api/test/request-approval-routing.test.ts`
   - `apps/api/test/new-hire-workflow.policy.test.ts`
   - `apps/api/test/new-hire-workflow.rehire.test.ts`
   - `apps/api/test/offboarding-workflow.policy.test.ts`
@@ -167,7 +171,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/components/requests/shared/request-types.ts`
   - `apps/web/lib/api/requests.ts`
 - Important tests:
-  - No focused transfer test file currently identified.
+  - `apps/api/test/transfer-workflow.test.ts`
 
 ### Organization/Chains/Branches
 
@@ -272,6 +276,9 @@ npm run db:seed
 npx tsx apps/api/test/new-hire-workflow.policy.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire.test.ts
 npx tsx apps/api/test/offboarding-workflow.policy.test.ts
+npx tsx apps/api/test/env-validation.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts
 ```
 
 ## Known Review Notes
