@@ -147,7 +147,7 @@ export function LegacyApprovalsCenter() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               This records the approval decision. New Hire Admin final approval
               requires Shopper ID finalization from the request detail page.
-              Offboarding Admin final approval requires block decision and internal
+              Resignation Admin final approval requires block decision and internal
               deactivation confirmation from the request detail page.
             </p>
             {decision.action === "approve" &&

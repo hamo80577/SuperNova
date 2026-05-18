@@ -23,10 +23,6 @@ export function FinalizeNewHirePanel({
   const targetRole = context?.targetRole ?? "PICKER";
   const isPicker = targetRole === "PICKER";
 
-  if (targetRole === "AREA_MANAGER") {
-    return null;
-  }
-
   function finalize() {
     if (isPicker && !shopperId.trim()) {
       setError("Shopper ID is required before Picker account creation.");
@@ -69,7 +65,11 @@ export function FinalizeNewHirePanel({
               />
             </Field>
           ) : (
-            <div aria-hidden className="hidden" />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              {targetRole === "CHAMP"
+                ? "Champ New Hire finalization does not require Shopper ID."
+                : "Area Manager New Hire finalization does not require Shopper ID."}
+            </div>
           )}
           <div className="flex items-end">
             <Button disabled={isPending} onClick={finalize} type="button">

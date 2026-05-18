@@ -26,17 +26,25 @@ export function NewRequestSheet({
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const title =
     draft.type === "NEW_HIRE"
-      ? `${formatEnum(draft.targetRole)} New Hire`
-      : `${formatEnum(draft.type)} request`;
+      ? draft.targetRole
+        ? `${formatEnum(draft.targetRole)} New Hire`
+        : "New Hire request"
+      : draft.type === "RESIGNATION" && draft.targetRole
+        ? `${formatEnum(draft.targetRole)} Resignation`
+        : `${formatEnum(draft.type)} request`;
   const draftKey =
-    draft.type === "NEW_HIRE" ? `${draft.type}:${draft.targetRole}` : draft.type;
+    draft.type === "NEW_HIRE"
+      ? `${draft.type}:${draft.targetRole ?? "select"}`
+      : draft.type === "RESIGNATION"
+        ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialUser?.id ?? ""}`
+        : draft.type;
 
   if (draft.type === "NEW_HIRE") {
     return (
       <NewHireRequestModal
         description="Create a New Hire workflow request from the current workspace."
-        initialTargetRole={draft.targetRole}
-        lockTargetRole
+        initialTargetRole={draft.targetRole ?? "PICKER"}
+        lockTargetRole={Boolean(draft.targetRole)}
         onClose={onClose}
         onCreated={onCreated}
         title={title}
@@ -103,6 +111,8 @@ export function NewRequestSheet({
         </div>
         {draft.type === "RESIGNATION" ? (
           <ResignationRequestForm
+            initialTargetRole={draft.targetRole}
+            initialUser={draft.initialUser}
             onCancel={requestClose}
             onCreated={onCreated}
             onDirtyChange={setIsDirty}

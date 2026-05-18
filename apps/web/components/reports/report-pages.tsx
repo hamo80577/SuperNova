@@ -253,7 +253,7 @@ function ChampReportContent({ data }: { data: ChampReportsOverview }) {
           value={data.breakdowns.workflowOutcomes.transfersCompleted}
         />
         <Definition
-          label="Offboarding completed"
+          label="Resignations completed"
           value={data.breakdowns.workflowOutcomes.offboardingCompleted}
         />
       </InfoCard>

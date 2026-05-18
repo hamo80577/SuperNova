@@ -242,7 +242,7 @@ export class TransferWorkflowService {
 
     if (pendingOffboarding) {
       throw new ConflictException(
-        "A pending offboarding request already exists for this Picker."
+        "A pending Resignation request already exists for this Picker."
       );
     }
 

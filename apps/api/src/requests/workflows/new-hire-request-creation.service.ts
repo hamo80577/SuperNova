@@ -15,6 +15,7 @@ import { assertRequestPayloadSafe } from "../request-payload.utils";
 import { toRequestSummary } from "../request-response.utils";
 import type { NewHireTargetRole } from "./new-hire-workflow.policy";
 import type {
+  AreaManagerNewHireContext,
   BranchNewHireContext,
   CandidateUser,
   NewHirePayload,
@@ -214,6 +215,120 @@ export class NewHireRequestCreationService {
           }
         });
       }
+
+      return tx.request.findUniqueOrThrow({
+        where: { id: request.id },
+        include: requestInclude
+      });
+    });
+
+    return toRequestSummary(updated);
+  }
+
+  async createAreaManagerNewHire(
+    candidate: NormalizedNewHireCandidate,
+    areaManagerContext: AreaManagerNewHireContext,
+    context: RequestContext
+  ) {
+    const payload: NewHirePayload = {
+      targetRole: UserRole.AREA_MANAGER,
+      mode: "NEW_AREA_MANAGER",
+      candidate,
+      source: {
+        chainId: areaManagerContext.chainIds[0],
+        chainIds: areaManagerContext.chainIds
+      }
+    };
+
+    assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const request = await tx.request.create({
+        data: {
+          type: RequestType.NEW_HIRE,
+          status: RequestStatus.PENDING_ADMIN,
+          currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
+          createdById: context.actor.id,
+          sourceChainId: areaManagerContext.chainIds[0],
+          payload: payload as Prisma.InputJsonValue
+        }
+      });
+
+      await tx.requestApproval.create({
+        data: {
+          requestId: request.id,
+          step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+          approverRole: UserRole.ADMIN,
+          approverId: null,
+          status: ApprovalStatus.PENDING
+        }
+      });
+
+      await tx.auditLog.createMany({
+        data: [
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_CREATED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              id: request.id,
+              type: request.type,
+              targetRole: UserRole.AREA_MANAGER,
+              sourceChainId: request.sourceChainId,
+              chainIds: areaManagerContext.chainIds
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_SUBMITTED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              id: request.id,
+              status: request.status,
+              currentStep: request.currentStep,
+              targetRole: UserRole.AREA_MANAGER
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "APPROVAL_GENERATED",
+            entityType: "Request",
+            entityId: request.id,
+            newValue: {
+              step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+              approverRole: UserRole.ADMIN,
+              approverId: null,
+              status: ApprovalStatus.PENDING
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        ]
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: context.actor.id,
+          type: "REQUEST_SUBMITTED",
+          title: "New Hire request submitted",
+          body: `Area Manager New Hire request for ${candidate.phoneNumber} was submitted for Admin finalization.`,
+          payload: {
+            requestId: request.id,
+            targetRole: UserRole.AREA_MANAGER
+          }
+        }
+      });
+
+      await this.createAdminPendingNotifications(tx, {
+        requestId: request.id,
+        targetRole: UserRole.AREA_MANAGER
+      });
 
       return tx.request.findUniqueOrThrow({
         where: { id: request.id },

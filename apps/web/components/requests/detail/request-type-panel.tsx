@@ -46,20 +46,24 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <PickerAvatar name={request.targetUser?.nameEn ?? "Picker"} />
+            <PickerAvatar name={request.targetUser?.nameEn ?? formatEnum(context.targetRole)} />
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-slate-950">
-                {request.targetUser?.nameEn ?? context.pickerId}
+                {request.targetUser?.nameEn ?? context.targetUserId}
               </p>
               <p className="mt-1 text-sm text-slate-600">
                 {request.targetUser?.phoneNumber ?? "Phone not available"} ·{" "}
-                {request.sourceVendor?.vendorName ?? context.sourceVendorId}
+                {request.sourceVendor?.vendorName ??
+                  request.sourceChain?.chainName ??
+                  context.sourceChainId}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
-              {request.targetUser?.role ? formatEnum(request.targetUser.role) : "Picker"}
+              {request.targetUser?.role
+                ? formatEnum(request.targetUser.role)
+                : formatEnum(context.targetRole)}
             </Badge>
             <RequestStatusBadge status={request.status} />
           </div>
@@ -68,16 +72,22 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
         <div className="grid gap-0 p-4">
           <ProfileRow
             label="User name"
-            value={request.targetUser?.nameEn ?? context.pickerId}
+            value={request.targetUser?.nameEn ?? context.targetUserId}
           />
           <ProfileRow
             label="Role"
-            value={request.targetUser?.role ? formatEnum(request.targetUser.role) : "Picker"}
+            value={
+              request.targetUser?.role
+                ? formatEnum(request.targetUser.role)
+                : formatEnum(context.targetRole)
+            }
           />
-          <ProfileRow
-            label="Branch name"
-            value={request.sourceVendor?.vendorName ?? context.sourceVendorId}
-          />
+          {context.targetRole !== "AREA_MANAGER" ? (
+            <ProfileRow
+              label="Branch name"
+              value={request.sourceVendor?.vendorName ?? context.sourceVendorId}
+            />
+          ) : null}
           <ProfileRow
             label="Chain"
             value={request.sourceChain?.chainName ?? context.sourceChainId}
@@ -198,7 +208,7 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
           {request.targetUser ? (
             <Link
               className="inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
-              href={`/admin/users?userId=${request.targetUser.id}`}
+              href={`/users?userId=${request.targetUser.id}`}
               prefetch
             >
               Open user profile

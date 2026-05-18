@@ -74,6 +74,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Operations"
     },
     {
+      label: "Users",
+      href: "/users",
+      icon: Users,
+      section: "Operations"
+    },
+    {
       label: "Tickets",
       href: "/tickets",
       icon: ClipboardList,
@@ -119,8 +125,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Operations"
     },
     {
-      label: "Users Under Me",
-      disabled: true,
+      label: "Users",
+      href: "/users",
       icon: Users,
       section: "Operations"
     },
@@ -164,7 +170,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     },
     {
       label: "Users",
-      href: "/admin/users",
+      href: "/users",
       icon: Users,
       section: "Organization Setup"
     },
@@ -220,7 +226,7 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
     },
     {
       label: "Users",
-      href: "/admin/users",
+      href: "/users",
       icon: Users,
       section: "Organization Setup"
     },

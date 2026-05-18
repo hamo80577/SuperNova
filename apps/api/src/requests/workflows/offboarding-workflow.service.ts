@@ -17,6 +17,7 @@ import {
   Prisma,
   RequestStatus,
   RequestType,
+  User,
   UserRole,
   VendorStatus
 } from "@prisma/client";
@@ -45,10 +46,13 @@ import { toRequestSummary } from "../request-response.utils";
 import { assertRequestTransition } from "../request-status-machine";
 import {
   calculateBlockedUntil,
+  getAllowedResignationTargetRolesForCreator,
   normalizeOffboardingBlockDecision,
   normalizeOffboardingReason,
+  normalizeOffboardingTargetRole,
   type OffboardingBlockDecision,
-  type OffboardingReasonCode
+  type OffboardingReasonCode,
+  type OffboardingTargetRole
 } from "./offboarding-workflow.policy";
 
 const pickerAssignmentInclude = {
@@ -59,6 +63,16 @@ const pickerAssignmentInclude = {
 type PickerAssignmentWithContext = Prisma.PickerBranchAssignmentGetPayload<{
   include: typeof pickerAssignmentInclude;
 }>;
+
+const champAssignmentInclude = {
+  champ: true,
+  vendor: { include: { chain: true } }
+} satisfies Prisma.VendorChampAssignmentInclude;
+
+const areaManagerAssignmentInclude = {
+  areaManager: true,
+  chain: true
+} satisfies Prisma.ChainAreaManagerAssignmentInclude;
 
 type RequestContext = {
   actor: AuthenticatedUser;
@@ -76,12 +90,17 @@ type OffboardingPayload = {
     resignationDate: string;
   };
   source: {
-    vendorId: string;
+    vendorId?: string;
     chainId: string;
   };
   target: {
-    pickerId: string;
-    pickerAssignmentId: string;
+    userId: string;
+    targetRole: OffboardingTargetRole;
+    assignmentId: string;
+    assignmentType:
+      | "PickerBranchAssignment"
+      | "VendorChampAssignment"
+      | "ChainAreaManagerAssignment";
   };
   areaManagerDecision?: {
     decidedAt: string;
@@ -94,6 +113,7 @@ type OffboardingPayload = {
   finalization?: {
     completedAt: string;
     assignmentId: string;
+    assignmentIds?: string[];
     blockDecision: OffboardingBlockDecision;
     blockStatus: BlockStatus;
     blockedUntil?: string | null;
@@ -101,6 +121,16 @@ type OffboardingPayload = {
     finalizedById: string;
     notes?: string;
   };
+};
+
+type ResignationTargetContext = {
+  assignmentId: string;
+  assignmentType: OffboardingPayload["target"]["assignmentType"];
+  sourceChainId: string;
+  sourceVendorId?: string;
+  sourceLabel: string;
+  targetUser: User;
+  targetRole: OffboardingTargetRole;
 };
 
 const openRequestStatuses = [
@@ -124,43 +154,29 @@ export class OffboardingWorkflowService {
     dto: SearchOffboardingPickersDto,
     currentUser: AuthenticatedUser
   ) {
-    this.assertCanUseOffboarding(currentUser);
-
-    const q = dto.q?.trim();
-    const assignments = await this.prisma.pickerBranchAssignment.findMany({
-      where: this.buildScopedPickerAssignmentWhere(
-        currentUser,
-        dto.sourceVendorId,
-        q
-      ),
-      include: pickerAssignmentInclude,
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-      take: 20
-    });
-
-    const pickerIds = assignments.map((assignment) => assignment.pickerId);
-    const pendingRequests = pickerIds.length
-      ? await this.prisma.request.findMany({
-          where: {
-            type: RequestType.RESIGNATION,
-            targetUserId: { in: pickerIds },
-            status: { in: openRequestStatuses }
-          },
-          select: { id: true, targetUserId: true }
-        })
-      : [];
-    const pendingByPickerId = new Map(
-      pendingRequests.map((request) => [request.targetUserId, request.id])
+    return this.searchOffboardingEligibleUsers(
+      { ...dto, targetRole: UserRole.PICKER },
+      currentUser
     );
+  }
 
-    return {
-      items: assignments.map((assignment) =>
-        this.toPickerSearchCard(
-          assignment,
-          pendingByPickerId.get(assignment.pickerId) ?? null
-        )
-      )
-    };
+  async searchOffboardingEligibleUsers(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    this.assertCanUseOffboarding(currentUser);
+    const targetRole = this.normalizeTargetRole(dto.targetRole);
+    this.assertCanUseTargetRole(currentUser, targetRole);
+
+    if (targetRole === UserRole.PICKER) {
+      return this.searchScopedPickers(dto, currentUser);
+    }
+
+    if (targetRole === UserRole.CHAMP) {
+      return this.searchScopedChamps(dto, currentUser);
+    }
+
+    return this.searchScopedAreaManagers(dto, currentUser);
   }
 
   async createOffboarding(
@@ -168,14 +184,18 @@ export class OffboardingWorkflowService {
     context: RequestContext
   ) {
     this.assertCanUseOffboarding(context.actor);
+    const targetRole = this.normalizeTargetRole(dto.targetRole);
+    this.assertCanUseTargetRole(context.actor, targetRole);
 
     const offboarding = normalizeOffboardingReason(dto);
-    const assignment = await this.resolveScopedActivePickerAssignment(
+    const target = await this.resolveScopedActiveTarget(
       dto.targetUserId,
+      targetRole,
       dto.sourceVendorId,
+      dto.sourceChainId,
       context.actor
     );
-    await this.assertNoPendingOffboarding(assignment.pickerId);
+    await this.assertNoPendingOffboarding(target.targetUser.id);
 
     if (context.actor.role === UserRole.AREA_MANAGER) {
       const decision = normalizeOffboardingBlockDecision({
@@ -184,8 +204,16 @@ export class OffboardingWorkflowService {
       });
       const payload: OffboardingPayload = {
         offboarding,
-        source: { vendorId: assignment.vendorId, chainId: assignment.vendor.chainId },
-        target: { pickerId: assignment.pickerId, pickerAssignmentId: assignment.id },
+        source: {
+          ...(target.sourceVendorId ? { vendorId: target.sourceVendorId } : {}),
+          chainId: target.sourceChainId
+        },
+        target: {
+          userId: target.targetUser.id,
+          targetRole: target.targetRole,
+          assignmentId: target.assignmentId,
+          assignmentType: target.assignmentType
+        },
         areaManagerDecision: {
           decidedAt: new Date().toISOString(),
           decidedById: context.actor.id,
@@ -194,21 +222,43 @@ export class OffboardingWorkflowService {
           blockReason: decision.blockReason
         }
       };
-      return this.createAreaManagerSubmittedRequest(assignment, payload, context);
+      return this.createAreaManagerSubmittedRequest(target, payload, context);
+    }
+
+    if (targetRole === UserRole.AREA_MANAGER) {
+      const payload: OffboardingPayload = {
+        offboarding,
+        source: { chainId: target.sourceChainId },
+        target: {
+          userId: target.targetUser.id,
+          targetRole: target.targetRole,
+          assignmentId: target.assignmentId,
+          assignmentType: target.assignmentType
+        }
+      };
+      return this.createAdminSubmittedRequest(target, payload, context);
     }
 
     const areaManagerStep =
       await this.requestApprovalRoutingService.resolveAreaManagerStep(
         ApprovalStep.AREA_MANAGER_APPROVAL,
-        assignment.vendor.chainId
+        target.sourceChainId
       );
     const payload: OffboardingPayload = {
       offboarding,
-      source: { vendorId: assignment.vendorId, chainId: assignment.vendor.chainId },
-      target: { pickerId: assignment.pickerId, pickerAssignmentId: assignment.id }
+      source: {
+        ...(target.sourceVendorId ? { vendorId: target.sourceVendorId } : {}),
+        chainId: target.sourceChainId
+      },
+      target: {
+        userId: target.targetUser.id,
+        targetRole: target.targetRole,
+        assignmentId: target.assignmentId,
+        assignmentType: target.assignmentType
+      }
     };
     return this.createApprovalRoutedRequest(
-      assignment,
+      target,
       areaManagerStep,
       payload,
       context
@@ -419,63 +469,32 @@ export class OffboardingWorkflowService {
       notes: dto.notes
     });
 
-    if (request.targetUserId !== payload.target.pickerId) {
+    if (request.targetUserId !== payload.target.userId) {
       throw new BadRequestException(
-        "Request target Picker does not match the stored resignation payload."
+        "Request target user does not match the stored resignation payload."
       );
     }
 
-    const [targetPicker, sourceVendor, activeAssignment] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: payload.target.pickerId } }),
-      this.prisma.vendor.findUnique({
-        where: { id: payload.source.vendorId },
-        include: { chain: true }
-      }),
-      this.prisma.pickerBranchAssignment.findFirst({
-        where: {
-          id: payload.target.pickerAssignmentId,
-          pickerId: payload.target.pickerId,
-          vendorId: payload.source.vendorId,
-          status: AssignmentStatus.ACTIVE
-        }
-      })
-    ]);
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: payload.target.userId }
+    });
 
-    if (!targetPicker) {
-      throw new NotFoundException("Target Picker was not found.");
+    if (!targetUser) {
+      throw new NotFoundException("Target user was not found.");
     }
 
     if (
-      targetPicker.role !== UserRole.PICKER ||
-      targetPicker.accountStatus !== AccountStatus.ACTIVE ||
-      targetPicker.employmentStatus !== EmploymentStatus.ACTIVE
+      targetUser.role !== payload.target.targetRole ||
+      targetUser.accountStatus !== AccountStatus.ACTIVE ||
+      targetUser.employmentStatus !== EmploymentStatus.ACTIVE
     ) {
-      throw new BadRequestException("Target Picker is no longer active.");
+      throw new BadRequestException("Target user is no longer active for Resignation.");
     }
 
-    if (!sourceVendor) {
-      throw new NotFoundException("Source Branch was not found.");
-    }
-
-    if (sourceVendor.status !== VendorStatus.ACTIVE) {
-      throw new BadRequestException("Source Branch is no longer active.");
-    }
-
-    if (
-      sourceVendor.chainId !== payload.source.chainId ||
-      request.sourceChainId !== payload.source.chainId ||
-      request.sourceVendorId !== payload.source.vendorId
-    ) {
-      throw new BadRequestException(
-        "Source Branch and Chain no longer match the stored request context."
-      );
-    }
-
-    if (!activeAssignment) {
-      throw new BadRequestException(
-        "Target Picker no longer has an active assignment to the source Branch."
-      );
-    }
+    const activeAssignments = await this.resolveActiveAssignmentsForFinalization(
+      payload,
+      request
+    );
 
     const completedAt = new Date();
     const blockedUntil = calculateBlockedUntil(
@@ -484,8 +503,8 @@ export class OffboardingWorkflowService {
     );
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const picker = await tx.user.update({
-        where: { id: targetPicker.id },
+      const resignedUser = await tx.user.update({
+        where: { id: targetUser.id },
         data: {
           accountStatus: AccountStatus.ARCHIVED,
           employmentStatus: EmploymentStatus.RESIGNED,
@@ -500,14 +519,12 @@ export class OffboardingWorkflowService {
         }
       });
 
-      const closedAssignment = await tx.pickerBranchAssignment.update({
-        where: { id: activeAssignment.id },
-        data: {
-          status: AssignmentStatus.CLOSED,
-          endDate: completedAt
-        },
-        include: pickerAssignmentInclude
-      });
+      const closedAssignments = await this.closeActiveAssignments(
+        tx,
+        payload.target.targetRole,
+        activeAssignments,
+        completedAt
+      );
 
       await tx.requestApproval.update({
         where: { id: adminApproval.id },
@@ -523,7 +540,8 @@ export class OffboardingWorkflowService {
         ...payload,
         finalization: {
           completedAt: completedAt.toISOString(),
-          assignmentId: closedAssignment.id,
+          assignmentId: closedAssignments[0]?.id ?? payload.target.assignmentId,
+          assignmentIds: closedAssignments.map((assignment) => assignment.id),
           blockDecision: finalizationInput.blockDecision,
           blockStatus: finalizationInput.blockStatus,
           blockedUntil: blockedUntil?.toISOString() ?? null,
@@ -539,6 +557,7 @@ export class OffboardingWorkflowService {
           status: RequestStatus.COMPLETED,
           currentStep: null,
           completedAt,
+          targetUserId: resignedUser.id,
           payload: completedPayload as Prisma.InputJsonValue
         },
         include: requestInclude
@@ -549,11 +568,12 @@ export class OffboardingWorkflowService {
           userId: request.createdById,
           type: "OFFBOARDING_COMPLETED",
           title: "Resignation completed",
-          body: `Resignation for ${picker.nameEn} was finalized. The Picker account is archived and the active Branch assignment is closed.`,
+          body: `Resignation for ${resignedUser.nameEn} was finalized. The ${this.formatTargetRole(payload.target.targetRole)} account is archived and active assignments are closed.`,
           payload: {
             requestId: request.id,
-            pickerId: picker.id,
-            assignmentId: closedAssignment.id,
+            targetUserId: resignedUser.id,
+            targetRole: payload.target.targetRole,
+            assignmentIds: closedAssignments.map((assignment) => assignment.id),
             blockDecision: finalizationInput.blockDecision,
             blockStatus: finalizationInput.blockStatus
           }
@@ -589,7 +609,8 @@ export class OffboardingWorkflowService {
             newValue: {
               status: RequestStatus.COMPLETED,
               type: request.type,
-              targetUserId: picker.id,
+              targetUserId: resignedUser.id,
+              targetRole: payload.target.targetRole,
               blockDecision: finalizationInput.blockDecision,
               blockStatus: finalizationInput.blockStatus
             },
@@ -598,32 +619,31 @@ export class OffboardingWorkflowService {
           },
           {
             actorUserId: context.actor.id,
-            action: "PICKER_ARCHIVED",
+            action: `${payload.target.targetRole}_RESIGNED`,
             entityType: "User",
-            entityId: picker.id,
+            entityId: resignedUser.id,
             oldValue: {
-              accountStatus: targetPicker.accountStatus,
-              employmentStatus: targetPicker.employmentStatus,
-              blockStatus: targetPicker.blockStatus
+              accountStatus: targetUser.accountStatus,
+              employmentStatus: targetUser.employmentStatus,
+              blockStatus: targetUser.blockStatus
             },
             newValue: {
-              accountStatus: picker.accountStatus,
-              employmentStatus: picker.employmentStatus,
-              blockStatus: picker.blockStatus,
-              blockedUntil: picker.blockedUntil?.toISOString() ?? null
+              accountStatus: resignedUser.accountStatus,
+              employmentStatus: resignedUser.employmentStatus,
+              blockStatus: resignedUser.blockStatus,
+              blockedUntil: resignedUser.blockedUntil?.toISOString() ?? null
             },
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null
           },
-          {
+          ...closedAssignments.map((closedAssignment) => ({
             actorUserId: context.actor.id,
-            action: "PICKER_BRANCH_ASSIGNMENT_CLOSED",
-            entityType: "PickerBranchAssignment",
+            action: `${payload.target.assignmentType.toUpperCase()}_CLOSED`,
+            entityType: payload.target.assignmentType,
             entityId: closedAssignment.id,
             oldValue: {
-              status: activeAssignment.status,
-              pickerId: activeAssignment.pickerId,
-              vendorId: activeAssignment.vendorId
+              status: AssignmentStatus.ACTIVE,
+              targetUserId: resignedUser.id
             },
             newValue: {
               status: closedAssignment.status,
@@ -632,7 +652,7 @@ export class OffboardingWorkflowService {
             },
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null
-          },
+          })),
           {
             actorUserId: context.actor.id,
             action: "REQUEST_COMPLETED",
@@ -641,7 +661,7 @@ export class OffboardingWorkflowService {
             oldValue: { status: request.status },
             newValue: {
               status: RequestStatus.COMPLETED,
-              targetUserId: picker.id,
+              targetUserId: resignedUser.id,
               completedAt: completedAt.toISOString()
             },
             ipAddress: context.ipAddress ?? null,
@@ -650,40 +670,22 @@ export class OffboardingWorkflowService {
         ]
       });
 
-      return { completedRequest, picker, closedAssignment };
+      return { completedRequest, resignedUser, closedAssignments };
     });
+
+    const user = this.toResignedUserResponse(result.resignedUser);
 
     return {
       request: toRequestSummary(result.completedRequest),
-      picker: {
-        id: result.picker.id,
-        role: result.picker.role,
-        nameEn: result.picker.nameEn,
-        nameAr: result.picker.nameAr,
-        phoneNumber: result.picker.phoneNumber,
-        shopperId: result.picker.shopperId,
-        ibsId: result.picker.ibsId,
-        accountStatus: result.picker.accountStatus,
-        employmentStatus: result.picker.employmentStatus,
-        profileStatus: result.picker.profileStatus,
-        blockStatus: result.picker.blockStatus,
-        blockedUntil: result.picker.blockedUntil,
-        blockReason: result.picker.blockReason
-      },
-      assignment: {
-        id: result.closedAssignment.id,
-        status: result.closedAssignment.status,
-        startDate: result.closedAssignment.startDate,
-        endDate: result.closedAssignment.endDate,
-        vendorId: result.closedAssignment.vendorId,
-        pickerId: result.closedAssignment.pickerId,
-        createdByRequestId: result.closedAssignment.createdByRequestId
-      }
+      user,
+      picker: payload.target.targetRole === UserRole.PICKER ? user : undefined,
+      assignment: result.closedAssignments[0] ?? null,
+      assignments: result.closedAssignments
     };
   }
 
   private async createApprovalRoutedRequest(
-    assignment: PickerAssignmentWithContext,
+    target: ResignationTargetContext,
     areaManagerStep: GeneratedApprovalStep,
     payload: OffboardingPayload,
     context: RequestContext
@@ -696,9 +698,9 @@ export class OffboardingWorkflowService {
           status: RequestStatus.PENDING_AREA_MANAGER,
           currentStep: ApprovalStep.AREA_MANAGER_APPROVAL,
           createdById: context.actor.id,
-          targetUserId: assignment.pickerId,
-          sourceVendorId: assignment.vendorId,
-          sourceChainId: assignment.vendor.chainId,
+          targetUserId: target.targetUser.id,
+          sourceVendorId: target.sourceVendorId,
+          sourceChainId: target.sourceChainId,
           payload: payload as Prisma.InputJsonValue
         }
       });
@@ -741,8 +743,12 @@ export class OffboardingWorkflowService {
           userId: context.actor.id,
           type: "REQUEST_SUBMITTED",
           title: "Resignation request submitted",
-          body: `Resignation request for ${assignment.picker.nameEn} was submitted for Area Manager approval.`,
-          payload: { requestId: request.id, pickerId: assignment.pickerId }
+          body: `Resignation request for ${target.targetUser.nameEn} was submitted for Area Manager approval.`,
+          payload: {
+            requestId: request.id,
+            targetUserId: target.targetUser.id,
+            targetRole: target.targetRole
+          }
         }
       });
 
@@ -752,11 +758,12 @@ export class OffboardingWorkflowService {
             userId: areaManagerStep.approverId,
             type: "APPROVAL_PENDING",
             title: "Resignation approval pending",
-            body: `Resignation request for ${assignment.vendor.vendorName} requires your block decision.`,
+            body: `Resignation request for ${target.sourceLabel} requires your block decision.`,
             payload: {
               requestId: request.id,
               step: areaManagerStep.step,
-              pickerId: assignment.pickerId
+              targetUserId: target.targetUser.id,
+              targetRole: target.targetRole
             }
           }
         });
@@ -772,7 +779,7 @@ export class OffboardingWorkflowService {
   }
 
   private async createAreaManagerSubmittedRequest(
-    assignment: PickerAssignmentWithContext,
+    target: ResignationTargetContext,
     payload: OffboardingPayload,
     context: RequestContext
   ) {
@@ -784,9 +791,9 @@ export class OffboardingWorkflowService {
           status: RequestStatus.PENDING_ADMIN,
           currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
           createdById: context.actor.id,
-          targetUserId: assignment.pickerId,
-          sourceVendorId: assignment.vendorId,
-          sourceChainId: assignment.vendor.chainId,
+          targetUserId: target.targetUser.id,
+          sourceVendorId: target.sourceVendorId,
+          sourceChainId: target.sourceChainId,
           payload: payload as Prisma.InputJsonValue
         }
       });
@@ -831,8 +838,12 @@ export class OffboardingWorkflowService {
           userId: context.actor.id,
           type: "REQUEST_SUBMITTED",
           title: "Resignation request submitted",
-          body: `Resignation request for ${assignment.picker.nameEn} was submitted for Admin finalization.`,
-          payload: { requestId: request.id, pickerId: assignment.pickerId }
+          body: `Resignation request for ${target.targetUser.nameEn} was submitted for Admin finalization.`,
+          payload: {
+            requestId: request.id,
+            targetUserId: target.targetUser.id,
+            targetRole: target.targetRole
+          }
         }
       });
 
@@ -853,7 +864,8 @@ export class OffboardingWorkflowService {
             payload: {
               requestId: request.id,
               step: ApprovalStep.ADMIN_FINAL_APPROVAL,
-              pickerId: assignment.pickerId
+              targetUserId: target.targetUser.id,
+              targetRole: target.targetRole
             }
           }))
         });
@@ -866,6 +878,432 @@ export class OffboardingWorkflowService {
     });
 
     return toRequestSummary(updated);
+  }
+
+  private async createAdminSubmittedRequest(
+    target: ResignationTargetContext,
+    payload: OffboardingPayload,
+    context: RequestContext
+  ) {
+    assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const request = await tx.request.create({
+        data: {
+          type: RequestType.RESIGNATION,
+          status: RequestStatus.PENDING_ADMIN,
+          currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
+          createdById: context.actor.id,
+          targetUserId: target.targetUser.id,
+          sourceVendorId: target.sourceVendorId,
+          sourceChainId: target.sourceChainId,
+          payload: payload as Prisma.InputJsonValue
+        }
+      });
+
+      await tx.requestApproval.create({
+        data: {
+          requestId: request.id,
+          step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+          approverRole: UserRole.ADMIN,
+          approverId: null,
+          status: ApprovalStatus.PENDING
+        }
+      });
+
+      await this.createSubmissionAuditLogs(tx, request, context, [
+        {
+          step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+          approverRole: UserRole.ADMIN,
+          approverId: null
+        }
+      ]);
+
+      await tx.notification.create({
+        data: {
+          userId: context.actor.id,
+          type: "REQUEST_SUBMITTED",
+          title: "Resignation request submitted",
+          body: `Resignation request for ${target.targetUser.nameEn} was submitted for Admin finalization.`,
+          payload: {
+            requestId: request.id,
+            targetUserId: target.targetUser.id,
+            targetRole: target.targetRole
+          }
+        }
+      });
+
+      const admins = await tx.user.findMany({
+        where: {
+          role: { in: [UserRole.ADMIN, UserRole.SUPER_ADMIN] },
+          accountStatus: AccountStatus.ACTIVE
+        },
+        select: { id: true }
+      });
+
+      if (admins.length) {
+        await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            type: "APPROVAL_PENDING",
+            title: "Resignation finalization pending",
+            body: "Resignation request is waiting for Admin finalization.",
+            payload: {
+              requestId: request.id,
+              step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+              targetUserId: target.targetUser.id,
+              targetRole: target.targetRole
+            }
+          }))
+        });
+      }
+
+      return tx.request.findUniqueOrThrow({
+        where: { id: request.id },
+        include: requestInclude
+      });
+    });
+
+    return toRequestSummary(updated);
+  }
+
+  private async searchScopedPickers(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    const q = dto.q?.trim();
+    const assignments = await this.prisma.pickerBranchAssignment.findMany({
+      where: this.buildScopedPickerAssignmentWhere(
+        currentUser,
+        dto.sourceVendorId,
+        q
+      ),
+      include: pickerAssignmentInclude,
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      take: 20
+    });
+
+    const pendingByUserId = await this.getPendingResignationByUserId(
+      assignments.map((assignment) => assignment.pickerId)
+    );
+
+    return {
+      items: assignments.map((assignment) =>
+        this.toPickerSearchCard(
+          assignment,
+          pendingByUserId.get(assignment.pickerId) ?? null
+        )
+      )
+    };
+  }
+
+  private async searchScopedChamps(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    const assignments = await this.prisma.vendorChampAssignment.findMany({
+      where: this.buildScopedChampAssignmentWhere(
+        currentUser,
+        dto.sourceVendorId,
+        dto.sourceChainId,
+        dto.q
+      ),
+      include: champAssignmentInclude,
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      take: 20
+    });
+    const pendingByUserId = await this.getPendingResignationByUserId(
+      assignments.map((assignment) => assignment.champId)
+    );
+
+    return {
+      items: assignments.map((assignment) =>
+        this.toEligibleUserSearchCard({
+          assignmentId: assignment.id,
+          assignmentStartDate: assignment.startDate,
+          assignmentType: "VendorChampAssignment",
+          chain: toChainSummary(assignment.vendor.chain),
+          pendingResignationRequestId:
+            pendingByUserId.get(assignment.champId) ?? null,
+          role: UserRole.CHAMP,
+          user: assignment.champ,
+          vendor: toVendorSummary(assignment.vendor)
+        })
+      )
+    };
+  }
+
+  private async searchScopedAreaManagers(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    if (!this.isAdmin(currentUser)) {
+      throw new ForbiddenException(
+        "Only Admins can search Area Managers for Resignation."
+      );
+    }
+
+    const assignments = await this.prisma.chainAreaManagerAssignment.findMany({
+      where: this.buildScopedAreaManagerAssignmentWhere(dto.sourceChainId, dto.q),
+      include: areaManagerAssignmentInclude,
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      take: 20
+    });
+    const pendingByUserId = await this.getPendingResignationByUserId(
+      assignments.map((assignment) => assignment.areaManagerId)
+    );
+
+    return {
+      items: assignments.map((assignment) =>
+        this.toEligibleUserSearchCard({
+          assignmentId: assignment.id,
+          assignmentStartDate: assignment.startDate,
+          assignmentType: "ChainAreaManagerAssignment",
+          chain: toChainSummary(assignment.chain),
+          pendingResignationRequestId:
+            pendingByUserId.get(assignment.areaManagerId) ?? null,
+          role: UserRole.AREA_MANAGER,
+          user: assignment.areaManager
+        })
+      )
+    };
+  }
+
+  private async resolveScopedActiveTarget(
+    targetUserId: string,
+    targetRole: OffboardingTargetRole,
+    sourceVendorId: string | undefined,
+    sourceChainId: string | undefined,
+    actor: AuthenticatedUser
+  ): Promise<ResignationTargetContext> {
+    if (targetRole === UserRole.PICKER) {
+      const assignment = await this.resolveScopedActivePickerAssignment(
+        targetUserId,
+        sourceVendorId,
+        actor
+      );
+      return {
+        assignmentId: assignment.id,
+        assignmentType: "PickerBranchAssignment",
+        sourceChainId: assignment.vendor.chainId,
+        sourceVendorId: assignment.vendorId,
+        sourceLabel: assignment.vendor.vendorName,
+        targetUser: assignment.picker,
+        targetRole
+      };
+    }
+
+    if (targetRole === UserRole.CHAMP) {
+      const assignments = await this.prisma.vendorChampAssignment.findMany({
+        where: {
+          ...this.buildScopedChampAssignmentWhere(
+            actor,
+            sourceVendorId,
+            sourceChainId
+          ),
+          champId: targetUserId
+        },
+        include: champAssignmentInclude,
+        take: 3
+      });
+
+      if (!assignments.length) {
+        throw new ForbiddenException(
+          "Selected Champ is not in your Resignation scope or is no longer active."
+        );
+      }
+
+      const assignment = assignments[0];
+      return {
+        assignmentId: assignment.id,
+        assignmentType: "VendorChampAssignment",
+        sourceChainId: assignment.vendor.chainId,
+        sourceVendorId: assignment.vendorId,
+        sourceLabel: assignment.vendor.vendorName,
+        targetUser: assignment.champ,
+        targetRole
+      };
+    }
+
+    if (!this.isAdmin(actor)) {
+      throw new ForbiddenException("Only Admins can resign Area Managers.");
+    }
+
+    const assignments = await this.prisma.chainAreaManagerAssignment.findMany({
+      where: {
+        ...this.buildScopedAreaManagerAssignmentWhere(sourceChainId),
+        areaManagerId: targetUserId
+      },
+      include: areaManagerAssignmentInclude,
+      take: 3
+    });
+
+    if (!assignments.length) {
+      throw new ForbiddenException(
+        "Selected Area Manager is not active or has no active Chain assignment."
+      );
+    }
+
+    const assignment = assignments[0];
+    return {
+      assignmentId: assignment.id,
+      assignmentType: "ChainAreaManagerAssignment",
+      sourceChainId: assignment.chainId,
+      sourceLabel: assignment.chain.chainName,
+      targetUser: assignment.areaManager,
+      targetRole
+    };
+  }
+
+  private async resolveActiveAssignmentsForFinalization(
+    payload: OffboardingPayload,
+    request: { sourceChainId: string | null; sourceVendorId: string | null }
+  ) {
+    if (request.sourceChainId !== payload.source.chainId) {
+      throw new BadRequestException(
+        "Source Chain no longer matches the stored request context."
+      );
+    }
+
+    if (payload.target.targetRole === UserRole.PICKER) {
+      if (!payload.source.vendorId || request.sourceVendorId !== payload.source.vendorId) {
+        throw new BadRequestException(
+          "Source Branch no longer matches the stored request context."
+        );
+      }
+
+      const assignment = await this.prisma.pickerBranchAssignment.findFirst({
+        where: {
+          id: payload.target.assignmentId,
+          pickerId: payload.target.userId,
+          vendorId: payload.source.vendorId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: pickerAssignmentInclude
+      });
+
+      if (!assignment) {
+        throw new BadRequestException(
+          "Target Picker no longer has an active assignment to the source Branch."
+        );
+      }
+
+      if (
+        assignment.vendor.status !== VendorStatus.ACTIVE ||
+        assignment.vendor.chain.status !== ChainStatus.ACTIVE ||
+        assignment.vendor.chainId !== payload.source.chainId
+      ) {
+        throw new BadRequestException("Source Branch is no longer active.");
+      }
+
+      return [assignment];
+    }
+
+    if (payload.target.targetRole === UserRole.CHAMP) {
+      if (!payload.source.vendorId || request.sourceVendorId !== payload.source.vendorId) {
+        throw new BadRequestException(
+          "Source Branch no longer matches the stored request context."
+        );
+      }
+
+      const sourceAssignment = await this.prisma.vendorChampAssignment.findFirst({
+        where: {
+          id: payload.target.assignmentId,
+          champId: payload.target.userId,
+          vendorId: payload.source.vendorId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: champAssignmentInclude
+      });
+
+      if (!sourceAssignment) {
+        throw new BadRequestException(
+          "Target Champ no longer has an active assignment to the source Branch."
+        );
+      }
+
+      if (
+        sourceAssignment.vendor.status !== VendorStatus.ACTIVE ||
+        sourceAssignment.vendor.chain.status !== ChainStatus.ACTIVE ||
+        sourceAssignment.vendor.chainId !== payload.source.chainId
+      ) {
+        throw new BadRequestException("Source Branch is no longer active.");
+      }
+
+      return this.prisma.vendorChampAssignment.findMany({
+        where: {
+          champId: payload.target.userId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: champAssignmentInclude
+      });
+    }
+
+    const sourceAssignment =
+      await this.prisma.chainAreaManagerAssignment.findFirst({
+        where: {
+          id: payload.target.assignmentId,
+          areaManagerId: payload.target.userId,
+          chainId: payload.source.chainId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: areaManagerAssignmentInclude
+      });
+
+    if (!sourceAssignment) {
+      throw new BadRequestException(
+        "Target Area Manager no longer has an active assignment to the source Chain."
+      );
+    }
+
+    if (sourceAssignment.chain.status !== ChainStatus.ACTIVE) {
+      throw new BadRequestException("Source Chain is no longer active.");
+    }
+
+    return this.prisma.chainAreaManagerAssignment.findMany({
+      where: {
+        areaManagerId: payload.target.userId,
+        status: AssignmentStatus.ACTIVE
+      },
+      include: areaManagerAssignmentInclude
+    });
+  }
+
+  private async closeActiveAssignments(
+    tx: Prisma.TransactionClient,
+    targetRole: OffboardingTargetRole,
+    activeAssignments: Array<{ id: string }>,
+    completedAt: Date
+  ) {
+    if (targetRole === UserRole.PICKER) {
+      return Promise.all(
+        activeAssignments.map((assignment) =>
+          tx.pickerBranchAssignment.update({
+            where: { id: assignment.id },
+            data: { status: AssignmentStatus.CLOSED, endDate: completedAt }
+          })
+        )
+      );
+    }
+
+    if (targetRole === UserRole.CHAMP) {
+      return Promise.all(
+        activeAssignments.map((assignment) =>
+          tx.vendorChampAssignment.update({
+            where: { id: assignment.id },
+            data: { status: AssignmentStatus.CLOSED, endDate: completedAt }
+          })
+        )
+      );
+    }
+
+    return Promise.all(
+      activeAssignments.map((assignment) =>
+        tx.chainAreaManagerAssignment.update({
+          where: { id: assignment.id },
+          data: { status: AssignmentStatus.CLOSED, endDate: completedAt }
+        })
+      )
+    );
   }
 
   private async resolveScopedActivePickerAssignment(
@@ -968,11 +1406,122 @@ export class OffboardingWorkflowService {
     return where;
   }
 
-  private async assertNoPendingOffboarding(pickerId: string) {
+  private buildScopedChampAssignmentWhere(
+    actor: AuthenticatedUser,
+    sourceVendorId?: string,
+    sourceChainId?: string,
+    q?: string
+  ): Prisma.VendorChampAssignmentWhereInput {
+    const search = q?.trim();
+    const vendorWhere: Prisma.VendorWhereInput = {
+      status: VendorStatus.ACTIVE,
+      chain: { status: ChainStatus.ACTIVE }
+    };
+
+    if (sourceVendorId) {
+      vendorWhere.id = sourceVendorId;
+    }
+
+    if (sourceChainId) {
+      vendorWhere.chainId = sourceChainId;
+    }
+
+    if (actor.role === UserRole.AREA_MANAGER) {
+      vendorWhere.chain = {
+        status: ChainStatus.ACTIVE,
+        areaManagerAssignments: {
+          some: { areaManagerId: actor.id, status: AssignmentStatus.ACTIVE }
+        }
+      };
+    }
+
+    const where: Prisma.VendorChampAssignmentWhereInput = {
+      status: AssignmentStatus.ACTIVE,
+      vendor: vendorWhere,
+      champ: {
+        role: UserRole.CHAMP,
+        accountStatus: AccountStatus.ACTIVE,
+        employmentStatus: EmploymentStatus.ACTIVE
+      }
+    };
+
+    if (search) {
+      where.OR = [
+        { champ: { nameEn: { contains: search, mode: "insensitive" } } },
+        { champ: { nameAr: { contains: search, mode: "insensitive" } } },
+        { champ: { phoneNumber: { contains: search } } },
+        { vendor: { vendorName: { contains: search, mode: "insensitive" } } },
+        { vendor: { vendorCode: { contains: search, mode: "insensitive" } } },
+        {
+          vendor: {
+            chain: { chainName: { contains: search, mode: "insensitive" } }
+          }
+        },
+        {
+          vendor: {
+            chain: { chainCode: { contains: search, mode: "insensitive" } }
+          }
+        }
+      ];
+    }
+
+    return where;
+  }
+
+  private buildScopedAreaManagerAssignmentWhere(
+    sourceChainId?: string,
+    q?: string
+  ): Prisma.ChainAreaManagerAssignmentWhereInput {
+    const search = q?.trim();
+    const where: Prisma.ChainAreaManagerAssignmentWhereInput = {
+      status: AssignmentStatus.ACTIVE,
+      chain: {
+        status: ChainStatus.ACTIVE,
+        ...(sourceChainId ? { id: sourceChainId } : {})
+      },
+      areaManager: {
+        role: UserRole.AREA_MANAGER,
+        accountStatus: AccountStatus.ACTIVE,
+        employmentStatus: EmploymentStatus.ACTIVE
+      }
+    };
+
+    if (search) {
+      where.OR = [
+        { areaManager: { nameEn: { contains: search, mode: "insensitive" } } },
+        { areaManager: { nameAr: { contains: search, mode: "insensitive" } } },
+        { areaManager: { phoneNumber: { contains: search } } },
+        { chain: { chainName: { contains: search, mode: "insensitive" } } },
+        { chain: { chainCode: { contains: search, mode: "insensitive" } } }
+      ];
+    }
+
+    return where;
+  }
+
+  private async getPendingResignationByUserId(userIds: string[]) {
+    const uniqueIds = Array.from(new Set(userIds));
+    const pendingRequests = uniqueIds.length
+      ? await this.prisma.request.findMany({
+          where: {
+            type: RequestType.RESIGNATION,
+            targetUserId: { in: uniqueIds },
+            status: { in: openRequestStatuses }
+          },
+          select: { id: true, targetUserId: true }
+        })
+      : [];
+
+    return new Map(
+      pendingRequests.map((request) => [request.targetUserId, request.id])
+    );
+  }
+
+  private async assertNoPendingOffboarding(userId: string) {
     const duplicate = await this.prisma.request.findFirst({
       where: {
         type: RequestType.RESIGNATION,
-        targetUserId: pickerId,
+        targetUserId: userId,
         status: { in: openRequestStatuses }
       },
       select: { id: true }
@@ -980,7 +1529,7 @@ export class OffboardingWorkflowService {
 
     if (duplicate) {
       throw new ConflictException(
-        "A pending Resignation request already exists for this Picker."
+        "A pending Resignation request already exists for this user."
       );
     }
   }
@@ -1082,20 +1631,53 @@ export class OffboardingWorkflowService {
     const resignationDate = offboardingPayload.resignationDate;
     const vendorId = sourcePayload.vendorId;
     const chainId = sourcePayload.chainId;
-    const pickerId = targetPayload.pickerId;
-    const pickerAssignmentId = targetPayload.pickerAssignmentId;
+    const targetRole = this.normalizeTargetRole(
+      typeof targetPayload.targetRole === "string"
+        ? targetPayload.targetRole
+        : undefined
+    );
+    const userId =
+      typeof targetPayload.userId === "string"
+        ? targetPayload.userId
+        : typeof targetPayload.pickerId === "string"
+          ? targetPayload.pickerId
+          : undefined;
+    const assignmentId =
+      typeof targetPayload.assignmentId === "string"
+        ? targetPayload.assignmentId
+        : typeof targetPayload.pickerAssignmentId === "string"
+          ? targetPayload.pickerAssignmentId
+          : undefined;
+    const assignmentType =
+      typeof targetPayload.assignmentType === "string"
+        ? targetPayload.assignmentType
+        : "PickerBranchAssignment";
 
     if (
       type !== RequestType.RESIGNATION ||
       typeof reason !== "string" ||
       typeof resignationDate !== "string" ||
-      typeof vendorId !== "string" ||
       typeof chainId !== "string" ||
-      typeof pickerId !== "string" ||
-      typeof pickerAssignmentId !== "string"
+      typeof userId !== "string" ||
+      typeof assignmentId !== "string"
     ) {
       throw new BadRequestException(
         "Resignation request payload is missing required context."
+      );
+    }
+
+    if (
+      (targetRole === UserRole.PICKER &&
+        (assignmentType !== "PickerBranchAssignment" ||
+          typeof vendorId !== "string")) ||
+      (targetRole === UserRole.CHAMP &&
+        (assignmentType !== "VendorChampAssignment" ||
+          typeof vendorId !== "string")) ||
+      (targetRole === UserRole.AREA_MANAGER &&
+        assignmentType !== "ChainAreaManagerAssignment")
+    ) {
+      throw new BadRequestException(
+        "Resignation request payload has invalid assignment context."
       );
     }
 
@@ -1114,8 +1696,16 @@ export class OffboardingWorkflowService {
             : undefined,
         resignationDate
       },
-      source: { vendorId, chainId },
-      target: { pickerId, pickerAssignmentId },
+      source: {
+        ...(typeof vendorId === "string" ? { vendorId } : {}),
+        chainId
+      },
+      target: {
+        userId,
+        targetRole,
+        assignmentId,
+        assignmentType: assignmentType as OffboardingPayload["target"]["assignmentType"]
+      },
       areaManagerDecision: this.parseStoredBlockDecision(
         objectPayload.areaManagerDecision
       ),
@@ -1228,6 +1818,9 @@ export class OffboardingWorkflowService {
   ) {
     return {
       assignmentId: assignment.id,
+      assignmentType: "PickerBranchAssignment",
+      targetUserId: assignment.pickerId,
+      targetRole: UserRole.PICKER,
       pickerId: assignment.pickerId,
       vendorId: assignment.vendorId,
       chainId: assignment.vendor.chainId,
@@ -1241,8 +1834,49 @@ export class OffboardingWorkflowService {
         joiningDate: assignment.picker.joiningDate,
         blockStatus: assignment.picker.blockStatus
       },
+      user: {
+        ...toUserSummary(assignment.picker),
+        shopperId: assignment.picker.shopperId,
+        ibsId: assignment.picker.ibsId,
+        joiningDate: assignment.picker.joiningDate,
+        blockStatus: assignment.picker.blockStatus
+      },
       vendor: toVendorSummary(assignment.vendor),
       chain: toChainSummary(assignment.vendor.chain)
+    };
+  }
+
+  private toEligibleUserSearchCard(params: {
+    assignmentId: string;
+    assignmentStartDate: Date;
+    assignmentType: OffboardingPayload["target"]["assignmentType"];
+    chain: ReturnType<typeof toChainSummary>;
+    pendingResignationRequestId: string | null;
+    role: OffboardingTargetRole;
+    user: User;
+    vendor?: ReturnType<typeof toVendorSummary>;
+  }) {
+    return {
+      assignmentId: params.assignmentId,
+      assignmentType: params.assignmentType,
+      targetUserId: params.user.id,
+      targetRole: params.role,
+      userId: params.user.id,
+      vendorId: params.vendor?.id,
+      chainId: params.chain.id,
+      assignmentStartDate: params.assignmentStartDate,
+      pendingResignationRequestId: params.pendingResignationRequestId,
+      hasPendingResignation: Boolean(params.pendingResignationRequestId),
+      role: params.role,
+      user: {
+        ...toUserSummary(params.user),
+        shopperId: params.user.shopperId,
+        ibsId: params.user.ibsId,
+        joiningDate: params.user.joiningDate,
+        blockStatus: params.user.blockStatus
+      },
+      vendor: params.vendor ?? null,
+      chain: params.chain
     };
   }
 
@@ -1260,5 +1894,62 @@ export class OffboardingWorkflowService {
 
   private isAdmin(actor: AuthenticatedUser) {
     return actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN;
+  }
+
+  private normalizeTargetRole(
+    targetRole: UserRole | string | null | undefined
+  ) {
+    return normalizeOffboardingTargetRole(targetRole);
+  }
+
+  private assertCanUseTargetRole(
+    actor: AuthenticatedUser,
+    targetRole: OffboardingTargetRole
+  ) {
+    const allowedRoles = getAllowedResignationTargetRolesForCreator(actor.role);
+
+    if (allowedRoles.includes(targetRole)) {
+      return;
+    }
+
+    if (actor.role === UserRole.CHAMP) {
+      throw new ForbiddenException("Champs can submit Picker Resignation only.");
+    }
+
+    if (actor.role === UserRole.AREA_MANAGER) {
+      throw new ForbiddenException(
+        "Area Managers can submit Picker or Champ Resignation only."
+      );
+    }
+
+    throw new ForbiddenException(
+      "Only Champs, Area Managers, and Admins can submit Resignation requests."
+    );
+  }
+
+  private toResignedUserResponse(user: User) {
+    return {
+      id: user.id,
+      role: user.role,
+      nameEn: user.nameEn,
+      nameAr: user.nameAr,
+      phoneNumber: user.phoneNumber,
+      shopperId: user.shopperId,
+      ibsId: user.ibsId,
+      accountStatus: user.accountStatus,
+      employmentStatus: user.employmentStatus,
+      profileStatus: user.profileStatus,
+      blockStatus: user.blockStatus,
+      blockedUntil: user.blockedUntil,
+      blockReason: user.blockReason
+    };
+  }
+
+  private formatTargetRole(targetRole: OffboardingTargetRole) {
+    return targetRole
+      .toLowerCase()
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   }
 }

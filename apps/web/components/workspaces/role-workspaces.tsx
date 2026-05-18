@@ -426,7 +426,7 @@ export function AdminWorkspaceDashboard() {
 
         <InfoCard title="Pending Final Actions">
           <AdminControlLink
-            description="Review New Hire Shopper ID and offboarding finalization work."
+            description="Review New Hire Shopper ID and Resignation finalization work."
             href="/tickets"
             icon={ClipboardCheck}
             label="Open pending final actions"

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { SelectedContextCard } from "./new-hire-branch-context";
 import { NewHireLookupResultCard, PreviousPickerCard } from "./new-hire-lookup";
 import { NewHireFormSection } from "./new-hire-section";
-import { applyFixedNewHireBranch, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
+import { applyFixedNewHireBranch, buildNewHireApprovalSteps, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
 import { Field } from "../../shared/request-field";
 import { ErrorState } from "../../shared/request-states";
 import { type LockedNewHireBranchContext, type NewHireChainOption, type NewHireVendorOption } from "../../shared/request-types";
@@ -861,6 +861,69 @@ export function NewHireRequestForm({
         </NewHireFormSection>
       ) : null}
 
+      <NewHireFormSection
+        description="System changes happen only after the required approval and finalization steps."
+        title="Approval path"
+      >
+        <div className="grid gap-2">
+          {buildNewHireApprovalSteps(user?.role, form.targetRole).map(
+            (step, index) => (
+              <div
+                className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                key={step.label}
+              >
+                <span
+                  className={cn(
+                    "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                    step.skipped
+                      ? "bg-slate-100 text-slate-500"
+                      : "bg-orange-100 text-orange-700"
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">
+                    {step.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {step.description}
+                  </p>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </NewHireFormSection>
+
+      <NewHireFormSection
+        description="Review the selected role, context, and candidate identity before submit."
+        title="Final review"
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
+          <ReviewRow label="Target role" value={formatEnum(form.targetRole)} />
+          <ReviewRow
+            label={isAreaManagerTarget ? "Chains" : "Branch"}
+            value={
+              isAreaManagerTarget
+                ? selectedChains.map((chain) => chain.chainName).join(", ") ||
+                  "Not selected"
+                : selectedVendor
+                  ? `${selectedVendor.vendorName} / ${selectedVendor.chain.chainName}`
+                  : "Not selected"
+            }
+          />
+          <ReviewRow
+            label="Phone"
+            value={form.phoneNumber || "Not provided"}
+          />
+          <ReviewRow
+            label="National ID"
+            value={form.nationalId || "Not provided"}
+          />
+        </div>
+      </NewHireFormSection>
+
       <div className="flex flex-col gap-2 bg-slate-50/70 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
         {onCancel ? (
           <Button
@@ -881,5 +944,16 @@ export function NewHireRequestForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-slate-950">
+        {value}
+      </p>
+    </div>
   );
 }

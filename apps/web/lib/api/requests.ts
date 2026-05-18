@@ -19,6 +19,7 @@ export type ApprovalStep =
   | "DESTINATION_AREA_MANAGER_APPROVAL"
   | "ADMIN_FINAL_APPROVAL";
 export type NewHireTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
+export type ResignationTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
 export type OffboardingReasonCode =
   | "BAD_ATTITUDE"
   | "BAD_PERFORMANCE"
@@ -182,7 +183,9 @@ export interface NewHireLookupResponse {
 
 export interface CreateOffboardingPayload {
   type: "RESIGNATION";
+  targetRole?: ResignationTargetRole;
   sourceVendorId?: string;
+  sourceChainId?: string;
   targetUserId: string;
   resignationDate: string;
   reasonCode: OffboardingReasonCode;
@@ -194,6 +197,9 @@ export interface CreateOffboardingPayload {
 
 export interface OffboardingPickerSearchItem {
   assignmentId: string;
+  assignmentType?: "PickerBranchAssignment";
+  targetUserId?: string;
+  targetRole?: "PICKER";
   pickerId: string;
   vendorId: string;
   chainId: string;
@@ -214,6 +220,35 @@ export interface OffboardingPickerSearchResponse {
   items: OffboardingPickerSearchItem[];
 }
 
+export interface OffboardingEligibleUserSearchItem {
+  assignmentId: string;
+  assignmentType:
+    | "PickerBranchAssignment"
+    | "VendorChampAssignment"
+    | "ChainAreaManagerAssignment";
+  targetUserId: string;
+  targetRole: ResignationTargetRole;
+  userId: string;
+  vendorId?: string;
+  chainId: string;
+  assignmentStartDate: string;
+  pendingResignationRequestId: string | null;
+  hasPendingResignation: boolean;
+  role: ResignationTargetRole;
+  user: UserSummary & {
+    shopperId?: string | null;
+    ibsId?: string | null;
+    joiningDate?: string | null;
+    blockStatus?: string;
+  };
+  vendor: VendorSummary | null;
+  chain: ChainSummary;
+}
+
+export interface OffboardingEligibleUserSearchResponse {
+  items: OffboardingEligibleUserSearchItem[];
+}
+
 export interface CreateTransferPayload {
   sourceVendorId: string;
   targetUserId: string;
@@ -223,11 +258,28 @@ export interface CreateTransferPayload {
   notes?: string;
 }
 
+export interface FinalizedNewHireAssignment {
+  id: string;
+  assignmentType:
+    | "PickerBranchAssignment"
+    | "VendorChampAssignment"
+    | "ChainAreaManagerAssignment";
+  status: string;
+  startDate: string;
+  vendorId?: string;
+  chainId?: string;
+  userId: string | null;
+  pickerId?: string;
+  champId?: string;
+  areaManagerId?: string;
+  createdByRequestId?: string | null;
+}
+
 export interface FinalizeNewHireResponse {
   request: RequestSummary;
   user: {
     id: string;
-    role: "PICKER" | "CHAMP";
+    role: NewHireTargetRole;
     nameEn: string;
     nameAr: string | null;
     phoneNumber: string;
@@ -239,7 +291,7 @@ export interface FinalizeNewHireResponse {
   };
   picker: {
     id: string;
-    role: "PICKER" | "CHAMP";
+    role: NewHireTargetRole;
     nameEn: string;
     nameAr: string | null;
     phoneNumber: string;
@@ -249,17 +301,8 @@ export interface FinalizeNewHireResponse {
     profileStatus: string;
     mustChangePassword: boolean;
   };
-  assignment: {
-    id: string;
-    assignmentType: "PickerBranchAssignment" | "VendorChampAssignment";
-    status: string;
-    startDate: string;
-    vendorId: string;
-    userId: string | null;
-    pickerId?: string;
-    champId?: string;
-    createdByRequestId: string | null;
-  };
+  assignment: FinalizedNewHireAssignment;
+  assignments?: FinalizedNewHireAssignment[];
 }
 
 export interface FinalizeOffboardingPayload {
@@ -269,11 +312,24 @@ export interface FinalizeOffboardingPayload {
   notes?: string;
 }
 
+export interface FinalizedResignationAssignment {
+  id: string;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  vendorId?: string;
+  chainId?: string;
+  pickerId?: string;
+  champId?: string;
+  areaManagerId?: string;
+  createdByRequestId?: string | null;
+}
+
 export interface FinalizeOffboardingResponse {
   request: RequestSummary;
-  picker: {
+  user: {
     id: string;
-    role: "PICKER";
+    role: ResignationTargetRole;
     nameEn: string;
     nameAr: string | null;
     phoneNumber: string;
@@ -285,15 +341,9 @@ export interface FinalizeOffboardingResponse {
     blockedUntil: string | null;
     blockReason: string | null;
   };
-  assignment: {
-    id: string;
-    status: string;
-    startDate: string;
-    endDate: string | null;
-    vendorId: string;
-    pickerId: string;
-    createdByRequestId: string | null;
-  };
+  picker?: FinalizeOffboardingResponse["user"];
+  assignment: FinalizedResignationAssignment | null;
+  assignments?: FinalizedResignationAssignment[];
 }
 
 function toQuery(params: Record<string, string | number | undefined>) {
@@ -374,6 +424,23 @@ export const requestsApi = {
       `/requests/offboarding/pickers${toQuery({
         q: params.q,
         sourceVendorId: params.sourceVendorId
+      })}`
+    );
+  },
+  searchOffboardingEligibleUsers(
+    params: {
+      q?: string;
+      targetRole?: ResignationTargetRole;
+      sourceVendorId?: string;
+      sourceChainId?: string;
+    } = {}
+  ) {
+    return apiGet<OffboardingEligibleUserSearchResponse>(
+      `/requests/offboarding/eligible-users${toQuery({
+        q: params.q,
+        targetRole: params.targetRole,
+        sourceVendorId: params.sourceVendorId,
+        sourceChainId: params.sourceChainId
       })}`
     );
   },

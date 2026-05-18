@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { BlockStatus, RequestType } from "@prisma/client";
+import { BlockStatus, RequestType, UserRole } from "@prisma/client";
 
 export type OffboardingReasonCode =
   | "BAD_ATTITUDE"
@@ -16,6 +16,10 @@ export type OffboardingBlockDecision =
   | "SIX_MONTHS"
   | "ONE_YEAR"
   | "PERMANENT";
+export type OffboardingTargetRole =
+  | Extract<UserRole, "PICKER">
+  | Extract<UserRole, "CHAMP">
+  | Extract<UserRole, "AREA_MANAGER">;
 
 export const OFFBOARDING_REASON_CODES: OffboardingReasonCode[] = [
   "BAD_ATTITUDE",
@@ -47,6 +51,46 @@ export const offboardingReasonLabels: Record<OffboardingReasonCode, string> = {
 
 const reasonCodes = new Set<string>(OFFBOARDING_REASON_CODES);
 const blockDecisions = new Set<string>(OFFBOARDING_BLOCK_DECISIONS);
+const targetRoles = new Set<UserRole>([
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+]);
+const ADMIN_RESIGNATION_TARGET_ROLES: OffboardingTargetRole[] = [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+];
+
+export function normalizeOffboardingTargetRole(
+  targetRole: UserRole | string | null | undefined
+): OffboardingTargetRole {
+  const normalized = targetRole ?? UserRole.PICKER;
+
+  if (targetRoles.has(normalized as UserRole)) {
+    return normalized as OffboardingTargetRole;
+  }
+
+  throw new BadRequestException("targetRole must be PICKER, CHAMP, or AREA_MANAGER.");
+}
+
+export function getAllowedResignationTargetRolesForCreator(
+  creatorRole: UserRole
+): OffboardingTargetRole[] {
+  if (creatorRole === UserRole.CHAMP) {
+    return [UserRole.PICKER];
+  }
+
+  if (creatorRole === UserRole.AREA_MANAGER) {
+    return [UserRole.PICKER, UserRole.CHAMP];
+  }
+
+  if (creatorRole === UserRole.ADMIN || creatorRole === UserRole.SUPER_ADMIN) {
+    return ADMIN_RESIGNATION_TARGET_ROLES;
+  }
+
+  return [];
+}
 
 export function normalizeOffboardingReason(dto: {
   type: RequestType;

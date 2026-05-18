@@ -115,7 +115,7 @@ export function isBlockingNewHireDecision(decision: NewHireLookupCandidate["deci
 
 export function getNewHireSubmitLabel(targetRole: NewHireTargetRole) {
   if (targetRole === "AREA_MANAGER") {
-    return "Create Area Manager";
+    return "Submit Area Manager New Hire";
   }
   return `Submit ${formatEnum(targetRole)} New Hire`;
 }
@@ -132,13 +132,13 @@ export function buildNewHireApprovalSteps(
         skipped: false
       },
       {
-        label: "Account created immediately",
-        description: "The backend creates the account without approval routing.",
+        label: "Admin finalization",
+        description: "Admin finalizes the request before the Area Manager account is created.",
         skipped: false
       },
       {
-        label: "Chain assignment created",
-        description: "ChainAreaManagerAssignment rows are created for selected Chains.",
+        label: "Chain assignment applied",
+        description: "ChainAreaManagerAssignment rows are created during finalization.",
         skipped: false
       },
       {

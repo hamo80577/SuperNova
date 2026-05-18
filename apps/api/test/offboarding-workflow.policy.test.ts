@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 
-import { BlockStatus, RequestType } from "@prisma/client";
+import { BlockStatus, RequestType, UserRole } from "@prisma/client";
 
 import {
   calculateBlockedUntil,
+  getAllowedResignationTargetRolesForCreator,
   normalizeOffboardingBlockDecision,
   normalizeOffboardingReason,
+  normalizeOffboardingTargetRole,
   OFFBOARDING_BLOCK_DECISIONS,
   OFFBOARDING_REASON_CODES
 } from "../src/requests/workflows/offboarding-workflow.policy";
@@ -21,6 +23,36 @@ assert.equal(normalizedReason.reasonCode, "BAD_ATTITUDE");
 assert.equal(normalizedReason.reason, "Bad attitude");
 assert.equal(normalizedReason.reasonDetails, "ignored details");
 assert.equal(normalizedReason.notes, "handover done");
+
+assert.equal(normalizeOffboardingTargetRole(undefined), UserRole.PICKER);
+assert.equal(normalizeOffboardingTargetRole(UserRole.CHAMP), UserRole.CHAMP);
+assert.equal(
+  normalizeOffboardingTargetRole(UserRole.AREA_MANAGER),
+  UserRole.AREA_MANAGER
+);
+assert.throws(
+  () => normalizeOffboardingTargetRole(UserRole.ADMIN),
+  /targetRole must be PICKER, CHAMP, or AREA_MANAGER/
+);
+
+assert.deepEqual(getAllowedResignationTargetRolesForCreator(UserRole.CHAMP), [
+  UserRole.PICKER
+]);
+assert.deepEqual(getAllowedResignationTargetRolesForCreator(UserRole.AREA_MANAGER), [
+  UserRole.PICKER,
+  UserRole.CHAMP
+]);
+assert.deepEqual(getAllowedResignationTargetRolesForCreator(UserRole.ADMIN), [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+]);
+assert.deepEqual(getAllowedResignationTargetRolesForCreator(UserRole.SUPER_ADMIN), [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+]);
+assert.deepEqual(getAllowedResignationTargetRolesForCreator(UserRole.PICKER), []);
 
 assert.throws(
   () =>

@@ -46,7 +46,11 @@ export function getRequestPrimaryContext(request: RequestSummary) {
 
   return {
     title: request.targetUser?.nameEn ?? formatEnum(request.type),
-    subtitle: `Last working day request · ${request.sourceVendor?.vendorName ?? "No Branch"}`
+    subtitle: `Last working day request · ${
+      request.sourceVendor?.vendorName ??
+      request.sourceChain?.chainName ??
+      "No assignment context"
+    }`
   };
 }
 
@@ -134,14 +138,40 @@ export function parseOffboardingPayload(payload: unknown) {
       typeof sourcePayload.chainId === "string"
         ? sourcePayload.chainId
         : "Not available",
+    targetRole:
+      targetPayload.targetRole === "CHAMP" ||
+      targetPayload.targetRole === "AREA_MANAGER" ||
+      targetPayload.targetRole === "PICKER"
+        ? targetPayload.targetRole
+        : "PICKER",
+    targetUserId:
+      typeof targetPayload.userId === "string"
+        ? targetPayload.userId
+        : typeof targetPayload.pickerId === "string"
+          ? targetPayload.pickerId
+          : "Not available",
+    assignmentId:
+      typeof targetPayload.assignmentId === "string"
+        ? targetPayload.assignmentId
+        : typeof targetPayload.pickerAssignmentId === "string"
+          ? targetPayload.pickerAssignmentId
+          : "Not available",
+    assignmentType:
+      typeof targetPayload.assignmentType === "string"
+        ? targetPayload.assignmentType
+        : "PickerBranchAssignment",
     pickerId:
       typeof targetPayload.pickerId === "string"
         ? targetPayload.pickerId
-        : "Not available",
+        : typeof targetPayload.userId === "string"
+          ? targetPayload.userId
+          : "Not available",
     pickerAssignmentId:
       typeof targetPayload.pickerAssignmentId === "string"
         ? targetPayload.pickerAssignmentId
-        : "Not available",
+        : typeof targetPayload.assignmentId === "string"
+          ? targetPayload.assignmentId
+          : "Not available",
     areaManagerDecision: areaManagerPayload
       ? {
           blockDecision:

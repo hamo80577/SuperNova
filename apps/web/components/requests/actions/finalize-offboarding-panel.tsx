@@ -43,7 +43,7 @@ export function FinalizeOffboardingPanel({
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Unable to finalize offboarding."
+            : "Unable to finalize Resignation."
         );
       }
     });
@@ -55,8 +55,11 @@ export function FinalizeOffboardingPanel({
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           <p className="font-medium">{formatEnum(type)} completed.</p>
           <p className="mt-1">
-            Picker {result.picker.nameEn} is now {formatEnum(result.picker.accountStatus)}
-            ; assignment {result.assignment.id} is {formatEnum(result.assignment.status)}.
+            {formatEnum(result.user.role)} {result.user.nameEn} is now{" "}
+            {formatEnum(result.user.accountStatus)}
+            {result.assignment
+              ? `; assignment ${result.assignment.id} is ${formatEnum(result.assignment.status)}.`
+              : "."}
           </p>
         </div>
       ) : (

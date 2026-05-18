@@ -20,6 +20,12 @@ const TARGET_ROLES = new Set<UserRole>([
   UserRole.AREA_MANAGER
 ]);
 
+const ADMIN_LIFECYCLE_TARGET_ROLES: NewHireTargetRole[] = [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+];
+
 export function normalizeNewHireTargetRole(
   targetRole: UserRole | string | null | undefined
 ): NewHireTargetRole {
@@ -30,6 +36,24 @@ export function normalizeNewHireTargetRole(
   }
 
   throw new Error("targetRole must be PICKER, CHAMP, or AREA_MANAGER.");
+}
+
+export function getAllowedNewHireTargetRolesForCreator(
+  creatorRole: UserRole
+): NewHireTargetRole[] {
+  if (creatorRole === UserRole.CHAMP) {
+    return [UserRole.PICKER];
+  }
+
+  if (creatorRole === UserRole.AREA_MANAGER) {
+    return [UserRole.PICKER, UserRole.CHAMP];
+  }
+
+  if (creatorRole === UserRole.ADMIN || creatorRole === UserRole.SUPER_ADMIN) {
+    return ADMIN_LIFECYCLE_TARGET_ROLES;
+  }
+
+  return [];
 }
 
 export function validateEgyptPhoneNumber(value: string | null | undefined) {

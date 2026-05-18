@@ -26,7 +26,7 @@ export function ApprovalQueueCard({
   const requiresNewHireFinalization =
     approval.request.type === "NEW_HIRE" &&
     approval.step === "ADMIN_FINAL_APPROVAL";
-  const requiresOffboardingFinalization =
+  const requiresResignationFinalization =
     approval.request.type === "RESIGNATION" &&
     approval.step === "ADMIN_FINAL_APPROVAL";
 
@@ -54,7 +54,7 @@ export function ApprovalQueueCard({
             <KeyRound className="mr-2 h-4 w-4" />
             Finalize with Shopper ID
           </Link>
-        ) : requiresOffboardingFinalization ? (
+        ) : requiresResignationFinalization ? (
           <Link
             className={buttonVariants({
               size: "sm",
@@ -65,7 +65,7 @@ export function ApprovalQueueCard({
             prefetch
           >
             <ShieldAlert className="mr-2 h-4 w-4" />
-            Finalize Offboarding
+            Finalize Resignation
           </Link>
         ) : (
           <Button

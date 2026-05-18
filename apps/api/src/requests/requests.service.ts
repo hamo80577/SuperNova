@@ -156,7 +156,7 @@ export class RequestsService {
 
     if (dto.type === RequestType.RESIGNATION) {
       throw new BadRequestException(
-        "Use the Branch-first Offboarding workflow endpoint."
+        "Use the Branch-first Resignation workflow endpoint."
       );
     }
 
@@ -213,6 +213,16 @@ export class RequestsService {
     currentUser: AuthenticatedUser
   ) {
     return this.offboardingWorkflowService.searchOffboardingPickers(
+      dto,
+      currentUser
+    );
+  }
+
+  async searchOffboardingEligibleUsers(
+    dto: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) {
+    return this.offboardingWorkflowService.searchOffboardingEligibleUsers(
       dto,
       currentUser
     );

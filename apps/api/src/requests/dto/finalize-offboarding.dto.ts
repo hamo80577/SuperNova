@@ -20,7 +20,7 @@ export class FinalizeOffboardingDto {
 
   @IsBoolean()
   @Equals(true, {
-    message: "confirmInternalDeactivation must be true to finalize offboarding."
+    message: "confirmInternalDeactivation must be true to finalize Resignation."
   })
   confirmInternalDeactivation!: boolean;
 

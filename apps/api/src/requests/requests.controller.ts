@@ -70,6 +70,16 @@ export class RequestsController {
     return this.requestsService.searchOffboardingPickers(query, user);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Get("offboarding/eligible-users")
+  searchOffboardingEligibleUsers(
+    @Query() query: SearchOffboardingPickersDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.requestsService.searchOffboardingEligibleUsers(query, user);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get(":id")
   getById(

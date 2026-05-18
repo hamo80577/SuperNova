@@ -32,6 +32,7 @@ import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import type { SafeUser } from "@/lib/auth/types";
 import {
   usersApi,
+  type OperationalProfileAssignment,
   type OperationalProfileResponse,
   type UpdateAdminProfileInput
 } from "@/lib/api/users";
@@ -171,45 +172,259 @@ function ProfileContent({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-        <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MetricCard icon={<MessageCircle className="h-4 w-4" />} label="Phone" value={user.phoneNumber}>
-              <a
-                aria-label="Open WhatsApp chat"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                href={whatsappHref}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <MessageCircle className="h-4 w-4" />
-              </a>
-            </MetricCard>
-            <MetricCard
-              icon={<CalendarDays className="h-4 w-4" />}
-              label="Worked days"
-              value={profile.workedDays === null ? "Not set" : String(profile.workedDays)}
-            />
-            <MetricCard
-              icon={<ShieldCheck className="h-4 w-4" />}
-              label="Profile"
-              value={formatEnum(user.profileStatus)}
-            />
-          </div>
-
-          <PasswordPanel onReload={onReload} profile={profile} />
-
-          <ProfileActions actions={actions} user={user} />
-
-          {profile.permissions.canEditProfile ? (
-            <AdminEditPanel onReload={onReload} user={user} />
-          ) : (
-            <ReadOnlyDetails profile={profile} />
-          )}
-
-          <ActivityPanel profile={profile} />
-        </div>
+        {user.role === "CHAMP" ? (
+          <ChampProfileCard
+            actions={actions}
+            onReload={onReload}
+            profile={profile}
+            whatsappHref={whatsappHref}
+          />
+        ) : user.role === "AREA_MANAGER" ? (
+          <AreaManagerProfileCard
+            actions={actions}
+            onReload={onReload}
+            profile={profile}
+            whatsappHref={whatsappHref}
+          />
+        ) : (
+          <PickerProfileCard
+            actions={actions}
+            onReload={onReload}
+            profile={profile}
+            whatsappHref={whatsappHref}
+          />
+        )}
       </div>
     </>
+  );
+}
+
+function PickerProfileCard({
+  actions,
+  onReload,
+  profile,
+  whatsappHref
+}: {
+  actions?: OperationalUserProfileActions;
+  onReload: () => void;
+  profile: OperationalProfileResponse;
+  whatsappHref: string;
+}) {
+  const user = profile.user;
+
+  return (
+    <div className="grid gap-4">
+      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
+      <PasswordPanel onReload={onReload} profile={profile} />
+      <ProfileActions actions={actions} user={user} />
+      {profile.permissions.canEditProfile ? (
+        <AdminEditPanel onReload={onReload} user={user} />
+      ) : (
+        <ReadOnlyDetails profile={profile} />
+      )}
+      <ActivityPanel profile={profile} />
+    </div>
+  );
+}
+
+function ChampProfileCard({
+  actions,
+  onReload,
+  profile,
+  whatsappHref
+}: {
+  actions?: OperationalUserProfileActions;
+  onReload: () => void;
+  profile: OperationalProfileResponse;
+  whatsappHref: string;
+}) {
+  const [tab, setTab] = useState<"overview" | "branches" | "log">("overview");
+  const user = profile.user;
+
+  return (
+    <div className="grid gap-4">
+      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
+      <PasswordPanel onReload={onReload} profile={profile} />
+      <ProfileActions actions={actions} user={user} />
+      <ProfileTabs
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "branches", label: "Branches" },
+          { id: "log", label: "Champ Log" }
+        ]}
+      />
+      {tab === "overview" ? (
+        profile.permissions.canEditProfile ? (
+          <AdminEditPanel onReload={onReload} user={user} />
+        ) : (
+          <ReadOnlyDetails profile={profile} />
+        )
+      ) : tab === "branches" ? (
+        <AssignmentList
+          assignments={profile.champAssignments}
+          emptyLabel="No active or historical Branch assignments found."
+          title="Branch assignments"
+        />
+      ) : (
+        <ActivityPanel profile={profile} title="Champ Log" />
+      )}
+    </div>
+  );
+}
+
+function AreaManagerProfileCard({
+  actions,
+  onReload,
+  profile,
+  whatsappHref
+}: {
+  actions?: OperationalUserProfileActions;
+  onReload: () => void;
+  profile: OperationalProfileResponse;
+  whatsappHref: string;
+}) {
+  const [tab, setTab] = useState<"overview" | "chains" | "log">("overview");
+  const user = profile.user;
+
+  return (
+    <div className="grid gap-4">
+      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
+      <PasswordPanel onReload={onReload} profile={profile} />
+      <ProfileActions actions={actions} user={user} />
+      <ProfileTabs
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "chains", label: "Chains" },
+          { id: "log", label: "Manager Log" }
+        ]}
+      />
+      {tab === "overview" ? (
+        profile.permissions.canEditProfile ? (
+          <AdminEditPanel onReload={onReload} user={user} />
+        ) : (
+          <ReadOnlyDetails profile={profile} />
+        )
+      ) : tab === "chains" ? (
+        <AssignmentList
+          assignments={profile.areaManagerAssignments}
+          emptyLabel="No active or historical Chain assignments found."
+          title="Chain assignments"
+        />
+      ) : (
+        <ActivityPanel profile={profile} title="Manager Log" />
+      )}
+    </div>
+  );
+}
+
+function ProfileMetricGrid({
+  profile,
+  whatsappHref
+}: {
+  profile: OperationalProfileResponse;
+  whatsappHref: string;
+}) {
+  const user = profile.user;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <MetricCard icon={<MessageCircle className="h-4 w-4" />} label="Phone" value={user.phoneNumber}>
+        <a
+          aria-label="Open WhatsApp chat"
+          className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          href={whatsappHref}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </a>
+      </MetricCard>
+      <MetricCard
+        icon={<CalendarDays className="h-4 w-4" />}
+        label="Worked days"
+        value={profile.workedDays === null ? "Not set" : String(profile.workedDays)}
+      />
+      <MetricCard
+        icon={<ShieldCheck className="h-4 w-4" />}
+        label="Profile"
+        value={formatEnum(user.profileStatus)}
+      />
+    </div>
+  );
+}
+
+function ProfileTabs<TabId extends string>({
+  active,
+  onChange,
+  tabs
+}: {
+  active: TabId;
+  onChange: (tab: TabId) => void;
+  tabs: Array<{ id: TabId; label: string }>;
+}) {
+  return (
+    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3">
+      {tabs.map((tab) => (
+        <button
+          className={cn(
+            "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
+            active === tab.id
+              ? "bg-orange-50 text-orange-700"
+              : "text-slate-600 hover:bg-slate-50"
+          )}
+          key={tab.id}
+          onClick={() => onChange(tab.id)}
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AssignmentList({
+  assignments,
+  emptyLabel,
+  title
+}: {
+  assignments: OperationalProfileAssignment[];
+  emptyLabel: string;
+  title: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+      <div className="mt-3 grid gap-2">
+        {assignments.length ? (
+          assignments.map((assignment) => (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" key={assignment.id}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-950">
+                  {assignment.vendor?.vendorName ?? assignment.chain.chainName}
+                </p>
+                <Badge variant={assignment.status === "ACTIVE" ? "muted" : "outline"}>
+                  {formatEnum(assignment.status)}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {assignment.vendor ? `${assignment.chain.chainName} · ` : ""}
+                Start {formatDate(assignment.startDate)}
+                {assignment.endDate ? ` · End ${formatDate(assignment.endDate)}` : ""}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+            {emptyLabel}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -410,24 +625,39 @@ function ProfileActions({
   actions?: OperationalUserProfileActions;
   user: SafeUser;
 }) {
-  if (user.role !== "PICKER" || !actions) {
+  if (!actions) {
+    return null;
+  }
+
+  const canTransfer = user.role === "PICKER" && Boolean(actions.onTransfer);
+  const canResign =
+    (user.role === "PICKER" ||
+      user.role === "CHAMP" ||
+      user.role === "AREA_MANAGER") &&
+    Boolean(actions.onResignation);
+
+  if (!canTransfer && !canResign) {
     return null;
   }
 
   return (
     <section className="grid gap-2 sm:grid-cols-2">
-      <ActionButton
-        icon={<ArrowRightLeft className="h-4 w-4" />}
-        label="Transfer"
-        onClick={() => actions.onTransfer?.(user)}
-        tone="blue"
-      />
-      <ActionButton
-        icon={<UserMinus className="h-4 w-4" />}
-        label="Resignation"
-        onClick={() => actions.onResignation?.(user)}
-        tone="amber"
-      />
+      {canTransfer ? (
+        <ActionButton
+          icon={<ArrowRightLeft className="h-4 w-4" />}
+          label="Transfer"
+          onClick={() => actions.onTransfer?.(user)}
+          tone="blue"
+        />
+      ) : null}
+      {canResign ? (
+        <ActionButton
+          icon={<UserMinus className="h-4 w-4" />}
+          label="Resign"
+          onClick={() => actions.onResignation?.(user)}
+          tone="red"
+        />
+      ) : null}
     </section>
   );
 }
@@ -557,7 +787,13 @@ function ReadOnlyDetails({ profile }: { profile: OperationalProfileResponse }) {
   );
 }
 
-function ActivityPanel({ profile }: { profile: OperationalProfileResponse }) {
+function ActivityPanel({
+  profile,
+  title = "Recent activity"
+}: {
+  profile: OperationalProfileResponse;
+  title?: string;
+}) {
   const items = profile.activity.length
     ? profile.activity
     : profile.recentRequests.map((request) => ({
@@ -571,7 +807,7 @@ function ActivityPanel({ profile }: { profile: OperationalProfileResponse }) {
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-semibold text-slate-950">Recent activity</h3>
+      <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       <div className="mt-3 grid gap-2">
         {items.length ? (
           items.slice(0, 5).map((item) => (

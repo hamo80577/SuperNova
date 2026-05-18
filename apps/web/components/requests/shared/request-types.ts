@@ -1,4 +1,8 @@
-import { type NewHireTargetRole } from "@/lib/api/requests";
+import {
+  type NewHireTargetRole,
+  type ResignationTargetRole
+} from "@/lib/api/requests";
+import { type UserRole } from "@/lib/auth/types";
 
 export type OperationsMode = "action" | "submitted" | "open" | "completed" | "rejected";
 
@@ -35,11 +39,19 @@ export type LockedNewHireBranchContext = {
 };
 
 export type NewRequestDraft =
-  | { type: "NEW_HIRE"; targetRole: NewHireTargetRole }
-  | { type: "RESIGNATION" | "TRANSFER" };
+  | { type: "NEW_HIRE"; targetRole?: NewHireTargetRole }
+  | {
+      type: "RESIGNATION";
+      targetRole?: ResignationTargetRole;
+      initialUser?: InitialResignationUser | null;
+    }
+  | { type: "TRANSFER" };
 
-export type InitialResignationPicker = {
+export type InitialResignationUser = {
   id: string;
   nameEn: string;
   phoneNumber?: string | null;
+  role?: UserRole;
 };
+
+export type InitialResignationPicker = InitialResignationUser;

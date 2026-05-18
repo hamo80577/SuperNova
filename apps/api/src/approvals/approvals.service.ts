@@ -61,7 +61,7 @@ export class ApprovalsService {
     return {
       module: "approvals",
       status: "active",
-      note: "Generic approval decisions are enabled. New Hire and Offboarding finalization use Branch-first request detail flows; Transfer applies automatically after the required Area Manager approvals."
+      note: "Generic approval decisions are enabled. New Hire and Resignation finalization use Branch-first request detail flows; Transfer applies automatically after the required Area Manager approvals."
     };
   }
 
@@ -127,7 +127,7 @@ export class ApprovalsService {
       approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
     ) {
       throw new BadRequestException(
-        "Offboarding Admin final approval requires block decision and deactivation confirmation from the request detail page."
+        "Resignation Admin final approval requires block decision and deactivation confirmation from the request detail page."
       );
     }
 

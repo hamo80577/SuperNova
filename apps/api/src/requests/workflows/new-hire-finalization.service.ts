@@ -98,8 +98,11 @@ export class NewHireFinalizationService {
     const payload = parseNewHirePayload(request.payload);
 
     if (payload.targetRole === UserRole.AREA_MANAGER) {
-      throw new BadRequestException(
-        "AREA_MANAGER New Hire requests are completed at creation time."
+      return this.finalizeAreaManagerNewHire(
+        request,
+        adminApproval,
+        payload,
+        context
       );
     }
 
@@ -439,6 +442,242 @@ export class NewHireFinalizationService {
     };
   }
 
+  private async finalizeAreaManagerNewHire(
+    request: RequestWithRelations,
+    adminApproval: RequestWithRelations["approvals"][number],
+    payload: NewHirePayload,
+    context: RequestContext
+  ) {
+    const chainIds = payload.source.chainIds ?? [];
+
+    if (!payload.source.chainId || !chainIds.length) {
+      throw new BadRequestException(
+        "Area Manager New Hire request is missing Chain context."
+      );
+    }
+
+    if (
+      request.sourceChainId !== payload.source.chainId ||
+      !chainIds.includes(payload.source.chainId)
+    ) {
+      throw new BadRequestException(
+        "Stored Area Manager New Hire Chain context no longer matches the request."
+      );
+    }
+
+    const [existingPhone, existingNationalId, chains] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { phoneNumber: payload.candidate.phoneNumber }
+      }),
+      this.prisma.user.findUnique({
+        where: { nationalId: payload.candidate.nationalId }
+      }),
+      this.prisma.chain.findMany({
+        where: { id: { in: chainIds } }
+      })
+    ]);
+
+    if (existingPhone) {
+      throw new ConflictException("Candidate phone number already belongs to a user.");
+    }
+
+    if (existingNationalId) {
+      throw new ConflictException("Candidate National ID already belongs to a user.");
+    }
+
+    if (chains.length !== chainIds.length) {
+      throw new NotFoundException("One or more selected Chains were not found.");
+    }
+
+    const inactiveChain = chains.find((chain) => chain.status !== ChainStatus.ACTIVE);
+    if (inactiveChain) {
+      throw new BadRequestException(
+        `Selected Chain ${inactiveChain.chainName} is not active.`
+      );
+    }
+
+    const temporaryPasswordBundle = await this.createTemporaryPasswordBundle();
+    const completedAt = new Date();
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const areaManager = await tx.user.create({
+        data: {
+          role: UserRole.AREA_MANAGER,
+          ...this.toUserProfileFields(
+            UserRole.AREA_MANAGER,
+            payload.candidate,
+            temporaryPasswordBundle
+          ),
+          profileStatus: ProfileStatus.COMPLETE
+        }
+      });
+
+      const assignments = await Promise.all(
+        chainIds.map((chainId) =>
+          tx.chainAreaManagerAssignment.create({
+            data: {
+              areaManagerId: areaManager.id,
+              chainId,
+              status: AssignmentStatus.ACTIVE
+            }
+          })
+        )
+      );
+
+      await tx.requestApproval.update({
+        where: { id: adminApproval.id },
+        data: {
+          status: ApprovalStatus.APPROVED,
+          decisionAt: completedAt,
+          approverId: context.actor.id,
+          notes: "Area Manager New Hire finalized."
+        }
+      });
+
+      const completedPayload: NewHirePayload = {
+        ...payload,
+        finalization: {
+          userId: areaManager.id,
+          assignmentIds: assignments.map((assignment) => assignment.id),
+          assignmentType: "ChainAreaManagerAssignment",
+          completedAt: completedAt.toISOString()
+        }
+      };
+
+      const completedRequest = await tx.request.update({
+        where: { id: request.id },
+        data: {
+          status: RequestStatus.COMPLETED,
+          currentStep: null,
+          completedAt,
+          targetUserId: areaManager.id,
+          payload: completedPayload as Prisma.InputJsonValue
+        },
+        include: requestInclude
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: request.createdById,
+          type: "NEW_HIRE_COMPLETED",
+          title: "New Hire completed",
+          body: "Area Manager account was created. Open the user profile for credential handoff.",
+          payload: {
+            requestId: request.id,
+            userId: areaManager.id,
+            targetRole: UserRole.AREA_MANAGER
+          }
+        }
+      });
+
+      await tx.auditLog.createMany({
+        data: [
+          {
+            actorUserId: context.actor.id,
+            action: "APPROVAL_APPROVED",
+            entityType: "RequestApproval",
+            entityId: adminApproval.id,
+            oldValue: {
+              status: adminApproval.status,
+              step: adminApproval.step,
+              requestId: request.id
+            },
+            newValue: {
+              status: ApprovalStatus.APPROVED,
+              step: adminApproval.step,
+              requestId: request.id
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "ADMIN_FINALIZED_NEW_HIRE",
+            entityType: "Request",
+            entityId: request.id,
+            oldValue: {
+              status: request.status,
+              currentStep: request.currentStep
+            },
+            newValue: {
+              status: RequestStatus.COMPLETED,
+              targetRole: UserRole.AREA_MANAGER,
+              userId: areaManager.id,
+              mode: payload.mode
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "USER_CREATED",
+            entityType: "User",
+            entityId: areaManager.id,
+            newValue: {
+              role: areaManager.role,
+              phoneNumber: areaManager.phoneNumber,
+              profileStatus: areaManager.profileStatus,
+              mustChangePassword: areaManager.mustChangePassword
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          {
+            actorUserId: context.actor.id,
+            action: "TEMPORARY_PASSWORD_GENERATED",
+            entityType: "User",
+            entityId: areaManager.id,
+            newValue: {
+              temporaryPasswordExpiresAt:
+                temporaryPasswordBundle.temporaryPasswordExpiresAt.toISOString()
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          },
+          ...assignments.map((assignment) => ({
+            actorUserId: context.actor.id,
+            action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CREATED",
+            entityType: "ChainAreaManagerAssignment",
+            entityId: assignment.id,
+            newValue: {
+              areaManagerId: assignment.areaManagerId,
+              chainId: assignment.chainId
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          })),
+          {
+            actorUserId: context.actor.id,
+            action: "REQUEST_COMPLETED",
+            entityType: "Request",
+            entityId: request.id,
+            oldValue: { status: request.status },
+            newValue: {
+              status: RequestStatus.COMPLETED,
+              targetUserId: areaManager.id
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        ]
+      });
+
+      return { completedRequest, user: areaManager, assignments };
+    });
+
+    const assignment = result.assignments[0];
+
+    return {
+      request: toRequestSummary(result.completedRequest),
+      user: this.toFinalizedUserResponse(result.user),
+      picker: this.toFinalizedUserResponse(result.user),
+      assignment: this.toFinalizedChainAreaManagerAssignmentResponse(assignment),
+      assignments: result.assignments.map((item) =>
+        this.toFinalizedChainAreaManagerAssignmentResponse(item)
+      )
+    };
+  }
+
   private async findRequestOrThrow(id: string): Promise<RequestWithRelations> {
     const request = await this.prisma.request.findUnique({
       where: { id },
@@ -683,6 +922,20 @@ export class NewHireFinalizationService {
 
   private isAdmin(user: AuthenticatedUser) {
     return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+  }
+
+  private toFinalizedChainAreaManagerAssignmentResponse(
+    assignment: Prisma.ChainAreaManagerAssignmentGetPayload<Record<string, never>>
+  ) {
+    return {
+      id: assignment.id,
+      assignmentType: "ChainAreaManagerAssignment" as const,
+      status: assignment.status,
+      startDate: assignment.startDate,
+      chainId: assignment.chainId,
+      userId: assignment.areaManagerId,
+      areaManagerId: assignment.areaManagerId
+    };
   }
 
   private activeChampConflictMessage(champName?: string | null) {

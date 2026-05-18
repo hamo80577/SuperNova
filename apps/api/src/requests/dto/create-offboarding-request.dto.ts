@@ -1,4 +1,4 @@
-import { RequestType } from "@prisma/client";
+import { RequestType, UserRole } from "@prisma/client";
 import {
   IsDateString,
   IsIn,
@@ -19,8 +19,16 @@ export class CreateOffboardingRequestDto {
   type!: RequestType;
 
   @IsOptional()
+  @IsIn([UserRole.PICKER, UserRole.CHAMP, UserRole.AREA_MANAGER])
+  targetRole?: UserRole;
+
+  @IsOptional()
   @IsUUID()
   sourceVendorId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  sourceChainId?: string;
 
   @IsUUID()
   targetUserId!: string;

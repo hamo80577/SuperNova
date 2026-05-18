@@ -13,9 +13,9 @@ export function WorkflowStateSummary({ request }: { request: RequestDetail }) {
           ? "Admin must enter Shopper ID and finalize Picker New Hire."
           : newHireContext?.targetRole === "CHAMP"
             ? "Admin can finalize Champ New Hire without Shopper ID."
-            : "Area Manager New Hire does not use Admin finalization."
+            : "Admin can finalize Area Manager New Hire without Shopper ID."
         : request.type === "RESIGNATION"
-          ? "Admin must confirm offboarding and block decision."
+          ? "Admin must confirm Resignation and block decision."
           : "Admin review is pending."
       : request.status === "COMPLETED"
         ? "Workflow has been completed by the backend."
@@ -72,10 +72,10 @@ export function WorkflowResultSummary({ request }: { request: RequestDetail }) {
     const context = parseOffboardingPayload(request.payload);
     return (
       <Definition
-        label="Offboarding result"
+        label="Resignation result"
         value={
           context?.finalizedAt
-            ? `Picker archived; assignment ${context.pickerAssignmentId} closed with ${formatEnum(
+            ? `${formatEnum(context.targetRole)} archived; assignment ${context.assignmentId} closed with ${formatEnum(
                 context.blockStatus ?? "NO_BLOCK"
               )}.`
             : "Completed result is not available in payload."

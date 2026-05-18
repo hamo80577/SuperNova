@@ -7,32 +7,22 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
-  AccountStatus,
   ApprovalStep,
   AssignmentStatus,
   ChainStatus,
-  EmploymentStatus,
   Gender,
-  Prisma,
-  ProfileStatus,
-  RequestStatus,
-  RequestType,
-  User,
   UserRole,
   VendorStatus
 } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
 import { PrismaService } from "../../prisma/prisma.service";
-import { TemporaryPasswordService } from "../../users/temporary-password.service";
 import type { CreateNewHireRequestDto } from "../dto/create-new-hire-request.dto";
 import type { FinalizeNewHireDto } from "../dto/finalize-new-hire.dto";
 import type { LookupNewHireCandidateDto } from "../dto/lookup-new-hire-candidate.dto";
 import { RequestApprovalRoutingService } from "../request-approval-routing.service";
-import { requestInclude } from "../request-includes";
-import { toRequestSummary } from "../request-response.utils";
 import {
+  getAllowedNewHireTargetRolesForCreator,
   normalizeNewHireTargetRole,
   validateEgyptNationalId,
   validateEgyptPhoneNumber,
@@ -41,16 +31,9 @@ import {
 import { NewHireCandidateService } from "./new-hire-candidate.service";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
-import {
-  PASSWORD_HASH_ROUNDS,
-  TEMPORARY_PASSWORD_EXPIRY_HOURS
-} from "./new-hire-workflow.constants";
 import type {
   AreaManagerNewHireContext,
   BranchNewHireContext,
-  NewHirePayload,
-  NewHireUserProfileFields,
-  NormalizedNewHireCandidate,
   RequestContext
 } from "./new-hire-workflow.types";
 
@@ -66,9 +49,7 @@ export class NewHireWorkflowService {
     @Inject(NewHireRequestCreationService)
     private readonly newHireRequestCreationService: NewHireRequestCreationService,
     @Inject(RequestApprovalRoutingService)
-    private readonly requestApprovalRoutingService: RequestApprovalRoutingService,
-    @Inject(TemporaryPasswordService)
-    private readonly temporaryPasswordService: TemporaryPasswordService
+    private readonly requestApprovalRoutingService: RequestApprovalRoutingService
   ) {}
 
   async lookupNewHireCandidate(
@@ -92,7 +73,7 @@ export class NewHireWorkflowService {
 
     if (targetRole === UserRole.AREA_MANAGER) {
       const areaManagerContext = await this.resolveAreaManagerNewHireContext(dto);
-      return this.createCompletedAreaManagerNewHire(
+      return this.newHireRequestCreationService.createAreaManagerNewHire(
         candidate,
         areaManagerContext,
         context
@@ -121,210 +102,12 @@ export class NewHireWorkflowService {
     return this.newHireFinalizationService.finalizeNewHire(id, dto, context);
   }
 
-  private async createCompletedAreaManagerNewHire(
-    candidate: NormalizedNewHireCandidate,
-    areaManagerContext: AreaManagerNewHireContext,
-    context: RequestContext
-  ) {
-    const temporaryPasswordBundle = await this.createTemporaryPasswordBundle();
-    const completedAt = new Date();
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const areaManager = await tx.user.create({
-        data: {
-          role: UserRole.AREA_MANAGER,
-          ...this.toUserProfileFields(
-            UserRole.AREA_MANAGER,
-            candidate,
-            temporaryPasswordBundle
-          ),
-          profileStatus: ProfileStatus.COMPLETE
-        }
-      });
-
-      const request = await tx.request.create({
-        data: {
-          type: RequestType.NEW_HIRE,
-          status: RequestStatus.COMPLETED,
-          currentStep: null,
-          completedAt,
-          createdById: context.actor.id,
-          targetUserId: areaManager.id,
-          sourceChainId: areaManagerContext.chainIds[0],
-          payload: {
-            targetRole: UserRole.AREA_MANAGER,
-            mode: "NEW_AREA_MANAGER",
-            candidate,
-            source: {
-              chainId: areaManagerContext.chainIds[0],
-              chainIds: areaManagerContext.chainIds
-            }
-          } satisfies NewHirePayload as Prisma.InputJsonValue
-        }
-      });
-
-      const assignments = await Promise.all(
-        areaManagerContext.chainIds.map((chainId) =>
-          tx.chainAreaManagerAssignment.create({
-            data: {
-              areaManagerId: areaManager.id,
-              chainId,
-              status: AssignmentStatus.ACTIVE
-            }
-          })
-        )
-      );
-
-      const completedPayload: NewHirePayload = {
-        targetRole: UserRole.AREA_MANAGER,
-        mode: "NEW_AREA_MANAGER",
-        candidate,
-        source: {
-          chainId: areaManagerContext.chainIds[0],
-          chainIds: areaManagerContext.chainIds
-        },
-        finalization: {
-          userId: areaManager.id,
-          assignmentIds: assignments.map((assignment) => assignment.id),
-          assignmentType: "ChainAreaManagerAssignment",
-          completedAt: completedAt.toISOString()
-        }
-      };
-
-      const completedRequest = await tx.request.update({
-        where: { id: request.id },
-        data: { payload: completedPayload as Prisma.InputJsonValue },
-        include: requestInclude
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: context.actor.id,
-          type: "NEW_HIRE_COMPLETED",
-          title: "Area Manager New Hire completed",
-          body: "Area Manager account was created. Open the user profile for credential handoff.",
-          payload: {
-            requestId: request.id,
-            userId: areaManager.id,
-            targetRole: UserRole.AREA_MANAGER
-          }
-        }
-      });
-
-      await tx.auditLog.createMany({
-        data: [
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_CREATED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              type: request.type,
-              status: request.status,
-              targetRole: UserRole.AREA_MANAGER,
-              targetUserId: areaManager.id,
-              sourceChainId: request.sourceChainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "REQUEST_COMPLETED",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              id: request.id,
-              status: RequestStatus.COMPLETED,
-              targetRole: UserRole.AREA_MANAGER,
-              targetUserId: areaManager.id
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "ADMIN_FINALIZED_NEW_HIRE",
-            entityType: "Request",
-            entityId: request.id,
-            newValue: {
-              status: RequestStatus.COMPLETED,
-              targetRole: UserRole.AREA_MANAGER,
-              userId: areaManager.id
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "USER_CREATED",
-            entityType: "User",
-            entityId: areaManager.id,
-            newValue: {
-              role: areaManager.role,
-              phoneNumber: areaManager.phoneNumber,
-              profileStatus: areaManager.profileStatus,
-              mustChangePassword: areaManager.mustChangePassword
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          {
-            actorUserId: context.actor.id,
-            action: "TEMPORARY_PASSWORD_GENERATED",
-            entityType: "User",
-            entityId: areaManager.id,
-            newValue: {
-              temporaryPasswordExpiresAt:
-                temporaryPasswordBundle.temporaryPasswordExpiresAt.toISOString()
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          },
-          ...assignments.map((assignment) => ({
-            actorUserId: context.actor.id,
-            action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CREATED",
-            entityType: "ChainAreaManagerAssignment",
-            entityId: assignment.id,
-            newValue: {
-              areaManagerId: assignment.areaManagerId,
-              chainId: assignment.chainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          }))
-        ]
-      });
-
-      return completedRequest;
-    });
-
-    return toRequestSummary(result);
-  }
-
   private assertCreatorCanCreateTargetRole(
     actor: AuthenticatedUser,
     targetRole: NewHireTargetRole
   ) {
-    if (actor.role === UserRole.CHAMP) {
-      if (targetRole !== UserRole.PICKER) {
-        throw new ForbiddenException("Champs can create Picker New Hire only.");
-      }
-      return;
-    }
-
-    if (actor.role === UserRole.AREA_MANAGER) {
-      if (targetRole === UserRole.PICKER || targetRole === UserRole.CHAMP) {
-        return;
-      }
-
-      throw new ForbiddenException(
-        "Area Managers can create Picker or Champ New Hire only."
-      );
-    }
-
-    if (this.isAdmin(actor)) {
+    const allowedRoles = getAllowedNewHireTargetRolesForCreator(actor.role);
+    if (allowedRoles.includes(targetRole)) {
       return;
     }
 
@@ -540,61 +323,6 @@ export class NewHireWorkflowService {
     };
   }
 
-  private async createTemporaryPasswordBundle() {
-    const temporaryPassword = this.temporaryPasswordService.generate();
-    const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
-    const temporaryPasswordExpiresAt = new Date(
-      Date.now() + TEMPORARY_PASSWORD_EXPIRY_HOURS * 60 * 60 * 1000
-    );
-    const temporaryPasswordCreatedAt = new Date();
-
-    return {
-      passwordHash,
-      temporaryPasswordExpiresAt,
-      temporaryPasswordCreatedAt,
-      temporaryPasswordCiphertext:
-        this.temporaryPasswordService.encrypt(temporaryPassword)
-    };
-  }
-
-  private toUserProfileFields(
-    targetRole: NewHireTargetRole,
-    candidate: NormalizedNewHireCandidate,
-    temporaryPasswordBundle: Awaited<
-      ReturnType<NewHireWorkflowService["createTemporaryPasswordBundle"]>
-    >,
-    shopperId?: string,
-    existingUser?: User
-  ): NewHireUserProfileFields {
-    return {
-      nameEn:
-        candidate.nameEn ??
-        candidate.nameAr ??
-        existingUser?.nameEn ??
-        this.defaultNameForRole(targetRole),
-      nameAr: candidate.nameAr ?? existingUser?.nameAr ?? null,
-      phoneNumber: candidate.phoneNumber,
-      nationalId: candidate.nationalId,
-      address: candidate.address ?? existingUser?.address ?? null,
-      dateOfBirth: candidate.dateOfBirth
-        ? new Date(candidate.dateOfBirth)
-        : existingUser?.dateOfBirth ?? null,
-      gender: candidate.gender,
-      shopperId: targetRole === UserRole.PICKER ? (shopperId ?? null) : null,
-      joiningDate: new Date(),
-      accountStatus: AccountStatus.ACTIVE,
-      employmentStatus: EmploymentStatus.ACTIVE,
-      passwordHash: temporaryPasswordBundle.passwordHash,
-      mustChangePassword: true,
-      temporaryPasswordExpiresAt:
-        temporaryPasswordBundle.temporaryPasswordExpiresAt,
-      temporaryPasswordCiphertext:
-        temporaryPasswordBundle.temporaryPasswordCiphertext,
-      temporaryPasswordCreatedAt:
-        temporaryPasswordBundle.temporaryPasswordCreatedAt
-    };
-  }
-
   private normalizeTargetRole(
     targetRole: UserRole | string | null | undefined
   ): NewHireTargetRole {
@@ -610,14 +338,6 @@ export class NewHireWorkflowService {
     return Array.from(
       new Set([...(dto.chainIds ?? []), dto.sourceChainId].filter(Boolean))
     ) as string[];
-  }
-
-  private defaultNameForRole(targetRole: NewHireTargetRole) {
-    return targetRole === UserRole.PICKER
-      ? "New Picker"
-      : targetRole === UserRole.CHAMP
-        ? "New Champ"
-        : "New Area Manager";
   }
 
   private formatTargetRole(targetRole: NewHireTargetRole) {
@@ -640,7 +360,4 @@ export class NewHireWorkflowService {
     }
   }
 
-  private isAdmin(user: AuthenticatedUser) {
-    return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
-  }
 }

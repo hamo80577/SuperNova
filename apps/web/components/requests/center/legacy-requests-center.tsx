@@ -102,7 +102,7 @@ export function LegacyRequestsCenter() {
             <h1 className="mt-3 text-xl font-semibold">Requests</h1>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
               Lifecycle request records and approval state. Branch-first New Hire,
-              Offboarding, and Transfer workflows apply system changes through
+              Resignation, and Transfer workflows apply system changes through
               backend-controlled finalization paths.
             </p>
           </div>
@@ -123,7 +123,7 @@ export function LegacyRequestsCenter() {
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Internal request engine testing for generic request records. New
-            Hire, Offboarding, and Transfer must use Branch-first workflows.
+            Hire, Resignation, and Transfer must use Branch-first workflows.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Type">

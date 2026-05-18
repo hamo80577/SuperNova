@@ -890,7 +890,7 @@ export class AdminService {
     }
 
     if (type === RequestType.RESIGNATION) {
-      return "Confirm offboarding/block status";
+      return "Confirm Resignation/block status";
     }
 
     return "Review request";

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { UserRole } from "@prisma/client";
 
 import {
+  getAllowedNewHireTargetRolesForCreator,
   normalizeNewHireTargetRole,
   toNewHireLookupStatus,
   validateEgyptNationalId,
@@ -20,6 +21,25 @@ assert.throws(
   () => normalizeNewHireTargetRole(UserRole.ADMIN),
   /targetRole must be PICKER, CHAMP, or AREA_MANAGER/
 );
+
+assert.deepEqual(getAllowedNewHireTargetRolesForCreator(UserRole.CHAMP), [
+  UserRole.PICKER
+]);
+assert.deepEqual(getAllowedNewHireTargetRolesForCreator(UserRole.AREA_MANAGER), [
+  UserRole.PICKER,
+  UserRole.CHAMP
+]);
+assert.deepEqual(getAllowedNewHireTargetRolesForCreator(UserRole.ADMIN), [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+]);
+assert.deepEqual(getAllowedNewHireTargetRolesForCreator(UserRole.SUPER_ADMIN), [
+  UserRole.PICKER,
+  UserRole.CHAMP,
+  UserRole.AREA_MANAGER
+]);
+assert.deepEqual(getAllowedNewHireTargetRolesForCreator(UserRole.PICKER), []);
 
 assert.equal(validateEgyptPhoneNumber(" 01012345678 "), "01012345678");
 assert.equal(validateEgyptPhoneNumber("01112345678"), "01112345678");

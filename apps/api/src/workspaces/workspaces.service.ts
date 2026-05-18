@@ -153,7 +153,7 @@ export class WorkspacesService {
       },
       placeholders: {
         requests: "Request history is visible here; lifecycle forms launch from a selected Branch context.",
-        actions: "New Hire, Offboarding, and Transfer remain request-based and Branch-contextual."
+        actions: "New Hire, Resignation, and Transfer remain request-based and Branch-contextual."
       }
     };
   }

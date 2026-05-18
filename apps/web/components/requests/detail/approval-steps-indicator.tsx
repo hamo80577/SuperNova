@@ -6,7 +6,12 @@ import {
   type RequestSummary
 } from "@/lib/api/requests";
 import { cn } from "@/lib/utils";
-import { formatEnum, parseTransferPayload } from "../shared/request-utils";
+import {
+  formatEnum,
+  parseNewHirePayload,
+  parseOffboardingPayload,
+  parseTransferPayload
+} from "../shared/request-utils";
 
 type ProgressState =
   | "cancelled"
@@ -291,7 +296,7 @@ function buildProgressSteps(request: RequestSummary): ProgressStep[] {
 }
 
 function buildStepDefinitions(request: RequestSummary): ProgressStepDefinition[] {
-  const requestType = request.type as RequestSummary["type"] | "TERMINATION";
+  const requestType = request.type;
 
   if (requestType === "TRANSFER") {
     const isCrossChain = isCrossChainTransfer(request);
@@ -329,11 +334,17 @@ function buildStepDefinitions(request: RequestSummary): ProgressStepDefinition[]
     ];
   }
 
-  if (
-    requestType === "NEW_HIRE" ||
-    requestType === "RESIGNATION" ||
-    requestType === "TERMINATION"
-  ) {
+  if (requestType === "NEW_HIRE" || requestType === "RESIGNATION") {
+    const newHireContext =
+      requestType === "NEW_HIRE" ? parseNewHirePayload(request.payload) : null;
+    const resignationContext =
+      requestType === "RESIGNATION"
+        ? parseOffboardingPayload(request.payload)
+        : null;
+    const requiresAreaManagerApproval =
+      newHireContext?.targetRole !== "AREA_MANAGER" &&
+      resignationContext?.targetRole !== "AREA_MANAGER";
+
     return [
       {
         fallbackActorLabel: request.createdBy.nameEn,
@@ -341,13 +352,17 @@ function buildStepDefinitions(request: RequestSummary): ProgressStepDefinition[]
         kind: "submitted",
         title: "Request Submitted"
       },
-      {
-        approvalStep: "AREA_MANAGER_APPROVAL",
-        fallbackActorLabel: "Area Manager",
-        id: "area-manager-approval",
-        kind: "approval",
-        title: "Area Manager Approval"
-      },
+      ...(requiresAreaManagerApproval
+        ? [
+            {
+              approvalStep: "AREA_MANAGER_APPROVAL" as const,
+              fallbackActorLabel: "Area Manager",
+              id: "area-manager-approval",
+              kind: "approval" as const,
+              title: "Area Manager Approval"
+            }
+          ]
+        : []),
       {
         approvalStep: "ADMIN_FINAL_APPROVAL",
         fallbackActorLabel: "Admin",

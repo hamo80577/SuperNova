@@ -2,63 +2,81 @@
 
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode
+} from "react";
+
 import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { organizationApi } from "@/lib/api/organization";
-import { requestsApi, type OffboardingBlockDecision, type OffboardingPickerSearchItem, type OffboardingReasonCode, type RequestSummary, offboardingReasonLabels } from "@/lib/api/requests";
-import { workspacesApi } from "@/lib/api/workspaces";
+import {
+  requestsApi,
+  type OffboardingBlockDecision,
+  type OffboardingEligibleUserSearchItem,
+  type OffboardingReasonCode,
+  type RequestSummary,
+  type ResignationTargetRole,
+  offboardingReasonLabels
+} from "@/lib/api/requests";
+import { type UserRole } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { BlockDecisionFields } from "./block-decision-fields";
-import { PickerIdentityCard } from "./offboarding-picker-search";
+import { PickerAvatar } from "./offboarding-picker-search";
 import { offboardingReasonCodes } from "../../shared/request-constants";
 import { Field } from "../../shared/request-field";
+import { Definition } from "../../shared/request-field";
 import { ErrorState } from "../../shared/request-states";
-import { type InitialResignationPicker } from "../../shared/request-types";
+import {
+  type InitialResignationPicker,
+  type InitialResignationUser
+} from "../../shared/request-types";
 import { formatEnum } from "../../shared/request-utils";
-
-type ResignationChainOption = {
-  chainCode: string;
-  chainName: string;
-  id: string;
-};
-
-type ResignationVendorOption = {
-  chain: ResignationChainOption;
-  chainId: string;
-  id: string;
-  vendorCode: string;
-  vendorName: string;
-};
 
 export function ResignationRequestForm({
   fixedSourceVendorId,
   initialPicker,
+  initialTargetRole,
+  initialUser,
   onCancel,
   onDirtyChange,
   onCreated
 }: {
   fixedSourceVendorId?: string;
   initialPicker?: InitialResignationPicker | null;
+  initialTargetRole?: ResignationTargetRole;
+  initialUser?: InitialResignationUser | null;
   onCancel?: () => void;
   onDirtyChange?: (isDirty: boolean) => void;
   onCreated: (request: RequestSummary) => void;
 }) {
   const { user } = useAuth();
-  const [query, setQuery] = useState(
-    initialPicker?.phoneNumber ?? initialPicker?.nameEn ?? ""
+  const resolvedInitialUser = initialUser ?? initialPicker ?? null;
+  const resolvedInitialRole = isResignationTargetRole(resolvedInitialUser?.role)
+    ? resolvedInitialUser.role
+    : undefined;
+  const branchLocked = Boolean(fixedSourceVendorId);
+  const allowedTargetRoles = useMemo(
+    () => getAllowedResignationTargetRoles(user?.role, branchLocked),
+    [branchLocked, user?.role]
   );
-  const [chains, setChains] = useState<ResignationChainOption[]>([]);
-  const [vendors, setVendors] = useState<ResignationVendorOption[]>([]);
-  const [sourceChainId, setSourceChainId] = useState("");
-  const [sourceVendorId, setSourceVendorId] = useState(fixedSourceVendorId ?? "");
-  const [items, setItems] = useState<OffboardingPickerSearchItem[]>([]);
-  const [selectedPicker, setSelectedPicker] =
-    useState<OffboardingPickerSearchItem | null>(null);
+  const [targetRole, setTargetRole] = useState<ResignationTargetRole>(
+    initialTargetRole ?? resolvedInitialRole ?? allowedTargetRoles[0] ?? "PICKER"
+  );
+  const [query, setQuery] = useState(
+    resolvedInitialUser?.phoneNumber ?? resolvedInitialUser?.nameEn ?? ""
+  );
+  const [items, setItems] = useState<OffboardingEligibleUserSearchItem[]>([]);
+  const [selectedUser, setSelectedUser] =
+    useState<OffboardingEligibleUserSearchItem | null>(null);
   const [form, setForm] = useState({
     resignationDate: "",
     reasonCode: "BAD_ATTITUDE" as OffboardingReasonCode,
@@ -68,112 +86,37 @@ export function ResignationRequestForm({
     blockReason: ""
   });
   const [loading, setLoading] = useState(false);
-  const [contextLoading, setContextLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createdRequest, setCreatedRequest] = useState<RequestSummary | null>(null);
   const [isPending, startTransition] = useTransition();
   const isAreaManagerCreator = user?.role === "AREA_MANAGER";
-  const initialQuery = initialPicker?.phoneNumber ?? initialPicker?.nameEn ?? "";
+  const initialQuery = resolvedInitialUser?.phoneNumber ?? resolvedInitialUser?.nameEn ?? "";
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadContext() {
-      setContextLoading(true);
-      setError(null);
-      try {
-        let nextChains: ResignationChainOption[] = [];
-        let nextVendors: ResignationVendorOption[] = [];
-
-        if (user?.role === "CHAMP") {
-          const workspace = await workspacesApi.champBranches();
-          nextVendors = workspace.branches.map((branch) => ({
-            chain: toResignationChainOption(branch.chain),
-            chainId: branch.chain.id,
-            id: branch.vendor.id,
-            vendorCode: branch.vendor.vendorCode,
-            vendorName: branch.vendor.vendorName
-          }));
-          nextChains = uniqueResignationChains(
-            workspace.branches.map((branch) =>
-              toResignationChainOption(branch.chain)
-            )
-          );
-        } else if (user?.role === "AREA_MANAGER") {
-          const workspace = await workspacesApi.areaManager();
-          nextChains = uniqueResignationChains(
-            workspace.chains.map((chain) =>
-              toResignationChainOption(chain.chain)
-            )
-          );
-          nextVendors = workspace.chains.flatMap((chain) =>
-            chain.vendors.map((branch) => ({
-              chain: toResignationChainOption(chain.chain),
-              chainId: chain.chain.id,
-              id: branch.vendor.id,
-              vendorCode: branch.vendor.vendorCode,
-              vendorName: branch.vendor.vendorName
-            }))
-          );
-        } else if (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") {
-          const [chainOptions, vendorOptions] = await Promise.all([
-            loadAllActiveResignationChains(),
-            loadAllActiveResignationVendors()
-          ]);
-          nextChains = chainOptions;
-          nextVendors = vendorOptions;
-        }
-
-        if (!mounted) {
-          return;
-        }
-
-        const scopedVendors = fixedSourceVendorId
-          ? nextVendors.filter((vendor) => vendor.id === fixedSourceVendorId)
-          : nextVendors;
-        const scopedChains = uniqueResignationChains(
-          scopedVendors.map((vendor) => vendor.chain)
-        );
-        const nextVendor =
-          fixedSourceVendorId
-            ? scopedVendors.find((vendor) => vendor.id === fixedSourceVendorId)
-            : scopedVendors.length === 1
-              ? scopedVendors[0]
-              : null;
-
-        setChains(scopedChains.length ? scopedChains : nextChains);
-        setVendors(scopedVendors);
-        setSourceVendorId(nextVendor?.id ?? "");
-        setSourceChainId(
-          nextVendor?.chainId ?? (scopedChains.length === 1 ? scopedChains[0].id : "")
-        );
-        setSelectedPicker(null);
-      } catch (caughtError) {
-        if (mounted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Unable to load resignation context."
-          );
-        }
-      } finally {
-        if (mounted) {
-          setContextLoading(false);
-        }
-      }
+    if (!allowedTargetRoles.length) {
+      return;
     }
 
-    void loadContext();
-
-    return () => {
-      mounted = false;
-    };
-  }, [fixedSourceVendorId, user?.role]);
+    setTargetRole((current) =>
+      allowedTargetRoles.includes(current) ? current : allowedTargetRoles[0]
+    );
+  }, [allowedTargetRoles]);
 
   useEffect(() => {
-    if (!sourceVendorId) {
+    if (!initialTargetRole && !resolvedInitialRole) {
+      return;
+    }
+
+    const nextRole = initialTargetRole ?? resolvedInitialRole;
+    if (nextRole && allowedTargetRoles.includes(nextRole)) {
+      setTargetRole(nextRole);
+    }
+  }, [allowedTargetRoles, initialTargetRole, resolvedInitialRole]);
+
+  useEffect(() => {
+    if (!allowedTargetRoles.includes(targetRole)) {
       setItems([]);
-      setLoading(false);
+      setSelectedUser(null);
       return;
     }
 
@@ -182,26 +125,39 @@ export function ResignationRequestForm({
       setLoading(true);
       setError(null);
       requestsApi
-        .searchOffboardingPickers({
+        .searchOffboardingEligibleUsers({
           q: query.trim() || undefined,
-          sourceVendorId
+          targetRole,
+          sourceVendorId: fixedSourceVendorId
         })
         .then((response) => {
           if (!mounted) return;
           setItems(response.items);
-          if (!selectedPicker && initialPicker?.id) {
-            const match = response.items.find(
-              (item) => item.pickerId === initialPicker.id
-            );
-            if (match) setSelectedPicker(match);
-          }
+          setSelectedUser((current) => {
+            if (
+              current &&
+              response.items.some((item) => item.assignmentId === current.assignmentId)
+            ) {
+              return current;
+            }
+
+            if (resolvedInitialUser?.id) {
+              return (
+                response.items.find(
+                  (item) => item.targetUserId === resolvedInitialUser.id
+                ) ?? null
+              );
+            }
+
+            return null;
+          });
         })
         .catch((caughtError) => {
           if (mounted) {
             setError(
               caughtError instanceof Error
                 ? caughtError.message
-                : "Unable to search active Pickers."
+                : "Unable to search eligible users."
             );
           }
         })
@@ -214,20 +170,23 @@ export function ResignationRequestForm({
       mounted = false;
       window.clearTimeout(timeout);
     };
-  }, [initialPicker?.id, query, sourceVendorId]);
+  }, [
+    allowedTargetRoles,
+    fixedSourceVendorId,
+    query,
+    resolvedInitialUser?.id,
+    targetRole
+  ]);
 
-  const sourceVendors = useMemo(
-    () => vendors.filter((vendor) => !sourceChainId || vendor.chainId === sourceChainId),
-    [sourceChainId, vendors]
-  );
-  const selectedPickerChanged = Boolean(
-    selectedPicker && selectedPicker.pickerId !== initialPicker?.id
+  const selectedChanged = Boolean(
+    selectedUser && selectedUser.targetUserId !== resolvedInitialUser?.id
   );
 
   useEffect(() => {
     onDirtyChange?.(
       Boolean(
-        selectedPickerChanged ||
+        selectedChanged ||
+          targetRole !== (initialTargetRole ?? resolvedInitialRole ?? targetRole) ||
           (query.trim() && query.trim() !== initialQuery.trim()) ||
           form.resignationDate ||
           form.reasonCode !== "BAD_ATTITUDE" ||
@@ -245,36 +204,37 @@ export function ResignationRequestForm({
     form.reasonDetails,
     form.resignationDate,
     initialQuery,
+    initialTargetRole,
     onDirtyChange,
     query,
-    selectedPickerChanged
+    resolvedInitialRole,
+    selectedChanged,
+    targetRole
   ]);
 
-  function selectSourceChain(chainId: string) {
-    const branchOptions = vendors.filter((vendor) => vendor.chainId === chainId);
-    setSourceChainId(chainId);
-    setSourceVendorId(branchOptions.length === 1 ? branchOptions[0].id : "");
-    setSelectedPicker(null);
+  function updateTargetRole(nextRole: ResignationTargetRole) {
+    setTargetRole(nextRole);
+    setSelectedUser(null);
+    setItems([]);
     setQuery("");
-  }
-
-  function selectSourceVendor(vendorId: string) {
-    const vendor = vendors.find((item) => item.id === vendorId);
-    setSourceVendorId(vendorId);
-    setSourceChainId(vendor?.chainId ?? sourceChainId);
-    setSelectedPicker(null);
-    setQuery("");
+    setError(null);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedPicker) {
-      setError("Select an active Picker before submitting.");
+    if (!allowedTargetRoles.includes(targetRole)) {
+      setError("This Resignation target role is not available for your workspace.");
       return;
     }
-    if (selectedPicker.hasPendingResignation) {
-      setError("This Picker already has a pending Resignation request.");
+    if (!selectedUser) {
+      setError(`Select an active ${formatEnum(targetRole)} before submitting.`);
+      return;
+    }
+    if (selectedUser.hasPendingResignation) {
+      setError(
+        `This ${formatEnum(selectedUser.targetRole)} already has a pending Resignation request.`
+      );
       return;
     }
     if (!form.resignationDate) {
@@ -299,8 +259,10 @@ export function ResignationRequestForm({
       try {
         const created = await requestsApi.createOffboarding({
           type: "RESIGNATION",
-          sourceVendorId: selectedPicker.vendorId,
-          targetUserId: selectedPicker.pickerId,
+          targetRole: selectedUser.targetRole,
+          sourceVendorId: selectedUser.vendorId,
+          sourceChainId: selectedUser.chainId,
+          targetUserId: selectedUser.targetUserId,
           resignationDate: form.resignationDate,
           reasonCode: form.reasonCode,
           ...(form.reasonDetails.trim()
@@ -357,121 +319,85 @@ export function ResignationRequestForm({
     );
   }
 
+  if (!allowedTargetRoles.length) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        Resignation requests are not available for this user role.
+      </div>
+    );
+  }
+
   return (
     <form className="grid min-w-0 gap-5" onSubmit={submit}>
       {error ? <ErrorState message={error} /> : null}
 
-      <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
-        <div>
-          <p className="text-sm font-semibold text-slate-950">Operational context</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Select the Chain and Branch that owns this Resignation request.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Source Chain">
-            <Select
-              aria-label="Source Chain"
-              disabled={contextLoading || Boolean(fixedSourceVendorId)}
-              emptyMessage="No Chain matches this search."
-              onChange={(event) => selectSourceChain(event.target.value)}
-              searchable
-              searchPlaceholder="Search Chain"
-              value={sourceChainId}
+      <Section
+        description="Choose only the role this workspace can submit."
+        title="Target role"
+      >
+        <div className="grid gap-2 sm:grid-cols-3">
+          {allowedTargetRoles.map((role) => (
+            <button
+              className={cn(
+                "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
+                targetRole === role
+                  ? "border-orange-300 bg-orange-50 text-orange-800"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+              )}
+              key={role}
+              onClick={() => updateTargetRole(role)}
+              type="button"
             >
-              <option value="">
-                {contextLoading ? "Loading Chains..." : "Select Chain"}
-              </option>
-              {chains.map((chain) => (
-                <option key={chain.id} value={chain.id}>
-                  {chain.chainName} / {chain.chainCode}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Source Branch">
-            <Select
-              aria-label="Source Branch"
-              disabled={
-                contextLoading ||
-                !sourceChainId ||
-                Boolean(fixedSourceVendorId)
-              }
-              emptyMessage="No Branch matches this Chain/search."
-              onChange={(event) => selectSourceVendor(event.target.value)}
-              searchable
-              searchPlaceholder="Search Branch"
-              value={sourceVendorId}
-            >
-              <option value="">
-                {sourceChainId ? "Select Branch" : "Select Chain first"}
-              </option>
-              {sourceVendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.vendorName} / {vendor.vendorCode} / {vendor.chain.chainName}
-                </option>
-              ))}
-            </Select>
-          </Field>
+              {formatEnum(role)}
+            </button>
+          ))}
         </div>
-      </div>
+      </Section>
 
-      <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
-        <div>
-          <p className="text-sm font-semibold text-slate-950">Picker</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Search inside the selector by name, phone, shopper ID, Branch, or Chain.
-          </p>
-        </div>
-        <div>
-          <Field label="Picker">
-            <Select
-              aria-label="Picker"
-              disabled={!sourceVendorId || loading}
-              emptyMessage="No active scoped Picker matches this search."
-              onChange={(event) => {
-                const picker = items.find(
-                  (item) => item.assignmentId === event.target.value
-                );
-                setSelectedPicker(picker ?? null);
-              }}
-              onSearchChange={(value) => {
-                setQuery(value);
-                setSelectedPicker(null);
-              }}
-              searchable
-              searchPlaceholder="Search by name, phone, shopper ID, Branch, or Chain"
-              searchValue={query}
-              value={selectedPicker?.assignmentId ?? ""}
-            >
-              <option value="">
-                {sourceVendorId
-                  ? loading
-                    ? "Searching active Pickers..."
-                    : "Select Picker"
-                  : "Select Branch first"}
+      <Section
+        description="The list is scoped by your active assignments and request permissions."
+        title={`Eligible ${formatEnum(targetRole)}`}
+      >
+        <Field label={formatEnum(targetRole)}>
+          <Select
+            aria-label={`${formatEnum(targetRole)} for Resignation`}
+            disabled={loading}
+            emptyMessage={`No active scoped ${formatEnum(targetRole)} matches this search.`}
+            onChange={(event) => {
+              const nextUser = items.find(
+                (item) => item.assignmentId === event.target.value
+              );
+              setSelectedUser(nextUser ?? null);
+            }}
+            onSearchChange={(value) => {
+              setQuery(value);
+              setSelectedUser(null);
+            }}
+            searchable
+            searchPlaceholder={`Search ${formatEnum(targetRole)} by name, phone, Branch, or Chain`}
+            searchValue={query}
+            value={selectedUser?.assignmentId ?? ""}
+          >
+            <option value="">
+              {loading ? "Searching eligible users..." : `Select ${formatEnum(targetRole)}`}
+            </option>
+            {items.map((item) => (
+              <option key={item.assignmentId} value={item.assignmentId}>
+                {item.user.nameEn} / {item.user.phoneNumber} /{" "}
+                {item.vendor?.vendorName ?? item.chain.chainName}
+                {item.hasPendingResignation ? " / Pending" : " / Active"}
               </option>
-              {items.map((item) => (
-                <option key={item.assignmentId} value={item.assignmentId}>
-                  {item.picker.nameEn} / {item.picker.phoneNumber} /{" "}
-                  {item.vendor.vendorName}
-                  {item.hasPendingResignation ? " / Pending" : " / Active"}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      </div>
+            ))}
+          </Select>
+        </Field>
+      </Section>
 
-      {selectedPicker ? <PickerIdentityCard picker={selectedPicker} /> : null}
+      {selectedUser ? <ResignationUserCard item={selectedUser} /> : null}
 
-      <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
-        <div>
-          <p className="text-sm font-semibold text-slate-950">Resignation details</p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Last working day and reason are required before approval routing.
-          </p>
-        </div>
+      <Section
+        description="Last working day and reason are required before approval routing."
+        title="Resignation details"
+      >
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Last working day">
             <DatePicker
@@ -531,7 +457,7 @@ export function ResignationRequestForm({
             />
           </Field>
         </div>
-      </div>
+      </Section>
 
       {isAreaManagerCreator ? (
         <BlockDecisionFields
@@ -551,6 +477,39 @@ export function ResignationRequestForm({
         />
       ) : null}
 
+      <ApprovalPathPreview
+        creatorRole={user?.role}
+        selectedUser={selectedUser}
+        targetRole={targetRole}
+      />
+
+      <Section
+        description="Review the scoped user and lifecycle request before submit."
+        title="Final review"
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
+          <ReviewRow label="Target role" value={formatEnum(targetRole)} />
+          <ReviewRow
+            label="Selected user"
+            value={selectedUser?.user.nameEn ?? "Not selected"}
+          />
+          <ReviewRow
+            label="Assignment context"
+            value={
+              selectedUser
+                ? selectedUser.vendor
+                  ? `${selectedUser.vendor.vendorName} / ${selectedUser.chain.chainName}`
+                  : selectedUser.chain.chainName
+                : "Not selected"
+            }
+          />
+          <ReviewRow
+            label="Last working day"
+            value={form.resignationDate || "Not set"}
+          />
+        </div>
+      </Section>
+
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         {onCancel ? (
           <Button
@@ -563,8 +522,8 @@ export function ResignationRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700 sm:w-auto"
-          disabled={isPending || selectedPicker?.hasPendingResignation}
+          className="min-h-11 w-full rounded-xl border-red-700 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
+          disabled={isPending || selectedUser?.hasPendingResignation}
           type="submit"
         >
           {isPending ? "Submitting..." : "Submit Resignation"}
@@ -574,76 +533,215 @@ export function ResignationRequestForm({
   );
 }
 
-function toResignationChainOption(chain: {
-  chainCode: string;
-  chainName: string;
-  id: string;
-}): ResignationChainOption {
-  return {
-    chainCode: chain.chainCode,
-    chainName: chain.chainName,
-    id: chain.id
-  };
-}
-
-function uniqueResignationChains(chains: ResignationChainOption[]) {
-  const byId = new Map<string, ResignationChainOption>();
-  chains.forEach((chain) => byId.set(chain.id, chain));
-  return Array.from(byId.values()).sort((first, second) =>
-    first.chainName.localeCompare(second.chainName)
+function Section({
+  children,
+  description,
+  title
+}: {
+  children: ReactNode;
+  description: string;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+      <div>
+        <p className="text-sm font-semibold text-slate-950">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
   );
 }
 
-async function loadAllActiveResignationChains() {
-  const firstPage = await organizationApi.listChains({
-    page: 1,
-    pageSize: 100,
-    status: "ACTIVE"
-  });
-  const restPages = await Promise.all(
-    Array.from(
-      { length: Math.max(0, firstPage.meta.totalPages - 1) },
-      (_, index) =>
-        organizationApi.listChains({
-          page: index + 2,
-          pageSize: 100,
-          status: "ACTIVE"
-        })
-    )
-  );
-
-  return uniqueResignationChains(
-    [firstPage.items, ...restPages.map((page) => page.items)]
-      .flat()
-      .map((chain) => toResignationChainOption(chain))
+function ResignationUserCard({ item }: { item: OffboardingEligibleUserSearchItem }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-3">
+          <PickerAvatar name={item.user.nameEn} />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-slate-950">
+                {item.user.nameEn}
+              </h3>
+              <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                {formatEnum(item.targetRole)}
+              </Badge>
+              <Badge variant="muted">{formatEnum(item.user.employmentStatus)}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">
+              {item.user.phoneNumber}
+              {item.user.shopperId ? ` · Shopper ${item.user.shopperId}` : ""}
+              {item.user.ibsId ? ` · IBS ${item.user.ibsId}` : ""}
+            </p>
+          </div>
+        </div>
+        <Badge
+          className={cn(
+            "w-fit",
+            item.hasPendingResignation
+              ? "border-red-200 bg-red-50 text-red-700"
+              : ""
+          )}
+          variant="outline"
+        >
+          {item.hasPendingResignation ? "Pending Resignation" : "Ready"}
+        </Badge>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {item.vendor ? <Definition label="Branch" value={item.vendor.vendorName} /> : null}
+        <Definition label="Chain" value={item.chain.chainName} />
+        <Definition
+          label="Assignment start"
+          value={new Date(item.assignmentStartDate).toLocaleDateString()}
+        />
+        <Definition
+          label="Block status"
+          value={formatEnum(item.user.blockStatus ?? "NO_BLOCK")}
+        />
+      </div>
+    </section>
   );
 }
 
-async function loadAllActiveResignationVendors() {
-  const firstPage = await organizationApi.listVendors({
-    page: 1,
-    pageSize: 100,
-    status: "ACTIVE"
-  });
-  const restPages = await Promise.all(
-    Array.from(
-      { length: Math.max(0, firstPage.meta.totalPages - 1) },
-      (_, index) =>
-        organizationApi.listVendors({
-          page: index + 2,
-          pageSize: 100,
-          status: "ACTIVE"
-        })
-    )
-  );
+function ApprovalPathPreview({
+  creatorRole,
+  selectedUser,
+  targetRole
+}: {
+  creatorRole?: UserRole;
+  selectedUser: OffboardingEligibleUserSearchItem | null;
+  targetRole: ResignationTargetRole;
+}) {
+  const steps = buildResignationApprovalSteps(creatorRole, targetRole);
 
-  return [firstPage.items, ...restPages.map((page) => page.items)]
-    .flat()
-    .map((vendor) => ({
-      chain: toResignationChainOption(vendor.chain),
-      chainId: vendor.chainId,
-      id: vendor.id,
-      vendorCode: vendor.vendorCode,
-      vendorName: vendor.vendorName
-    }));
+  return (
+    <Section
+      description="System changes happen only after approval and Admin finalization."
+      title="Approval path"
+    >
+      <div className="grid gap-2">
+        {steps.map((step, index) => (
+          <div
+            className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3"
+            key={step.label}
+          >
+            <span
+              className={cn(
+                "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                step.skipped
+                  ? "bg-slate-100 text-slate-500"
+                  : "bg-orange-100 text-orange-700"
+              )}
+            >
+              {index + 1}
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{step.label}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {step.description}
+              </p>
+            </div>
+          </div>
+        ))}
+        {selectedUser ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
+            Admin finalization archives {selectedUser.user.nameEn} and closes active{" "}
+            {formatEnum(selectedUser.targetRole)} assignments.
+          </div>
+        ) : null}
+      </div>
+    </Section>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-slate-950">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function getAllowedResignationTargetRoles(
+  role: UserRole | undefined,
+  branchLocked: boolean
+): ResignationTargetRole[] {
+  if (role === "CHAMP") {
+    return ["PICKER"];
+  }
+  if (role === "AREA_MANAGER") {
+    return branchLocked ? ["PICKER"] : ["PICKER", "CHAMP"];
+  }
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    return branchLocked ? ["PICKER"] : ["PICKER", "CHAMP", "AREA_MANAGER"];
+  }
+  return [];
+}
+
+function isResignationTargetRole(
+  role: UserRole | undefined
+): role is ResignationTargetRole {
+  return role === "PICKER" || role === "CHAMP" || role === "AREA_MANAGER";
+}
+
+function buildResignationApprovalSteps(
+  creatorRole: UserRole | undefined,
+  targetRole: ResignationTargetRole
+) {
+  if (creatorRole === "AREA_MANAGER") {
+    return [
+      {
+        label: "Submit",
+        description: `${formatEnum(targetRole)} Resignation request is submitted.`,
+        skipped: false
+      },
+      {
+        label: "Area Manager decision",
+        description: "The submitting Area Manager records the block recommendation.",
+        skipped: true
+      },
+      {
+        label: "Admin finalization",
+        description: "Admin confirms deactivation and applies the Resignation.",
+        skipped: false
+      }
+    ];
+  }
+
+  if (targetRole === "AREA_MANAGER") {
+    return [
+      {
+        label: "Submit",
+        description: "Admin submits the Area Manager Resignation request.",
+        skipped: false
+      },
+      {
+        label: "Admin finalization",
+        description: "Admin confirms deactivation and closes Chain assignments.",
+        skipped: false
+      }
+    ];
+  }
+
+  return [
+    {
+      label: "Submit",
+      description: `${formatEnum(targetRole)} Resignation request is submitted.`,
+      skipped: false
+    },
+    {
+      label: "Area Manager approval",
+      description: "Area Manager reviews the assignment-scoped request.",
+      skipped: false
+    },
+    {
+      label: "Admin finalization",
+      description: "Admin confirms deactivation and applies the Resignation.",
+      skipped: false
+    }
+  ];
 }

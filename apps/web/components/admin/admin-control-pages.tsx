@@ -89,7 +89,7 @@ export function AdminPendingActionsPage() {
   return (
     <PageShell
       badge="Admin final actions"
-      description="Requests waiting for Admin-controlled finalization. Use request detail pages for Shopper ID or offboarding confirmation."
+      description="Requests waiting for Admin-controlled finalization. Use request detail pages for Shopper ID or Resignation confirmation."
       icon={ClipboardCheck}
       title="Pending Final Actions"
     >
@@ -195,7 +195,7 @@ export function AdminArchivedUsersPage() {
   return (
     <PageShell
       badge="Archived identities"
-      description="Safe Admin visibility into archived or deactivated users, block state, latest offboarding request, and closed assignment history."
+      description="Safe Admin visibility into archived or deactivated users, block state, latest Resignation request, and closed assignment history."
       icon={Archive}
       title="Archived Users"
     >
@@ -255,7 +255,7 @@ export function AdminArchivedUsersPage() {
                     <th className="py-3 pr-4">User</th>
                     <th className="py-3 pr-4">Status</th>
                     <th className="py-3 pr-4">Block</th>
-                    <th className="py-3 pr-4">Latest offboarding</th>
+                    <th className="py-3 pr-4">Latest Resignation</th>
                     <th className="py-3 pr-4">Closed assignments</th>
                     <th className="py-3 pr-4">Updated</th>
                   </tr>
