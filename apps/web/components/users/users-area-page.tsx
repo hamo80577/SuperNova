@@ -14,7 +14,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { NewRequestSheet } from "@/components/requests/forms/new-request-sheet";
-import { type NewRequestDraft } from "@/components/requests/shared/request-types";
+import {
+  type InitialTransferPicker,
+  type NewRequestDraft
+} from "@/components/requests/shared/request-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +66,7 @@ export function UsersAreaPage() {
   const [query, setQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [requestDraft, setRequestDraft] = useState<NewRequestDraft | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   async function loadUsersArea() {
     if (!user) {
@@ -70,6 +74,7 @@ export function UsersAreaPage() {
     }
 
     setState({ status: "loading" });
+    setRequestError(null);
     try {
       setState({ status: "ready", data: await fetchUsersAreaData(user.role) });
     } catch (caughtError) {
@@ -107,13 +112,18 @@ export function UsersAreaPage() {
   }, [activeSection, visibleSections]);
 
   const activeItems = filterItems(data[activeSection], query);
-  const selectedUser =
+  const activeSectionLabel =
+    visibleSections.find((section) => section.id === activeSection)?.label ??
+    getSectionLabel(activeSection, user?.role);
+  const selectedItem =
     [...data.pickers, ...data.champs, ...data.management].find(
       (item) => item.user.id === selectedUserId
-    )?.user ?? null;
+    ) ?? null;
+  const selectedUser = selectedItem?.user ?? null;
   const allowedResignationRoles = getAllowedResignationTargetRoles(user?.role);
 
   function openResignation(target: UserSummary | SafeUser) {
+    setRequestError(null);
     if (!isResignationTargetRole(target.role)) {
       return;
     }
@@ -127,6 +137,34 @@ export function UsersAreaPage() {
         phoneNumber: target.phoneNumber,
         role: target.role
       }
+    });
+  }
+
+  function openTransfer(target: UsersAreaItem) {
+    setRequestError(null);
+
+    if (target.user.role !== "PICKER") {
+      setRequestError("Transfer is available only for Pickers.");
+      return;
+    }
+
+    const activeAssignments = data.pickers.filter(
+      (item) =>
+        item.user.id === target.user.id && item.assignment?.status === "ACTIVE"
+    );
+
+    if (activeAssignments.length > 1) {
+      setRequestError(
+        "This Picker has multiple active Branch assignments in the current view. Resolve the assignment data before starting Transfer."
+      );
+      return;
+    }
+
+    setRequestDraft({
+      type: "TRANSFER",
+      initialPicker: toInitialTransferPicker(
+        target.assignment ? target : activeAssignments[0] ?? target
+      )
     });
   }
 
@@ -198,6 +236,10 @@ export function UsersAreaPage() {
 
       {state.status === "loading" ? (
         <TableRowsSkeleton label="Loading Users" rows={6} />
+      ) : requestError ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {requestError}
+        </div>
       ) : state.status === "error" ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {state.error}
@@ -207,8 +249,8 @@ export function UsersAreaPage() {
           items={activeItems}
           onOpenProfile={setSelectedUserId}
           onOpenResignation={(target) => openResignation(target)}
-          onOpenTransfer={() => setRequestDraft({ type: "TRANSFER" })}
-          sectionId={activeSection}
+          onOpenTransfer={openTransfer}
+          sectionLabel={activeSectionLabel}
           viewerRole={user?.role}
         />
       )}
@@ -217,8 +259,8 @@ export function UsersAreaPage() {
         <OperationalUserProfileModal
           actions={{
             onTransfer:
-              selectedUser?.role === "PICKER"
-                ? () => setRequestDraft({ type: "TRANSFER" })
+              selectedItem?.user.role === "PICKER"
+                ? () => openTransfer(selectedItem)
                 : undefined,
             onResignation:
               selectedUser &&
@@ -249,14 +291,14 @@ function UsersSection({
   onOpenProfile,
   onOpenResignation,
   onOpenTransfer,
-  sectionId,
+  sectionLabel,
   viewerRole
 }: {
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
   onOpenResignation: (user: UserSummary | SafeUser) => void;
-  onOpenTransfer: () => void;
-  sectionId: UsersSectionId;
+  onOpenTransfer: (item: UsersAreaItem) => void;
+  sectionLabel: string;
   viewerRole?: UserRole;
 }) {
   const allowedResignationRoles = getAllowedResignationTargetRoles(viewerRole);
@@ -266,7 +308,7 @@ function UsersSection({
       <div className="grid min-h-56 place-items-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
         <Users className="mb-3 h-8 w-8 text-slate-400" />
         <p className="text-sm font-medium text-slate-700">
-          No {getSectionLabel(sectionId).toLowerCase()} are currently visible.
+          No {sectionLabel.toLowerCase()} are currently visible.
         </p>
         <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
           Users appear here only when active assignment data puts them inside your scope.
@@ -340,7 +382,7 @@ function UsersSection({
               {canTransfer ? (
                 <Button
                   className="min-h-11 rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50"
-                  onClick={onOpenTransfer}
+                  onClick={() => onOpenTransfer(item)}
                   type="button"
                   variant="outline"
                 >
@@ -467,8 +509,8 @@ function getVisibleSections(role: UserRole | undefined) {
   }
   if (role === "ADMIN" || role === "SUPER_ADMIN") {
     return [
-      { id: "pickers" as const, label: "My Pickers" },
-      { id: "champs" as const, label: "My Champs" },
+      { id: "pickers" as const, label: "All Pickers" },
+      { id: "champs" as const, label: "All Champs" },
       { id: "management" as const, label: "Management Users" }
     ];
   }
@@ -515,10 +557,28 @@ function emptyUsersAreaData(): UsersAreaData {
   return { pickers: [], champs: [], management: [] };
 }
 
-function getSectionLabel(sectionId: UsersSectionId) {
+function getSectionLabel(sectionId: UsersSectionId, role?: UserRole) {
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    if (sectionId === "pickers") return "All Pickers";
+    if (sectionId === "champs") return "All Champs";
+  }
   if (sectionId === "pickers") return "My Pickers";
   if (sectionId === "champs") return "My Champs";
   return "Management Users";
+}
+
+function toInitialTransferPicker(item: UsersAreaItem): InitialTransferPicker {
+  return {
+    user: {
+      id: item.user.id,
+      nameEn: item.user.nameEn,
+      phoneNumber: item.user.phoneNumber,
+      role: item.user.role
+    },
+    assignment: item.assignment ?? null,
+    vendor: item.vendor ?? null,
+    chain: item.chain ?? null
+  };
 }
 
 function formatEnum(value: string) {

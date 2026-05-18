@@ -37,7 +37,7 @@ export function NewRequestSheet({
       ? `${draft.type}:${draft.targetRole ?? "select"}`
       : draft.type === "RESIGNATION"
         ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialUser?.id ?? ""}`
-        : draft.type;
+        : `${draft.type}:${draft.initialPicker?.user.id ?? ""}:${draft.initialPicker?.assignment?.id ?? ""}`;
 
   if (draft.type === "NEW_HIRE") {
     return (
@@ -119,6 +119,7 @@ export function NewRequestSheet({
           />
         ) : draft.type === "TRANSFER" ? (
           <LifecyclePickerRequestForm
+            initialPicker={draft.initialPicker}
             onCancel={requestClose}
             onCreated={onCreated}
             onDirtyChange={setIsDirty}

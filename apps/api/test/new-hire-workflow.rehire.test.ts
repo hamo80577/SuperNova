@@ -266,6 +266,36 @@ async function run() {
         ),
     /pending New Hire or Rehire request already exists/
   );
+
+  await assert.rejects(
+    () =>
+      candidateServiceWithMatches([
+        candidateUser({
+          id: "eligible-picker",
+          phoneNumber,
+          nationalId: "11111111111111",
+          role: UserRole.PICKER
+        }),
+        candidateUser({
+          id: "active-national-id-match",
+          phoneNumber: "01099999999",
+          nationalId,
+          role: UserRole.PICKER,
+          accountStatus: AccountStatus.ACTIVE,
+          employmentStatus: EmploymentStatus.ACTIVE,
+          pickerBranchAssignments: [{ status: AssignmentStatus.ACTIVE }]
+        })
+      ]).validateNewHireCandidateForCreate(
+        {
+          phoneNumber,
+          nationalId,
+          gender: Gender.UNSPECIFIED
+        },
+        "eligible-picker",
+        UserRole.PICKER
+      ),
+    /Previous Picker already has an active Branch assignment/
+  );
 }
 
 void run();

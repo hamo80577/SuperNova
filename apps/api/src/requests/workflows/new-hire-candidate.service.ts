@@ -138,7 +138,11 @@ export class NewHireCandidateService {
     const blockingMatch = selectedMatch
       ? selectedMatch.decision !== "REHIRE_AVAILABLE"
         ? selectedMatch
-        : null
+        : matches.find(
+            (match) =>
+              match.user.id !== selectedMatch.user.id &&
+              match.decision !== "REHIRE_AVAILABLE"
+          ) ?? null
       : matches.find((match) => match.decision !== "REHIRE_AVAILABLE");
 
     if (blockingMatch) {

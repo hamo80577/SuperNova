@@ -3,6 +3,11 @@ import {
   type ResignationTargetRole
 } from "@/lib/api/requests";
 import { type UserRole } from "@/lib/auth/types";
+import {
+  type AssignmentSummary,
+  type ChainSummary,
+  type VendorSummary
+} from "@/lib/api/workspaces";
 
 export type OperationsMode = "action" | "submitted" | "open" | "completed" | "rejected";
 
@@ -45,7 +50,10 @@ export type NewRequestDraft =
       targetRole?: ResignationTargetRole;
       initialUser?: InitialResignationUser | null;
     }
-  | { type: "TRANSFER" };
+  | {
+      type: "TRANSFER";
+      initialPicker?: InitialTransferPicker | null;
+    };
 
 export type InitialResignationUser = {
   id: string;
@@ -55,3 +63,17 @@ export type InitialResignationUser = {
 };
 
 export type InitialResignationPicker = InitialResignationUser;
+
+export type InitialTransferUser = {
+  id: string;
+  nameEn: string;
+  phoneNumber?: string | null;
+  role?: UserRole;
+};
+
+export type InitialTransferPicker = {
+  user: InitialTransferUser;
+  assignment?: AssignmentSummary | null;
+  vendor?: VendorSummary | null;
+  chain?: ChainSummary | null;
+};

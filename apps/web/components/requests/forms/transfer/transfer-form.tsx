@@ -5,7 +5,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { assignmentsApi, type PickerBranchAssignment } from "@/lib/api/assignments";
+import { assignmentsApi } from "@/lib/api/assignments";
 import { organizationApi, type Chain, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
@@ -16,13 +16,36 @@ import {
 import { filterVendors } from "./transfer-utils";
 import { Definition, Field } from "../../shared/request-field";
 import { ErrorState, LoadingState } from "../../shared/request-states";
+import { type InitialTransferPicker } from "../../shared/request-types";
 import { formatEnum } from "../../shared/request-utils";
 
 type LifecyclePickerRequestFormProps = {
+  initialPicker?: InitialTransferPicker | null;
   onCancel?: () => void;
   onCreated: (request: RequestSummary) => void;
   onDirtyChange?: (isDirty: boolean) => void;
   type: "TRANSFER";
+};
+
+type TransferPickerOption = {
+  id: string;
+  pickerId: string;
+  vendorId: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  picker: {
+    id: string;
+    nameEn: string;
+    phoneNumber?: string | null;
+  };
+  vendor: {
+    id: string;
+    vendorName: string;
+    vendorCode: string;
+    chainId: string;
+  };
+  chain: Pick<Chain, "id" | "chainName" | "chainCode" | "status">;
 };
 
 export function LifecyclePickerRequestForm(props: LifecyclePickerRequestFormProps) {
@@ -40,6 +63,7 @@ export function LifecyclePickerRequestForm(props: LifecyclePickerRequestFormProp
 }
 
 function OrganizationTransferRequestForm({
+  initialPicker,
   onCancel,
   onCreated,
   onDirtyChange,
@@ -51,9 +75,9 @@ function OrganizationTransferRequestForm({
   const [sourceVendorId, setSourceVendorId] = useState("");
   const [destinationChainId, setDestinationChainId] = useState("");
   const [destinationVendorId, setDestinationVendorId] = useState("");
-  const [pickerAssignments, setPickerAssignments] = useState<PickerBranchAssignment[]>([]);
+  const [pickerAssignments, setPickerAssignments] = useState<TransferPickerOption[]>([]);
   const [selectedAssignment, setSelectedAssignment] =
-    useState<PickerBranchAssignment | null>(null);
+    useState<TransferPickerOption | null>(null);
   const [form, setForm] = useState({
     reason: "",
     effectiveDate: "",
@@ -62,7 +86,14 @@ function OrganizationTransferRequestForm({
   const [loading, setLoading] = useState(true);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialContextError, setInitialContextError] = useState<string | null>(
+    null
+  );
   const [isPending, startTransition] = useTransition();
+  const initialPickerOption = useMemo(
+    () => toTransferPickerOption(initialPicker),
+    [initialPicker]
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -123,8 +154,104 @@ function OrganizationTransferRequestForm({
   }, []);
 
   useEffect(() => {
+    if (!initialPicker) {
+      return;
+    }
+
+    if (initialPicker.user.role && initialPicker.user.role !== "PICKER") {
+      const message = "Transfer can be started only for a Picker profile.";
+      setInitialContextError(message);
+      setError(message);
+      return;
+    }
+
+    setInitialContextError(null);
+    setError(null);
+
+    if (initialPickerOption) {
+      setSourceChainId(initialPickerOption.chain.id);
+      setSourceVendorId(initialPickerOption.vendorId);
+      setPickerAssignments([initialPickerOption]);
+      setSelectedAssignment(initialPickerOption);
+      return;
+    }
+
+    let mounted = true;
+    setPickerLoading(true);
+    assignmentsApi
+      .listPickerBranchAssignments({
+        page: 1,
+        pageSize: 100,
+        q: initialPicker.user.phoneNumber ?? initialPicker.user.nameEn,
+        status: "ACTIVE"
+      })
+      .then((response) => {
+        if (!mounted) {
+          return;
+        }
+
+        const activeMatches = response.items.filter(
+          (assignment) => assignment.pickerId === initialPicker.user.id
+        );
+
+        if (activeMatches.length > 1) {
+          const message =
+            "This Picker has multiple active Branch assignments. Resolve the assignment data before starting Transfer.";
+          setInitialContextError(message);
+          setError(message);
+          setSelectedAssignment(null);
+          return;
+        }
+
+        if (!activeMatches.length) {
+          const message =
+            "Selected Picker does not have one active Branch assignment available for Transfer.";
+          setInitialContextError(message);
+          setError(message);
+          setSelectedAssignment(null);
+          return;
+        }
+
+        const [assignment] = activeMatches;
+        setSourceChainId(assignment.chain.id);
+        setSourceVendorId(assignment.vendorId);
+        setPickerAssignments(activeMatches);
+        setSelectedAssignment(assignment);
+      })
+      .catch((caughtError) => {
+        if (mounted) {
+          const message =
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load the selected Picker assignment.";
+          setInitialContextError(message);
+          setError(message);
+          setSelectedAssignment(null);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setPickerLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [initialPicker, initialPickerOption]);
+
+  useEffect(() => {
     if (!sourceVendorId) {
       setPickerAssignments([]);
+      return;
+    }
+
+    if (
+      initialPickerOption &&
+      sourceVendorId === initialPickerOption.vendorId
+    ) {
+      setPickerAssignments([initialPickerOption]);
+      setSelectedAssignment((current) => current ?? initialPickerOption);
       return;
     }
 
@@ -164,7 +291,7 @@ function OrganizationTransferRequestForm({
       mounted = false;
       window.clearTimeout(timeout);
     };
-  }, [sourceVendorId]);
+  }, [initialPickerOption, sourceVendorId]);
 
   const sourceVendors = filterVendors(vendors, sourceChainId, "");
   const destinationVendors = filterVendors(
@@ -220,6 +347,10 @@ function OrganizationTransferRequestForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (initialContextError) {
+      setError(initialContextError);
+      return;
+    }
     if (!sourceVendorId || !selectedAssignment) {
       setError("Select Chain, Branch, and Picker before submitting.");
       return;
@@ -476,6 +607,7 @@ function OrganizationTransferRequestForm({
 }
 
 function ChampScopedTransferRequestForm({
+  initialPicker,
   onCancel,
   onCreated,
   onDirtyChange,
@@ -495,6 +627,9 @@ function ChampScopedTransferRequestForm({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialContextError, setInitialContextError] = useState<string | null>(
+    null
+  );
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -539,6 +674,50 @@ function ChampScopedTransferRequestForm({
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!initialPicker || loading) {
+      return;
+    }
+
+    if (initialPicker.user.role && initialPicker.user.role !== "PICKER") {
+      const message = "Transfer can be started only for a Picker profile.";
+      setInitialContextError(message);
+      setError(message);
+      return;
+    }
+
+    const matches = branches.flatMap((branch) =>
+      branch.pickers
+        .filter((picker) => picker.picker.id === initialPicker.user.id)
+        .map((picker) => ({ branch, picker }))
+    );
+
+    if (matches.length > 1) {
+      const message =
+        "This Picker has multiple active Branch assignments in your workspace. Resolve the assignment data before starting Transfer.";
+      setInitialContextError(message);
+      setError(message);
+      setSelectedPicker(null);
+      return;
+    }
+
+    if (!matches.length) {
+      const message =
+        "Selected Picker is not active in your assigned Branches.";
+      setInitialContextError(message);
+      setError(message);
+      setSelectedPicker(null);
+      return;
+    }
+
+    const [{ branch, picker }] = matches;
+    setInitialContextError(null);
+    setError(null);
+    setSourceChainId(branch.chain.id);
+    setSourceVendorId(branch.vendor.id);
+    setSelectedPicker(picker);
+  }, [branches, initialPicker, loading]);
 
   const sourceChains = useMemo(() => {
     const chainsById = new Map<string, ChampBranch["chain"]>();
@@ -611,6 +790,11 @@ function ChampScopedTransferRequestForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (initialContextError) {
+      setError(initialContextError);
+      return;
+    }
 
     if (!sourceVendorId || !selectedPicker) {
       setError("Select your source Branch and active Picker before submitting.");
@@ -896,4 +1080,37 @@ async function loadAllActiveVendors() {
   );
 
   return [firstPage.items, ...restPages.map((page) => page.items)].flat();
+}
+
+function toTransferPickerOption(
+  initialPicker?: InitialTransferPicker | null
+): TransferPickerOption | null {
+  if (
+    !initialPicker?.assignment ||
+    !initialPicker.vendor ||
+    !initialPicker.chain
+  ) {
+    return null;
+  }
+
+  return {
+    id: initialPicker.assignment.id,
+    pickerId: initialPicker.user.id,
+    vendorId: initialPicker.vendor.id,
+    status: initialPicker.assignment.status,
+    startDate: initialPicker.assignment.startDate,
+    endDate: initialPicker.assignment.endDate ?? null,
+    picker: {
+      id: initialPicker.user.id,
+      nameEn: initialPicker.user.nameEn,
+      phoneNumber: initialPicker.user.phoneNumber
+    },
+    vendor: {
+      id: initialPicker.vendor.id,
+      vendorName: initialPicker.vendor.vendorName,
+      vendorCode: initialPicker.vendor.vendorCode,
+      chainId: initialPicker.vendor.chainId
+    },
+    chain: initialPicker.chain
+  };
 }
