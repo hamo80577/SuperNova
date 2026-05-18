@@ -118,8 +118,10 @@ export class NewHireCandidateService {
     rehireUserId: string | undefined,
     targetRole: NewHireTargetRole
   ) {
-    if (rehireUserId && targetRole !== UserRole.PICKER) {
-      throw new BadRequestException("Rehire applies to Picker New Hire only.");
+    if (rehireUserId && !this.isRehireSupportedTargetRole(targetRole)) {
+      throw new BadRequestException(
+        "Rehire applies to Picker or Champ New Hire only."
+      );
     }
 
     const matches = await this.findNewHireCandidateMatches(candidate, targetRole);
@@ -129,7 +131,7 @@ export class NewHireCandidateService {
 
     if (rehireUserId && !selectedMatch) {
       throw new BadRequestException(
-        "Selected previous Picker does not match this phone number or National ID."
+        `Selected previous ${this.formatTargetRole(targetRole)} does not match this phone number or National ID.`
       );
     }
 
@@ -152,7 +154,7 @@ export class NewHireCandidateService {
 
     if (rehireMatch && !rehireUserId) {
       throw new ConflictException(
-        "Previous Picker record found. Select the previous Picker to submit this as a Rehire request."
+        `Previous ${this.formatTargetRole(targetRole)} record found. Select the previous ${this.formatTargetRole(targetRole)} to submit this as a Rehire request.`
       );
     }
 
@@ -213,19 +215,25 @@ export class NewHireCandidateService {
     const activePickerAssignment = user.pickerBranchAssignments.some(
       (assignment) => assignment.status === AssignmentStatus.ACTIVE
     );
-    const canRehirePicker =
-      targetRole === UserRole.PICKER &&
-      user.role === UserRole.PICKER &&
+    const activeChampAssignment = user.vendorChampAssignments.some(
+      (assignment) => assignment.status === AssignmentStatus.ACTIVE
+    );
+    const hasActiveAssignmentForTarget =
+      (targetRole === UserRole.PICKER && activePickerAssignment) ||
+      (targetRole === UserRole.CHAMP && activeChampAssignment);
+    const canRehire =
+      this.isRehireSupportedTargetRole(targetRole) &&
+      user.role === targetRole &&
       user.accountStatus !== AccountStatus.ACTIVE &&
       user.employmentStatus !== EmploymentStatus.ACTIVE &&
-      !activePickerAssignment;
+      !hasActiveAssignmentForTarget;
 
-    if (canRehirePicker) {
+    if (canRehire) {
       return {
         user,
         matchedBy,
         decision: "REHIRE_AVAILABLE",
-        reason: "Previous inactive Picker can be rehired."
+        reason: `Previous inactive ${this.formatTargetRole(targetRole)} can be rehired.`
       };
     }
 
@@ -233,10 +241,12 @@ export class NewHireCandidateService {
       user,
       matchedBy,
       decision: "ACTIVE_DUPLICATE",
-      reason:
-        user.role === UserRole.PICKER && activePickerAssignment
-          ? "Previous Picker already has an active Branch assignment."
-          : "A user already exists with this phone number or National ID."
+      reason: this.getActiveDuplicateReason(
+        user.role,
+        targetRole,
+        activePickerAssignment,
+        activeChampAssignment
+      )
     };
   }
 
@@ -569,5 +579,42 @@ export class NewHireCandidateService {
 
   private isAdmin(user: AuthenticatedUser) {
     return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+  }
+
+  private isRehireSupportedTargetRole(targetRole: NewHireTargetRole) {
+    return targetRole === UserRole.PICKER || targetRole === UserRole.CHAMP;
+  }
+
+  private getActiveDuplicateReason(
+    userRole: UserRole,
+    targetRole: NewHireTargetRole,
+    activePickerAssignment: boolean,
+    activeChampAssignment: boolean
+  ) {
+    if (userRole === UserRole.PICKER && activePickerAssignment) {
+      return "Previous Picker already has an active Branch assignment.";
+    }
+
+    if (userRole === UserRole.CHAMP && activeChampAssignment) {
+      return "Previous Champ already has an active Branch assignment.";
+    }
+
+    if (targetRole === UserRole.AREA_MANAGER && userRole === UserRole.AREA_MANAGER) {
+      return "Rehire is available only for Picker and Champ.";
+    }
+
+    if (userRole !== targetRole) {
+      return "A user already exists with this phone number or National ID under a different role.";
+    }
+
+    return "A user already exists with this phone number or National ID.";
+  }
+
+  private formatTargetRole(targetRole: NewHireTargetRole) {
+    return String(targetRole)
+      .toLowerCase()
+      .split("_")
+      .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   }
 }

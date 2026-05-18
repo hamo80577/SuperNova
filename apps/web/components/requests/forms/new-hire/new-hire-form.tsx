@@ -12,7 +12,7 @@ import { workspacesApi } from "@/lib/api/workspaces";
 import { requestsApi, type NewHireLookupResponse, type NewHireTargetRole, type RequestSummary } from "@/lib/api/requests";
 import { cn } from "@/lib/utils";
 import { SelectedContextCard } from "./new-hire-branch-context";
-import { NewHireLookupResultCard, PreviousPickerCard } from "./new-hire-lookup";
+import { NewHireLookupResultCard, PreviousUserCard } from "./new-hire-lookup";
 import { NewHireFormSection } from "./new-hire-section";
 import { applyFixedNewHireBranch, buildNewHireApprovalSteps, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
 import { Field } from "../../shared/request-field";
@@ -400,7 +400,7 @@ export function NewHireRequestForm({
   const lookupStatus = lookupResponse?.status;
   const lookupCandidates = lookupResponse?.candidates ?? [];
   const rehireCandidate =
-    form.targetRole === "PICKER"
+    form.targetRole === "PICKER" || form.targetRole === "CHAMP"
       ? lookupCandidates.find((candidate) => candidate.decision === "REHIRE_AVAILABLE")
       : undefined;
   const blockingCandidate = lookupCandidates.find((candidate) =>
@@ -537,7 +537,9 @@ export function NewHireRequestForm({
       return;
     }
     if (lookupStatus === "REHIRE_AVAILABLE" && !selectedRehireUserId) {
-      setError("Select the previous Picker before submitting this Rehire.");
+      setError(
+        `Select the previous ${formatEnum(form.targetRole)} before submitting this Rehire.`
+      );
       return;
     }
     if (blockingCandidate) {
@@ -848,9 +850,9 @@ export function NewHireRequestForm({
       ) : lookupStatus === "REHIRE_AVAILABLE" ? (
         <NewHireFormSection
           description="Previous safe profile data is read-only for Rehire submission."
-          title="Previous Picker"
+          title={`Previous ${formatEnum(form.targetRole)}`}
         >
-          <PreviousPickerCard candidate={rehireCandidate} />
+          <PreviousUserCard candidate={rehireCandidate} />
           <Field label="Notes">
             <Input
               className="h-11 rounded-xl"

@@ -56,6 +56,11 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
   const chainIds = Array.isArray(sourcePayload.chainIds)
     ? sourcePayload.chainIds.filter((value): value is string => typeof value === "string")
     : undefined;
+  const candidateGender =
+    typeof candidatePayload.gender === "string" &&
+    Object.values(Gender).includes(candidatePayload.gender as Gender)
+      ? (candidatePayload.gender as Gender)
+      : undefined;
 
   if (typeof phoneNumber !== "string" || typeof nationalId !== "string") {
     throw new BadRequestException("New Hire request payload is missing identity.");
@@ -109,11 +114,7 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
         typeof candidatePayload.dateOfBirth === "string"
           ? candidatePayload.dateOfBirth
           : undefined,
-      gender:
-        typeof candidatePayload.gender === "string" &&
-        Object.values(Gender).includes(candidatePayload.gender as Gender)
-          ? (candidatePayload.gender as Gender)
-          : Gender.UNSPECIFIED,
+      ...(candidateGender ? { gender: candidateGender } : {}),
       notes:
         typeof candidatePayload.notes === "string"
           ? candidatePayload.notes

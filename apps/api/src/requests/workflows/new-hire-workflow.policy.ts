@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { BlockStatus, UserRole } from "@prisma/client";
 
 export type NewHireTargetRole =
   | Extract<UserRole, "PICKER">
@@ -116,4 +116,34 @@ export function toNewHireLookupStatus(
   }
 
   return "CLEAR";
+}
+
+export function resolveNewHireFinalizationShopperId(
+  targetRole: NewHireTargetRole,
+  requestedShopperId: string | null | undefined,
+  existingShopperId: string | null | undefined
+) {
+  if (targetRole !== UserRole.PICKER) {
+    return null;
+  }
+
+  const requested = requestedShopperId?.trim();
+  if (requested) {
+    return requested;
+  }
+
+  const existing = existingShopperId?.trim();
+  if (existing) {
+    return existing;
+  }
+
+  throw new Error("Shopper ID is required for Picker New Hire.");
+}
+
+export function getRehireBlockNormalizationFields() {
+  return {
+    blockStatus: BlockStatus.NO_BLOCK,
+    blockedUntil: null,
+    blockReason: null
+  };
 }

@@ -13,6 +13,7 @@ export function NewHireLookupResultCard({
   status: NewHireLookupResponse["status"];
 }) {
   const isRehire = status === "REHIRE_AVAILABLE";
+  const roleLabel = candidate?.role ? formatEnum(candidate.role) : "user";
   const title =
     status === "ACTIVE_DUPLICATE"
       ? "Active duplicate found"
@@ -27,11 +28,11 @@ export function NewHireLookupResultCard({
     status === "ACTIVE_DUPLICATE"
       ? "This user already exists and is active. New Hire submission is disabled."
       : status === "TEMPORARY_BLOCKED"
-        ? "This Picker cannot be rehired until the temporary block expires."
+        ? `This ${roleLabel} cannot be rehired until the temporary block expires.`
         : status === "PERMANENT_BLOCKED"
           ? "Admin must remove the permanent block from the user profile before Rehire."
           : isRehire
-            ? "SuperNova found a previous Picker. Submit this as a Rehire without editing old profile data."
+            ? `SuperNova found a previous ${roleLabel}. Submit this as a Rehire without editing old profile data.`
             : "This candidate cannot be hired right now.";
 
   return (
@@ -89,13 +90,13 @@ export function NewHireLookupResultCard({
   );
 }
 
-export function PreviousPickerCard({
+export function PreviousUserCard({
   candidate
 }: {
   candidate?: NewHireLookupCandidate;
 }) {
   if (!candidate) {
-    return <EmptyState message="Previous Picker details are not available." compact />;
+    return <EmptyState message="Previous user details are not available." compact />;
   }
 
   return (

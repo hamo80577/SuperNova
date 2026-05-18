@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 
-import { UserRole } from "@prisma/client";
+import { BlockStatus, UserRole } from "@prisma/client";
 
 import {
+  getRehireBlockNormalizationFields,
   getAllowedNewHireTargetRolesForCreator,
   normalizeNewHireTargetRole,
+  resolveNewHireFinalizationShopperId,
   toNewHireLookupStatus,
   validateEgyptNationalId,
   validateEgyptPhoneNumber,
@@ -92,3 +94,30 @@ const exhaustiveStatusCheck: Record<NewHireLookupStatus, true> = {
   PERMANENT_BLOCKED: true
 };
 assert.equal(Object.keys(exhaustiveStatusCheck).length, 5);
+
+assert.equal(
+  resolveNewHireFinalizationShopperId(UserRole.PICKER, undefined, "SHOP-OLD"),
+  "SHOP-OLD"
+);
+assert.equal(
+  resolveNewHireFinalizationShopperId(UserRole.PICKER, " SHOP-NEW ", "SHOP-OLD"),
+  "SHOP-NEW"
+);
+assert.throws(
+  () => resolveNewHireFinalizationShopperId(UserRole.PICKER, undefined, null),
+  /Shopper ID is required for Picker New Hire/
+);
+assert.equal(
+  resolveNewHireFinalizationShopperId(UserRole.CHAMP, undefined, null),
+  null
+);
+assert.equal(
+  resolveNewHireFinalizationShopperId(UserRole.CHAMP, "IGNORED", "SHOP-OLD"),
+  null
+);
+
+assert.deepEqual(getRehireBlockNormalizationFields(), {
+  blockStatus: BlockStatus.NO_BLOCK,
+  blockedUntil: null,
+  blockReason: null
+});

@@ -62,7 +62,7 @@ export type NewHirePayload = {
     nationalId: string;
     address?: string;
     dateOfBirth?: string;
-    gender: Gender;
+    gender?: Gender;
     notes?: string;
   };
   source: {

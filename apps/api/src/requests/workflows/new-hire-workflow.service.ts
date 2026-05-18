@@ -63,6 +63,12 @@ export class NewHireWorkflowService {
     const targetRole = this.normalizeTargetRole(dto.targetRole);
     this.assertCreatorCanCreateTargetRole(context.actor, targetRole);
 
+    if (dto.rehireUserId && targetRole === UserRole.AREA_MANAGER) {
+      throw new BadRequestException(
+        "Rehire applies to Picker or Champ New Hire only."
+      );
+    }
+
     const candidate = this.normalizeNewHireCandidate(dto);
     const rehireValidation =
       await this.newHireCandidateService.validateNewHireCandidateForCreate(
@@ -302,8 +308,9 @@ export class NewHireWorkflowService {
     const nameAr = dto.nameAr?.trim();
     const address = dto.address?.trim();
     const notes = dto.notes?.trim();
+    const isRehire = Boolean(dto.rehireUserId);
 
-    if (!nameEn && !nameAr) {
+    if (!nameEn && !nameAr && !isRehire) {
       throw new BadRequestException("Candidate English or Arabic name is required.");
     }
 
@@ -318,7 +325,7 @@ export class NewHireWorkflowService {
       ),
       ...(address ? { address } : {}),
       ...(dto.dateOfBirth ? { dateOfBirth: dto.dateOfBirth } : {}),
-      gender: dto.gender ?? Gender.UNSPECIFIED,
+      ...(dto.gender ? { gender: dto.gender } : isRehire ? {} : { gender: Gender.UNSPECIFIED }),
       ...(notes ? { notes } : {})
     };
   }

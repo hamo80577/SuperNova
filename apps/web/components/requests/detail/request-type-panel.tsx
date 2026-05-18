@@ -196,7 +196,10 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
             }
           />
           {context.rehireUserId ? (
-            <ProfileRow label="Previous Picker ID" value={context.rehireUserId} />
+            <ProfileRow
+              label={`Previous ${formatEnum(context.targetRole)} ID`}
+              value={context.rehireUserId}
+            />
           ) : null}
           <ProfileRow label="Notes" value={context.notes ?? "None"} />
         </div>

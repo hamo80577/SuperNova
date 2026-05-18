@@ -11,10 +11,10 @@ import {
   ApprovalStatus,
   ApprovalStep,
   AssignmentStatus,
-  BlockStatus,
   Chain,
   ChainStatus,
   EmploymentStatus,
+  Gender,
   Prisma,
   ProfileStatus,
   RequestStatus,
@@ -41,7 +41,11 @@ import {
   PASSWORD_HASH_ROUNDS,
   TEMPORARY_PASSWORD_EXPIRY_HOURS
 } from "./new-hire-workflow.constants";
-import type { NewHireTargetRole } from "./new-hire-workflow.policy";
+import {
+  getRehireBlockNormalizationFields,
+  resolveNewHireFinalizationShopperId,
+  type NewHireTargetRole
+} from "./new-hire-workflow.policy";
 import type {
   FinalizedAssignment,
   NewHirePayload,
@@ -108,19 +112,12 @@ export class NewHireFinalizationService {
 
     const finalizableTargetRole: Extract<UserRole, "PICKER" | "CHAMP"> =
       payload.targetRole === UserRole.PICKER ? UserRole.PICKER : UserRole.CHAMP;
-    const shopperId = dto.shopperId?.trim() ?? "";
+    const requestedShopperId = dto.shopperId?.trim() ?? "";
     const isPicker = finalizableTargetRole === UserRole.PICKER;
     const isRehire = payload.mode === "REHIRE";
 
-    if (isPicker && !shopperId) {
-      throw new BadRequestException("Shopper ID is required for Picker New Hire.");
-    }
-
-    const [existingShopper, existingPhone, existingNationalId, rehireUser, sourceVendor] =
+    const [existingPhone, existingNationalId, rehireUser, sourceVendor] =
       await Promise.all([
-        isPicker && shopperId
-          ? this.prisma.user.findUnique({ where: { shopperId } })
-          : Promise.resolve(null),
         this.prisma.user.findUnique({
           where: { phoneNumber: payload.candidate.phoneNumber }
         }),
@@ -160,6 +157,21 @@ export class NewHireFinalizationService {
       );
     }
 
+    if (isRehire && !rehireUser) {
+      throw new BadRequestException("Stored Rehire user was not found.");
+    }
+
+    const shopperId = this.resolveFinalizationShopperId(
+      finalizableTargetRole,
+      requestedShopperId,
+      rehireUser?.shopperId ?? null
+    );
+
+    const existingShopper =
+      isPicker && shopperId
+        ? await this.prisma.user.findUnique({ where: { shopperId } })
+        : null;
+
     if (existingShopper && existingShopper.id !== rehireUser?.id) {
       throw new ConflictException("Shopper ID is already assigned to another user.");
     }
@@ -172,16 +184,12 @@ export class NewHireFinalizationService {
       throw new ConflictException("Candidate National ID already belongs to a user.");
     }
 
-    if (isRehire && !rehireUser) {
-      throw new BadRequestException("Stored Rehire Picker was not found.");
-    }
-
     if (isRehire && rehireUser) {
       const rehireCandidate =
         await this.newHireCandidateService.findCandidateUserById(rehireUser.id);
 
       if (!rehireCandidate) {
-        throw new BadRequestException("Stored Rehire Picker was not found.");
+        throw new BadRequestException("Stored Rehire user was not found.");
       }
 
       const rehireValidation = this.newHireCandidateService.evaluateNewHireMatch(
@@ -195,7 +203,7 @@ export class NewHireFinalizationService {
 
       if (rehireValidation.decision !== "REHIRE_AVAILABLE") {
         throw new BadRequestException(
-          rehireValidation.reason ?? "Stored Rehire Picker is not eligible."
+          rehireValidation.reason ?? "Stored Rehire user is not eligible."
         );
       }
     }
@@ -226,9 +234,7 @@ export class NewHireFinalizationService {
                   shopperId,
                   rehireUser
                 ),
-                blockStatus: BlockStatus.NO_BLOCK,
-                blockedUntil: null,
-                blockReason: null
+                ...getRehireBlockNormalizationFields()
               }
             })
           : await tx.user.create({
@@ -284,7 +290,9 @@ export class NewHireFinalizationService {
               payload.targetRole === UserRole.PICKER
                 ? "PickerBranchAssignment"
                 : "VendorChampAssignment",
-            ...(payload.targetRole === UserRole.PICKER ? { shopperId } : {}),
+            ...(payload.targetRole === UserRole.PICKER && shopperId
+              ? { shopperId }
+              : {}),
             completedAt: completedAt.toISOString()
           }
         };
@@ -732,7 +740,7 @@ export class NewHireFinalizationService {
     temporaryPasswordBundle: Awaited<
       ReturnType<NewHireFinalizationService["createTemporaryPasswordBundle"]>
     >,
-    shopperId?: string,
+    shopperId?: string | null,
     existingUser?: User
   ): NewHireUserProfileFields {
     return {
@@ -748,8 +756,11 @@ export class NewHireFinalizationService {
       dateOfBirth: candidate.dateOfBirth
         ? new Date(candidate.dateOfBirth)
         : existingUser?.dateOfBirth ?? null,
-      gender: candidate.gender,
-      shopperId: targetRole === UserRole.PICKER ? (shopperId ?? null) : null,
+      gender: candidate.gender ?? existingUser?.gender ?? Gender.UNSPECIFIED,
+      shopperId:
+        targetRole === UserRole.PICKER
+          ? (shopperId ?? existingUser?.shopperId ?? null)
+          : null,
       joiningDate: new Date(),
       accountStatus: AccountStatus.ACTIVE,
       employmentStatus: EmploymentStatus.ACTIVE,
@@ -922,6 +933,26 @@ export class NewHireFinalizationService {
 
   private isAdmin(user: AuthenticatedUser) {
     return user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
+  }
+
+  private resolveFinalizationShopperId(
+    targetRole: Extract<UserRole, "PICKER" | "CHAMP">,
+    requestedShopperId: string | null | undefined,
+    existingShopperId: string | null | undefined
+  ) {
+    try {
+      return resolveNewHireFinalizationShopperId(
+        targetRole,
+        requestedShopperId,
+        existingShopperId
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   private toFinalizedChainAreaManagerAssignmentResponse(
