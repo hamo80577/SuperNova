@@ -14,8 +14,13 @@ export interface ListUsersParams {
   page?: number;
   pageSize?: number;
   role?: UserRole;
+  roles?: UserRole[];
   status?: UserLookupStatus;
   q?: string;
+  chainId?: string;
+  vendorId?: string;
+  areaManagerId?: string;
+  champId?: string;
 }
 
 export interface ProfileCompletionResponse {
@@ -136,8 +141,13 @@ export const usersApi = {
         page: params.page,
         pageSize: params.pageSize,
         role: params.role,
+        roles: params.roles?.length ? params.roles.join(",") : undefined,
         status: params.status,
-        q: params.q
+        q: params.q,
+        chainId: params.chainId,
+        vendorId: params.vendorId,
+        areaManagerId: params.areaManagerId,
+        champId: params.champId
       })}`
     );
   },

@@ -5,8 +5,9 @@ export default function UsersPage() {
   return (
     <DashboardFrame
       allowedRoles={["CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
-      description="Role-scoped operational users by assignment."
-      title="Users"
+      description=""
+      hideHeaderCopy
+      title=""
     >
       <UsersAreaPage />
     </DashboardFrame>

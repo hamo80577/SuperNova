@@ -3,11 +3,12 @@
 import {
   ArrowRightLeft,
   CalendarDays,
-  Copy,
   Edit3,
+  Infinity as InfinityIcon,
   KeyRound,
   Loader2,
   MessageCircle,
+  MoreHorizontal,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -23,19 +24,28 @@ import {
   type ReactNode
 } from "react";
 
+import { ApprovalStepsIndicator } from "@/components/requests/detail/approval-steps-indicator";
+import { RequestTimeline } from "@/components/requests/detail/request-timeline";
+import { RequestTypePanel } from "@/components/requests/detail/request-type-panel";
+import { parseOffboardingPayload } from "@/components/requests/shared/request-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
-import type { SafeUser } from "@/lib/auth/types";
+import {
+  requestsApi,
+  type RequestDetail
+} from "@/lib/api/requests";
 import {
   usersApi,
   type OperationalProfileAssignment,
   type OperationalProfileResponse,
   type UpdateAdminProfileInput
 } from "@/lib/api/users";
+import type { SafeUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
 type LoadState =
@@ -43,9 +53,14 @@ type LoadState =
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: OperationalProfileResponse; error?: never };
 
+type RequestDetailState =
+  | { status: "loading"; data?: never; error?: never }
+  | { status: "error"; error: string; data?: never }
+  | { status: "ready"; data: RequestDetail; error?: never };
+
 export interface OperationalUserProfileActions {
-  onTransfer?: (user: SafeUser) => void;
-  onResignation?: (user: SafeUser) => void;
+  onTransfer?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
+  onResignation?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
 }
 
 export function OperationalUserProfileModal({
@@ -82,39 +97,39 @@ export function OperationalUserProfileModal({
 
   return (
     <ModalPortal>
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-3"
-      role="dialog"
-    >
-      <div className="flex max-h-[90dvh] w-full max-w-[760px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-        {state.status === "loading" ? (
-          <ProfileShell title="Loading profile" onClose={onClose}>
-            <DetailPanelSkeleton
-              className="border-0 shadow-none"
-              label="Loading profile"
+      <div
+        aria-modal="true"
+        className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-2 sm:p-4"
+        role="dialog"
+      >
+        <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
+          {state.status === "loading" ? (
+            <ProfileShell title="Loading profile" onClose={onClose}>
+              <DetailPanelSkeleton
+                className="border-0 shadow-none"
+                label="Loading profile"
+              />
+            </ProfileShell>
+          ) : state.status === "error" ? (
+            <ProfileShell title="Profile unavailable" onClose={onClose}>
+              <CenteredState
+                action={<Button onClick={() => void loadProfile()}>Retry</Button>}
+                label={state.error}
+              />
+            </ProfileShell>
+          ) : (
+            <ProfileContent
+              actions={actions}
+              onClose={onClose}
+              onReload={() => {
+                void loadProfile();
+                onUpdated?.();
+              }}
+              profile={state.data}
             />
-          </ProfileShell>
-        ) : state.status === "error" ? (
-          <ProfileShell title="Profile unavailable" onClose={onClose}>
-            <CenteredState
-              action={<Button onClick={() => void loadProfile()}>Retry</Button>}
-              label={state.error}
-            />
-          </ProfileShell>
-        ) : (
-          <ProfileContent
-            actions={actions}
-            onClose={onClose}
-            onReload={() => {
-              void loadProfile();
-              onUpdated?.();
-            }}
-            profile={state.data}
-          />
-        )}
+          )}
+        </div>
       </div>
-    </div>
     </ModalPortal>
   );
 }
@@ -130,6 +145,7 @@ function ProfileContent({
   onReload: () => void;
   profile: OperationalProfileResponse;
 }) {
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const user = profile.user;
   const whatsappHref = `https://wa.me/${normalizePhoneForWhatsapp(user.phoneNumber)}`;
 
@@ -138,8 +154,8 @@ function ProfileContent({
       <div className="border-b border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-orange-50 text-orange-700 ring-1 ring-orange-100">
-              <UserRound className="h-8 w-8" />
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl bg-orange-50 text-orange-700 ring-1 ring-orange-100 sm:h-16 sm:w-16">
+              <UserRound className="h-7 w-7 sm:h-8 sm:w-8" />
             </div>
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap gap-1.5">
@@ -149,91 +165,218 @@ function ProfileContent({
                 <Badge variant="muted">{formatEnum(user.accountStatus)}</Badge>
                 <Badge variant="outline">{formatEnum(user.employmentStatus)}</Badge>
               </div>
-              <h2 className="truncate text-2xl font-semibold tracking-normal text-slate-950">
+              <h2 className="truncate text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
                 {user.nameEn}
               </h2>
               <p className="truncate text-sm text-slate-500">
-                {profile.currentPickerAssignment?.vendor?.vendorName ??
-                  profile.champAssignments[0]?.vendor?.vendorName ??
-                  "SuperNova profile"}
+                {getPrimaryAssignmentLabel(profile)}
               </p>
             </div>
           </div>
-          <Button
-            aria-label="Close user profile"
-            className="h-11 w-11 rounded-2xl p-0"
-            onClick={onClose}
-            type="button"
-            variant="outline"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <ProfileHeaderActions
+              actions={actions}
+              onPassword={() => setPasswordOpen(true)}
+              profile={profile}
+            />
+            <Button
+              aria-label="Close user profile"
+              className="h-11 w-11 rounded-2xl p-0"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 sm:p-5">
         {user.role === "CHAMP" ? (
           <ChampProfileCard
-            actions={actions}
             onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
           />
         ) : user.role === "AREA_MANAGER" ? (
           <AreaManagerProfileCard
-            actions={actions}
             onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
           />
         ) : (
           <PickerProfileCard
-            actions={actions}
             onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
           />
         )}
       </div>
+
+      {passwordOpen ? (
+        <PasswordDialog
+          onClose={() => setPasswordOpen(false)}
+          profile={profile}
+        />
+      ) : null}
     </>
   );
 }
 
-function PickerProfileCard({
+function ProfileHeaderActions({
   actions,
+  onPassword,
+  profile
+}: {
+  actions?: OperationalUserProfileActions;
+  onPassword: () => void;
+  profile: OperationalProfileResponse;
+}) {
+  const [open, setOpen] = useState(false);
+  const user = profile.user;
+  const canTransfer = user.role === "PICKER" && Boolean(actions?.onTransfer);
+  const canResign =
+    (user.role === "PICKER" ||
+      user.role === "CHAMP" ||
+      user.role === "AREA_MANAGER") &&
+    Boolean(actions?.onResignation);
+  const canPassword = hasPasswordAccess(profile);
+
+  if (!canTransfer && !canResign && !canPassword) {
+    return null;
+  }
+
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={open}
+        aria-label="Open profile actions"
+        className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
+          {canTransfer ? (
+            <HeaderMenuAction
+              icon={<ArrowRightLeft className="h-4 w-4" />}
+              label="Transfer"
+              onClick={() => {
+                setOpen(false);
+                actions?.onTransfer?.(user, profile);
+              }}
+              tone="blue"
+            />
+          ) : null}
+          {canResign ? (
+            <HeaderMenuAction
+              icon={<UserMinus className="h-4 w-4" />}
+              label="Resign"
+              onClick={() => {
+                setOpen(false);
+                actions?.onResignation?.(user, profile);
+              }}
+              tone="red"
+            />
+          ) : null}
+          {canPassword ? (
+            <HeaderMenuAction
+              icon={<KeyRound className="h-4 w-4" />}
+              label="Password"
+              onClick={() => {
+                setOpen(false);
+                onPassword();
+              }}
+              tone="slate"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HeaderMenuAction({
+  icon,
+  label,
+  onClick,
+  tone
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  tone: "blue" | "red" | "slate";
+}) {
+  return (
+    <button
+      className={cn(
+        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+        tone === "blue" && "text-blue-700 hover:bg-blue-50",
+        tone === "red" && "text-red-700 hover:bg-red-50",
+        tone === "slate" && "text-slate-700 hover:bg-slate-50"
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function PickerProfileCard({
   onReload,
   profile,
   whatsappHref
 }: {
-  actions?: OperationalUserProfileActions;
   onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
+  const [tab, setTab] = useState<"profile" | "requests" | "activity">("profile");
   const user = profile.user;
 
   return (
     <div className="grid gap-4">
-      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
-      <PasswordPanel onReload={onReload} profile={profile} />
-      <ProfileActions actions={actions} user={user} />
-      {profile.permissions.canEditProfile ? (
-        <AdminEditPanel onReload={onReload} user={user} />
+      <ProfileTabs
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "profile", label: "Profile" },
+          { id: "requests", label: "Related Requests" },
+          { id: "activity", label: "Recent Activity" }
+        ]}
+      />
+
+      {tab === "profile" ? (
+        <div className="grid gap-4">
+          <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          <ResignationStatusSection profile={profile} />
+          {profile.permissions.canEditProfile ? (
+            <AdminEditPanel onReload={onReload} user={user} />
+          ) : (
+            <ReadOnlyDetails profile={profile} />
+          )}
+        </div>
+      ) : tab === "requests" ? (
+        <RelatedRequestsPanel profile={profile} />
       ) : (
-        <ReadOnlyDetails profile={profile} />
+        <ActivityPanel profile={profile} />
       )}
-      <ActivityPanel profile={profile} />
     </div>
   );
 }
 
 function ChampProfileCard({
-  actions,
   onReload,
   profile,
   whatsappHref
 }: {
-  actions?: OperationalUserProfileActions;
   onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
@@ -243,9 +386,6 @@ function ChampProfileCard({
 
   return (
     <div className="grid gap-4">
-      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
-      <PasswordPanel onReload={onReload} profile={profile} />
-      <ProfileActions actions={actions} user={user} />
       <ProfileTabs
         active={tab}
         onChange={setTab}
@@ -256,11 +396,14 @@ function ChampProfileCard({
         ]}
       />
       {tab === "overview" ? (
-        profile.permissions.canEditProfile ? (
-          <AdminEditPanel onReload={onReload} user={user} />
-        ) : (
-          <ReadOnlyDetails profile={profile} />
-        )
+        <div className="grid gap-4">
+          <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          {profile.permissions.canEditProfile ? (
+            <AdminEditPanel onReload={onReload} user={user} />
+          ) : (
+            <ReadOnlyDetails profile={profile} />
+          )}
+        </div>
       ) : tab === "branches" ? (
         <AssignmentList
           assignments={profile.champAssignments}
@@ -275,12 +418,10 @@ function ChampProfileCard({
 }
 
 function AreaManagerProfileCard({
-  actions,
   onReload,
   profile,
   whatsappHref
 }: {
-  actions?: OperationalUserProfileActions;
   onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
@@ -290,9 +431,6 @@ function AreaManagerProfileCard({
 
   return (
     <div className="grid gap-4">
-      <ProfileMetricGrid profile={profile} whatsappHref={whatsappHref} />
-      <PasswordPanel onReload={onReload} profile={profile} />
-      <ProfileActions actions={actions} user={user} />
       <ProfileTabs
         active={tab}
         onChange={setTab}
@@ -303,11 +441,14 @@ function AreaManagerProfileCard({
         ]}
       />
       {tab === "overview" ? (
-        profile.permissions.canEditProfile ? (
-          <AdminEditPanel onReload={onReload} user={user} />
-        ) : (
-          <ReadOnlyDetails profile={profile} />
-        )
+        <div className="grid gap-4">
+          <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          {profile.permissions.canEditProfile ? (
+            <AdminEditPanel onReload={onReload} user={user} />
+          ) : (
+            <ReadOnlyDetails profile={profile} />
+          )}
+        </div>
       ) : tab === "chains" ? (
         <AssignmentList
           assignments={profile.areaManagerAssignments}
@@ -321,7 +462,7 @@ function AreaManagerProfileCard({
   );
 }
 
-function ProfileMetricGrid({
+function ProfileSummaryPanel({
   profile,
   whatsappHref
 }: {
@@ -331,28 +472,76 @@ function ProfileMetricGrid({
   const user = profile.user;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <MetricCard icon={<MessageCircle className="h-4 w-4" />} label="Phone" value={user.phoneNumber}>
-        <a
-          aria-label="Open WhatsApp chat"
-          className="grid h-9 w-9 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-          href={whatsappHref}
-          rel="noreferrer"
-          target="_blank"
-        >
-          <MessageCircle className="h-4 w-4" />
-        </a>
-      </MetricCard>
-      <MetricCard
-        icon={<CalendarDays className="h-4 w-4" />}
-        label="Worked days"
-        value={profile.workedDays === null ? "Not set" : String(profile.workedDays)}
-      />
-      <MetricCard
-        icon={<ShieldCheck className="h-4 w-4" />}
-        label="Profile"
-        value={formatEnum(user.profileStatus)}
-      />
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold text-slate-950">Overview</h3>
+        <p className="text-sm text-slate-500">
+          Core account and current assignment context.
+        </p>
+      </div>
+      <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+        <InfoRow
+          icon={<MessageCircle className="h-4 w-4" />}
+          label="Phone"
+          value={user.phoneNumber}
+          action={
+            <a
+              aria-label="Open WhatsApp chat"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.98]"
+              href={whatsappHref}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </a>
+          }
+        />
+        <InfoRow
+          icon={<CalendarDays className="h-4 w-4" />}
+          label="Worked days"
+          value={profile.workedDays === null ? "Not set" : String(profile.workedDays)}
+        />
+        <InfoRow
+          icon={<ShieldCheck className="h-4 w-4" />}
+          label="Profile"
+          value={formatEnum(user.profileStatus)}
+        />
+        <InfoRow
+          icon={<UserRound className="h-4 w-4" />}
+          label="Current assignment"
+          value={getPrimaryAssignmentLabel(profile)}
+        />
+      </div>
+    </section>
+  );
+}
+
+function InfoRow({
+  action,
+  icon,
+  label,
+  value
+}: {
+  action?: ReactNode;
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+          <p className="mt-1 break-words text-sm font-semibold text-slate-950">
+            {value}
+          </p>
+        </div>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }
@@ -367,13 +556,19 @@ function ProfileTabs<TabId extends string>({
   tabs: Array<{ id: TabId; label: string }>;
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3">
+    <div
+      className={cn(
+        "grid gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm",
+        tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"
+      )}
+    >
       {tabs.map((tab) => (
         <button
+          aria-selected={active === tab.id}
           className={cn(
-            "min-h-10 rounded-xl px-3 text-sm font-semibold transition",
+            "min-h-11 min-w-0 rounded-xl px-2 py-2 text-center text-xs font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:text-sm",
             active === tab.id
-              ? "bg-orange-50 text-orange-700"
+              ? "bg-slate-950 text-white shadow-sm"
               : "text-slate-600 hover:bg-slate-50"
           )}
           key={tab.id}
@@ -397,7 +592,7 @@ function AssignmentList({
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       <div className="mt-3 grid gap-2">
         {assignments.length ? (
@@ -428,10 +623,11 @@ function AssignmentList({
   );
 }
 
-function PasswordPanel({
+function PasswordDialog({
+  onClose,
   profile
 }: {
-  onReload: () => void;
+  onClose: () => void;
   profile: OperationalProfileResponse;
 }) {
   const [temporaryPassword, setTemporaryPassword] = useState("");
@@ -503,162 +699,344 @@ function PasswordPanel({
     });
   }
 
-  async function copyTemporaryPassword() {
-    if (!temporaryPassword) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(temporaryPassword);
-      setMessage("Temporary password copied.");
-    } catch {
-      setError("Unable to copy temporary password.");
-    }
-  }
-
-  if (
-    !profile.permissions.canResetPassword &&
-    !profile.permissions.canRegenerateTemporaryPassword &&
-    !profile.permissions.canReadTemporaryPassword
-  ) {
-    return null;
-  }
-
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-950">Password access</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            {canReveal
-              ? "Temporary password can be revealed only while the user must change it."
-              : profile.password.mustChangePassword
-                ? "Temporary password is unavailable or expired. Reset to issue a new one."
-              : "Reset creates a temporary password and requires change on next login."}
-          </p>
-          {temporaryPasswordExpiresAt ? (
-            <p className="mt-1 text-xs text-slate-500">
-              Available until {new Date(temporaryPasswordExpiresAt).toLocaleString()}
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-[180] grid place-items-center bg-slate-950/50 p-3"
+      role="dialog"
+    >
+      <section className="w-full max-w-lg rounded-[24px] border border-slate-200 bg-white p-4 shadow-2xl sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-950">
+              Password access
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Temporary password can be revealed only while the user must change it.
             </p>
-          ) : null}
-        </div>
-        <KeyRound className="h-5 w-5 text-orange-600" />
-      </div>
-      {temporaryPassword ? (
-        <div className="mt-4 grid gap-3">
-          <div className="flex gap-2">
-            <Input
-              className="h-11 rounded-xl font-mono"
-              readOnly
-              value={temporaryPassword}
-            />
-            <Button
-              aria-label="Copy temporary password"
-              className="h-11 w-11 rounded-xl p-0"
-              disabled={isPending}
-              onClick={() => void copyTemporaryPassword()}
-              type="button"
-              variant="outline"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+            {temporaryPasswordExpiresAt ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Available until {new Date(temporaryPasswordExpiresAt).toLocaleString()}
+              </p>
+            ) : null}
           </div>
-          {canReset ? (
-            <Button
-              className="h-11 rounded-xl"
-              disabled={isPending}
-              onClick={resetTemporaryPassword}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reset temporary password
-            </Button>
-          ) : null}
-        </div>
-      ) : canReveal ? (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Button
-            className="h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-            disabled={isPending}
-            onClick={revealTemporaryPassword}
+            aria-label="Close password access"
+            className="h-10 w-10 rounded-xl p-0"
+            onClick={onClose}
             type="button"
             variant="outline"
           >
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-            Reveal temporary password
+            <X className="h-4 w-4" />
           </Button>
-          {canReset ? (
+        </div>
+
+        {temporaryPassword ? (
+          <div className="mt-4 grid gap-3">
+            <div className="flex gap-2">
+              <Input
+                className="h-11 min-w-0 rounded-xl font-mono"
+                readOnly
+                value={temporaryPassword}
+              />
+              <CopyButton
+                aria-label="Copy temporary password"
+                className="h-11 w-11 shrink-0 p-0"
+                text={temporaryPassword}
+              />
+            </div>
+            {canReset ? (
+              <Button
+                className="h-11 rounded-xl"
+                disabled={isPending}
+                onClick={resetTemporaryPassword}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reset temporary password
+              </Button>
+            ) : null}
+          </div>
+        ) : canReveal ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Button
-              className="h-11 rounded-xl"
+              className="h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
               disabled={isPending}
-              onClick={resetTemporaryPassword}
+              onClick={revealTemporaryPassword}
               type="button"
               variant="outline"
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Reset temporary password
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="mr-2 h-4 w-4" />
+              )}
+              Reveal temporary password
             </Button>
-          ) : null}
-        </div>
-      ) : (
-        <Button
-          className="mt-4 h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-          disabled={isPending || !canReset}
-          onClick={resetTemporaryPassword}
-          type="button"
-          variant="outline"
-        >
-          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-          Reset temporary password
-        </Button>
-      )}
-      {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+            {canReset ? (
+              <Button
+                className="h-11 rounded-xl"
+                disabled={isPending}
+                onClick={resetTemporaryPassword}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Reset temporary password
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <Button
+            className="mt-4 h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+            disabled={isPending || !canReset}
+            onClick={resetTemporaryPassword}
+            type="button"
+            variant="outline"
+          >
+            {isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="mr-2 h-4 w-4" />
+            )}
+            Reset temporary password
+          </Button>
+        )}
+        {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
+        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+      </section>
+    </div>
+  );
+}
+
+function ResignationStatusSection({
+  profile
+}: {
+  profile: OperationalProfileResponse;
+}) {
+  const [detail, setDetail] = useState<RequestDetail | null>(null);
+  const user = profile.user;
+  const resignationRequest = profile.recentRequests.find(
+    (request) => request.type === "RESIGNATION"
+  );
+  const visible =
+    user.employmentStatus === "RESIGNED" ||
+    user.employmentStatus === "ARCHIVED" ||
+    user.accountStatus === "ARCHIVED" ||
+    user.blockStatus !== "NO_BLOCK";
+
+  useEffect(() => {
+    if (!visible || !resignationRequest) {
+      return;
+    }
+
+    let alive = true;
+    requestsApi
+      .get(resignationRequest.id)
+      .then((request) => {
+        if (alive) setDetail(request);
+      })
+      .catch(() => {
+        if (alive) setDetail(null);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [resignationRequest?.id, visible]);
+
+  if (!visible) {
+    return null;
+  }
+
+  const payload = detail ? parseOffboardingPayload(detail.payload) : null;
+
+  return (
+    <section className="rounded-2xl border border-red-100 bg-red-50/60 p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-red-950">Resignation status</h3>
+        <Badge className="border-red-200 bg-white text-red-700" variant="outline">
+          {formatEnum(user.employmentStatus)}
+        </Badge>
+      </div>
+      <div className="mt-3 grid gap-2 text-sm text-red-950">
+        {payload?.reason ? (
+          <p>
+            <span className="font-semibold">Reason:</span> {payload.reason}
+          </p>
+        ) : null}
+        {payload?.reasonDetails ? (
+          <p>
+            <span className="font-semibold">Notes:</span> {payload.reasonDetails}
+          </p>
+        ) : null}
+        {user.resignationDate ? (
+          <p>
+            <span className="font-semibold">Resignation date:</span>{" "}
+            {formatDate(user.resignationDate)}
+          </p>
+        ) : null}
+        {user.blockStatus !== "NO_BLOCK" ? (
+          <p className="flex flex-wrap items-center gap-1.5">
+            <span className="font-semibold">Block:</span>
+            {formatEnum(user.blockStatus)}
+            {user.blockStatus === "TEMPORARY_BLOCK" && user.blockedUntil ? (
+              <span>until {formatDate(user.blockedUntil)}</span>
+            ) : null}
+            {user.blockStatus === "PERMANENT_BLOCK" ? (
+              <InfinityIcon className="h-4 w-4" />
+            ) : null}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }
 
-function ProfileActions({
-  actions,
-  user
+function RelatedRequestsPanel({
+  profile
 }: {
-  actions?: OperationalUserProfileActions;
-  user: SafeUser;
+  profile: OperationalProfileResponse;
 }) {
-  if (!actions) {
-    return null;
-  }
-
-  const canTransfer = user.role === "PICKER" && Boolean(actions.onTransfer);
-  const canResign =
-    (user.role === "PICKER" ||
-      user.role === "CHAMP" ||
-      user.role === "AREA_MANAGER") &&
-    Boolean(actions.onResignation);
-
-  if (!canTransfer && !canResign) {
-    return null;
-  }
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   return (
-    <section className="grid gap-2 sm:grid-cols-2">
-      {canTransfer ? (
-        <ActionButton
-          icon={<ArrowRightLeft className="h-4 w-4" />}
-          label="Transfer"
-          onClick={() => actions.onTransfer?.(user)}
-          tone="blue"
-        />
-      ) : null}
-      {canResign ? (
-        <ActionButton
-          icon={<UserMinus className="h-4 w-4" />}
-          label="Resign"
-          onClick={() => actions.onResignation?.(user)}
-          tone="red"
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-slate-950">Related Requests</h3>
+      <div className="mt-3 grid gap-2">
+        {profile.recentRequests.length ? (
+          profile.recentRequests.map((request) => (
+            <button
+              className={cn(
+                "w-full rounded-2xl border p-3 text-left transition hover:border-orange-200 hover:bg-orange-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                isOpenRequest(request.status)
+                  ? "border-orange-200 bg-orange-50/50"
+                  : "border-slate-200 bg-white"
+              )}
+              key={request.id}
+              onClick={() => setSelectedRequestId(request.id)}
+              type="button"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-950">
+                    {formatEnum(request.type)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {request.currentStep ? formatEnum(request.currentStep) : "No active step"} ·{" "}
+                    {formatDateTime(request.createdAt)}
+                  </p>
+                </div>
+                <Badge variant={isOpenRequest(request.status) ? "outline" : "muted"}>
+                  {formatEnum(request.status)}
+                </Badge>
+              </div>
+              <p className="mt-2 truncate text-xs text-slate-500">
+                {request.sourceVendor?.vendorName ?? "No source Branch"}
+                {request.destinationVendor
+                  ? ` -> ${request.destinationVendor.vendorName}`
+                  : ""}
+              </p>
+            </button>
+          ))
+        ) : (
+          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+            No related requests found for this user.
+          </p>
+        )}
+      </div>
+
+      {selectedRequestId ? (
+        <RequestDetailOverlay
+          onClose={() => setSelectedRequestId(null)}
+          requestId={selectedRequestId}
         />
       ) : null}
     </section>
+  );
+}
+
+function RequestDetailOverlay({
+  onClose,
+  requestId
+}: {
+  onClose: () => void;
+  requestId: string;
+}) {
+  const [state, setState] = useState<RequestDetailState>({ status: "loading" });
+
+  useEffect(() => {
+    let alive = true;
+    setState({ status: "loading" });
+    requestsApi
+      .get(requestId)
+      .then((request) => {
+        if (alive) setState({ status: "ready", data: request });
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setState({
+          status: "error",
+          error:
+            error instanceof Error ? error.message : "Unable to load request detail."
+        });
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [requestId]);
+
+  return (
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-[190] grid place-items-center bg-slate-950/55 p-3"
+      role="dialog"
+    >
+      <section className="flex max-h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-slate-400">
+              Request detail
+            </p>
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-slate-950">
+                {requestId}
+              </h3>
+              <CopyButton
+                aria-label="Copy request ID"
+                size="sm"
+                text={requestId}
+              />
+            </div>
+          </div>
+          <Button
+            aria-label="Close request detail"
+            className="h-10 w-10 rounded-xl p-0"
+            onClick={onClose}
+            type="button"
+            variant="outline"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {state.status === "loading" ? (
+            <DetailPanelSkeleton label="Loading request" />
+          ) : state.status === "error" ? (
+            <CenteredState label={state.error} />
+          ) : (
+            <div className="grid gap-4">
+              <ApprovalStepsIndicator request={state.data} />
+              <RequestTypePanel request={state.data} />
+              <RequestTimeline items={state.data.timeline} />
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -703,7 +1081,7 @@ function AdminEditPanel({
 
   if (!editing) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-slate-950">Profile data</h3>
           <Button
@@ -780,7 +1158,7 @@ function AdminEditPanel({
 
 function ReadOnlyDetails({ profile }: { profile: OperationalProfileResponse }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-950">Profile data</h3>
       <ProfileRows user={profile.user} />
     </section>
@@ -806,11 +1184,11 @@ function ActivityPanel({
       }));
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       <div className="mt-3 grid gap-2">
         {items.length ? (
-          items.slice(0, 5).map((item) => (
+          items.slice(0, 8).map((item) => (
             <div className="flex gap-3 rounded-xl bg-slate-50 p-3" key={item.id}>
               <div className="mt-1 h-2.5 w-2.5 rounded-full bg-orange-500" />
               <div className="min-w-0">
@@ -875,92 +1253,55 @@ function CenteredState({
   );
 }
 
-function MetricCard({
-  children,
-  icon,
-  label,
-  value
-}: {
-  children?: ReactNode;
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-h-[92px] items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-      <div className="min-w-0">
-        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
-          {icon}
-          {label}
-        </div>
-        <p className="truncate text-base font-semibold text-slate-950">{value}</p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onClick,
-  tone
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  tone: "blue" | "amber" | "red";
-}) {
-  return (
-    <Button
-      className={cn(
-        "h-12 rounded-2xl border bg-white",
-        tone === "blue" && "border-blue-200 text-blue-700 hover:bg-blue-50",
-        tone === "amber" && "border-amber-200 text-amber-700 hover:bg-amber-50",
-        tone === "red" && "border-red-200 text-red-700 hover:bg-red-50"
-      )}
-      disabled={!onClick}
-      onClick={onClick}
-      type="button"
-      variant="outline"
-    >
-      {icon}
-      <span className="ml-2">{label}</span>
-    </Button>
-  );
-}
-
 function ProfileRows({ user }: { user: SafeUser }) {
   return (
-    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+    <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <ProfileRow label="English name" value={user.nameEn} />
       <ProfileRow label="Arabic name" value={user.nameAr ?? "Not set"} />
-      <ProfileRow label="Shopper ID" value={user.shopperId ?? "Not set"} />
-      <ProfileRow label="IBS ID" value={user.ibsId ?? "Not set"} />
+      <ProfileRow
+        copyValue={user.shopperId ?? undefined}
+        label="Shopper ID"
+        value={user.shopperId ?? "Not set"}
+      />
+      <ProfileRow
+        copyValue={user.ibsId ?? undefined}
+        label="IBS ID"
+        value={user.ibsId ?? "Not set"}
+      />
       <ProfileRow label="National ID" value={user.nationalId ?? "Not set"} />
       <ProfileRow label="Gender" value={formatEnum(user.gender)} />
       <ProfileRow label="Date of birth" value={formatDate(user.dateOfBirth)} />
       <ProfileRow label="Joining date" value={formatDate(user.joiningDate)} />
       <ProfileRow label="Last login" value={formatDateTime(user.lastLoginAt)} />
       <ProfileRow label="Block status" value={formatEnum(user.blockStatus)} />
-      <ProfileRow className="sm:col-span-2" label="Address" value={user.address ?? "Not set"} />
+      <ProfileRow label="Address" value={user.address ?? "Not set"} />
     </div>
   );
 }
 
 function ProfileRow({
-  className,
+  copyValue,
   label,
   value
 }: {
-  className?: string;
+  copyValue?: string;
   label: string;
   value: string;
 }) {
   return (
-    <div className={cn("rounded-xl border border-slate-200 bg-slate-50 px-3 py-2", className)}>
-      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-slate-950">{value}</p>
+    <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
+        <p className="mt-1 break-words text-sm font-medium text-slate-950">{value}</p>
+      </div>
+      {copyValue ? (
+        <CopyButton
+          aria-label={`Copy ${label}`}
+          label="Copy"
+          size="sm"
+          text={copyValue}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1006,6 +1347,31 @@ function toEditForm(user: SafeUser): UpdateAdminProfileInput {
 
 function toDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function hasPasswordAccess(profile: OperationalProfileResponse) {
+  return (
+    profile.permissions.canResetPassword ||
+    profile.permissions.canRegenerateTemporaryPassword ||
+    profile.permissions.canReadTemporaryPassword
+  );
+}
+
+function getPrimaryAssignmentLabel(profile: OperationalProfileResponse) {
+  if (profile.currentPickerAssignment?.vendor) {
+    return profile.currentPickerAssignment.vendor.vendorName;
+  }
+  if (profile.champAssignments[0]?.vendor) {
+    return profile.champAssignments[0].vendor!.vendorName;
+  }
+  if (profile.areaManagerAssignments[0]?.chain) {
+    return profile.areaManagerAssignments[0].chain.chainName;
+  }
+  return "No active assignment";
+}
+
+function isOpenRequest(status: string) {
+  return status !== "COMPLETED" && status !== "REJECTED" && status !== "CANCELLED";
 }
 
 function formatEnum(value: string) {

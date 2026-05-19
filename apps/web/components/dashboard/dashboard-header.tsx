@@ -18,6 +18,7 @@ type DashboardHeaderUser = {
 export function DashboardHeader({
   activeNotificationAction,
   description,
+  hideHeaderCopy = false,
   isCollapsed,
   isNotificationsOpen,
   isScrolled,
@@ -41,6 +42,7 @@ export function DashboardHeader({
 }: {
   activeNotificationAction: string | null;
   description: string;
+  hideHeaderCopy?: boolean;
   isCollapsed: boolean;
   isNotificationsOpen: boolean;
   isScrolled: boolean;
@@ -90,29 +92,31 @@ export function DashboardHeader({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <PanelLeft className="hidden h-4 w-4 text-primary sm:block lg:hidden" />
-              <h1
+          {!hideHeaderCopy ? (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <PanelLeft className="hidden h-4 w-4 text-primary sm:block lg:hidden" />
+                <h1
+                  className={cn(
+                    "truncate font-semibold tracking-normal text-slate-800 transition-[font-size,line-height,opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none",
+                    isScrolled
+                      ? "translate-y-0 text-lg leading-6 opacity-95 sm:text-xl sm:leading-7"
+                      : "translate-y-[1px] text-[28px] leading-8 opacity-100 sm:text-[34px] sm:leading-10"
+                  )}
+                >
+                  {title}
+                </h1>
+              </div>
+              <p
                 className={cn(
-                  "truncate font-semibold tracking-normal text-slate-800 transition-[font-size,line-height,opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none",
-                  isScrolled
-                    ? "translate-y-0 text-lg leading-6 opacity-95 sm:text-xl sm:leading-7"
-                    : "translate-y-[1px] text-[28px] leading-8 opacity-100 sm:text-[34px] sm:leading-10"
+                  "mt-0.5 line-clamp-2 max-h-10 text-xs leading-5 text-slate-500 transition-[opacity,max-height] duration-200 sm:text-sm",
+                  isScrolled && "max-h-0 overflow-hidden opacity-0"
                 )}
               >
-                {title}
-              </h1>
+                {description}
+              </p>
             </div>
-            <p
-              className={cn(
-                "mt-0.5 line-clamp-2 max-h-10 text-xs leading-5 text-slate-500 transition-[opacity,max-height] duration-200 sm:text-sm",
-                isScrolled && "max-h-0 overflow-hidden opacity-0"
-              )}
-            >
-              {description}
-            </p>
-          </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">

@@ -832,22 +832,210 @@ export class UsersService {
 
   private buildWhere(query: ListUsersQueryDto): Prisma.UserWhereInput {
     const search = query.q?.trim();
+    const and: Prisma.UserWhereInput[] = [];
 
-    return {
-      role: query.role,
-      accountStatus: query.status,
-      ...(search
-        ? {
-            OR: [
-              { nameEn: { contains: search, mode: "insensitive" } },
-              { nameAr: { contains: search, mode: "insensitive" } },
-              { phoneNumber: { contains: search, mode: "insensitive" } },
-              { ibsId: { contains: search, mode: "insensitive" } },
-              { shopperId: { contains: search, mode: "insensitive" } }
-            ]
+    const roleFilter = this.buildRoleFilter(query);
+    if (roleFilter) {
+      and.push(roleFilter);
+    }
+
+    if (query.status) {
+      and.push({ accountStatus: query.status });
+    }
+
+    if (search) {
+      and.push({
+        OR: [
+          { nameEn: { contains: search, mode: "insensitive" } },
+          { nameAr: { contains: search, mode: "insensitive" } },
+          { phoneNumber: { contains: search, mode: "insensitive" } },
+          { ibsId: { contains: search, mode: "insensitive" } },
+          { shopperId: { contains: search, mode: "insensitive" } }
+        ]
+      });
+    }
+
+    const assignmentFilter = this.buildAssignmentScopeFilter(query);
+    if (assignmentFilter) {
+      and.push(assignmentFilter);
+    }
+
+    return and.length ? { AND: and } : {};
+  }
+
+  private buildRoleFilter(query: ListUsersQueryDto): Prisma.UserWhereInput | null {
+    const roles = this.normalizeRoleList(query.roles);
+    if (!roles.length && query.role) {
+      roles.push(query.role);
+    }
+
+    if (!roles.length) {
+      return null;
+    }
+
+    if (roles.length === 1) {
+      return { role: roles[0] };
+    }
+
+    return { role: { in: roles } };
+  }
+
+  private normalizeRoleList(roles: ListUsersQueryDto["roles"]): UserRole[] {
+    if (!roles) {
+      return [];
+    }
+
+    if (Array.isArray(roles)) {
+      return roles;
+    }
+
+    return String(roles)
+      .split(",")
+      .map((role) => role.trim())
+      .filter((role): role is UserRole =>
+        Object.values(UserRole).includes(role as UserRole)
+      );
+  }
+
+  private buildAssignmentScopeFilter(
+    query: ListUsersQueryDto
+  ): Prisma.UserWhereInput | null {
+    const and: Prisma.UserWhereInput[] = [];
+
+    if (query.chainId) {
+      and.push({
+        OR: [
+          {
+            role: UserRole.PICKER,
+            pickerBranchAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendor: { chainId: query.chainId }
+              }
+            }
+          },
+          {
+            role: UserRole.CHAMP,
+            vendorChampAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendor: { chainId: query.chainId }
+              }
+            }
+          },
+          {
+            role: UserRole.AREA_MANAGER,
+            chainAreaManagerAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                chainId: query.chainId
+              }
+            }
           }
-        : {})
-    };
+        ]
+      });
+    }
+
+    if (query.vendorId) {
+      and.push({
+        OR: [
+          {
+            role: UserRole.PICKER,
+            pickerBranchAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendorId: query.vendorId
+              }
+            }
+          },
+          {
+            role: UserRole.CHAMP,
+            vendorChampAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendorId: query.vendorId
+              }
+            }
+          }
+        ]
+      });
+    }
+
+    if (query.areaManagerId) {
+      and.push({
+        OR: [
+          {
+            role: UserRole.PICKER,
+            pickerBranchAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendor: {
+                  chain: {
+                    areaManagerAssignments: {
+                      some: {
+                        areaManagerId: query.areaManagerId,
+                        status: AssignmentStatus.ACTIVE
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            role: UserRole.CHAMP,
+            vendorChampAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendor: {
+                  chain: {
+                    areaManagerAssignments: {
+                      some: {
+                        areaManagerId: query.areaManagerId,
+                        status: AssignmentStatus.ACTIVE
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            role: UserRole.AREA_MANAGER,
+            id: query.areaManagerId
+          }
+        ]
+      });
+    }
+
+    if (query.champId) {
+      and.push({
+        OR: [
+          {
+            role: UserRole.PICKER,
+            pickerBranchAssignments: {
+              some: {
+                status: AssignmentStatus.ACTIVE,
+                vendor: {
+                  champAssignments: {
+                    some: {
+                      champId: query.champId,
+                      status: AssignmentStatus.ACTIVE
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            role: UserRole.CHAMP,
+            id: query.champId
+          }
+        ]
+      });
+    }
+
+    return and.length ? { AND: and } : null;
   }
 
   private async getPickerForProfileCompletion(userId: string) {

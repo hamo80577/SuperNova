@@ -46,6 +46,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/app/admin/users/page.tsx`
   - `apps/web/components/users/users-area-page.tsx`
   - `apps/web/components/users/operational-user-profile-modal.tsx`
+  - `apps/web/components/ui/copy-button.tsx`
   - `apps/web/components/admin/admin-users-page.tsx`
   - `apps/web/lib/api/users.ts`
 - Main API files:
@@ -60,7 +61,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/users/dto/profile-completion.dto.ts`
   - `apps/web/lib/auth/types.ts`
 - Important tests:
-  - No focused users/profile test file currently identified.
+  - `apps/api/test/users-list-filters.test.ts`
 
 ### Workspaces
 
@@ -287,6 +288,7 @@ npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire
 npx tsx apps/api/test/offboarding-workflow.policy.test.ts
 npx tsx apps/api/test/offboarding-payload.test.ts
 npx tsx apps/api/test/env-validation.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-list-filters.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts
 ```
