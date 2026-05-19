@@ -1,21 +1,12 @@
 "use client";
 
 import {
-  ArrowRightLeft,
   ChevronLeft,
   ChevronRight,
-  Filter,
-  LayoutGrid,
-  MoreHorizontal,
-  Rows3,
-  Search,
-  UserMinus,
-  UserRound,
-  Users,
-  X
+  Users
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { NewRequestSheet } from "@/components/requests/forms/new-request-sheet";
@@ -23,60 +14,40 @@ import {
   type InitialTransferPicker,
   type NewRequestDraft
 } from "@/components/requests/shared/request-types";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { TableRowsSkeleton } from "@/components/ui/skeleton";
 import { adminOrganizationApi } from "@/lib/api/admin-organization";
-import type { PageMeta } from "@/lib/api/organization";
-import type { ResignationTargetRole } from "@/lib/api/requests";
 import { usersApi, type OperationalProfileResponse } from "@/lib/api/users";
 import {
-  type AssignmentSummary,
-  type ChainSummary,
   type UserSummary,
-  type VendorSummary,
   workspacesApi
 } from "@/lib/api/workspaces";
 import type { SafeUser, UserRole } from "@/lib/auth/types";
-import { cn } from "@/lib/utils";
 import { OperationalUserProfileModal } from "./operational-user-profile-modal";
-
-type UsersSectionId = "pickers" | "champs" | "management";
-type ViewMode = "cards" | "rows";
-type UsersFilterKey = "chainId" | "vendorId" | "areaManagerId" | "champId";
+import {
+  getAllowedResignationTargetRoles,
+  isResignationTargetRole,
+  type UsersActionHandlers
+} from "./users-actions-menu";
+import type {
+  FilterOption,
+  UsersAreaData,
+  UsersAreaItem,
+  UsersFilterKey,
+  UsersFilterOptions,
+  UsersFilters,
+  UsersSectionId,
+  ViewMode
+} from "./users-area-types";
+import { UsersCardGrid } from "./users-card-grid";
+import { UsersTableView } from "./users-table-view";
+import { UsersTabs } from "./users-tabs";
+import { UsersToolbar } from "./users-toolbar";
 
 type UsersAreaState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: UsersAreaData; error?: never };
-
-type UsersAreaData = {
-  pickers: UsersAreaItem[];
-  champs: UsersAreaItem[];
-  management: UsersAreaItem[];
-  meta: Partial<Record<UsersSectionId, PageMeta>>;
-  filters: UsersFilterOptions;
-};
-
-type UsersAreaItem = {
-  key: string;
-  user: UserSummary | SafeUser;
-  assignment?: AssignmentSummary | null;
-  vendor?: VendorSummary | null;
-  chain?: ChainSummary | null;
-  champ?: UserSummary | null;
-};
-
-type UsersFilters = Record<UsersFilterKey, string>;
-type FilterOption = { id: string; label: string; hint?: string };
-type UsersFilterOptions = {
-  chains: FilterOption[];
-  vendors: FilterOption[];
-  areaManagers: FilterOption[];
-  champs: FilterOption[];
-};
 
 const PAGE_SIZE = 20;
 const managementRoles: UserRole[] = ["AREA_MANAGER", "ADMIN", "SUPER_ADMIN"];
@@ -296,70 +267,39 @@ export function UsersAreaPage() {
     void loadUsersArea();
   }
 
+  const userActions: UsersActionHandlers = {
+    activeMenuKey: openActionMenu,
+    onOpenResignation: openResignation,
+    onOpenTransfer: (item) => void openTransfer(item),
+    onToggleMenu: (key) =>
+      setOpenActionMenu((current) => (current === key ? null : key)),
+    viewerRole: user?.role
+  };
+
   return (
     <div className="grid gap-4">
-      <RoleTabs
+      <UsersTabs
         activeSection={activeSection}
         counts={getSectionCounts(data, filters, debouncedQuery, viewerIsAdmin)}
         onSelect={selectSection}
         sections={visibleSections}
       />
 
-      <section className="grid gap-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative min-w-0 lg:w-[360px]">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-            <Input
-              className="h-11 rounded-2xl border-slate-200 bg-white pl-9 shadow-sm"
-              onChange={(event) => updateQuery(event.target.value)}
-              placeholder="Search name, phone, Branch, Chain"
-              value={query}
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {showAdvancedFilters ? (
-              <Button
-                aria-expanded={filtersOpen}
-                className={cn(
-                  "h-11 rounded-2xl border-slate-200 bg-white px-3 shadow-sm",
-                  hasActiveFilters(filters) &&
-                    "border-orange-200 bg-orange-50 text-orange-700"
-                )}
-                onClick={() => setFiltersOpen((current) => !current)}
-                type="button"
-                variant="outline"
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {hasActiveFilters(filters) ? (
-                  <span className="ml-2 rounded-full bg-orange-600 px-2 py-0.5 text-xs font-semibold text-white">
-                    {activeFilterCount(filters)}
-                  </span>
-                ) : null}
-              </Button>
-            ) : null}
-
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-
-        {showAdvancedFilters && filtersOpen ? (
-          <UsersFilterPanel
-            filters={filters}
-            onChange={updateFilter}
-            onClearAll={clearAllFilters}
-            options={data.filters}
-            viewerRole={user?.role}
-          />
-        ) : null}
-
-        <ActiveFilterChips
-          filters={filters}
-          onClear={clearFilter}
-          options={data.filters}
-        />
-      </section>
+      <UsersToolbar
+        filters={filters}
+        filtersOpen={filtersOpen}
+        onChangeFilter={updateFilter}
+        onClearAllFilters={clearAllFilters}
+        onClearFilter={clearFilter}
+        onQueryChange={updateQuery}
+        onToggleFilters={() => setFiltersOpen((current) => !current)}
+        onViewModeChange={setViewMode}
+        options={data.filters}
+        query={query}
+        showAdvancedFilters={showAdvancedFilters}
+        viewMode={viewMode}
+        viewerRole={user?.role}
+      />
 
       {requestError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -376,17 +316,11 @@ export function UsersAreaPage() {
       ) : (
         <>
           <UsersSection
-            activeMenuKey={openActionMenu}
+            actions={userActions}
             items={activeResult.items}
             onOpenProfile={setSelectedUserId}
-            onOpenResignation={openResignation}
-            onOpenTransfer={(item) => void openTransfer(item)}
-            onToggleMenu={(key) =>
-              setOpenActionMenu((current) => (current === key ? null : key))
-            }
             sectionLabel={activeSectionLabel}
             viewMode={viewMode}
-            viewerRole={user?.role}
           />
           <PaginationControls
             label={activeSectionLabel}
@@ -450,242 +384,18 @@ export function UsersAreaPage() {
   );
 }
 
-function RoleTabs({
-  activeSection,
-  counts,
-  onSelect,
-  sections
-}: {
-  activeSection: UsersSectionId;
-  counts: Record<UsersSectionId, number>;
-  onSelect: (section: UsersSectionId) => void;
-  sections: Array<{ id: UsersSectionId; label: string }>;
-}) {
-  if (!sections.length) {
-    return null;
-  }
-
-  return (
-    <div
-      aria-label="User role sections"
-      className={cn(
-        "grid gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm",
-        sections.length === 1 && "grid-cols-1",
-        sections.length === 2 && "grid-cols-2",
-        sections.length === 3 && "grid-cols-3"
-      )}
-      role="tablist"
-    >
-      {sections.map((section) => (
-        <button
-          aria-selected={activeSection === section.id}
-          className={cn(
-            "min-h-11 min-w-0 rounded-xl px-2 py-2 text-center text-xs font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:text-sm",
-            activeSection === section.id
-              ? "bg-slate-950 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-50"
-          )}
-          key={section.id}
-          onClick={() => onSelect(section.id)}
-          role="tab"
-          type="button"
-        >
-          <span className="block">{section.label}</span>
-          <span
-            className={cn(
-              "mt-0.5 block text-[11px] font-medium",
-              activeSection === section.id ? "text-slate-200" : "text-slate-400"
-            )}
-          >
-            {counts[section.id]}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ViewModeToggle({
-  onChange,
-  value
-}: {
-  onChange: (value: ViewMode) => void;
-  value: ViewMode;
-}) {
-  return (
-    <div className="grid h-11 grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-      <button
-        aria-label="Cards view"
-        className={cn(
-          "grid h-9 w-10 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-          value === "cards" ? "bg-orange-50 text-orange-700" : "text-slate-500"
-        )}
-        onClick={() => onChange("cards")}
-        type="button"
-      >
-        <LayoutGrid className="h-4 w-4" />
-      </button>
-      <button
-        aria-label="Rows view"
-        className={cn(
-          "grid h-9 w-10 place-items-center rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-          value === "rows" ? "bg-orange-50 text-orange-700" : "text-slate-500"
-        )}
-        onClick={() => onChange("rows")}
-        type="button"
-      >
-        <Rows3 className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-function UsersFilterPanel({
-  filters,
-  onChange,
-  onClearAll,
-  options,
-  viewerRole
-}: {
-  filters: UsersFilters;
-  onChange: (key: UsersFilterKey, value: string) => void;
-  onClearAll: () => void;
-  options: UsersFilterOptions;
-  viewerRole?: UserRole;
-}) {
-  const admin = isAdminRole(viewerRole);
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <FilterSelect
-          label="Chain"
-          onChange={(value) => onChange("chainId", value)}
-          options={options.chains}
-          value={filters.chainId}
-        />
-        <FilterSelect
-          label="Branch"
-          onChange={(value) => onChange("vendorId", value)}
-          options={options.vendors}
-          value={filters.vendorId}
-        />
-        {admin ? (
-          <FilterSelect
-            label="Area Manager"
-            onChange={(value) => onChange("areaManagerId", value)}
-            options={options.areaManagers}
-            value={filters.areaManagerId}
-          />
-        ) : null}
-        <FilterSelect
-          label="Champ"
-          onChange={(value) => onChange("champId", value)}
-          options={options.champs}
-          value={filters.champId}
-        />
-      </div>
-      {hasActiveFilters(filters) ? (
-        <Button
-          className="mt-3 h-10 rounded-xl"
-          onClick={onClearAll}
-          type="button"
-          variant="outline"
-        >
-          <X className="mr-2 h-4 w-4" />
-          Clear filters
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  onChange,
-  options,
-  value
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  options: FilterOption[];
-  value: string;
-}) {
-  return (
-    <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
-      {label}
-      <Select
-        className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
-        disabled={!options.length}
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        <option value="">All {label.toLowerCase()}</option>
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-            {option.hint ? ` (${option.hint})` : ""}
-          </option>
-        ))}
-      </Select>
-    </label>
-  );
-}
-
-function ActiveFilterChips({
-  filters,
-  onClear,
-  options
-}: {
-  filters: UsersFilters;
-  onClear: (key: UsersFilterKey) => void;
-  options: UsersFilterOptions;
-}) {
-  const active = (Object.entries(filters) as Array<[UsersFilterKey, string]>).filter(
-    ([, value]) => Boolean(value)
-  );
-
-  if (!active.length) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {active.map(([key, value]) => (
-        <button
-          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 text-xs font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-          key={key}
-          onClick={() => onClear(key)}
-          type="button"
-        >
-          {getFilterName(key)}: {getFilterLabel(key, value, options)}
-          <X className="h-3.5 w-3.5" />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function UsersSection({
-  activeMenuKey,
+  actions,
   items,
   onOpenProfile,
-  onOpenResignation,
-  onOpenTransfer,
-  onToggleMenu,
   sectionLabel,
-  viewMode,
-  viewerRole
+  viewMode
 }: {
-  activeMenuKey: string | null;
+  actions: UsersActionHandlers;
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
-  onOpenResignation: (user: UserSummary | SafeUser) => void;
-  onOpenTransfer: (item: UsersAreaItem) => void;
-  onToggleMenu: (key: string) => void;
   sectionLabel: string;
   viewMode: ViewMode;
-  viewerRole?: UserRole;
 }) {
   if (!items.length) {
     return (
@@ -703,294 +413,20 @@ function UsersSection({
 
   if (viewMode === "rows") {
     return (
-      <section className="grid gap-2">
-        {items.map((item) => (
-          <UserRow
-            activeMenuKey={activeMenuKey}
-            item={item}
-            key={item.key}
-            onOpenProfile={onOpenProfile}
-            onOpenResignation={onOpenResignation}
-            onOpenTransfer={onOpenTransfer}
-            onToggleMenu={onToggleMenu}
-            viewerRole={viewerRole}
-          />
-        ))}
-      </section>
+      <UsersTableView
+        actions={actions}
+        items={items}
+        onOpenProfile={onOpenProfile}
+      />
     );
   }
 
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {items.map((item) => (
-        <UserCard
-          activeMenuKey={activeMenuKey}
-          item={item}
-          key={item.key}
-          onOpenProfile={onOpenProfile}
-          onOpenResignation={onOpenResignation}
-          onOpenTransfer={onOpenTransfer}
-          onToggleMenu={onToggleMenu}
-          viewerRole={viewerRole}
-        />
-      ))}
-    </section>
-  );
-}
-
-function UserCard({
-  activeMenuKey,
-  item,
-  onOpenProfile,
-  onOpenResignation,
-  onOpenTransfer,
-  onToggleMenu,
-  viewerRole
-}: UserItemProps) {
-  return (
-    <article
-      className="group grid cursor-pointer gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-      onClick={() => onOpenProfile(item.user.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpenProfile(item.user.id);
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <UserIdentity item={item} />
-        <UserQuickActions
-          activeMenuKey={activeMenuKey}
-          item={item}
-          onOpenResignation={onOpenResignation}
-          onOpenTransfer={onOpenTransfer}
-          onToggleMenu={onToggleMenu}
-          viewerRole={viewerRole}
-        />
-      </div>
-
-      <AssignmentContext item={item} />
-    </article>
-  );
-}
-
-function UserRow({
-  activeMenuKey,
-  item,
-  onOpenProfile,
-  onOpenResignation,
-  onOpenTransfer,
-  onToggleMenu,
-  viewerRole
-}: UserItemProps) {
-  return (
-    <article
-      className="grid cursor-pointer gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-orange-200 hover:bg-orange-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:grid-cols-[minmax(0,1fr)_minmax(180px,260px)_auto] sm:items-center"
-      onClick={() => onOpenProfile(item.user.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpenProfile(item.user.id);
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
-      <UserIdentity compact item={item} />
-      <AssignmentContext compact item={item} />
-      <div className="justify-self-end">
-        <UserQuickActions
-          activeMenuKey={activeMenuKey}
-          item={item}
-          onOpenResignation={onOpenResignation}
-          onOpenTransfer={onOpenTransfer}
-          onToggleMenu={onToggleMenu}
-          viewerRole={viewerRole}
-        />
-      </div>
-    </article>
-  );
-}
-
-type UserItemProps = {
-  activeMenuKey: string | null;
-  item: UsersAreaItem;
-  onOpenProfile: (id: string) => void;
-  onOpenResignation: (user: UserSummary | SafeUser) => void;
-  onOpenTransfer: (item: UsersAreaItem) => void;
-  onToggleMenu: (key: string) => void;
-  viewerRole?: UserRole;
-};
-
-function UserIdentity({
-  compact,
-  item
-}: {
-  compact?: boolean;
-  item: UsersAreaItem;
-}) {
-  return (
-    <div className="flex min-w-0 gap-3">
-      <div
-        className={cn(
-          "grid shrink-0 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white",
-          compact ? "h-10 w-10" : "h-11 w-11"
-        )}
-      >
-        {getInitials(item.user.nameEn) || <UserRound className="h-4 w-4" />}
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-slate-950">
-          {item.user.nameEn}
-        </p>
-        <p className="truncate text-xs text-slate-500">{item.user.phoneNumber}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
-            {formatEnum(item.user.role)}
-          </Badge>
-          <Badge variant="muted">{formatEnum(item.user.employmentStatus)}</Badge>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AssignmentContext({
-  compact,
-  item
-}: {
-  compact?: boolean;
-  item: UsersAreaItem;
-}) {
-  if (!item.vendor && !item.chain) {
-    return (
-      <div
-        className={cn(
-          "rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500",
-          compact && "sm:text-right"
-        )}
-      >
-        Assignment context opens in profile.
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "grid gap-1 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600",
-        compact && "sm:text-right"
-      )}
-    >
-      {item.vendor ? (
-        <p className="truncate">
-          <span className="font-semibold text-slate-900">Branch:</span>{" "}
-          {item.vendor.vendorName}
-        </p>
-      ) : null}
-      {item.chain ? (
-        <p className="truncate">
-          <span className="font-semibold text-slate-900">Chain:</span>{" "}
-          {item.chain.chainName}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function UserQuickActions({
-  activeMenuKey,
-  item,
-  onOpenResignation,
-  onOpenTransfer,
-  onToggleMenu,
-  viewerRole
-}: {
-  activeMenuKey: string | null;
-  item: UsersAreaItem;
-  onOpenResignation: (user: UserSummary | SafeUser) => void;
-  onOpenTransfer: (item: UsersAreaItem) => void;
-  onToggleMenu: (key: string) => void;
-  viewerRole?: UserRole;
-}) {
-  const allowedResignationRoles = getAllowedResignationTargetRoles(viewerRole);
-  const canTransfer = item.user.role === "PICKER";
-  const canResign =
-    isResignationTargetRole(item.user.role) &&
-    allowedResignationRoles.includes(item.user.role);
-  const menuOpen = activeMenuKey === item.key;
-
-  if (!canTransfer && !canResign) {
-    return null;
-  }
-
-  return (
-    <div
-      className="relative shrink-0"
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
-    >
-      <button
-        aria-expanded={menuOpen}
-        aria-label={`Open actions for ${item.user.nameEn}`}
-        className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-orange-200 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
-        onClick={() => onToggleMenu(item.key)}
-        type="button"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-
-      {menuOpen ? (
-        <div className="absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
-          {canTransfer ? (
-            <MenuAction
-              icon={<ArrowRightLeft className="h-4 w-4" />}
-              label="Transfer"
-              onClick={() => onOpenTransfer(item)}
-              tone="blue"
-            />
-          ) : null}
-          {canResign ? (
-            <MenuAction
-              icon={<UserMinus className="h-4 w-4" />}
-              label="Resign"
-              onClick={() => onOpenResignation(item.user)}
-              tone="red"
-            />
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MenuAction({
-  icon,
-  label,
-  onClick,
-  tone
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-  tone: "blue" | "red";
-}) {
-  return (
-    <button
-      className={cn(
-        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-        tone === "blue" && "text-blue-700 hover:bg-blue-50",
-        tone === "red" && "text-red-700 hover:bg-red-50"
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      {icon}
-      {label}
-    </button>
+    <UsersCardGrid
+      actions={actions}
+      items={items}
+      onOpenProfile={onOpenProfile}
+    />
   );
 }
 
@@ -1229,21 +665,6 @@ function getVisibleSections(role: UserRole | undefined) {
   return [];
 }
 
-function getAllowedResignationTargetRoles(
-  role: UserRole | undefined
-): ResignationTargetRole[] {
-  if (role === "CHAMP") return ["PICKER"];
-  if (role === "AREA_MANAGER") return ["PICKER", "CHAMP"];
-  if (role === "ADMIN" || role === "SUPER_ADMIN") {
-    return ["PICKER", "CHAMP", "AREA_MANAGER"];
-  }
-  return [];
-}
-
-function isResignationTargetRole(role: UserRole): role is ResignationTargetRole {
-  return role === "PICKER" || role === "CHAMP" || role === "AREA_MANAGER";
-}
-
 function filterItems(items: UsersAreaItem[], query: string) {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
@@ -1436,54 +857,6 @@ function uniqueOptions(options: FilterOption[]) {
   });
 }
 
-function hasActiveFilters(filters: UsersFilters) {
-  return activeFilterCount(filters) > 0;
-}
-
-function activeFilterCount(filters: UsersFilters) {
-  return Object.values(filters).filter(Boolean).length;
-}
-
-function getFilterName(key: UsersFilterKey) {
-  if (key === "chainId") return "Chain";
-  if (key === "vendorId") return "Branch";
-  if (key === "areaManagerId") return "Area Manager";
-  return "Champ";
-}
-
-function getFilterLabel(
-  key: UsersFilterKey,
-  value: string,
-  options: UsersFilterOptions
-) {
-  const source =
-    key === "chainId"
-      ? options.chains
-      : key === "vendorId"
-        ? options.vendors
-        : key === "areaManagerId"
-          ? options.areaManagers
-          : options.champs;
-  return source.find((option) => option.id === value)?.label ?? value;
-}
-
 function isAdminRole(role: UserRole | undefined): role is "ADMIN" | "SUPER_ADMIN" {
   return role === "ADMIN" || role === "SUPER_ADMIN";
-}
-
-function formatEnum(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 }

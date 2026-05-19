@@ -45,7 +45,18 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/app/users/page.tsx`
   - `apps/web/app/admin/users/page.tsx`
   - `apps/web/components/users/users-area-page.tsx`
+  - `apps/web/components/users/users-area-types.ts`
+  - `apps/web/components/users/users-display-utils.ts`
+  - `apps/web/components/users/users-tabs.tsx`
+  - `apps/web/components/users/users-toolbar.tsx`
+  - `apps/web/components/users/users-actions-menu.tsx`
+  - `apps/web/components/users/users-card-grid.tsx`
+  - `apps/web/components/users/users-table-view.tsx`
+  - `apps/web/components/users/user-avatar.tsx`
   - `apps/web/components/users/operational-user-profile-modal.tsx`
+  - `apps/web/components/users/picker-profile-overview.tsx`
+  - `apps/web/components/users/password-access-dialog.tsx`
+  - `apps/web/components/users/user-request-detail-modal.tsx`
   - `apps/web/components/ui/copy-button.tsx`
   - `apps/web/components/admin/admin-users-page.tsx`
   - `apps/web/lib/api/users.ts`

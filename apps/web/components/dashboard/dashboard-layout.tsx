@@ -38,12 +38,12 @@ import { roleNavigation } from "./role-nav";
 export function DashboardLayout({
   children,
   description,
-  hideHeaderCopy = false,
+  hideHeaderDescription = false,
   title
 }: {
   children: ReactNode;
   description: string;
-  hideHeaderCopy?: boolean;
+  hideHeaderDescription?: boolean;
   title: string;
 }) {
   const { logout, user } = useAuth();
@@ -227,7 +227,7 @@ export function DashboardLayout({
           <DashboardHeader
             activeNotificationAction={activeNotificationAction}
             description={description}
-            hideHeaderCopy={hideHeaderCopy}
+            hideHeaderDescription={hideHeaderDescription}
             isCollapsed={isCollapsed}
             isScrolled={isScrolled}
             isNotificationsOpen={isNotificationsOpen}

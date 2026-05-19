@@ -41,20 +41,20 @@ export function DashboardFrame({
   allowedRoles,
   children,
   description,
-  hideHeaderCopy,
+  hideHeaderDescription,
   title
 }: {
   allowedRoles: UserRole[];
   children: ReactNode;
   description: string;
-  hideHeaderCopy?: boolean;
+  hideHeaderDescription?: boolean;
   title: string;
 }) {
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
       <DashboardLayout
         description={description}
-        hideHeaderCopy={hideHeaderCopy}
+        hideHeaderDescription={hideHeaderDescription}
         title={title}
       >
         {children}

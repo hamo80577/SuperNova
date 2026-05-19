@@ -6,8 +6,8 @@ export default function UsersPage() {
     <DashboardFrame
       allowedRoles={["CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description=""
-      hideHeaderCopy
-      title=""
+      hideHeaderDescription
+      title="Users"
     >
       <UsersAreaPage />
     </DashboardFrame>

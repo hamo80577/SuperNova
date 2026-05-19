@@ -9,11 +9,11 @@ import {
   Loader2,
   MessageCircle,
   MoreHorizontal,
-  RefreshCw,
   Save,
   ShieldCheck,
   UserMinus,
   UserRound,
+  Phone,
   X
 } from "lucide-react";
 import {
@@ -24,9 +24,6 @@ import {
   type ReactNode
 } from "react";
 
-import { ApprovalStepsIndicator } from "@/components/requests/detail/approval-steps-indicator";
-import { RequestTimeline } from "@/components/requests/detail/request-timeline";
-import { RequestTypePanel } from "@/components/requests/detail/request-type-panel";
 import { parseOffboardingPayload } from "@/components/requests/shared/request-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +32,7 @@ import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
-import {
-  requestsApi,
-  type RequestDetail
-} from "@/lib/api/requests";
+import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import {
   usersApi,
   type OperationalProfileAssignment,
@@ -47,16 +41,22 @@ import {
 } from "@/lib/api/users";
 import type { SafeUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import { PasswordAccessDialog } from "./password-access-dialog";
+import { PickerProfileOverview } from "./picker-profile-overview";
+import { UserAvatar } from "./user-avatar";
+import { UserRequestDetailModal } from "./user-request-detail-modal";
+import {
+  formatDate,
+  formatDateTime,
+  formatEnum,
+  getPrimaryAssignmentLabel,
+  normalizePhoneForWhatsapp
+} from "./users-display-utils";
 
 type LoadState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: OperationalProfileResponse; error?: never };
-
-type RequestDetailState =
-  | { status: "loading"; data?: never; error?: never }
-  | { status: "error"; error: string; data?: never }
-  | { status: "ready"; data: RequestDetail; error?: never };
 
 export interface OperationalUserProfileActions {
   onTransfer?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
@@ -99,10 +99,10 @@ export function OperationalUserProfileModal({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-2 sm:p-4"
+        className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-2 sn-dialog-overlay-in sm:p-4"
         role="dialog"
       >
-        <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
+        <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl sn-dialog-panel-in">
           {state.status === "loading" ? (
             <ProfileShell title="Loading profile" onClose={onClose}>
               <DetailPanelSkeleton
@@ -153,17 +153,25 @@ function ProfileContent({
     <>
       <div className="border-b border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-3xl bg-orange-50 text-orange-700 ring-1 ring-orange-100 sm:h-16 sm:w-16">
-              <UserRound className="h-7 w-7 sm:h-8 sm:w-8" />
-            </div>
+          <div className="flex min-w-0 items-start gap-3">
+            <UserAvatar
+              accountStatus={user.accountStatus}
+              employmentStatus={user.employmentStatus}
+              name={user.nameEn}
+              role={user.role}
+              size="lg"
+            />
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap gap-1.5">
-                <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                <Badge className="rounded-full border-orange-200 bg-orange-50 text-orange-700" variant="outline">
                   {formatEnum(user.role)}
                 </Badge>
-                <Badge variant="muted">{formatEnum(user.accountStatus)}</Badge>
-                <Badge variant="outline">{formatEnum(user.employmentStatus)}</Badge>
+                <Badge className="rounded-full" variant="muted">
+                  {formatEnum(user.accountStatus)}
+                </Badge>
+                <Badge className="rounded-full" variant="outline">
+                  {formatEnum(user.employmentStatus)}
+                </Badge>
               </div>
               <h2 className="truncate text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
                 {user.nameEn}
@@ -171,6 +179,21 @@ function ProfileContent({
               <p className="truncate text-sm text-slate-500">
                 {getPrimaryAssignmentLabel(profile)}
               </p>
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{user.phoneNumber}</span>
+                </span>
+                <a
+                  aria-label="Open WhatsApp chat"
+                  className="grid h-8 w-8 place-items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
+                  href={whatsappHref}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </a>
+              </div>
             </div>
           </div>
 
@@ -216,7 +239,7 @@ function ProfileContent({
       </div>
 
       {passwordOpen ? (
-        <PasswordDialog
+        <PasswordAccessDialog
           onClose={() => setPasswordOpen(false)}
           profile={profile}
         />
@@ -261,7 +284,7 @@ function ProfileHeaderActions({
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl">
+        <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]">
           {canTransfer ? (
             <HeaderMenuAction
               icon={<ArrowRightLeft className="h-4 w-4" />}
@@ -338,7 +361,7 @@ function PickerProfileCard({
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
-  const [tab, setTab] = useState<"profile" | "requests" | "activity">("profile");
+  const [tab, setTab] = useState<"overview" | "requests" | "activity">("overview");
   const user = profile.user;
 
   return (
@@ -347,15 +370,15 @@ function PickerProfileCard({
         active={tab}
         onChange={setTab}
         tabs={[
-          { id: "profile", label: "Profile" },
+          { id: "overview", label: "Overview" },
           { id: "requests", label: "Related Requests" },
           { id: "activity", label: "Recent Activity" }
         ]}
       />
 
-      {tab === "profile" ? (
+      {tab === "overview" ? (
         <div className="grid gap-4">
-          <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          <PickerProfileOverview profile={profile} whatsappHref={whatsappHref} />
           <ResignationStatusSection profile={profile} />
           {profile.permissions.canEditProfile ? (
             <AdminEditPanel onReload={onReload} user={user} />
@@ -475,9 +498,6 @@ function ProfileSummaryPanel({
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="grid gap-1">
         <h3 className="text-sm font-semibold text-slate-950">Overview</h3>
-        <p className="text-sm text-slate-500">
-          Core account and current assignment context.
-        </p>
       </div>
       <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
         <InfoRow
@@ -487,13 +507,12 @@ function ProfileSummaryPanel({
           action={
             <a
               aria-label="Open WhatsApp chat"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.98]"
+              className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
               href={whatsappHref}
               rel="noreferrer"
               target="_blank"
             >
               <MessageCircle className="h-4 w-4" />
-              WhatsApp
             </a>
           }
         />
@@ -558,7 +577,7 @@ function ProfileTabs<TabId extends string>({
   return (
     <div
       className={cn(
-        "grid gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm",
+        "grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1",
         tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"
       )}
     >
@@ -568,8 +587,8 @@ function ProfileTabs<TabId extends string>({
           className={cn(
             "min-h-11 min-w-0 rounded-xl px-2 py-2 text-center text-xs font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:text-sm",
             active === tab.id
-              ? "bg-slate-950 text-white shadow-sm"
-              : "text-slate-600 hover:bg-slate-50"
+              ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-100"
+              : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
           )}
           key={tab.id}
           onClick={() => onChange(tab.id)}
@@ -623,193 +642,6 @@ function AssignmentList({
   );
 }
 
-function PasswordDialog({
-  onClose,
-  profile
-}: {
-  onClose: () => void;
-  profile: OperationalProfileResponse;
-}) {
-  const [temporaryPassword, setTemporaryPassword] = useState("");
-  const [temporaryPasswordExpiresAt, setTemporaryPasswordExpiresAt] = useState<
-    string | null
-  >(profile.password.temporaryPasswordExpiresAt);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const user = profile.user;
-  const expiresAt = profile.password.temporaryPasswordExpiresAt
-    ? new Date(profile.password.temporaryPasswordExpiresAt).getTime()
-    : null;
-  const temporaryPasswordExpired =
-    expiresAt !== null && expiresAt <= Date.now();
-  const canReveal =
-    profile.password.mustChangePassword &&
-    profile.password.temporaryPasswordAvailable &&
-    profile.permissions.canReadTemporaryPassword &&
-    !temporaryPasswordExpired;
-  const canReset =
-    profile.permissions.canResetPassword ||
-    profile.permissions.canRegenerateTemporaryPassword;
-
-  useEffect(() => {
-    if (!canReveal) {
-      setTemporaryPassword("");
-    }
-    setTemporaryPasswordExpiresAt(
-      canReveal ? profile.password.temporaryPasswordExpiresAt : null
-    );
-  }, [canReveal, profile.password.temporaryPasswordExpiresAt]);
-
-  function revealTemporaryPassword() {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      try {
-        const response = await usersApi.revealTemporaryPassword(user.id);
-        setTemporaryPassword(response.temporaryPassword);
-        setTemporaryPasswordExpiresAt(response.temporaryPasswordExpiresAt);
-        setMessage("Temporary password revealed.");
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to reveal temporary password."
-        );
-      }
-    });
-  }
-
-  function resetTemporaryPassword() {
-    setError(null);
-    setMessage(null);
-    startTransition(async () => {
-      try {
-        const response = await usersApi.resetTemporaryPassword(user.id);
-        setTemporaryPassword(response.temporaryPassword);
-        setTemporaryPasswordExpiresAt(response.temporaryPasswordExpiresAt);
-        setMessage("Temporary password reset. Share it from this profile only.");
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to reset temporary password."
-        );
-      }
-    });
-  }
-
-  return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-[180] grid place-items-center bg-slate-950/50 p-3"
-      role="dialog"
-    >
-      <section className="w-full max-w-lg rounded-[24px] border border-slate-200 bg-white p-4 shadow-2xl sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-slate-950">
-              Password access
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              Temporary password can be revealed only while the user must change it.
-            </p>
-            {temporaryPasswordExpiresAt ? (
-              <p className="mt-1 text-xs text-slate-500">
-                Available until {new Date(temporaryPasswordExpiresAt).toLocaleString()}
-              </p>
-            ) : null}
-          </div>
-          <Button
-            aria-label="Close password access"
-            className="h-10 w-10 rounded-xl p-0"
-            onClick={onClose}
-            type="button"
-            variant="outline"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {temporaryPassword ? (
-          <div className="mt-4 grid gap-3">
-            <div className="flex gap-2">
-              <Input
-                className="h-11 min-w-0 rounded-xl font-mono"
-                readOnly
-                value={temporaryPassword}
-              />
-              <CopyButton
-                aria-label="Copy temporary password"
-                className="h-11 w-11 shrink-0 p-0"
-                text={temporaryPassword}
-              />
-            </div>
-            {canReset ? (
-              <Button
-                className="h-11 rounded-xl"
-                disabled={isPending}
-                onClick={resetTemporaryPassword}
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reset temporary password
-              </Button>
-            ) : null}
-          </div>
-        ) : canReveal ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Button
-              className="h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-              disabled={isPending}
-              onClick={revealTemporaryPassword}
-              type="button"
-              variant="outline"
-            >
-              {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <KeyRound className="mr-2 h-4 w-4" />
-              )}
-              Reveal temporary password
-            </Button>
-            {canReset ? (
-              <Button
-                className="h-11 rounded-xl"
-                disabled={isPending}
-                onClick={resetTemporaryPassword}
-                type="button"
-                variant="outline"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Reset temporary password
-              </Button>
-            ) : null}
-          </div>
-        ) : (
-          <Button
-            className="mt-4 h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-            disabled={isPending || !canReset}
-            onClick={resetTemporaryPassword}
-            type="button"
-            variant="outline"
-          >
-            {isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <KeyRound className="mr-2 h-4 w-4" />
-            )}
-            Reset temporary password
-          </Button>
-        )}
-        {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-      </section>
-    </div>
-  );
-}
-
 function ResignationStatusSection({
   profile
 }: {
@@ -853,44 +685,67 @@ function ResignationStatusSection({
   const payload = detail ? parseOffboardingPayload(detail.payload) : null;
 
   return (
-    <section className="rounded-2xl border border-red-100 bg-red-50/60 p-4 shadow-sm">
+    <section className="rounded-2xl border border-red-100 bg-red-50/50 p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-red-950">Resignation status</h3>
-        <Badge className="border-red-200 bg-white text-red-700" variant="outline">
+        <h3 className="text-sm font-semibold text-red-950">Lifecycle state</h3>
+        <Badge className="rounded-full border-red-200 bg-white text-red-700" variant="outline">
           {formatEnum(user.employmentStatus)}
         </Badge>
       </div>
-      <div className="mt-3 grid gap-2 text-sm text-red-950">
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <LifecycleField
+          label="Resignation date"
+          value={formatDate(user.resignationDate)}
+        />
+        <LifecycleField
+          label="Block status"
+          value={formatEnum(user.blockStatus)}
+          valueIcon={
+            user.blockStatus === "PERMANENT_BLOCK" ? (
+              <InfinityIcon className="h-4 w-4" />
+            ) : null
+          }
+        />
+        {user.blockStatus === "TEMPORARY_BLOCK" ? (
+          <LifecycleField
+            label="Blocked until"
+            value={formatDate(user.blockedUntil)}
+          />
+        ) : null}
         {payload?.reason ? (
-          <p>
-            <span className="font-semibold">Reason:</span> {payload.reason}
-          </p>
+          <LifecycleField label="Reason" value={payload.reason} />
         ) : null}
         {payload?.reasonDetails ? (
-          <p>
-            <span className="font-semibold">Notes:</span> {payload.reasonDetails}
-          </p>
-        ) : null}
-        {user.resignationDate ? (
-          <p>
-            <span className="font-semibold">Resignation date:</span>{" "}
-            {formatDate(user.resignationDate)}
-          </p>
-        ) : null}
-        {user.blockStatus !== "NO_BLOCK" ? (
-          <p className="flex flex-wrap items-center gap-1.5">
-            <span className="font-semibold">Block:</span>
-            {formatEnum(user.blockStatus)}
-            {user.blockStatus === "TEMPORARY_BLOCK" && user.blockedUntil ? (
-              <span>until {formatDate(user.blockedUntil)}</span>
-            ) : null}
-            {user.blockStatus === "PERMANENT_BLOCK" ? (
-              <InfinityIcon className="h-4 w-4" />
-            ) : null}
-          </p>
+          <LifecycleField
+            className="sm:col-span-2"
+            label="Reason notes"
+            value={payload.reasonDetails}
+          />
         ) : null}
       </div>
     </section>
+  );
+}
+
+function LifecycleField({
+  className,
+  label,
+  value,
+  valueIcon
+}: {
+  className?: string;
+  label: string;
+  value: string;
+  valueIcon?: ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-2xl border border-red-100 bg-white/75 p-3", className)}>
+      <p className="text-xs font-semibold uppercase text-red-400">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 break-words text-sm font-semibold text-red-950">
+        {value}
+        {valueIcon}
+      </p>
+    </div>
   );
 }
 
@@ -907,26 +762,51 @@ function RelatedRequestsPanel({
       <div className="mt-3 grid gap-2">
         {profile.recentRequests.length ? (
           profile.recentRequests.map((request) => (
-            <button
+            <article
               className={cn(
-                "w-full rounded-2xl border p-3 text-left transition hover:border-orange-200 hover:bg-orange-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                "w-full cursor-pointer rounded-2xl border p-3 text-left transition hover:border-orange-200 hover:bg-orange-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
                 isOpenRequest(request.status)
                   ? "border-orange-200 bg-orange-50/50"
                   : "border-slate-200 bg-white"
               )}
               key={request.id}
               onClick={() => setSelectedRequestId(request.id)}
-              type="button"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelectedRequestId(request.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-slate-950">
                     {formatEnum(request.type)}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {request.currentStep ? formatEnum(request.currentStep) : "No active step"} ·{" "}
-                    {formatDateTime(request.createdAt)}
-                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                    <span>
+                      {request.currentStep
+                        ? formatEnum(request.currentStep)
+                        : "No active step"}
+                    </span>
+                    <span>·</span>
+                    <span>{formatDateTime(request.createdAt)}</span>
+                    <span>·</span>
+                    <span className="max-w-[120px] truncate font-mono">
+                      {request.id}
+                    </span>
+                    <span onClick={(event) => event.stopPropagation()}>
+                      <CopyButton
+                        aria-label="Copy request ID"
+                        className="h-7 w-7 rounded-lg border-0 bg-slate-50 p-0 shadow-none"
+                        iconOnly
+                        size="sm"
+                        text={request.id}
+                      />
+                    </span>
+                  </div>
                 </div>
                 <Badge variant={isOpenRequest(request.status) ? "outline" : "muted"}>
                   {formatEnum(request.status)}
@@ -938,7 +818,7 @@ function RelatedRequestsPanel({
                   ? ` -> ${request.destinationVendor.vendorName}`
                   : ""}
               </p>
-            </button>
+            </article>
           ))
         ) : (
           <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
@@ -948,95 +828,12 @@ function RelatedRequestsPanel({
       </div>
 
       {selectedRequestId ? (
-        <RequestDetailOverlay
+        <UserRequestDetailModal
           onClose={() => setSelectedRequestId(null)}
           requestId={selectedRequestId}
         />
       ) : null}
     </section>
-  );
-}
-
-function RequestDetailOverlay({
-  onClose,
-  requestId
-}: {
-  onClose: () => void;
-  requestId: string;
-}) {
-  const [state, setState] = useState<RequestDetailState>({ status: "loading" });
-
-  useEffect(() => {
-    let alive = true;
-    setState({ status: "loading" });
-    requestsApi
-      .get(requestId)
-      .then((request) => {
-        if (alive) setState({ status: "ready", data: request });
-      })
-      .catch((error) => {
-        if (!alive) return;
-        setState({
-          status: "error",
-          error:
-            error instanceof Error ? error.message : "Unable to load request detail."
-        });
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [requestId]);
-
-  return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-[190] grid place-items-center bg-slate-950/55 p-3"
-      role="dialog"
-    >
-      <section className="flex max-h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-slate-400">
-              Request detail
-            </p>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-              <h3 className="truncate text-base font-semibold text-slate-950">
-                {requestId}
-              </h3>
-              <CopyButton
-                aria-label="Copy request ID"
-                size="sm"
-                text={requestId}
-              />
-            </div>
-          </div>
-          <Button
-            aria-label="Close request detail"
-            className="h-10 w-10 rounded-xl p-0"
-            onClick={onClose}
-            type="button"
-            variant="outline"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {state.status === "loading" ? (
-            <DetailPanelSkeleton label="Loading request" />
-          ) : state.status === "error" ? (
-            <CenteredState label={state.error} />
-          ) : (
-            <div className="grid gap-4">
-              <ApprovalStepsIndicator request={state.data} />
-              <RequestTypePanel request={state.data} />
-              <RequestTimeline items={state.data.timeline} />
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
   );
 }
 
@@ -1297,7 +1094,8 @@ function ProfileRow({
       {copyValue ? (
         <CopyButton
           aria-label={`Copy ${label}`}
-          label="Copy"
+          className="h-9 w-9 p-0"
+          iconOnly
           size="sm"
           text={copyValue}
         />
@@ -1357,59 +1155,6 @@ function hasPasswordAccess(profile: OperationalProfileResponse) {
   );
 }
 
-function getPrimaryAssignmentLabel(profile: OperationalProfileResponse) {
-  if (profile.currentPickerAssignment?.vendor) {
-    return profile.currentPickerAssignment.vendor.vendorName;
-  }
-  if (profile.champAssignments[0]?.vendor) {
-    return profile.champAssignments[0].vendor!.vendorName;
-  }
-  if (profile.areaManagerAssignments[0]?.chain) {
-    return profile.areaManagerAssignments[0].chain.chainName;
-  }
-  return "No active assignment";
-}
-
 function isOpenRequest(status: string) {
   return status !== "COMPLETED" && status !== "REJECTED" && status !== "CANCELLED";
-}
-
-function formatEnum(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Not set";
-  }
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  }).format(new Date(value));
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "Not set";
-  }
-  return new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric"
-  }).format(new Date(value));
-}
-
-function normalizePhoneForWhatsapp(phoneNumber: string) {
-  const digits = phoneNumber.replace(/[^\d]/g, "");
-  if (digits.startsWith("00")) {
-    return digits.slice(2);
-  }
-  return digits;
 }
