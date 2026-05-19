@@ -41,6 +41,13 @@ export class UsersController {
     return this.usersService.list(query);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Get("operational-list")
+  listOperational(@Query() query: ListUsersQueryDto) {
+    return this.usersService.listOperational(query);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("me")
   async getMe(@CurrentUser() user: AuthenticatedUser) {

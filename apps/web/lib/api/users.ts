@@ -1,12 +1,33 @@
 import type { SafeUser, UiTheme, UserRole } from "@/lib/auth/types";
 import { apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
-import type { AssignmentStatus, ChainSummary, VendorSummary } from "./workspaces";
+import type {
+  AssignmentStatus,
+  AssignmentSummary,
+  ChainSummary,
+  UserSummary,
+  VendorSummary
+} from "./workspaces";
 
 export type UserLookupStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED" | "ARCHIVED";
 
 export interface PaginatedUsers {
   items: SafeUser[];
+  meta: PageMeta;
+}
+
+export interface OperationalUsersListItem {
+  key: string;
+  user: SafeUser;
+  assignment: AssignmentSummary | null;
+  vendor: VendorSummary | null;
+  chain: ChainSummary | null;
+  champ: UserSummary | null;
+  areaManager: UserSummary | null;
+}
+
+export interface OperationalUsersListResponse {
+  items: OperationalUsersListItem[];
   meta: PageMeta;
 }
 
@@ -138,6 +159,22 @@ export const usersApi = {
   list(params: ListUsersParams = {}) {
     return apiRequest<PaginatedUsers>(
       `/users${toQuery({
+        page: params.page,
+        pageSize: params.pageSize,
+        role: params.role,
+        roles: params.roles?.length ? params.roles.join(",") : undefined,
+        status: params.status,
+        q: params.q,
+        chainId: params.chainId,
+        vendorId: params.vendorId,
+        areaManagerId: params.areaManagerId,
+        champId: params.champId
+      })}`
+    );
+  },
+  operationalList(params: ListUsersParams = {}) {
+    return apiRequest<OperationalUsersListResponse>(
+      `/users/operational-list${toQuery({
         page: params.page,
         pageSize: params.pageSize,
         role: params.role,

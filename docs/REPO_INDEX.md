@@ -65,6 +65,10 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/users/users.service.ts`
   - `apps/api/src/users/users.module.ts`
   - `apps/api/src/users/temporary-password.service.ts`
+- Key API endpoints:
+  - `GET /api/users`: Admin/Super Admin paginated safe-user list.
+  - `GET /api/users/operational-list`: Admin/Super Admin paginated Users page list with assignment-table Branch/Chain context.
+  - `GET /api/users/:id/operational-profile`: Operational profile modal data, requests, activity, and credential permissions.
 - Important DTO/types:
   - `apps/api/src/users/dto/safe-user.dto.ts`
   - `apps/api/src/users/dto/list-users-query.dto.ts`

@@ -86,7 +86,7 @@ export function NewRequestSheet({
     <ModalPortal>
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[130] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
+      className="fixed inset-0 z-[220] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
       role="dialog"
     >
       <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-5xl sm:rounded-[1.75rem] sm:p-5 xl:max-w-6xl [&::-webkit-scrollbar]:hidden">

@@ -18,6 +18,7 @@ export type UsersAreaItem = {
   vendor?: VendorSummary | null;
   chain?: ChainSummary | null;
   champ?: UserSummary | null;
+  areaManager?: UserSummary | null;
 };
 
 export type UsersFilters = Record<UsersFilterKey, string>;

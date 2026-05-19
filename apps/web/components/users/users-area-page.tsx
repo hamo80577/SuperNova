@@ -236,13 +236,11 @@ export function UsersAreaPage() {
     }
 
     let transferTarget =
-      target.assignment || activeAssignments[0]?.assignment
-        ? target.assignment
-          ? target
-          : activeAssignments[0]
-        : target;
+      target.assignment?.status === "ACTIVE"
+        ? target
+        : activeAssignments[0] ?? target;
 
-    if (!transferTarget.assignment) {
+    if (transferTarget.assignment?.status !== "ACTIVE") {
       try {
         transferTarget = toUsersAreaItemFromProfile(
           await usersApi.operationalProfile(target.user.id)
@@ -319,6 +317,7 @@ export function UsersAreaPage() {
             actions={userActions}
             items={activeResult.items}
             onOpenProfile={setSelectedUserId}
+            section={activeSection}
             sectionLabel={activeSectionLabel}
             viewMode={viewMode}
           />
@@ -388,12 +387,14 @@ function UsersSection({
   actions,
   items,
   onOpenProfile,
+  section,
   sectionLabel,
   viewMode
 }: {
   actions: UsersActionHandlers;
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
+  section: UsersSectionId;
   sectionLabel: string;
   viewMode: ViewMode;
 }) {
@@ -417,6 +418,7 @@ function UsersSection({
         actions={actions}
         items={items}
         onOpenProfile={onOpenProfile}
+        section={section}
       />
     );
   }
@@ -548,21 +550,21 @@ async function fetchUsersAreaData(
   if (isAdminRole(role)) {
     const apiFilters = toApiFilters(params.filters);
     const [pickers, champs, management, organization] = await Promise.all([
-      usersApi.list({
+      usersApi.operationalList({
         page: params.pageBySection.pickers,
         pageSize: PAGE_SIZE,
         role: "PICKER",
         q: params.query,
         ...apiFilters
       }),
-      usersApi.list({
+      usersApi.operationalList({
         page: params.pageBySection.champs,
         pageSize: PAGE_SIZE,
         role: "CHAMP",
         q: params.query,
         ...apiFilters
       }),
-      usersApi.list({
+      usersApi.operationalList({
         page: params.pageBySection.management,
         pageSize: PAGE_SIZE,
         roles: managementRoles,
@@ -573,9 +575,9 @@ async function fetchUsersAreaData(
     ]);
 
     return {
-      pickers: pickers.items.map((item) => ({ key: item.id, user: item })),
-      champs: champs.items.map((item) => ({ key: item.id, user: item })),
-      management: management.items.map((item) => ({ key: item.id, user: item })),
+      pickers: pickers.items,
+      champs: champs.items,
+      management: management.items,
       meta: {
         pickers: pickers.meta,
         champs: champs.meta,
@@ -731,6 +733,9 @@ function getSectionLabel(sectionId: UsersSectionId, role?: UserRole) {
 }
 
 function toInitialTransferPicker(item: UsersAreaItem): InitialTransferPicker {
+  const activeAssignment =
+    item.assignment?.status === "ACTIVE" ? item.assignment : null;
+
   return {
     user: {
       id: item.user.id,
@@ -738,9 +743,9 @@ function toInitialTransferPicker(item: UsersAreaItem): InitialTransferPicker {
       phoneNumber: item.user.phoneNumber,
       role: item.user.role
     },
-    assignment: item.assignment ?? null,
-    vendor: item.vendor ?? null,
-    chain: item.chain ?? null
+    assignment: activeAssignment,
+    vendor: activeAssignment ? item.vendor ?? null : null,
+    chain: activeAssignment ? item.chain ?? null : null
   };
 }
 

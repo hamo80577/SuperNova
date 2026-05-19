@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "./user-avatar";
 import type { UsersActionHandlers } from "./users-actions-menu";
 import { UsersActionsMenu } from "./users-actions-menu";
-import type { UsersAreaItem } from "./users-area-types";
+import type { UsersAreaItem, UsersSectionId } from "./users-area-types";
 import {
   formatEnum,
   getItemBranch,
@@ -19,23 +19,29 @@ import {
 export function UsersTableView({
   actions,
   items,
-  onOpenProfile
+  onOpenProfile,
+  section
 }: {
   actions: UsersActionHandlers;
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
+  section: UsersSectionId;
 }) {
+  const showRoleColumn = section === "management";
+
   return (
     <section className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
       <DesktopUsersTable
         actions={actions}
         items={items}
         onOpenProfile={onOpenProfile}
+        showRoleColumn={showRoleColumn}
       />
       <MobileUsersRows
         actions={actions}
         items={items}
         onOpenProfile={onOpenProfile}
+        showRoleColumn={showRoleColumn}
       />
     </section>
   );
@@ -44,24 +50,40 @@ export function UsersTableView({
 function DesktopUsersTable({
   actions,
   items,
-  onOpenProfile
+  onOpenProfile,
+  showRoleColumn
 }: {
   actions: UsersActionHandlers;
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
+  showRoleColumn: boolean;
 }) {
   return (
     <div className="hidden overflow-visible lg:block">
       <table className="w-full table-fixed border-collapse text-left text-sm">
         <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
           <tr>
-            <th className="w-[23%] px-4 py-3">User</th>
-            <th className="w-[10%] px-3 py-3">Role</th>
-            <th className="w-[16%] px-3 py-3">Assignment/Branch</th>
-            <th className="w-[14%] px-3 py-3">Chain</th>
-            <th className="w-[13%] px-3 py-3">Status</th>
-            <th className="w-[16%] px-3 py-3">Phone/IDs</th>
-            <th className="w-[8%] px-3 py-3 text-right">Actions</th>
+            <th className={cn("px-4 py-3", showRoleColumn ? "w-[23%]" : "w-[27%]")}>
+              User
+            </th>
+            {showRoleColumn ? (
+              <th className="w-[10%] px-3 py-3">Role</th>
+            ) : null}
+            <th className={cn("px-3 py-3", showRoleColumn ? "w-[16%]" : "w-[22%]")}>
+              Assignment/Branch
+            </th>
+            <th className={cn("px-3 py-3", showRoleColumn ? "w-[14%]" : "w-[17%]")}>
+              Chain
+            </th>
+            <th className={cn("px-3 py-3", showRoleColumn ? "w-[13%]" : "w-[15%]")}>
+              Status
+            </th>
+            <th className={cn("px-3 py-3", showRoleColumn ? "w-[16%]" : "w-[13%]")}>
+              Phone/IDs
+            </th>
+            <th className={cn("px-3 py-3 text-right", showRoleColumn ? "w-[8%]" : "w-[6%]")}>
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -81,14 +103,16 @@ function DesktopUsersTable({
               <td className="px-4 py-3">
                 <UserCell item={item} />
               </td>
-              <td className="px-3 py-3">
-                <Badge
-                  className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
-                  variant="outline"
-                >
-                  {formatEnum(item.user.role)}
-                </Badge>
-              </td>
+              {showRoleColumn ? (
+                <td className="px-3 py-3">
+                  <Badge
+                    className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
+                    variant="outline"
+                  >
+                    {formatEnum(item.user.role)}
+                  </Badge>
+                </td>
+              ) : null}
               <td className="px-3 py-3">
                 <p className="truncate font-medium text-slate-800">
                   {getItemBranch(item)?.vendorName ?? "Open profile"}
@@ -129,11 +153,13 @@ function DesktopUsersTable({
 function MobileUsersRows({
   actions,
   items,
-  onOpenProfile
+  onOpenProfile,
+  showRoleColumn
 }: {
   actions: UsersActionHandlers;
   items: UsersAreaItem[];
   onOpenProfile: (id: string) => void;
+  showRoleColumn: boolean;
 }) {
   return (
     <div className="divide-y divide-slate-100 lg:hidden">
@@ -174,12 +200,14 @@ function MobileUsersRows({
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <Badge
-                className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
-                variant="outline"
-              >
-                {formatEnum(item.user.role)}
-              </Badge>
+              {showRoleColumn ? (
+                <Badge
+                  className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
+                  variant="outline"
+                >
+                  {formatEnum(item.user.role)}
+                </Badge>
+              ) : null}
               <StatusPill status={item.user.employmentStatus} />
               <Badge className="rounded-full" variant="muted">
                 {formatEnum(item.user.accountStatus)}

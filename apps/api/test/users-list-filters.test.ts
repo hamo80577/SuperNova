@@ -1,23 +1,54 @@
 import assert from "node:assert/strict";
 
-import { AssignmentStatus, UserRole } from "@prisma/client";
+import {
+  AccountStatus,
+  AssignmentStatus,
+  BlockStatus,
+  ChainStatus,
+  EmploymentStatus,
+  Gender,
+  ProfileStatus,
+  UiTheme,
+  UserRole,
+  VendorStatus
+} from "@prisma/client";
 
 import { UsersService } from "../src/users/users.service";
 
-function serviceHarness() {
+function serviceHarness(options: { users?: unknown[]; total?: number } = {}) {
   let countWhere: unknown = null;
   let findManyWhere: unknown = null;
+  let findManyArgs: unknown = null;
 
   const prisma = {
     user: {
       count: (args: { where: unknown }) => {
         countWhere = args.where;
-        return Promise.resolve(0);
+        return Promise.resolve(options.total ?? 0);
       },
       findMany: (args: { where: unknown }) => {
         findManyWhere = args.where;
-        return Promise.resolve([]);
+        findManyArgs = args;
+        return Promise.resolve(options.users ?? []);
       }
+    },
+    pickerBranchAssignment: {
+      findMany: () =>
+        Promise.resolve(relationItems(options.users ?? [], "pickerBranchAssignments", "pickerId"))
+    },
+    vendorChampAssignment: {
+      findMany: () =>
+        Promise.resolve(relationItems(options.users ?? [], "vendorChampAssignments", "champId"))
+    },
+    chainAreaManagerAssignment: {
+      findMany: () =>
+        Promise.resolve(
+          relationItems(
+            options.users ?? [],
+            "chainAreaManagerAssignments",
+            "areaManagerId"
+          )
+        )
     },
     $transaction: (promises: Array<Promise<unknown>>) => Promise.all(promises)
   };
@@ -25,7 +56,120 @@ function serviceHarness() {
   return {
     service: new UsersService({} as never, prisma as never, {} as never),
     getCountWhere: () => countWhere,
-    getFindManyWhere: () => findManyWhere
+    getFindManyWhere: () => findManyWhere,
+    getFindManyArgs: () => findManyArgs
+  };
+}
+
+function relationItems(users: unknown[], relationKey: string, userIdKey: string) {
+  return users.flatMap((entry) => {
+    const row = entry as Record<string, unknown>;
+    const assignments = row[relationKey];
+
+    if (!Array.isArray(assignments)) {
+      return [];
+    }
+
+    return assignments.map((assignment) => ({
+      ...(assignment as Record<string, unknown>),
+      [userIdKey]: row.id
+    }));
+  });
+}
+
+const date = new Date("2025-01-01T00:00:00.000Z");
+
+function user(id: string, role: UserRole, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    ibsId: null,
+    shopperId: null,
+    role,
+    nameEn: id,
+    nameAr: null,
+    phoneNumber: `010${id.replace(/\D/g, "").padEnd(8, "0").slice(0, 8)}`,
+    nationalId: null,
+    address: null,
+    dateOfBirth: null,
+    gender: Gender.UNSPECIFIED,
+    uiTheme: UiTheme.ORANGE,
+    joiningDate: null,
+    employmentStatus: EmploymentStatus.ACTIVE,
+    resignationDate: null,
+    accountStatus: AccountStatus.ACTIVE,
+    profileStatus: ProfileStatus.COMPLETE,
+    blockStatus: BlockStatus.NO_BLOCK,
+    blockedUntil: null,
+    blockReason: null,
+    passwordHash: "hashed",
+    mustChangePassword: false,
+    temporaryPasswordExpiresAt: null,
+    temporaryPasswordCiphertext: null,
+    temporaryPasswordCreatedAt: null,
+    lastLoginAt: null,
+    createdAt: date,
+    updatedAt: date,
+    pickerBranchAssignments: [],
+    vendorChampAssignments: [],
+    chainAreaManagerAssignments: [],
+    ...overrides
+  };
+}
+
+function chain(id: string) {
+  return {
+    id,
+    chainName: `${id} Chain`,
+    chainCode: id.toUpperCase(),
+    status: ChainStatus.ACTIVE,
+    createdAt: date,
+    updatedAt: date
+  };
+}
+
+function vendor(
+  id: string,
+  chainValue: ReturnType<typeof chain>,
+  champ: unknown = null
+) {
+  return {
+    id,
+    vendorName: `${id} Branch`,
+    vendorCode: id.toUpperCase(),
+    vendorExternalId: null,
+    status: VendorStatus.ACTIVE,
+    chainId: chainValue.id,
+    address: null,
+    area: null,
+    city: null,
+    createdAt: date,
+    updatedAt: date,
+    chain: chainValue,
+    champAssignments: champ
+      ? [
+          {
+            id: `${id}-champ-assignment`,
+            status: AssignmentStatus.ACTIVE,
+            champ
+          }
+        ]
+      : []
+  };
+}
+
+function assignment(
+  id: string,
+  status: AssignmentStatus,
+  startDate: string,
+  related: Record<string, unknown>
+) {
+  return {
+    id,
+    status,
+    startDate: new Date(startDate),
+    endDate: status === AssignmentStatus.ACTIVE ? null : new Date("2025-03-01"),
+    updatedAt: new Date(startDate),
+    ...related
   };
 }
 
@@ -139,6 +283,61 @@ async function run() {
     assert.match(serializedWhere, /champ-1/);
     assert.match(serializedWhere, /pickerBranchAssignments/);
     assert.match(serializedWhere, /champAssignments/);
+  }
+
+  {
+    const champ = user("champ-1", UserRole.CHAMP);
+    const activeChain = chain("chain-active");
+    const historicalChain = chain("chain-history");
+    const activeVendor = vendor("vendor-active", activeChain, champ);
+    const historicalVendor = vendor("vendor-history", historicalChain);
+    const harness = serviceHarness({
+      total: 2,
+      users: [
+        user("picker-active-wins", UserRole.PICKER, {
+          pickerBranchAssignments: [
+            assignment("older-active", AssignmentStatus.ACTIVE, "2025-01-01", {
+              vendor: activeVendor
+            }),
+            assignment("newer-closed", AssignmentStatus.CLOSED, "2025-04-01", {
+              vendor: historicalVendor
+            })
+          ]
+        }),
+        user("picker-history", UserRole.PICKER, {
+          pickerBranchAssignments: [
+            assignment("latest-closed", AssignmentStatus.CLOSED, "2025-05-01", {
+              vendor: historicalVendor
+            }),
+            assignment("older-closed", AssignmentStatus.CLOSED, "2025-02-01", {
+              vendor: activeVendor
+            })
+          ],
+          employmentStatus: EmploymentStatus.RESIGNED,
+          accountStatus: AccountStatus.ARCHIVED
+        })
+      ]
+    });
+
+    const result = await harness.service.listOperational({
+      page: 1,
+      pageSize: 20,
+      role: UserRole.PICKER
+    });
+
+    assert.equal(result.items[0].assignment?.id, "older-active");
+    assert.equal(result.items[0].vendor?.id, "vendor-active");
+    assert.equal(result.items[0].chain?.id, "chain-active");
+    assert.equal(result.items[0].champ?.id, "champ-1");
+    assert.equal(result.items[1].assignment?.id, "latest-closed");
+    assert.equal(result.items[1].vendor?.id, "vendor-history");
+    assert.equal(result.items[1].chain?.id, "chain-history");
+    assert.deepEqual(result.meta, {
+      page: 1,
+      pageSize: 20,
+      total: 2,
+      totalPages: 1
+    });
   }
 }
 

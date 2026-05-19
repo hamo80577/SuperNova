@@ -23,7 +23,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import type { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
-import { toSafeUser } from "./dto/safe-user.dto";
+import { toSafeUser, type SafeUserDto } from "./dto/safe-user.dto";
 import type { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
 import { TemporaryPasswordService } from "./temporary-password.service";
 
@@ -35,6 +35,52 @@ const REQUIRED_PICKER_PROFILE_FIELDS = [
   "address",
   "dateOfBirth"
 ] as const;
+
+type OperationalAssignmentSummary = {
+  id: string;
+  status: AssignmentStatus;
+  startDate: Date;
+  endDate: Date | null;
+};
+
+type OperationalUserSummary = Pick<
+  SafeUserDto,
+  | "id"
+  | "role"
+  | "nameEn"
+  | "nameAr"
+  | "phoneNumber"
+  | "accountStatus"
+  | "employmentStatus"
+  | "profileStatus"
+>;
+
+type OperationalChainSummary = {
+  id: string;
+  chainName: string;
+  chainCode: string;
+  status: string;
+};
+
+type OperationalVendorSummary = {
+  id: string;
+  vendorName: string;
+  vendorCode: string;
+  vendorExternalId: string | null;
+  status: string;
+  chainId: string;
+  area: string | null;
+  city: string | null;
+};
+
+type OperationalListContext = {
+  key: string;
+  assignment: OperationalAssignmentSummary | null;
+  vendor: OperationalVendorSummary | null;
+  chain: OperationalChainSummary | null;
+  champ: OperationalUserSummary | null;
+  areaManager: OperationalUserSummary | null;
+};
 
 @Injectable()
 export class UsersService {
@@ -82,6 +128,44 @@ export class UsersService {
 
     return {
       items: items.map(toSafeUser),
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
+  }
+
+  async listOperational(query: ListUsersQueryDto) {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? 20));
+    const where = this.buildWhere(query);
+
+    const [total, users] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+    const contexts = await this.getOperationalListContexts(users);
+
+    return {
+      items: users.map((user) => {
+        const context = contexts.get(user.id) ?? this.emptyOperationalContext(user);
+        return {
+          key: context.key,
+          user: toSafeUser(user),
+          assignment: context.assignment,
+          vendor: context.vendor,
+          chain: context.chain,
+          champ: context.champ,
+          areaManager: context.areaManager
+        };
+      }),
       meta: {
         page,
         pageSize,
@@ -690,6 +774,223 @@ export class UsersService {
     return user.temporaryPasswordExpiresAt.getTime() <= Date.now();
   }
 
+  private async getOperationalListContexts(users: User[]) {
+    const pickerIds = users
+      .filter((user) => user.role === UserRole.PICKER)
+      .map((user) => user.id);
+    const champIds = users
+      .filter((user) => user.role === UserRole.CHAMP)
+      .map((user) => user.id);
+    const areaManagerIds = users
+      .filter((user) => user.role === UserRole.AREA_MANAGER)
+      .map((user) => user.id);
+
+    const [
+      pickerAssignments,
+      champAssignments,
+      areaManagerAssignments
+    ] = await Promise.all([
+      pickerIds.length
+        ? this.prisma.pickerBranchAssignment.findMany({
+            where: { pickerId: { in: pickerIds } },
+            include: {
+              vendor: {
+                include: {
+                  chain: true,
+                  champAssignments: {
+                    where: { status: AssignmentStatus.ACTIVE },
+                    include: { champ: true },
+                    orderBy: [{ startDate: "desc" }, { updatedAt: "desc" }],
+                    take: 1
+                  }
+                }
+              }
+            },
+            orderBy: [
+              { pickerId: "asc" },
+              { startDate: "desc" },
+              { endDate: "desc" },
+              { updatedAt: "desc" }
+            ]
+          })
+        : Promise.resolve([]),
+      champIds.length
+        ? this.prisma.vendorChampAssignment.findMany({
+            where: { champId: { in: champIds } },
+            include: { vendor: { include: { chain: true } } },
+            orderBy: [
+              { champId: "asc" },
+              { startDate: "desc" },
+              { endDate: "desc" },
+              { updatedAt: "desc" }
+            ]
+          })
+        : Promise.resolve([]),
+      areaManagerIds.length
+        ? this.prisma.chainAreaManagerAssignment.findMany({
+            where: { areaManagerId: { in: areaManagerIds } },
+            include: { chain: true },
+            orderBy: [
+              { areaManagerId: "asc" },
+              { startDate: "desc" },
+              { endDate: "desc" },
+              { updatedAt: "desc" }
+            ]
+          })
+        : Promise.resolve([])
+    ]);
+    const pickerAssignmentsByUserId = this.groupBy(
+      pickerAssignments,
+      (assignment) => assignment.pickerId
+    );
+    const champAssignmentsByUserId = this.groupBy(
+      champAssignments,
+      (assignment) => assignment.champId
+    );
+    const areaManagerAssignmentsByUserId = this.groupBy(
+      areaManagerAssignments,
+      (assignment) => assignment.areaManagerId
+    );
+    const contexts = new Map<string, OperationalListContext>();
+
+    for (const user of users) {
+      if (user.role === UserRole.PICKER) {
+        const assignment = this.selectDisplayAssignment(
+          pickerAssignmentsByUserId.get(user.id)
+        );
+
+        if (!assignment) {
+          contexts.set(user.id, this.emptyOperationalContext(user));
+          continue;
+        }
+
+        const champ = assignment.vendor.champAssignments[0]?.champ ?? null;
+        contexts.set(user.id, {
+          key: assignment.id,
+          assignment: this.toAssignmentSummary(assignment),
+          vendor: this.toVendorSummary(assignment.vendor),
+          chain: this.toChainSummary(assignment.vendor.chain),
+          champ: champ ? this.toUserSummary(champ) : null,
+          areaManager: null
+        });
+        continue;
+      }
+
+      if (user.role === UserRole.CHAMP) {
+        const assignment = this.selectDisplayAssignment(
+          champAssignmentsByUserId.get(user.id)
+        );
+
+        if (!assignment) {
+          contexts.set(user.id, this.emptyOperationalContext(user));
+          continue;
+        }
+
+        contexts.set(user.id, {
+          key: assignment.id,
+          assignment: this.toAssignmentSummary(assignment),
+          vendor: this.toVendorSummary(assignment.vendor),
+          chain: this.toChainSummary(assignment.vendor.chain),
+          champ: this.toUserSummary(user),
+          areaManager: null
+        });
+        continue;
+      }
+
+      if (user.role === UserRole.AREA_MANAGER) {
+        const assignment = this.selectDisplayAssignment(
+          areaManagerAssignmentsByUserId.get(user.id)
+        );
+
+        if (!assignment) {
+          contexts.set(user.id, this.emptyOperationalContext(user));
+          continue;
+        }
+
+        contexts.set(user.id, {
+          key: assignment.id,
+          assignment: this.toAssignmentSummary(assignment),
+          vendor: null,
+          chain: this.toChainSummary(assignment.chain),
+          champ: null,
+          areaManager: this.toUserSummary(user)
+        });
+      }
+    }
+
+    return contexts;
+  }
+
+  private groupBy<T>(items: T[], getKey: (item: T) => string) {
+    const grouped = new Map<string, T[]>();
+
+    for (const item of items) {
+      const key = getKey(item);
+      const current = grouped.get(key);
+      if (current) {
+        current.push(item);
+      } else {
+        grouped.set(key, [item]);
+      }
+    }
+
+    return grouped;
+  }
+
+  private selectDisplayAssignment<
+    T extends {
+      status: AssignmentStatus;
+      startDate: Date;
+      endDate: Date | null;
+      updatedAt: Date;
+    }
+  >(assignments: T[] | undefined) {
+    if (!assignments?.length) {
+      return null;
+    }
+
+    return [...assignments].sort((left, right) => {
+      if (left.status === AssignmentStatus.ACTIVE && right.status !== AssignmentStatus.ACTIVE) {
+        return -1;
+      }
+      if (left.status !== AssignmentStatus.ACTIVE && right.status === AssignmentStatus.ACTIVE) {
+        return 1;
+      }
+
+      return (
+        right.startDate.getTime() - left.startDate.getTime() ||
+        (right.endDate?.getTime() ?? 0) - (left.endDate?.getTime() ?? 0) ||
+        right.updatedAt.getTime() - left.updatedAt.getTime()
+      );
+    })[0];
+  }
+
+  private emptyOperationalContext(user: User): OperationalListContext {
+    return {
+      key: user.id,
+      assignment: null,
+      vendor: null,
+      chain: null,
+      champ: user.role === UserRole.CHAMP ? this.toUserSummary(user) : null,
+      areaManager:
+        user.role === UserRole.AREA_MANAGER ? this.toUserSummary(user) : null
+    };
+  }
+
+  private toAssignmentSummary(assignment: {
+    id: string;
+    status: AssignmentStatus;
+    startDate: Date;
+    endDate: Date | null;
+  }): OperationalAssignmentSummary {
+    return {
+      id: assignment.id,
+      status: assignment.status,
+      startDate: assignment.startDate,
+      endDate: assignment.endDate
+    };
+  }
+
   private async isActivePickerInChampScope(pickerId: string, champId: string) {
     const assignment = await this.prisma.pickerBranchAssignment.findFirst({
       where: {
@@ -901,6 +1202,9 @@ export class UsersService {
     query: ListUsersQueryDto
   ): Prisma.UserWhereInput | null {
     const and: Prisma.UserWhereInput[] = [];
+
+    // Filters intentionally use active assignments only. Operational list rows
+    // may still display latest historical context when no active assignment exists.
 
     if (query.chainId) {
       and.push({
