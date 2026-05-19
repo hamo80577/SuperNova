@@ -144,6 +144,7 @@ export interface CreateNewHirePayload {
   dateOfBirth?: string;
   gender?: "MALE" | "FEMALE" | "UNSPECIFIED";
   notes?: string;
+  shopperId?: string;
 }
 
 export interface NewHireLookupCandidate {
@@ -464,12 +465,12 @@ export const requestsApi = {
     clearApiCache("/workspaces");
     return created;
   },
-  async finalizeNewHire(id: string, shopperId?: string) {
+  async finalizeNewHire(id: string) {
     const finalized = await apiRequest<FinalizeNewHireResponse>(
       `/requests/${id}/finalize-new-hire`,
       {
         method: "POST",
-        body: JSON.stringify(shopperId?.trim() ? { shopperId: shopperId.trim() } : {})
+        body: JSON.stringify({})
       }
     );
     clearApiCache("/requests");

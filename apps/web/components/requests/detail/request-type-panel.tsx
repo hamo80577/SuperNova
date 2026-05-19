@@ -187,6 +187,12 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
               value={(context.source.chainIds ?? []).join(", ") || "Not available"}
             />
           )}
+          {context.targetRole === "PICKER" ? (
+            <ProfileRow
+              label="Area Manager Shopper ID"
+              value={context.areaManagerDecision?.shopperId ?? "Not captured"}
+            />
+          ) : null}
           <ProfileRow
             label="Hiring date"
             value={
@@ -230,7 +236,7 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
             }
           />
           <Definition
-            label="Shopper ID"
+            label="Finalized Shopper ID"
             value={context.finalization.shopperId ?? "Not required"}
           />
           <Definition

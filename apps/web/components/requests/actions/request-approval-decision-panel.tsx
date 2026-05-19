@@ -2,9 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { approvalsApi } from "@/lib/api/approvals";
 import { type RequestApprovalSummary, type RequestDetail } from "@/lib/api/requests";
+import { Field } from "../shared/request-field";
 import { ErrorState } from "../shared/request-states";
+import { parseNewHirePayload } from "../shared/request-utils";
 
 export function RequestApprovalDecisionPanel({
   approval,
@@ -19,12 +22,24 @@ export function RequestApprovalDecisionPanel({
 }) {
   const isResignationAreaManager =
     request.type === "RESIGNATION" && approval.step === "AREA_MANAGER_APPROVAL";
+  const newHireContext = parseNewHirePayload(request.payload);
+  const requiresShopperId =
+    request.type === "NEW_HIRE" &&
+    approval.step === "AREA_MANAGER_APPROVAL" &&
+    newHireContext?.targetRole === "PICKER";
   const [notes, setNotes] = useState("");
+  const [shopperId, setShopperId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function approve() {
+    const normalizedShopperId = shopperId.trim();
+    if (requiresShopperId && !normalizedShopperId) {
+      setError("Shopper ID is required before approving Picker New Hire.");
+      return;
+    }
+
     startTransition(async () => {
       setError(null);
       try {
@@ -34,9 +49,14 @@ export function RequestApprovalDecisionPanel({
             ? {
                 blockDecision: "NO_BLOCK"
               }
+            : requiresShopperId
+              ? {
+                  shopperId: normalizedShopperId
+                }
             : undefined
         );
         setNotes("");
+        setShopperId("");
         setIsRejecting(false);
         await onChanged();
       } catch (caughtError) {
@@ -113,6 +133,18 @@ export function RequestApprovalDecisionPanel({
         </div>
       ) : (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {requiresShopperId ? (
+            <div className="mb-1 w-full sm:mb-0 sm:max-w-xs">
+              <Field label="Shopper ID">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => setShopperId(event.target.value)}
+                  placeholder="Shopper ID"
+                  value={shopperId}
+                />
+              </Field>
+            </div>
+          ) : null}
           <Button
             className="min-h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
             disabled={isPending}

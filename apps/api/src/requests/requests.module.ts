@@ -10,6 +10,7 @@ import { RequestsService } from "./requests.service";
 import { NewHireCandidateService } from "./workflows/new-hire-candidate.service";
 import { NewHireFinalizationService } from "./workflows/new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./workflows/new-hire-request-creation.service";
+import { NewHireApprovalService } from "./workflows/new-hire-approval.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingApprovalService } from "./workflows/offboarding-approval.service";
 import { OffboardingFinalizationService } from "./workflows/offboarding-finalization.service";
@@ -25,6 +26,7 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
   providers: [
     RequestApprovalRoutingService,
     RequestsService,
+    NewHireApprovalService,
     NewHireCandidateService,
     NewHireFinalizationService,
     NewHireRequestCreationService,

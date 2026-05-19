@@ -15,6 +15,7 @@ export type ApprovalDecisionInput =
       notes?: string;
       blockDecision?: OffboardingBlockDecision;
       blockReason?: string;
+      shopperId?: string;
     };
 
 export const approvalsApi = {

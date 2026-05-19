@@ -106,6 +106,9 @@ async function assertCreateRehireWithoutEditableNames(targetRole: UserRole.PICKE
       createBranchNewHire: async () => ({ id: `request-${targetRole}` })
     } as any,
     {
+      approveAreaManagerApproval: async () => ({ id: "approval-request" })
+    } as any,
+    {
       resolveAreaManagerStep: async () => ({
         step: ApprovalStep.AREA_MANAGER_APPROVAL,
         approverRole: UserRole.AREA_MANAGER,
@@ -135,9 +138,89 @@ async function assertCreateRehireWithoutEditableNames(targetRole: UserRole.PICKE
   assert.equal((created as { id: string }).id, `request-${targetRole}`);
 }
 
+async function assertAreaManagerPickerNewHireCapturesShopperId() {
+  const sourceVendor = {
+    id: "vendor-1",
+    vendorName: "Branch One",
+    vendorCode: "B1",
+    status: VendorStatus.ACTIVE,
+    chainId: "chain-1",
+    chain: {
+      id: "chain-1",
+      chainName: "Chain One",
+      chainCode: "C1",
+      status: ChainStatus.ACTIVE
+    }
+  };
+  let capturedBranchContext: any = null;
+  const workflow = new NewHireWorkflowService(
+    {
+      vendor: {
+        findUnique: async () => sourceVendor
+      },
+      user: {
+        findUnique: async () => null
+      },
+      vendorChampAssignment: {
+        findFirst: async () => null
+      },
+      chainAreaManagerAssignment: {
+        findFirst: async () => ({ id: "assignment-1" })
+      }
+    } as any,
+    {
+      validateNewHireCandidateForCreate: async () => ({
+        rehireUser: null,
+        matchedBy: []
+      })
+    } as any,
+    {} as any,
+    {
+      createBranchNewHire: async (_candidate: any, branchContext: any) => {
+        capturedBranchContext = branchContext;
+        return { id: "request-1" };
+      }
+    } as any,
+    {
+      approveAreaManagerApproval: async () => ({ id: "approval-request" })
+    } as any,
+    {} as any
+  );
+
+  await assert.rejects(
+    () =>
+      workflow.createNewHire(
+        {
+          targetRole: UserRole.PICKER,
+          sourceVendorId: "vendor-1",
+          nameEn: "New Picker",
+          phoneNumber,
+          nationalId
+        },
+        { actor: { id: "area-manager-1", role: UserRole.AREA_MANAGER } as any }
+      ),
+    /Shopper ID is required when Area Manager submits Picker New Hire/
+  );
+
+  await workflow.createNewHire(
+    {
+      targetRole: UserRole.PICKER,
+      sourceVendorId: "vendor-1",
+      nameEn: "New Picker",
+      phoneNumber,
+      nationalId,
+      shopperId: " SHOP_789 "
+    },
+    { actor: { id: "area-manager-1", role: UserRole.AREA_MANAGER } as any }
+  );
+
+  assert.equal(capturedBranchContext.areaManagerCapturedShopperId, "SHOP_789");
+}
+
 async function run() {
   await assertCreateRehireWithoutEditableNames(UserRole.PICKER);
   await assertCreateRehireWithoutEditableNames(UserRole.CHAMP);
+  await assertAreaManagerPickerNewHireCapturesShopperId();
 
   const picker = candidateUser({ id: "picker-1", role: UserRole.PICKER });
   const champ = candidateUser({ id: "champ-1", role: UserRole.CHAMP });
@@ -294,8 +377,86 @@ async function run() {
         "eligible-picker",
         UserRole.PICKER
       ),
-    /Previous Picker already has an active Branch assignment/
+    /Phone number and National ID belong to different existing users. Resolve the identity conflict before submitting New Hire\/Rehire./
   );
+
+  await assert.rejects(
+    () =>
+      candidateServiceWithMatches([
+        candidateUser({
+          id: "archived-phone-match",
+          phoneNumber,
+          nationalId: "11111111111111",
+          role: UserRole.PICKER
+        }),
+        candidateUser({
+          id: "archived-national-id-match",
+          phoneNumber: "01099999999",
+          nationalId,
+          role: UserRole.PICKER
+        })
+      ]).validateNewHireCandidateForCreate(
+        {
+          phoneNumber,
+          nationalId,
+          gender: Gender.UNSPECIFIED
+        },
+        "archived-phone-match",
+        UserRole.PICKER
+      ),
+    /Phone number and National ID belong to different existing users. Resolve the identity conflict before submitting New Hire\/Rehire./
+  );
+
+  await assert.rejects(
+    () =>
+      candidateServiceWithMatches([
+        candidateUser({
+          id: "archived-phone-match",
+          phoneNumber,
+          nationalId: "11111111111111",
+          role: UserRole.PICKER
+        }),
+        candidateUser({
+          id: "active-national-id-match",
+          phoneNumber: "01099999999",
+          nationalId,
+          role: UserRole.PICKER,
+          accountStatus: AccountStatus.ACTIVE,
+          employmentStatus: EmploymentStatus.ACTIVE
+        })
+      ]).validateNewHireCandidateForCreate(
+        {
+          phoneNumber,
+          nationalId,
+          gender: Gender.UNSPECIFIED
+        },
+        "archived-phone-match",
+        UserRole.PICKER
+      ),
+    /Phone number and National ID belong to different existing users. Resolve the identity conflict before submitting New Hire\/Rehire./
+  );
+
+  const sameArchivedUserValidation = await candidateServiceWithMatches([
+    candidateUser({
+      id: "same-archived-user",
+      phoneNumber,
+      nationalId,
+      role: UserRole.PICKER
+    })
+  ]).validateNewHireCandidateForCreate(
+    {
+      phoneNumber,
+      nationalId,
+      gender: Gender.UNSPECIFIED
+    },
+    "same-archived-user",
+    UserRole.PICKER
+  );
+  assert.equal(sameArchivedUserValidation.rehireUser?.id, "same-archived-user");
+  assert.deepEqual(sameArchivedUserValidation.matchedBy.sort(), [
+    "nationalId",
+    "phoneNumber"
+  ]);
 }
 
 void run();

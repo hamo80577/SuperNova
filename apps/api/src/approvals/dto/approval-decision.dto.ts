@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 import { OFFBOARDING_BLOCK_DECISIONS } from "../../requests/workflows/offboarding-workflow.policy";
 
@@ -16,4 +16,12 @@ export class ApprovalDecisionDto {
   @IsString()
   @MaxLength(1000)
   blockReason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Matches(/^[A-Za-z0-9_-]*$/, {
+    message: "shopperId may contain letters, numbers, underscores, and hyphens only."
+  })
+  shopperId?: string;
 }

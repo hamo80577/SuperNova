@@ -258,6 +258,7 @@ export function parseNewHirePayload(payload: unknown) {
           : "NEW_PICKER";
   const rehire = objectPayload.rehire;
   const source = objectPayload.source;
+  const areaManagerDecision = objectPayload.areaManagerDecision;
   const finalization = objectPayload.finalization;
 
   if (
@@ -276,6 +277,12 @@ export function parseNewHirePayload(payload: unknown) {
   const rehirePayload =
     rehire && typeof rehire === "object" && !Array.isArray(rehire)
       ? (rehire as Record<string, unknown>)
+      : null;
+  const areaManagerPayload =
+    areaManagerDecision &&
+    typeof areaManagerDecision === "object" &&
+    !Array.isArray(areaManagerDecision)
+      ? (areaManagerDecision as Record<string, unknown>)
       : null;
   const finalizationPayload =
     finalization && typeof finalization === "object" && !Array.isArray(finalization)
@@ -328,6 +335,26 @@ export function parseNewHirePayload(payload: unknown) {
     },
     rehireUserId:
       typeof rehirePayload?.userId === "string" ? rehirePayload.userId : undefined,
+    areaManagerDecision: areaManagerPayload
+      ? {
+          shopperId:
+            typeof areaManagerPayload.shopperId === "string"
+              ? areaManagerPayload.shopperId
+              : undefined,
+          approvedById:
+            typeof areaManagerPayload.approvedById === "string"
+              ? areaManagerPayload.approvedById
+              : undefined,
+          approvedAt:
+            typeof areaManagerPayload.approvedAt === "string"
+              ? areaManagerPayload.approvedAt
+              : undefined,
+          notes:
+            typeof areaManagerPayload.notes === "string"
+              ? areaManagerPayload.notes
+              : null
+        }
+      : null,
     finalization: finalizationPayload
       ? {
           userId:

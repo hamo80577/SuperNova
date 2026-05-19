@@ -11,7 +11,7 @@ import { ApprovalQueueCard } from "./approvals-center";
 import { BlockDecisionFields } from "../forms/resignation/block-decision-fields";
 import { EmptyState } from "../shared/request-empty-state";
 import { ErrorState, LoadingState } from "../shared/request-states";
-import { formatEnum } from "../shared/request-utils";
+import { formatEnum, parseNewHirePayload } from "../shared/request-utils";
 
 export function LegacyApprovalsCenter() {
   const [items, setItems] = useState<PendingApproval[]>([]);
@@ -23,6 +23,7 @@ export function LegacyApprovalsCenter() {
   const [decisionBlockDecision, setDecisionBlockDecision] =
     useState<OffboardingBlockDecision>("NO_BLOCK");
   const [decisionBlockReason, setDecisionBlockReason] = useState("");
+  const [decisionShopperId, setDecisionShopperId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -56,6 +57,12 @@ export function LegacyApprovalsCenter() {
       decision.action === "approve" &&
       decision.approval.request.type === "RESIGNATION" &&
       decision.approval.step === "AREA_MANAGER_APPROVAL";
+    const newHireContext = parseNewHirePayload(decision.approval.request.payload);
+    const requiresShopperId =
+      decision.action === "approve" &&
+      decision.approval.request.type === "NEW_HIRE" &&
+      decision.approval.step === "AREA_MANAGER_APPROVAL" &&
+      newHireContext?.targetRole === "PICKER";
 
     if (
       requiresBlockDecision &&
@@ -63,6 +70,10 @@ export function LegacyApprovalsCenter() {
       !decisionBlockReason.trim()
     ) {
       setError("Block reason is required for any block decision.");
+      return;
+    }
+    if (requiresShopperId && !decisionShopperId.trim()) {
+      setError("Shopper ID is required before approving Picker New Hire.");
       return;
     }
 
@@ -80,6 +91,11 @@ export function LegacyApprovalsCenter() {
                     : {}),
                   ...(decisionNotes.trim() ? { notes: decisionNotes.trim() } : {})
                 }
+              : requiresShopperId
+                ? {
+                    shopperId: decisionShopperId.trim(),
+                    ...(decisionNotes.trim() ? { notes: decisionNotes.trim() } : {})
+                  }
               : decisionNotes
           );
         } else {
@@ -89,6 +105,7 @@ export function LegacyApprovalsCenter() {
         setDecisionNotes("");
         setDecisionBlockDecision("NO_BLOCK");
         setDecisionBlockReason("");
+        setDecisionShopperId("");
         await loadApprovals();
       } catch (caughtError) {
         setError(
@@ -125,6 +142,7 @@ export function LegacyApprovalsCenter() {
                   setDecisionNotes("");
                   setDecisionBlockDecision("NO_BLOCK");
                   setDecisionBlockReason("");
+                  setDecisionShopperId("");
                 }}
             />
           ))}
@@ -146,9 +164,9 @@ export function LegacyApprovalsCenter() {
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               This records the approval decision. New Hire Admin final approval
-              requires Shopper ID finalization from the request detail page.
-              Resignation Admin final approval requires block decision and internal
-              deactivation confirmation from the request detail page.
+              creates the user only after the required Area Manager Shopper ID
+              capture. Resignation Admin final approval requires block decision and
+              internal deactivation confirmation from the request detail page.
             </p>
             {decision.action === "approve" &&
             decision.approval.request.type === "RESIGNATION" &&
@@ -172,6 +190,20 @@ export function LegacyApprovalsCenter() {
                 />
               </div>
             ) : null}
+            {decision.action === "approve" &&
+            decision.approval.request.type === "NEW_HIRE" &&
+            decision.approval.step === "AREA_MANAGER_APPROVAL" &&
+            parseNewHirePayload(decision.approval.request.payload)?.targetRole ===
+              "PICKER" ? (
+              <label className="mt-4 grid gap-1 text-sm font-medium">
+                Shopper ID
+                <Input
+                  onChange={(event) => setDecisionShopperId(event.target.value)}
+                  placeholder="Shopper ID"
+                  value={decisionShopperId}
+                />
+              </label>
+            ) : null}
             <label className="mt-4 grid gap-1 text-sm font-medium">
               Decision notes
               <Input
@@ -187,6 +219,7 @@ export function LegacyApprovalsCenter() {
                   setDecisionNotes("");
                   setDecisionBlockDecision("NO_BLOCK");
                   setDecisionBlockReason("");
+                  setDecisionShopperId("");
                 }}
                 type="button"
                 variant="outline"

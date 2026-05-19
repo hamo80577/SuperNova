@@ -264,6 +264,18 @@ export class RequestsService {
     );
   }
 
+  async approveNewHireAreaManagerApproval(
+    approvalId: string,
+    dto: ApprovalDecisionDto,
+    context: RequestContext
+  ) {
+    return this.newHireWorkflowService.approveAreaManagerApproval(
+      approvalId,
+      dto,
+      context
+    );
+  }
+
   async approveTransferApproval(
     approvalId: string,
     notes: string | undefined,

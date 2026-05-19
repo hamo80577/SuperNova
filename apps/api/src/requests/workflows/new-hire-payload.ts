@@ -21,6 +21,7 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
   const candidate = objectPayload.candidate;
   const source = objectPayload.source;
   const rehire = objectPayload.rehire;
+  const areaManagerDecision = objectPayload.areaManagerDecision;
   const finalization = objectPayload.finalization;
   const targetRole = normalizePayloadTargetRole(
     typeof objectPayload.targetRole === "string"
@@ -44,6 +45,12 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
   const rehirePayload =
     rehire && typeof rehire === "object" && !Array.isArray(rehire)
       ? (rehire as Record<string, unknown>)
+      : null;
+  const areaManagerPayload =
+    areaManagerDecision &&
+    typeof areaManagerDecision === "object" &&
+    !Array.isArray(areaManagerDecision)
+      ? (areaManagerDecision as Record<string, unknown>)
       : null;
   const finalizationPayload =
     finalization && typeof finalization === "object" && !Array.isArray(finalization)
@@ -173,6 +180,25 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
           }
         }
       : {}),
+    areaManagerDecision: areaManagerPayload
+      ? {
+          ...(typeof areaManagerPayload.shopperId === "string"
+            ? { shopperId: areaManagerPayload.shopperId }
+            : {}),
+          approvedById:
+            typeof areaManagerPayload.approvedById === "string"
+              ? areaManagerPayload.approvedById
+              : "",
+          approvedAt:
+            typeof areaManagerPayload.approvedAt === "string"
+              ? areaManagerPayload.approvedAt
+              : "",
+          notes:
+            typeof areaManagerPayload.notes === "string"
+              ? areaManagerPayload.notes
+              : null
+        }
+      : undefined,
     finalization: finalizationPayload
       ? (finalizationPayload as NewHirePayload["finalization"])
       : undefined

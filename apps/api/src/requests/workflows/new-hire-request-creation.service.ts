@@ -39,6 +39,7 @@ export class NewHireRequestCreationService {
     },
     context: RequestContext
   ) {
+    const createdAt = new Date();
     const mode = rehireValidation.rehireUser
       ? "REHIRE"
       : branchContext.targetRole === UserRole.PICKER
@@ -52,6 +53,18 @@ export class NewHireRequestCreationService {
         vendorId: branchContext.sourceVendor.id,
         chainId: branchContext.sourceVendor.chainId
       },
+      ...(branchContext.skipAreaManagerApproval &&
+      branchContext.targetRole === UserRole.PICKER &&
+      branchContext.areaManagerCapturedShopperId
+        ? {
+            areaManagerDecision: {
+              shopperId: branchContext.areaManagerCapturedShopperId,
+              approvedById: context.actor.id,
+              approvedAt: createdAt.toISOString(),
+              notes: null
+            }
+          }
+        : {}),
       ...(rehireValidation.rehireUser
         ? {
             rehire: {
@@ -72,7 +85,6 @@ export class NewHireRequestCreationService {
 
     assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
 
-    const createdAt = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const request = await tx.request.create({
         data: {

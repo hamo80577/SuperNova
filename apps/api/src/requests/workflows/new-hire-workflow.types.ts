@@ -79,6 +79,12 @@ export type NewHirePayload = {
     previousBlockedUntil?: string | null;
     previousProfileStatus: ProfileStatus;
   };
+  areaManagerDecision?: {
+    shopperId?: string;
+    approvedById: string;
+    approvedAt: string;
+    notes?: string | null;
+  };
   finalization?: {
     userId: string;
     assignmentId?: string;
@@ -99,6 +105,7 @@ export type BranchNewHireContext = {
   sourceVendor: Vendor & { chain: Chain };
   areaManagerStep: GeneratedApprovalStep;
   skipAreaManagerApproval: boolean;
+  areaManagerCapturedShopperId?: string;
 };
 
 export type AreaManagerNewHireContext = {

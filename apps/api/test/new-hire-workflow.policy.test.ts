@@ -105,7 +105,7 @@ assert.equal(
 );
 assert.throws(
   () => resolveNewHireFinalizationShopperId(UserRole.PICKER, undefined, null),
-  /Shopper ID is required for Picker New Hire/
+  /Shopper ID must be captured by the Area Manager before Admin final approval/
 );
 assert.equal(
   resolveNewHireFinalizationShopperId(UserRole.CHAMP, undefined, null),

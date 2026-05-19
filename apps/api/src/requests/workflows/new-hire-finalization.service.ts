@@ -67,7 +67,7 @@ export class NewHireFinalizationService {
 
   async finalizeNewHire(
     id: string,
-    dto: FinalizeNewHireDto,
+    _dto: FinalizeNewHireDto,
     context: RequestContext
   ) {
     if (!this.isAdmin(context.actor)) {
@@ -112,7 +112,7 @@ export class NewHireFinalizationService {
 
     const finalizableTargetRole: Extract<UserRole, "PICKER" | "CHAMP"> =
       payload.targetRole === UserRole.PICKER ? UserRole.PICKER : UserRole.CHAMP;
-    const requestedShopperId = dto.shopperId?.trim() ?? "";
+    const areaManagerShopperId = payload.areaManagerDecision?.shopperId?.trim() ?? "";
     const isPicker = finalizableTargetRole === UserRole.PICKER;
     const isRehire = payload.mode === "REHIRE";
 
@@ -163,7 +163,7 @@ export class NewHireFinalizationService {
 
     const shopperId = this.resolveFinalizationShopperId(
       finalizableTargetRole,
-      requestedShopperId,
+      areaManagerShopperId,
       rehireUser?.shopperId ?? null
     );
 

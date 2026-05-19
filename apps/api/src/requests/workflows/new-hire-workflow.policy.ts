@@ -26,6 +26,44 @@ const ADMIN_LIFECYCLE_TARGET_ROLES: NewHireTargetRole[] = [
   UserRole.AREA_MANAGER
 ];
 
+export const NEW_HIRE_IDENTITY_CONFLICT_MESSAGE =
+  "Phone number and National ID belong to different existing users. Resolve the identity conflict before submitting New Hire/Rehire.";
+
+export function normalizeNewHireShopperId(
+  value: string | null | undefined,
+  requiredMessage: string
+) {
+  const shopperId = value?.trim() ?? "";
+
+  if (!shopperId) {
+    throw new Error(requiredMessage);
+  }
+
+  if (shopperId.length > 64) {
+    throw new Error("shopperId must be shorter than or equal to 64 characters.");
+  }
+
+  if (!/^[A-Za-z0-9_-]+$/.test(shopperId)) {
+    throw new Error(
+      "shopperId may contain letters, numbers, underscores, and hyphens only."
+    );
+  }
+
+  return shopperId;
+}
+
+export function normalizeOptionalNewHireShopperId(
+  value: string | null | undefined
+) {
+  const shopperId = value?.trim() ?? "";
+
+  if (!shopperId) {
+    return undefined;
+  }
+
+  return normalizeNewHireShopperId(value, "shopperId is required.");
+}
+
 export function normalizeNewHireTargetRole(
   targetRole: UserRole | string | null | undefined
 ): NewHireTargetRole {
@@ -137,7 +175,9 @@ export function resolveNewHireFinalizationShopperId(
     return existing;
   }
 
-  throw new Error("Shopper ID is required for Picker New Hire.");
+  throw new Error(
+    "Shopper ID must be captured by the Area Manager before Admin final approval."
+  );
 }
 
 export function getRehireBlockNormalizationFields() {

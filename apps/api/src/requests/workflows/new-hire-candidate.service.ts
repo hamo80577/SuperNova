@@ -28,6 +28,7 @@ import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { LookupNewHireCandidateDto } from "../dto/lookup-new-hire-candidate.dto";
 import {
+  NEW_HIRE_IDENTITY_CONFLICT_MESSAGE,
   normalizeNewHireTargetRole,
   toNewHireLookupStatus,
   validateEgyptNationalId,
@@ -280,9 +281,33 @@ export class NewHireCandidateService {
       orderBy: [{ accountStatus: "asc" }, { updatedAt: "desc" }]
     });
 
+    this.assertNoIdentityConflict(users, { phoneNumber, nationalId });
+
     return users.map((user) =>
       this.evaluateNewHireMatch(user, candidate, targetRole)
     );
+  }
+
+  private assertNoIdentityConflict(
+    users: CandidateUser[],
+    candidate: CandidateIdentity
+  ) {
+    const phoneNumber = candidate.phoneNumber?.trim();
+    const nationalId = candidate.nationalId?.trim();
+
+    if (!phoneNumber || !nationalId) {
+      return;
+    }
+
+    const hasPhoneMatch = users.some((user) => user.phoneNumber === phoneNumber);
+    const hasNationalIdMatch = users.some((user) => user.nationalId === nationalId);
+    const sameUserHasBoth = users.some(
+      (user) => user.phoneNumber === phoneNumber && user.nationalId === nationalId
+    );
+
+    if (hasPhoneMatch && hasNationalIdMatch && !sameUserHasBoth) {
+      throw new ConflictException(NEW_HIRE_IDENTITY_CONFLICT_MESSAGE);
+    }
   }
 
   private async assertLookupScope(

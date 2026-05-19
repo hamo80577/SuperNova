@@ -117,8 +117,22 @@ export class ApprovalsService {
       approval.request.type === RequestType.NEW_HIRE &&
       approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
     ) {
-      throw new BadRequestException(
-        "New Hire Admin final approval requires Shopper ID finalization from the request detail page."
+      const finalized = await this.requestsService.finalizeNewHire(
+        approval.requestId,
+        {},
+        context
+      );
+      return finalized.request;
+    }
+
+    if (
+      approval.request.type === RequestType.NEW_HIRE &&
+      approval.step === ApprovalStep.AREA_MANAGER_APPROVAL
+    ) {
+      return this.requestsService.approveNewHireAreaManagerApproval(
+        approval.id,
+        dto,
+        context
       );
     }
 

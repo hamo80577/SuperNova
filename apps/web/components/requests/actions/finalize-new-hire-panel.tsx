@@ -2,9 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { requestsApi, type FinalizeNewHireResponse, type RequestDetail } from "@/lib/api/requests";
-import { Field } from "../shared/request-field";
 import { ErrorState } from "../shared/request-states";
 import { parseNewHirePayload } from "../shared/request-utils";
 
@@ -16,26 +14,27 @@ export function FinalizeNewHirePanel({
   request: RequestDetail;
 }) {
   const context = parseNewHirePayload(request.payload);
-  const [shopperId, setShopperId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FinalizeNewHireResponse | null>(null);
   const [isPending, startTransition] = useTransition();
   const targetRole = context?.targetRole ?? "PICKER";
   const isPicker = targetRole === "PICKER";
+  const capturedShopperId =
+    context?.areaManagerDecision?.shopperId ?? context?.finalization?.shopperId;
+  const missingPickerShopperId = isPicker && !capturedShopperId;
 
   function finalize() {
-    if (isPicker && !shopperId.trim()) {
-      setError("Shopper ID is required before Picker account creation.");
+    if (missingPickerShopperId) {
+      setError(
+        "Shopper ID must be captured by the Area Manager before Admin final approval."
+      );
       return;
     }
 
     startTransition(async () => {
       setError(null);
       try {
-        const finalized = await requestsApi.finalizeNewHire(
-          request.id,
-          isPicker ? shopperId : undefined
-        );
+        const finalized = await requestsApi.finalizeNewHire(request.id);
         setResult(finalized);
         await onFinalized();
       } catch (caughtError) {
@@ -57,13 +56,26 @@ export function FinalizeNewHirePanel({
       ) : (
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
           {isPicker ? (
-            <Field label="Shopper ID">
-              <Input
-                onChange={(event) => setShopperId(event.target.value)}
-                placeholder="Shopper ID"
-                value={shopperId}
-              />
-            </Field>
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm ${
+                capturedShopperId
+                  ? "border-slate-200 bg-slate-50 text-slate-700"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Area Manager Shopper ID
+              </p>
+              <p className="mt-1 font-semibold text-slate-950">
+                {capturedShopperId ?? "Not captured"}
+              </p>
+              {!capturedShopperId ? (
+                <p className="mt-1 text-xs leading-5 text-amber-800">
+                  Area Manager approval must capture a Shopper ID before Admin can
+                  approve this Picker New Hire.
+                </p>
+              ) : null}
+            </div>
           ) : (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
               {targetRole === "CHAMP"
@@ -72,8 +84,12 @@ export function FinalizeNewHirePanel({
             </div>
           )}
           <div className="flex items-end">
-            <Button disabled={isPending} onClick={finalize} type="button">
-              {isPending ? "Confirming..." : "Confirm"}
+            <Button
+              disabled={isPending || missingPickerShopperId}
+              onClick={finalize}
+              type="button"
+            >
+              {isPending ? "Approving..." : "Approve New Hire"}
             </Button>
           </div>
         </div>

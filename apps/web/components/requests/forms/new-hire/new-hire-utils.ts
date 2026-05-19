@@ -65,6 +65,7 @@ export function applyFixedNewHireBranch(
       gender: "MALE" | "FEMALE" | "UNSPECIFIED";
       address: string;
       notes: string;
+      shopperId: string;
     }>
   >
 ) {
@@ -152,7 +153,7 @@ export function buildNewHireApprovalSteps(
   const isAreaManagerCreator = creatorRole === "AREA_MANAGER";
   const finalization =
     targetRole === "PICKER"
-      ? "Admin finalization with Shopper ID"
+      ? "Admin final approval"
       : "Admin finalization";
   const assignment =
     targetRole === "PICKER"
@@ -176,7 +177,7 @@ export function buildNewHireApprovalSteps(
       label: finalization,
       description:
         targetRole === "PICKER"
-          ? "Admin provides Shopper ID before account creation."
+          ? "Admin approves after Area Manager Shopper ID capture."
           : "Admin finalizes without a Shopper ID.",
       skipped: false
     },

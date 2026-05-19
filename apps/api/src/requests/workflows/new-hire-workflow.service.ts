@@ -16,6 +16,7 @@ import {
 } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
+import type { ApprovalDecisionDto } from "../../approvals/dto/approval-decision.dto";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { CreateNewHireRequestDto } from "../dto/create-new-hire-request.dto";
 import type { FinalizeNewHireDto } from "../dto/finalize-new-hire.dto";
@@ -23,11 +24,14 @@ import type { LookupNewHireCandidateDto } from "../dto/lookup-new-hire-candidate
 import { RequestApprovalRoutingService } from "../request-approval-routing.service";
 import {
   getAllowedNewHireTargetRolesForCreator,
+  normalizeNewHireShopperId,
   normalizeNewHireTargetRole,
+  normalizeOptionalNewHireShopperId,
   validateEgyptNationalId,
   validateEgyptPhoneNumber,
   type NewHireTargetRole
 } from "./new-hire-workflow.policy";
+import { NewHireApprovalService } from "./new-hire-approval.service";
 import { NewHireCandidateService } from "./new-hire-candidate.service";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
@@ -48,6 +52,8 @@ export class NewHireWorkflowService {
     private readonly newHireFinalizationService: NewHireFinalizationService,
     @Inject(NewHireRequestCreationService)
     private readonly newHireRequestCreationService: NewHireRequestCreationService,
+    @Inject(NewHireApprovalService)
+    private readonly newHireApprovalService: NewHireApprovalService,
     @Inject(RequestApprovalRoutingService)
     private readonly requestApprovalRoutingService: RequestApprovalRoutingService
   ) {}
@@ -78,6 +84,7 @@ export class NewHireWorkflowService {
       );
 
     if (targetRole === UserRole.AREA_MANAGER) {
+      this.assertNoCreateShopperId(dto);
       const areaManagerContext = await this.resolveAreaManagerNewHireContext(dto);
       return this.newHireRequestCreationService.createAreaManagerNewHire(
         candidate,
@@ -86,11 +93,28 @@ export class NewHireWorkflowService {
       );
     }
 
-    const branchContext = await this.resolveBranchNewHireContext(
+    let branchContext = await this.resolveBranchNewHireContext(
       dto,
       context.actor,
       targetRole
     );
+
+    if (context.actor.role === UserRole.AREA_MANAGER && targetRole === UserRole.PICKER) {
+      const shopperId = this.normalizeShopperId(
+        dto.shopperId,
+        "Shopper ID is required when Area Manager submits Picker New Hire."
+      );
+      await this.assertShopperIdAvailable(
+        shopperId,
+        rehireValidation.rehireUser?.id
+      );
+      branchContext = {
+        ...branchContext,
+        areaManagerCapturedShopperId: shopperId
+      };
+    } else {
+      this.assertNoCreateShopperId(dto);
+    }
 
     return this.newHireRequestCreationService.createBranchNewHire(
       candidate,
@@ -106,6 +130,18 @@ export class NewHireWorkflowService {
     context: RequestContext
   ) {
     return this.newHireFinalizationService.finalizeNewHire(id, dto, context);
+  }
+
+  async approveAreaManagerApproval(
+    approvalId: string,
+    dto: ApprovalDecisionDto,
+    context: RequestContext
+  ) {
+    return this.newHireApprovalService.approveAreaManagerApproval(
+      approvalId,
+      dto,
+      context
+    );
   }
 
   private assertCreatorCanCreateTargetRole(
@@ -345,6 +381,32 @@ export class NewHireWorkflowService {
     return Array.from(
       new Set([...(dto.chainIds ?? []), dto.sourceChainId].filter(Boolean))
     ) as string[];
+  }
+
+  private normalizeShopperId(value: string | null | undefined, message: string) {
+    return this.applyPolicyValidation(() => normalizeNewHireShopperId(value, message));
+  }
+
+  private assertNoCreateShopperId(dto: CreateNewHireRequestDto) {
+    const submittedShopperId = this.applyPolicyValidation(() =>
+      normalizeOptionalNewHireShopperId(dto.shopperId)
+    );
+
+    if (submittedShopperId) {
+      throw new BadRequestException(
+        "Shopper ID can be submitted only by Area Managers for Picker New Hire."
+      );
+    }
+  }
+
+  private async assertShopperIdAvailable(shopperId: string, rehireUserId?: string) {
+    const existingShopper = await this.prisma.user.findUnique({
+      where: { shopperId }
+    });
+
+    if (existingShopper && existingShopper.id !== rehireUserId) {
+      throw new ConflictException("Shopper ID is already assigned to another user.");
+    }
   }
 
   private formatTargetRole(targetRole: NewHireTargetRole) {

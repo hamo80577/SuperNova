@@ -135,9 +135,11 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/components/requests/forms/new-hire/new-hire-request-modal.tsx`
   - `apps/web/components/requests/forms/new-hire/new-hire-branch-context.tsx`
   - `apps/web/components/requests/forms/new-hire/new-hire-utils.ts`
+  - `apps/web/components/requests/actions/request-approval-decision-panel.tsx`
   - `apps/web/components/requests/actions/finalize-new-hire-panel.tsx`
   - `apps/web/components/workspaces/champ-new-hire-form.tsx`
 - Main API files:
+  - `apps/api/src/requests/workflows/new-hire-approval.service.ts`
   - `apps/api/src/requests/workflows/new-hire-workflow.service.ts`
   - `apps/api/src/requests/workflows/new-hire-candidate.service.ts`
   - `apps/api/src/requests/workflows/new-hire-request-creation.service.ts`
@@ -145,6 +147,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/requests/workflows/new-hire-workflow.policy.ts`
   - `apps/api/src/requests/workflows/new-hire-payload.ts`
 - Important DTO/types:
+  - `apps/api/src/approvals/dto/approval-decision.dto.ts`
   - `apps/api/src/requests/dto/create-new-hire-request.dto.ts`
   - `apps/api/src/requests/dto/lookup-new-hire-candidate.dto.ts`
   - `apps/api/src/requests/dto/finalize-new-hire.dto.ts`
@@ -153,6 +156,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - Important tests:
   - `apps/api/test/new-hire-workflow.policy.test.ts`
   - `apps/api/test/new-hire-workflow.rehire.test.ts`
+  - `apps/api/test/new-hire-workflow.approval.test.ts`
 
 ### Resignation workflow
 
@@ -255,9 +259,9 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 ## Current Lifecycle Workflow Map
 
 - New Hire Picker:
-  - UI: role selection, Branch context, candidate lookup, profile fields for new users.
-  - API: `NewHireWorkflowService` creates request, `NewHireFinalizationService` creates user and `PickerBranchAssignment`.
-  - Finalization requires Shopper ID unless this is a Rehire with an existing Shopper ID.
+  - UI: role selection, Branch context, candidate lookup, profile fields for new users. Area Manager-created Picker requests capture Shopper ID at submit; Champ/Admin-created Picker requests capture Shopper ID during Area Manager approval.
+  - API: `NewHireWorkflowService` creates request, `NewHireApprovalService` records the Area Manager Shopper ID decision, and `NewHireFinalizationService` creates user and `PickerBranchAssignment` only after Admin final approval.
+  - Finalization resolves Shopper ID from the Area Manager decision or a valid existing Rehire Shopper ID. Admin final approval does not accept an editable Shopper ID.
 - New Hire Champ:
   - UI: role selection, Branch context, candidate lookup, profile fields for new users.
   - API: request creation and finalization create Champ user and `VendorChampAssignment`.
@@ -300,6 +304,7 @@ npm run prisma:migrate
 npm run db:seed
 npx tsx apps/api/test/new-hire-workflow.policy.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.approval.test.ts
 npx tsx apps/api/test/offboarding-workflow.policy.test.ts
 npx tsx apps/api/test/offboarding-payload.test.ts
 npx tsx apps/api/test/env-validation.test.ts

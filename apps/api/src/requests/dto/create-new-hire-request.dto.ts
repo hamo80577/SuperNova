@@ -74,4 +74,12 @@ export class CreateNewHireRequestDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Matches(/^[A-Za-z0-9_-]*$/, {
+    message: "shopperId may contain letters, numbers, underscores, and hyphens only."
+  })
+  shopperId?: string;
 }
