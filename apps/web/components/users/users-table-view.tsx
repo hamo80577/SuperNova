@@ -1,9 +1,8 @@
 "use client";
 
-import { Hash, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "./user-avatar";
 import type { UsersActionHandlers } from "./users-actions-menu";
@@ -12,8 +11,7 @@ import type { UsersAreaItem, UsersSectionId } from "./users-area-types";
 import {
   formatEnum,
   getItemBranch,
-  getItemChainName,
-  getSafeUserIds
+  getItemChainName
 } from "./users-display-utils";
 
 export function UsersTableView({
@@ -79,7 +77,7 @@ function DesktopUsersTable({
               Status
             </th>
             <th className={cn("px-3 py-3", showRoleColumn ? "w-[16%]" : "w-[13%]")}>
-              Phone/IDs
+              Phone
             </th>
             <th className={cn("px-3 py-3 text-right", showRoleColumn ? "w-[8%]" : "w-[6%]")}>
               Actions
@@ -137,7 +135,7 @@ function DesktopUsersTable({
                 </div>
               </td>
               <td className="px-3 py-3">
-                <PhoneIdsCell item={item} />
+                <PhoneCell item={item} />
               </td>
               <td className="px-3 py-3 text-right">
                 <UsersActionsMenu {...actions} align="left" item={item} />
@@ -215,7 +213,7 @@ function MobileUsersRows({
             </div>
           </div>
 
-          <PhoneIdsCell item={item} />
+          <PhoneCell item={item} />
         </article>
       ))}
     </div>
@@ -242,38 +240,17 @@ function UserCell({ item }: { item: UsersAreaItem }) {
   );
 }
 
-function PhoneIdsCell({ item }: { item: UsersAreaItem }) {
-  const ids = getSafeUserIds(item.user);
-
+function PhoneCell({ item }: { item: UsersAreaItem }) {
   return (
     <div
-      className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-slate-500"
+      className="flex min-w-0 items-center text-xs text-slate-500"
       onClick={(event) => event.stopPropagation()}
     >
       <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-50 px-2 py-1">
         <Phone className="h-3.5 w-3.5" />
         <span className="truncate">{item.user.phoneNumber}</span>
       </span>
-      {ids.shopperId ? <SmallCopyPill label="Shopper" value={ids.shopperId} /> : null}
-      {ids.ibsId ? <SmallCopyPill label="IBS" value={ids.ibsId} /> : null}
     </div>
-  );
-}
-
-function SmallCopyPill({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">
-      <Hash className="h-3.5 w-3.5 text-slate-400" />
-      <span className="font-semibold text-slate-500">{label}</span>
-      <span className="max-w-[80px] truncate text-slate-700">{value}</span>
-      <CopyButton
-        aria-label={`Copy ${label} ID`}
-        className="h-6 w-6 rounded-md border-0 bg-slate-50 p-0 shadow-none"
-        iconOnly
-        size="sm"
-        text={value}
-      />
-    </span>
   );
 }
 

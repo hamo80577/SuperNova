@@ -1,4 +1,5 @@
 import { Gender } from "@prisma/client";
+import { Transform } from "class-transformer";
 import {
   IsEnum,
   IsISO8601,
@@ -34,6 +35,7 @@ export class UpdateAdminProfileDto {
   address?: string;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeOptionalDateInput(value))
   @IsISO8601()
   dateOfBirth?: string;
 
@@ -42,6 +44,7 @@ export class UpdateAdminProfileDto {
   gender?: Gender;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeOptionalDateInput(value))
   @IsISO8601()
   joiningDate?: string;
 
@@ -54,4 +57,12 @@ export class UpdateAdminProfileDto {
   @IsString()
   @MaxLength(80)
   ibsId?: string;
+}
+
+function normalizeOptionalDateInput(value: unknown) {
+  if (typeof value === "string" && value.trim() === "") {
+    return undefined;
+  }
+
+  return value;
 }

@@ -81,6 +81,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/lib/auth/types.ts`
 - Important tests:
   - `apps/api/test/users-list-filters.test.ts`
+  - `apps/api/test/users-admin-profile.dto.test.ts`
   - `apps/api/test/users-area-manager-chain-assignments.test.ts`
 
 ### Workspaces
@@ -331,6 +332,7 @@ npx tsx apps/api/test/offboarding-payload.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/offboarding-workflow.approval-finalization.test.ts
 npx tsx apps/api/test/env-validation.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-list-filters.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-admin-profile.dto.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-area-manager-chain-assignments.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts

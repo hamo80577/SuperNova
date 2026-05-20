@@ -1,6 +1,5 @@
 import type { OperationalProfileResponse } from "@/lib/api/users";
-import type { UserSummary, VendorSummary } from "@/lib/api/workspaces";
-import type { SafeUser } from "@/lib/auth/types";
+import type { VendorSummary } from "@/lib/api/workspaces";
 import type { UsersAreaItem } from "./users-area-types";
 
 export function formatEnum(value: string) {
@@ -92,13 +91,6 @@ export function getContextNote(item: UsersAreaItem) {
   return item.vendor || item.chain
     ? "Current assignment"
     : "Open profile for assignment context.";
-}
-
-export function getSafeUserIds(user: UserSummary | SafeUser) {
-  return {
-    ibsId: "ibsId" in user ? user.ibsId : null,
-    shopperId: "shopperId" in user ? user.shopperId : null
-  };
 }
 
 export function normalizePhoneForWhatsapp(phoneNumber: string) {
