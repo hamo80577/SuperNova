@@ -11,6 +11,7 @@ import { z } from "zod";
 import { RequestDiscardDialog } from "@/components/requests/forms/request-discard-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
@@ -137,6 +138,7 @@ export function ChampTransferForm({
 
   const selectedPickerId = watch("targetUserId");
   const selectedDestinationId = watch("destinationVendorId");
+  const requestedTransferDate = watch("requestedTransferDate");
 
   const selectedPicker = useMemo(() => {
     if (state.status !== "ready") {
@@ -314,7 +316,17 @@ export function ChampTransferForm({
                 error={errors.requestedTransferDate?.message}
                 label="Requested transfer date"
               >
-                <Input type="date" {...register("requestedTransferDate")} />
+                <DatePicker
+                  onChange={(value) =>
+                    setValue("requestedTransferDate", value, {
+                      shouldDirty: true,
+                      shouldValidate: true
+                    })
+                  }
+                  placeholder="Select transfer date"
+                  quickActions={["today"]}
+                  value={requestedTransferDate}
+                />
               </Field>
             </div>
             <Field error={errors.notes?.message} label="Notes">

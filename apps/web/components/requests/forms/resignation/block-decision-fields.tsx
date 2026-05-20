@@ -16,7 +16,7 @@ export function BlockDecisionFields({
   onChange,
   title
 }: {
-  blockDecision: OffboardingBlockDecision;
+  blockDecision: OffboardingBlockDecision | "";
   blockReason: string;
   onChange: (
     patch: Partial<{
@@ -31,12 +31,12 @@ export function BlockDecisionFields({
       <div>
         <p className="text-sm font-semibold text-slate-950">{title}</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          Choose one fixed decision. Temporary block dates are calculated at
-          Admin finalization.
+          Area Manager chooses either no block or a permanent block before
+          Admin confirmation.
         </p>
       </div>
       <div className="grid gap-3">
-        <div className="grid gap-2 sm:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2">
           {offboardingBlockDecisions.map((decision) => (
             <button
               className={cn(
@@ -58,12 +58,12 @@ export function BlockDecisionFields({
             </button>
           ))}
         </div>
-        {blockDecision !== "NO_BLOCK" ? (
+        {blockDecision === "PERMANENT" ? (
           <Field label="Block reason">
             <Input
               className="h-11 rounded-xl"
               onChange={(event) => onChange({ blockReason: event.target.value })}
-              placeholder="Required for any block"
+              placeholder="Required for Permanent block"
               value={blockReason}
             />
           </Field>

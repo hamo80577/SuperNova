@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { BlockStatus, RequestType, UserRole } from "@prisma/client";
 
 import {
-  calculateBlockedUntil,
   getAllowedResignationTargetRolesForCreator,
   normalizeOffboardingBlockDecision,
   normalizeOffboardingReason,
@@ -85,39 +84,29 @@ assert.equal(defaultNoBlock.blockDecision, "NO_BLOCK");
 assert.equal(defaultNoBlock.blockStatus, BlockStatus.NO_BLOCK);
 assert.equal(defaultNoBlock.blockReason, null);
 
-const sixMonths = normalizeOffboardingBlockDecision({
-  blockDecision: "SIX_MONTHS",
-  blockReason: "  repeated attendance issue  "
-});
-assert.equal(sixMonths.blockStatus, BlockStatus.TEMPORARY_BLOCK);
-assert.equal(sixMonths.blockReason, "repeated attendance issue");
-
 const permanent = normalizeOffboardingBlockDecision({
   blockDecision: "PERMANENT",
-  blockReason: "policy violation"
+  blockReason: "  policy violation  "
 });
+assert.equal(permanent.blockDecision, "PERMANENT");
 assert.equal(permanent.blockStatus, BlockStatus.PERMANENT_BLOCK);
+assert.equal(permanent.blockReason, "policy violation");
 
 assert.throws(
-  () => normalizeOffboardingBlockDecision({ blockDecision: "ONE_YEAR" }),
-  /blockReason is required/
+  () => normalizeOffboardingBlockDecision({ blockDecision: "PERMANENT" }),
+  /blockReason is required for PERMANENT block/
 );
 
-const base = new Date("2026-05-14T10:00:00.000Z");
-assert.equal(
-  calculateBlockedUntil("THREE_MONTHS", base)?.toISOString(),
-  "2026-08-14T10:00:00.000Z"
-);
-assert.equal(
-  calculateBlockedUntil("SIX_MONTHS", base)?.toISOString(),
-  "2026-11-14T10:00:00.000Z"
-);
-assert.equal(
-  calculateBlockedUntil("ONE_YEAR", base)?.toISOString(),
-  "2027-05-14T10:00:00.000Z"
-);
-assert.equal(calculateBlockedUntil("NO_BLOCK", base), null);
-assert.equal(calculateBlockedUntil("PERMANENT", base), null);
+for (const legacyDecision of ["THREE_MONTHS", "SIX_MONTHS", "ONE_YEAR"]) {
+  assert.throws(
+    () =>
+      normalizeOffboardingBlockDecision({
+        blockDecision: legacyDecision,
+        blockReason: "legacy"
+      }),
+    /Temporary block durations are no longer supported/
+  );
+}
 
 assert.deepEqual(OFFBOARDING_REASON_CODES, [
   "BAD_ATTITUDE",
@@ -130,8 +119,5 @@ assert.deepEqual(OFFBOARDING_REASON_CODES, [
 ]);
 assert.deepEqual(OFFBOARDING_BLOCK_DECISIONS, [
   "NO_BLOCK",
-  "THREE_MONTHS",
-  "SIX_MONTHS",
-  "ONE_YEAR",
   "PERMANENT"
 ]);

@@ -51,7 +51,10 @@ export class CreateOffboardingRequestDto {
   notes?: string;
 
   @IsOptional()
-  @IsIn(OFFBOARDING_BLOCK_DECISIONS)
+  @IsIn(OFFBOARDING_BLOCK_DECISIONS, {
+    message:
+      "Temporary block durations are no longer supported for Resignation. Use NO_BLOCK or PERMANENT."
+  })
   blockDecision?: string;
 
   @IsOptional()

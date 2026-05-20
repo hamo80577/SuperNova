@@ -10,8 +10,12 @@ import {
 import { OFFBOARDING_BLOCK_DECISIONS } from "../workflows/offboarding-workflow.policy";
 
 export class FinalizeOffboardingDto {
-  @IsIn(OFFBOARDING_BLOCK_DECISIONS)
-  blockDecision!: string;
+  @IsOptional()
+  @IsIn(OFFBOARDING_BLOCK_DECISIONS, {
+    message:
+      "Temporary block durations are no longer supported for Resignation. Use NO_BLOCK or PERMANENT."
+  })
+  blockDecision?: string;
 
   @IsOptional()
   @IsString()

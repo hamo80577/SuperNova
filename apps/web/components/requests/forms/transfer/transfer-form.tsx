@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { assignmentsApi } from "@/lib/api/assignments";
@@ -555,12 +556,12 @@ function OrganizationTransferRequestForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Transfer date">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, effectiveDate: event.target.value }))
+          <DatePicker
+            onChange={(value) =>
+              setForm((current) => ({ ...current, effectiveDate: value }))
             }
-            type="date"
+            placeholder="Select transfer date"
+            quickActions={["today"]}
             value={form.effectiveDate}
           />
         </Field>
@@ -1009,12 +1010,12 @@ function ChampScopedTransferRequestForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Transfer date">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, effectiveDate: event.target.value }))
+          <DatePicker
+            onChange={(value) =>
+              setForm((current) => ({ ...current, effectiveDate: value }))
             }
-            type="date"
+            placeholder="Select transfer date"
+            quickActions={["today"]}
             value={form.effectiveDate}
           />
         </Field>

@@ -34,7 +34,10 @@ assert.equal(pickerPayload.target.userId, "picker-1");
 assert.equal(pickerPayload.target.targetRole, UserRole.PICKER);
 assert.equal(pickerPayload.target.assignmentId, "assignment-1");
 assert.equal(pickerPayload.target.assignmentType, "PickerBranchAssignment");
-assert.equal(pickerPayload.areaManagerDecision?.blockDecision, "THREE_MONTHS");
+assert.equal(
+  pickerPayload.areaManagerDecision?.blockDecision,
+  "LEGACY_TEMPORARY_BLOCK"
+);
 
 const champPayload = parseOffboardingPayload({
   offboarding: {
@@ -79,7 +82,10 @@ assert.equal(areaManagerPayload.target.targetRole, UserRole.AREA_MANAGER);
 
 assert.equal(blockStatusToDecision(BlockStatus.NO_BLOCK), "NO_BLOCK");
 assert.equal(blockStatusToDecision(BlockStatus.PERMANENT_BLOCK), "PERMANENT");
-assert.equal(blockStatusToDecision(BlockStatus.TEMPORARY_BLOCK), "THREE_MONTHS");
+assert.equal(
+  blockStatusToDecision(BlockStatus.TEMPORARY_BLOCK),
+  "LEGACY_TEMPORARY_BLOCK"
+);
 assert.equal(blockStatusToDecision("UNKNOWN"), null);
 
 assert.throws(

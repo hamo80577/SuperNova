@@ -71,6 +71,10 @@ export class OffboardingApprovalService {
     await this.assertCanApproveAreaManagerStep(approval, context.actor);
 
     const payload = parseOffboardingPayload(approval.request.payload);
+    if (!dto.blockDecision?.trim()) {
+      throw new BadRequestException("Area Manager block decision is required.");
+    }
+
     const decision = normalizeOffboardingBlockDecision(dto);
     assertRequestTransition(
       approval.request.status,

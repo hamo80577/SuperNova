@@ -31,7 +31,6 @@ import {
 import { OffboardingTargetService } from "./offboarding-target.service";
 import type { OffboardingPayload, OffboardingRequestContext } from "./offboarding-types";
 import {
-  calculateBlockedUntil,
   normalizeOffboardingBlockDecision
 } from "./offboarding-workflow.policy";
 
@@ -89,13 +88,13 @@ export class OffboardingFinalizationService {
     }
 
     const payload = parseOffboardingPayload(request.payload);
-    const finalizationInput = normalizeOffboardingBlockDecision({
-      blockDecision:
-        dto.blockDecision ?? payload.areaManagerDecision?.blockDecision,
-      blockReason:
-        dto.blockReason ?? payload.areaManagerDecision?.blockReason ?? undefined,
-      notes: dto.notes
-    });
+    const finalizationInput =
+      payload.target.targetRole === UserRole.AREA_MANAGER
+        ? normalizeOffboardingBlockDecision({
+            blockDecision: "NO_BLOCK",
+            notes: dto.notes
+          })
+        : this.resolveAreaManagerFinalizationDecision(payload, dto);
 
     if (request.targetUserId !== payload.target.userId) {
       throw new BadRequestException(
@@ -126,10 +125,6 @@ export class OffboardingFinalizationService {
       );
 
     const completedAt = new Date();
-    const blockedUntil = calculateBlockedUntil(
-      finalizationInput.blockDecision,
-      completedAt
-    );
     assertRequestTransition(request.status, RequestStatus.COMPLETED);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -140,7 +135,7 @@ export class OffboardingFinalizationService {
           employmentStatus: EmploymentStatus.RESIGNED,
           resignationDate: new Date(payload.offboarding.resignationDate),
           blockStatus: finalizationInput.blockStatus,
-          blockedUntil,
+          blockedUntil: null,
           blockReason: finalizationInput.blockReason,
           mustChangePassword: false,
           temporaryPasswordExpiresAt: null,
@@ -174,7 +169,6 @@ export class OffboardingFinalizationService {
           assignmentIds: closedAssignments.map((assignment) => assignment.id),
           blockDecision: finalizationInput.blockDecision,
           blockStatus: finalizationInput.blockStatus,
-          blockedUntil: blockedUntil?.toISOString() ?? null,
           blockReason: finalizationInput.blockReason,
           finalizedById: context.actor.id,
           ...(finalizationInput.notes ? { notes: finalizationInput.notes } : {})
@@ -261,7 +255,7 @@ export class OffboardingFinalizationService {
               accountStatus: resignedUser.accountStatus,
               employmentStatus: resignedUser.employmentStatus,
               blockStatus: resignedUser.blockStatus,
-              blockedUntil: resignedUser.blockedUntil?.toISOString() ?? null
+              blockedUntil: null
             },
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null
@@ -312,6 +306,23 @@ export class OffboardingFinalizationService {
       assignment: result.closedAssignments[0] ?? null,
       assignments: result.closedAssignments
     };
+  }
+
+  private resolveAreaManagerFinalizationDecision(
+    payload: OffboardingPayload,
+    dto: FinalizeOffboardingDto
+  ) {
+    if (!payload.areaManagerDecision) {
+      throw new BadRequestException(
+        "Area Manager block decision is required before Admin finalization."
+      );
+    }
+
+    return normalizeOffboardingBlockDecision({
+      blockDecision: payload.areaManagerDecision.blockDecision,
+      blockReason: payload.areaManagerDecision.blockReason ?? undefined,
+      notes: dto.notes
+    });
   }
 
   private async findRequestOrThrow(id: string) {

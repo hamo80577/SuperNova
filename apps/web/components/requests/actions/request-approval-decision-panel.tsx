@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { approvalsApi } from "@/lib/api/approvals";
-import { type RequestApprovalSummary, type RequestDetail } from "@/lib/api/requests";
+import {
+  type OffboardingBlockDecision,
+  type RequestApprovalSummary,
+  type RequestDetail
+} from "@/lib/api/requests";
+import { BlockDecisionFields } from "../forms/resignation/block-decision-fields";
 import { Field } from "../shared/request-field";
 import { ErrorState } from "../shared/request-states";
 import { parseNewHirePayload } from "../shared/request-utils";
@@ -29,6 +34,10 @@ export function RequestApprovalDecisionPanel({
     newHireContext?.targetRole === "PICKER";
   const [notes, setNotes] = useState("");
   const [shopperId, setShopperId] = useState("");
+  const [resignationBlockDecision, setResignationBlockDecision] = useState<
+    OffboardingBlockDecision | ""
+  >("");
+  const [resignationBlockReason, setResignationBlockReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -39,6 +48,18 @@ export function RequestApprovalDecisionPanel({
       setError("Shopper ID is required before approving Picker New Hire.");
       return;
     }
+    if (isResignationAreaManager && !resignationBlockDecision) {
+      setError("Choose a block decision before approving Resignation.");
+      return;
+    }
+    if (
+      isResignationAreaManager &&
+      resignationBlockDecision === "PERMANENT" &&
+      !resignationBlockReason.trim()
+    ) {
+      setError("Block reason is required for Permanent block.");
+      return;
+    }
 
     startTransition(async () => {
       setError(null);
@@ -47,7 +68,10 @@ export function RequestApprovalDecisionPanel({
           approval.id,
           isResignationAreaManager
             ? {
-                blockDecision: "NO_BLOCK"
+                blockDecision: resignationBlockDecision as OffboardingBlockDecision,
+                ...(resignationBlockReason.trim()
+                  ? { blockReason: resignationBlockReason.trim() }
+                  : {})
               }
             : requiresShopperId
               ? {
@@ -57,6 +81,8 @@ export function RequestApprovalDecisionPanel({
         );
         setNotes("");
         setShopperId("");
+        setResignationBlockDecision("");
+        setResignationBlockReason("");
         setIsRejecting(false);
         await onChanged();
       } catch (caughtError) {
@@ -132,7 +158,25 @@ export function RequestApprovalDecisionPanel({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="grid gap-4">
+          {isResignationAreaManager ? (
+            <BlockDecisionFields
+              blockDecision={resignationBlockDecision}
+              blockReason={resignationBlockReason}
+              onChange={(patch) => {
+                if (patch.blockDecision) {
+                  setResignationBlockDecision(patch.blockDecision);
+                  if (patch.blockDecision === "NO_BLOCK") {
+                    setResignationBlockReason("");
+                  }
+                }
+                if (patch.blockReason !== undefined) {
+                  setResignationBlockReason(patch.blockReason);
+                }
+              }}
+              title="Area Manager block decision"
+            />
+          ) : null}
           {requiresShopperId ? (
             <div className="mb-1 w-full sm:mb-0 sm:max-w-xs">
               <Field label="Shopper ID">
@@ -145,26 +189,28 @@ export function RequestApprovalDecisionPanel({
               </Field>
             </div>
           ) : null}
-          <Button
-            className="min-h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-            disabled={isPending}
-            onClick={approve}
-            type="button"
-          >
-            {isPending ? "Approving..." : "Approve"}
-          </Button>
-          <Button
-            className="min-h-11 rounded-xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-            disabled={isPending}
-            onClick={() => {
-              setIsRejecting(true);
-              setError(null);
-            }}
-            type="button"
-            variant="outline"
-          >
-            Reject
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              className="min-h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={isPending}
+              onClick={approve}
+              type="button"
+            >
+              {isPending ? "Approving..." : "Approve"}
+            </Button>
+            <Button
+              className="min-h-11 rounded-xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              disabled={isPending}
+              onClick={() => {
+                setIsRejecting(true);
+                setError(null);
+              }}
+              type="button"
+              variant="outline"
+            >
+              Reject
+            </Button>
+          </div>
         </div>
       )}
     </section>

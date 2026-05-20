@@ -247,10 +247,10 @@ export function ResignationRequestForm({
     }
     if (
       isAreaManagerCreator &&
-      form.blockDecision !== "NO_BLOCK" &&
+      form.blockDecision === "PERMANENT" &&
       !form.blockReason.trim()
     ) {
-      setError("Block reason is required for any block decision.");
+      setError("Block reason is required for Permanent block.");
       return;
     }
 
@@ -473,42 +473,9 @@ export function ResignationRequestForm({
                   : patch.blockReason ?? current.blockReason
             }))
           }
-          title="Area Manager block recommendation"
+          title="Area Manager block decision"
         />
       ) : null}
-
-      <ApprovalPathPreview
-        creatorRole={user?.role}
-        selectedUser={selectedUser}
-        targetRole={targetRole}
-      />
-
-      <Section
-        description="Review the scoped user and lifecycle request before submit."
-        title="Final review"
-      >
-        <div className="grid gap-2 sm:grid-cols-2">
-          <ReviewRow label="Target role" value={formatEnum(targetRole)} />
-          <ReviewRow
-            label="Selected user"
-            value={selectedUser?.user.nameEn ?? "Not selected"}
-          />
-          <ReviewRow
-            label="Assignment context"
-            value={
-              selectedUser
-                ? selectedUser.vendor
-                  ? `${selectedUser.vendor.vendorName} / ${selectedUser.chain.chainName}`
-                  : selectedUser.chain.chainName
-                : "Not selected"
-            }
-          />
-          <ReviewRow
-            label="Last working day"
-            value={form.resignationDate || "Not set"}
-          />
-        </div>
-      </Section>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         {onCancel ? (
@@ -604,68 +571,6 @@ function ResignationUserCard({ item }: { item: OffboardingEligibleUserSearchItem
   );
 }
 
-function ApprovalPathPreview({
-  creatorRole,
-  selectedUser,
-  targetRole
-}: {
-  creatorRole?: UserRole;
-  selectedUser: OffboardingEligibleUserSearchItem | null;
-  targetRole: ResignationTargetRole;
-}) {
-  const steps = buildResignationApprovalSteps(creatorRole, targetRole);
-
-  return (
-    <Section
-      description="System changes happen only after approval and Admin finalization."
-      title="Approval path"
-    >
-      <div className="grid gap-2">
-        {steps.map((step, index) => (
-          <div
-            className="flex gap-3 rounded-xl border border-slate-200 bg-white p-3"
-            key={step.label}
-          >
-            <span
-              className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
-                step.skipped
-                  ? "bg-slate-100 text-slate-500"
-                  : "bg-orange-100 text-orange-700"
-              )}
-            >
-              {index + 1}
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-slate-950">{step.label}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {step.description}
-              </p>
-            </div>
-          </div>
-        ))}
-        {selectedUser ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
-            Admin finalization archives {selectedUser.user.nameEn} and closes active{" "}
-            {formatEnum(selectedUser.targetRole)} assignments.
-          </div>
-        ) : null}
-      </div>
-    </Section>
-  );
-}
-
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-medium text-slate-950">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function getAllowedResignationTargetRoles(
   role: UserRole | undefined,
   branchLocked: boolean
@@ -686,62 +591,4 @@ function isResignationTargetRole(
   role: UserRole | undefined
 ): role is ResignationTargetRole {
   return role === "PICKER" || role === "CHAMP" || role === "AREA_MANAGER";
-}
-
-function buildResignationApprovalSteps(
-  creatorRole: UserRole | undefined,
-  targetRole: ResignationTargetRole
-) {
-  if (creatorRole === "AREA_MANAGER") {
-    return [
-      {
-        label: "Submit",
-        description: `${formatEnum(targetRole)} Resignation request is submitted.`,
-        skipped: false
-      },
-      {
-        label: "Area Manager decision",
-        description: "The submitting Area Manager records the block recommendation.",
-        skipped: true
-      },
-      {
-        label: "Admin finalization",
-        description: "Admin confirms deactivation and applies the Resignation.",
-        skipped: false
-      }
-    ];
-  }
-
-  if (targetRole === "AREA_MANAGER") {
-    return [
-      {
-        label: "Submit",
-        description: "Admin submits the Area Manager Resignation request.",
-        skipped: false
-      },
-      {
-        label: "Admin finalization",
-        description: "Admin confirms deactivation and closes Chain assignments.",
-        skipped: false
-      }
-    ];
-  }
-
-  return [
-    {
-      label: "Submit",
-      description: `${formatEnum(targetRole)} Resignation request is submitted.`,
-      skipped: false
-    },
-    {
-      label: "Area Manager approval",
-      description: "Area Manager reviews the assignment-scoped request.",
-      skipped: false
-    },
-    {
-      label: "Admin finalization",
-      description: "Admin confirms deactivation and applies the Resignation.",
-      skipped: false
-    }
-  ];
 }

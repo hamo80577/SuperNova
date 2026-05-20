@@ -3,7 +3,7 @@ import { BlockStatus, Prisma, RequestType, UserRole } from "@prisma/client";
 
 import {
   normalizeOffboardingTargetRole,
-  type OffboardingBlockDecision,
+  type StoredOffboardingBlockDecision,
   type OffboardingReasonCode
 } from "./offboarding-workflow.policy";
 import type { OffboardingPayload } from "./offboarding-types";
@@ -141,7 +141,7 @@ export function parseStoredBlockDecision(value: unknown) {
   const payload = value as Record<string, unknown>;
   const blockDecision =
     typeof payload.blockDecision === "string"
-      ? payload.blockDecision
+      ? normalizeStoredBlockDecision(payload.blockDecision)
       : blockStatusToDecision(payload.blockStatus);
 
   if (!blockDecision || typeof payload.blockStatus !== "string") {
@@ -155,7 +155,7 @@ export function parseStoredBlockDecision(value: unknown) {
         : new Date(0).toISOString(),
     decidedById:
       typeof payload.decidedById === "string" ? payload.decidedById : "",
-    blockDecision: blockDecision as OffboardingBlockDecision,
+    blockDecision,
     blockStatus: payload.blockStatus as BlockStatus,
     blockReason:
       typeof payload.blockReason === "string" ? payload.blockReason : null,
@@ -166,6 +166,25 @@ export function parseStoredBlockDecision(value: unknown) {
 export function blockStatusToDecision(value: unknown) {
   if (value === BlockStatus.NO_BLOCK) return "NO_BLOCK";
   if (value === BlockStatus.PERMANENT_BLOCK) return "PERMANENT";
-  if (value === BlockStatus.TEMPORARY_BLOCK) return "THREE_MONTHS";
+  if (value === BlockStatus.TEMPORARY_BLOCK) return "LEGACY_TEMPORARY_BLOCK";
+  return null;
+}
+
+function normalizeStoredBlockDecision(
+  value: string
+): StoredOffboardingBlockDecision | null {
+  if (value === "NO_BLOCK" || value === "PERMANENT") {
+    return value;
+  }
+
+  if (
+    value === "THREE_MONTHS" ||
+    value === "SIX_MONTHS" ||
+    value === "ONE_YEAR" ||
+    value === "LEGACY_TEMPORARY_BLOCK"
+  ) {
+    return "LEGACY_TEMPORARY_BLOCK";
+  }
+
   return null;
 }

@@ -207,7 +207,7 @@ export function DatePicker({
               position: "fixed",
               top: position.top,
               width: position.width,
-              zIndex: 160
+              zIndex: 260
             }}
           >
             <div className="flex items-center justify-between gap-2">

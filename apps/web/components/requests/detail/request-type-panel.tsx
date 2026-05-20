@@ -1,16 +1,16 @@
 "use client";
 
-import { Check, Copy, MoveRight } from "lucide-react";
+import { MoveRight } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { type RequestDetail } from "@/lib/api/requests";
 import { PickerAvatar } from "../forms/resignation/offboarding-picker-search";
 import { RequestStatusBadge } from "../shared/request-badges";
 import { EmptyState } from "../shared/request-empty-state";
 import { Definition } from "../shared/request-field";
 import { InfoCard } from "../shared/request-info-card";
-import { formatEnum, parseNewHirePayload, parseOffboardingPayload, parseTransferPayload } from "../shared/request-utils";
+import { formatEnum, formatOffboardingBlockDecision, parseNewHirePayload, parseOffboardingPayload, parseTransferPayload } from "../shared/request-utils";
 
 export function RequestTypePanel({ request }: { request: RequestDetail }) {
   if (request.type === "NEW_HIRE") {
@@ -40,6 +40,11 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
       </InfoCard>
     );
   }
+
+  const displayedDecision = context.finalization ?? context.areaManagerDecision;
+  const blockDecision =
+    displayedDecision?.blockDecision ??
+    (context.targetRole === "AREA_MANAGER" ? "NO_BLOCK" : null);
 
   return (
     <InfoCard title="Resignation">
@@ -82,6 +87,11 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
                 : formatEnum(context.targetRole)
             }
           />
+          <ProfileRow
+            copyValue={request.targetUser?.phoneNumber}
+            label="Phone"
+            value={request.targetUser?.phoneNumber ?? "Not available"}
+          />
           {context.targetRole !== "AREA_MANAGER" ? (
             <ProfileRow
               label="Branch name"
@@ -116,6 +126,20 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
             value={formatDateValue(request.targetUser?.joiningDate)}
           />
           <ProfileRow label="Reason" value={context.reason} />
+          {context.reasonDetails ? (
+            <ProfileRow label="Reason details" value={context.reasonDetails} />
+          ) : null}
+          <ProfileRow
+            label="Block decision"
+            value={
+              blockDecision
+                ? formatOffboardingBlockDecision(blockDecision)
+                : "Pending Area Manager decision"
+            }
+          />
+          {displayedDecision?.blockReason ? (
+            <ProfileRow label="Block reason" value={displayedDecision.blockReason} />
+          ) : null}
         </div>
       </div>
     </InfoCard>
@@ -278,41 +302,14 @@ function ProfileRow({
 }
 
 function CopyValueButton({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      return;
-    }
-
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  }
-
   return (
-    <button
+    <CopyButton
       aria-label={`Copy ${label}`}
-      className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700"
-      onClick={() => {
-        void copy();
-      }}
-      title={`Copy ${label}`}
-      type="button"
-    >
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute -top-7 left-1/2 grid h-6 w-6 -translate-x-1/2 place-items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm transition-all duration-200 ${
-          copied
-            ? "translate-y-0 opacity-100 scale-100"
-            : "translate-y-1 opacity-0 scale-75"
-        }`}
-      >
-        <Check className="h-3.5 w-3.5" />
-      </span>
-      <Copy className="h-3.5 w-3.5" />
-    </button>
+      iconOnly
+      label={`Copy ${label}`}
+      size="sm"
+      text={value}
+    />
   );
 }
 

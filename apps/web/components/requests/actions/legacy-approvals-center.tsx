@@ -21,7 +21,7 @@ export function LegacyApprovalsCenter() {
   } | null>(null);
   const [decisionNotes, setDecisionNotes] = useState("");
   const [decisionBlockDecision, setDecisionBlockDecision] =
-    useState<OffboardingBlockDecision>("NO_BLOCK");
+    useState<OffboardingBlockDecision | "">("");
   const [decisionBlockReason, setDecisionBlockReason] = useState("");
   const [decisionShopperId, setDecisionShopperId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +66,17 @@ export function LegacyApprovalsCenter() {
 
     if (
       requiresBlockDecision &&
-      decisionBlockDecision !== "NO_BLOCK" &&
+      !decisionBlockDecision
+    ) {
+      setError("Choose a block decision before approving Resignation.");
+      return;
+    }
+    if (
+      requiresBlockDecision &&
+      decisionBlockDecision === "PERMANENT" &&
       !decisionBlockReason.trim()
     ) {
-      setError("Block reason is required for any block decision.");
+      setError("Block reason is required for Permanent block.");
       return;
     }
     if (requiresShopperId && !decisionShopperId.trim()) {
@@ -85,7 +92,7 @@ export function LegacyApprovalsCenter() {
             decision.approval.id,
             requiresBlockDecision
               ? {
-                  blockDecision: decisionBlockDecision,
+                  blockDecision: decisionBlockDecision as OffboardingBlockDecision,
                   ...(decisionBlockReason.trim()
                     ? { blockReason: decisionBlockReason.trim() }
                     : {}),
@@ -103,7 +110,7 @@ export function LegacyApprovalsCenter() {
         }
         setDecision(null);
         setDecisionNotes("");
-        setDecisionBlockDecision("NO_BLOCK");
+        setDecisionBlockDecision("");
         setDecisionBlockReason("");
         setDecisionShopperId("");
         await loadApprovals();
@@ -140,7 +147,7 @@ export function LegacyApprovalsCenter() {
               onDecision={(action) => {
                   setDecision({ action, approval });
                   setDecisionNotes("");
-                  setDecisionBlockDecision("NO_BLOCK");
+                  setDecisionBlockDecision("");
                   setDecisionBlockReason("");
                   setDecisionShopperId("");
                 }}
@@ -165,8 +172,8 @@ export function LegacyApprovalsCenter() {
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               This records the approval decision. New Hire Admin final approval
               creates the user only after the required Area Manager Shopper ID
-              capture. Resignation Admin final approval requires block decision and
-              internal deactivation confirmation from the request detail page.
+              capture. Resignation Admin final approval confirms the Area
+              Manager block decision from the request detail page.
             </p>
             {decision.action === "approve" &&
             decision.approval.request.type === "RESIGNATION" &&
@@ -217,7 +224,7 @@ export function LegacyApprovalsCenter() {
                 onClick={() => {
                   setDecision(null);
                   setDecisionNotes("");
-                  setDecisionBlockDecision("NO_BLOCK");
+                  setDecisionBlockDecision("");
                   setDecisionBlockReason("");
                   setDecisionShopperId("");
                 }}

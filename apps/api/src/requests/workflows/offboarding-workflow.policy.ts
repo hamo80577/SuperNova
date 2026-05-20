@@ -10,12 +10,10 @@ export type OffboardingReasonCode =
   | "VOLUNTARY_QUIT"
   | "OTHER";
 
-export type OffboardingBlockDecision =
-  | "NO_BLOCK"
-  | "THREE_MONTHS"
-  | "SIX_MONTHS"
-  | "ONE_YEAR"
-  | "PERMANENT";
+export type OffboardingBlockDecision = "NO_BLOCK" | "PERMANENT";
+export type StoredOffboardingBlockDecision =
+  | OffboardingBlockDecision
+  | "LEGACY_TEMPORARY_BLOCK";
 export type OffboardingTargetRole =
   | Extract<UserRole, "PICKER">
   | Extract<UserRole, "CHAMP">
@@ -33,9 +31,6 @@ export const OFFBOARDING_REASON_CODES: OffboardingReasonCode[] = [
 
 export const OFFBOARDING_BLOCK_DECISIONS: OffboardingBlockDecision[] = [
   "NO_BLOCK",
-  "THREE_MONTHS",
-  "SIX_MONTHS",
-  "ONE_YEAR",
   "PERMANENT"
 ];
 
@@ -51,6 +46,11 @@ export const offboardingReasonLabels: Record<OffboardingReasonCode, string> = {
 
 const reasonCodes = new Set<string>(OFFBOARDING_REASON_CODES);
 const blockDecisions = new Set<string>(OFFBOARDING_BLOCK_DECISIONS);
+const legacyTemporaryBlockDecisions = new Set<string>([
+  "THREE_MONTHS",
+  "SIX_MONTHS",
+  "ONE_YEAR"
+]);
 const targetRoles = new Set<UserRole>([
   UserRole.PICKER,
   UserRole.CHAMP,
@@ -137,18 +137,25 @@ export function normalizeOffboardingBlockDecision(dto: {
   blockReason?: string;
   notes?: string;
 }) {
-  const blockDecision = (dto.blockDecision?.trim() ||
-    "NO_BLOCK") as OffboardingBlockDecision;
+  const rawBlockDecision = dto.blockDecision?.trim() || "NO_BLOCK";
   const blockReason = dto.blockReason?.trim() || null;
   const notes = dto.notes?.trim();
 
-  if (!blockDecisions.has(blockDecision)) {
+  if (legacyTemporaryBlockDecisions.has(rawBlockDecision)) {
+    throw new BadRequestException(
+      "Temporary block durations are no longer supported for Resignation."
+    );
+  }
+
+  if (!blockDecisions.has(rawBlockDecision)) {
     throw new BadRequestException("blockDecision is invalid.");
   }
 
-  if (blockDecision !== "NO_BLOCK" && !blockReason) {
+  const blockDecision = rawBlockDecision as OffboardingBlockDecision;
+
+  if (blockDecision === "PERMANENT" && !blockReason) {
     throw new BadRequestException(
-      "blockReason is required for all block decisions except NO_BLOCK."
+      "blockReason is required for PERMANENT block."
     );
   }
 
@@ -160,35 +167,10 @@ export function normalizeOffboardingBlockDecision(dto: {
   };
 }
 
-export function calculateBlockedUntil(
-  blockDecision: OffboardingBlockDecision,
-  from = new Date()
-) {
-  if (blockDecision === "NO_BLOCK" || blockDecision === "PERMANENT") {
-    return null;
-  }
-
-  const blockedUntil = new Date(from);
-
-  if (blockDecision === "THREE_MONTHS") {
-    blockedUntil.setUTCMonth(blockedUntil.getUTCMonth() + 3);
-  } else if (blockDecision === "SIX_MONTHS") {
-    blockedUntil.setUTCMonth(blockedUntil.getUTCMonth() + 6);
-  } else {
-    blockedUntil.setUTCFullYear(blockedUntil.getUTCFullYear() + 1);
-  }
-
-  return blockedUntil;
-}
-
 function toBlockStatus(blockDecision: OffboardingBlockDecision) {
   if (blockDecision === "NO_BLOCK") {
     return BlockStatus.NO_BLOCK;
   }
 
-  if (blockDecision === "PERMANENT") {
-    return BlockStatus.PERMANENT_BLOCK;
-  }
-
-  return BlockStatus.TEMPORARY_BLOCK;
+  return BlockStatus.PERMANENT_BLOCK;
 }

@@ -30,9 +30,6 @@ export type OffboardingReasonCode =
   | "OTHER";
 export type OffboardingBlockDecision =
   | "NO_BLOCK"
-  | "THREE_MONTHS"
-  | "SIX_MONTHS"
-  | "ONE_YEAR"
   | "PERMANENT";
 
 export const offboardingReasonLabels: Record<OffboardingReasonCode, string> = {
@@ -50,10 +47,7 @@ export const offboardingBlockDecisionLabels: Record<
   string
 > = {
   NO_BLOCK: "No block",
-  THREE_MONTHS: "3 months",
-  SIX_MONTHS: "6 months",
-  ONE_YEAR: "1 year",
-  PERMANENT: "Permanent"
+  PERMANENT: "Permanent block"
 };
 
 export interface RequestApprovalSummary {
@@ -307,8 +301,6 @@ export interface FinalizeNewHireResponse {
 }
 
 export interface FinalizeOffboardingPayload {
-  blockDecision: OffboardingBlockDecision;
-  blockReason?: string;
   confirmInternalDeactivation: boolean;
   notes?: string;
 }

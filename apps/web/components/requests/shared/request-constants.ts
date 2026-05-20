@@ -18,9 +18,6 @@ export const offboardingReasonCodes: OffboardingReasonCode[] = [
 
 export const offboardingBlockDecisions: OffboardingBlockDecision[] = [
   "NO_BLOCK",
-  "THREE_MONTHS",
-  "SIX_MONTHS",
-  "ONE_YEAR",
   "PERMANENT"
 ];
 

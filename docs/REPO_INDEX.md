@@ -185,6 +185,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - Important tests:
   - `apps/api/test/offboarding-workflow.policy.test.ts`
   - `apps/api/test/offboarding-payload.test.ts`
+  - `apps/api/test/offboarding-workflow.approval-finalization.test.ts`
 
 ### Transfer workflow
 
@@ -279,14 +280,14 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - API: old user profile is source of truth; active duplicate, active temporary block, permanent block, active assignment, and pending duplicate checks run before request creation.
   - Finalization reactivates existing user, creates a new `VendorChampAssignment`, generates temporary password, and clears expired temporary block state.
 - Resignation Picker:
-  - UI: role-based Resignation form with scoped eligible Pickers.
-  - API: `OffboardingWorkflowService` creates and finalizes resignation, closes active `PickerBranchAssignment`, archives/deactivates user through workflow.
+  - UI: role-based Resignation form with scoped eligible Pickers. Area Manager block decision supports only No block or Permanent block.
+  - API: `OffboardingWorkflowService` creates and finalizes resignation, requires Area Manager block decision before Admin confirmation, closes active `PickerBranchAssignment`, archives/deactivates user through workflow, and never creates new temporary Resignation blocks.
 - Resignation Champ:
-  - UI: role-based Resignation form with scoped eligible Champs.
-  - API: closes active `VendorChampAssignment`, archives/deactivates user through workflow.
+  - UI: role-based Resignation form with scoped eligible Champs. Area Manager block decision supports only No block or Permanent block.
+  - API: requires Area Manager block decision before Admin confirmation, closes active `VendorChampAssignment`, archives/deactivates user through workflow, and never creates new temporary Resignation blocks.
 - Resignation Area Manager:
   - UI: Admin/Super Admin role option only.
-  - API: closes active `ChainAreaManagerAssignment` records, archives/deactivates user through workflow.
+  - API: Admin-only confirmation force-applies No block, closes active `ChainAreaManagerAssignment` records, and archives/deactivates user through workflow.
 - Transfer Picker only:
   - UI: Transfer action is Picker-only and should pass selected Picker/current Branch context when available.
   - API: `TransferWorkflowService` enforces active Picker target, source Branch, destination Branch, approval path, and pending duplicate checks.
@@ -307,6 +308,7 @@ npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.approval.test.ts
 npx tsx apps/api/test/offboarding-workflow.policy.test.ts
 npx tsx apps/api/test/offboarding-payload.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/offboarding-workflow.approval-finalization.test.ts
 npx tsx apps/api/test/env-validation.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-list-filters.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts

@@ -1,6 +1,10 @@
 import { MoveRight, ShieldAlert, UserPlus } from "lucide-react";
 import { type NewHireTargetRole, type OffboardingBlockDecision, type RequestSummary, type RequestType, offboardingBlockDecisionLabels } from "@/lib/api/requests";
 
+export type DisplayOffboardingBlockDecision =
+  | OffboardingBlockDecision
+  | "LEGACY_TEMPORARY_BLOCK";
+
 export function getRequestLoadErrorMessage(caughtError: unknown) {
   const error = caughtError as { message?: string; status?: number } | null;
   const message = error?.message;
@@ -176,7 +180,7 @@ export function parseOffboardingPayload(payload: unknown) {
       ? {
           blockDecision:
             typeof areaManagerPayload.blockDecision === "string"
-              ? (areaManagerPayload.blockDecision as OffboardingBlockDecision)
+              ? parseStoredOffboardingDecision(areaManagerPayload.blockDecision)
               : blockStatusToOffboardingDecision(areaManagerPayload.blockStatus),
           blockStatus:
             typeof areaManagerPayload.blockStatus === "string"
@@ -200,16 +204,12 @@ export function parseOffboardingPayload(payload: unknown) {
               : "",
           blockDecision:
             typeof finalizationPayload.blockDecision === "string"
-              ? (finalizationPayload.blockDecision as OffboardingBlockDecision)
+              ? parseStoredOffboardingDecision(finalizationPayload.blockDecision)
               : blockStatusToOffboardingDecision(finalizationPayload.blockStatus),
           blockStatus:
             typeof finalizationPayload.blockStatus === "string"
               ? finalizationPayload.blockStatus
               : "NO_BLOCK",
-          blockedUntil:
-            typeof finalizationPayload.blockedUntil === "string"
-              ? finalizationPayload.blockedUntil
-              : null,
           blockReason:
             typeof finalizationPayload.blockReason === "string"
               ? finalizationPayload.blockReason
@@ -223,18 +223,48 @@ export function parseOffboardingPayload(payload: unknown) {
   };
 }
 
-export function blockStatusToOffboardingDecision(value: unknown): OffboardingBlockDecision {
+export function blockStatusToOffboardingDecision(
+  value: unknown
+): DisplayOffboardingBlockDecision {
   if (value === "PERMANENT_BLOCK") {
     return "PERMANENT";
   }
   if (value === "TEMPORARY_BLOCK") {
-    return "THREE_MONTHS";
+    return "LEGACY_TEMPORARY_BLOCK";
   }
   return "NO_BLOCK";
 }
 
-export function formatOffboardingBlockDecision(value: OffboardingBlockDecision) {
-  return offboardingBlockDecisionLabels[value] ?? formatEnum(value);
+export function formatOffboardingBlockDecision(
+  value: DisplayOffboardingBlockDecision | string
+) {
+  if (value === "LEGACY_TEMPORARY_BLOCK") {
+    return "Legacy temporary block";
+  }
+
+  return (
+    offboardingBlockDecisionLabels[value as OffboardingBlockDecision] ??
+    formatEnum(value)
+  );
+}
+
+function parseStoredOffboardingDecision(
+  value: string
+): DisplayOffboardingBlockDecision {
+  if (value === "NO_BLOCK" || value === "PERMANENT") {
+    return value;
+  }
+
+  if (
+    value === "THREE_MONTHS" ||
+    value === "SIX_MONTHS" ||
+    value === "ONE_YEAR" ||
+    value === "LEGACY_TEMPORARY_BLOCK"
+  ) {
+    return "LEGACY_TEMPORARY_BLOCK";
+  }
+
+  return blockStatusToOffboardingDecision(value);
 }
 
 export function parseNewHirePayload(payload: unknown) {

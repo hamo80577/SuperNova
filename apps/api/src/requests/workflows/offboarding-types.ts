@@ -7,8 +7,8 @@ import {
 
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
 import type {
-  OffboardingBlockDecision,
   OffboardingReasonCode,
+  StoredOffboardingBlockDecision,
   OffboardingTargetRole
 } from "./offboarding-workflow.policy";
 
@@ -75,7 +75,7 @@ export type OffboardingPayload = {
   areaManagerDecision?: {
     decidedAt: string;
     decidedById: string;
-    blockDecision: OffboardingBlockDecision;
+    blockDecision: StoredOffboardingBlockDecision;
     blockStatus: BlockStatus;
     blockReason: string | null;
     notes?: string;
@@ -84,9 +84,8 @@ export type OffboardingPayload = {
     completedAt: string;
     assignmentId: string;
     assignmentIds?: string[];
-    blockDecision: OffboardingBlockDecision;
+    blockDecision: StoredOffboardingBlockDecision;
     blockStatus: BlockStatus;
-    blockedUntil?: string | null;
     blockReason?: string | null;
     finalizedById: string;
     notes?: string;

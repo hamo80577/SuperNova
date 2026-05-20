@@ -1,4 +1,9 @@
-import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable
+} from "@nestjs/common";
 import { ApprovalStep, UserRole } from "@prisma/client";
 
 import type { ApprovalDecisionDto } from "../../approvals/dto/approval-decision.dto";
@@ -86,6 +91,12 @@ export class OffboardingWorkflowService {
     );
 
     if (context.actor.role === UserRole.AREA_MANAGER) {
+      if (!dto.blockDecision?.trim()) {
+        throw new BadRequestException(
+          "Area Manager block decision is required for Picker or Champ Resignation."
+        );
+      }
+
       const decision = normalizeOffboardingBlockDecision({
         blockDecision: dto.blockDecision,
         blockReason: dto.blockReason
