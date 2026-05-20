@@ -59,6 +59,34 @@ assert.deepEqual(getPermissionDefinition(PermissionKeys.REQUESTS_VIEW), {
   systemOnly: false
 });
 
+const targetRoleLifecyclePermissionKeys = [
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP,
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER,
+  PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER,
+  PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP,
+  PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER,
+  PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+];
+
+for (const permissionKey of targetRoleLifecyclePermissionKeys) {
+  assert.ok(keys.includes(permissionKey), `Expected ${permissionKey}`);
+  assert.equal(
+    getPermissionDefinition(permissionKey).group,
+    PermissionGroups.REQUESTS_APPROVALS
+  );
+}
+
+const ambiguousLifecycleCreateKeys = [
+  "requests.new_hire.create",
+  "requests.resignation.create",
+  "requests.transfer.create"
+];
+
+for (const ambiguousKey of ambiguousLifecycleCreateKeys) {
+  assert.equal(keys.includes(ambiguousKey as PermissionKey), false);
+}
+
 const forbiddenWorkflowBypassKeys = [
   "pickers.create.direct",
   "pickers.transfer.direct",

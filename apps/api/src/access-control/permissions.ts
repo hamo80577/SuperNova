@@ -35,9 +35,15 @@ export type PermissionRiskLevel =
 
 export const PermissionKeys = {
   REQUESTS_VIEW: "requests.view",
-  REQUESTS_CREATE_NEW_HIRE: "requests.new_hire.create",
-  REQUESTS_CREATE_RESIGNATION: "requests.resignation.create",
-  REQUESTS_CREATE_TRANSFER: "requests.transfer.create",
+  REQUESTS_CREATE_NEW_HIRE_PICKER: "requests.new_hire.picker.create",
+  REQUESTS_CREATE_NEW_HIRE_CHAMP: "requests.new_hire.champ.create",
+  REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER:
+    "requests.new_hire.area_manager.create",
+  REQUESTS_CREATE_RESIGNATION_PICKER: "requests.resignation.picker.create",
+  REQUESTS_CREATE_RESIGNATION_CHAMP: "requests.resignation.champ.create",
+  REQUESTS_CREATE_RESIGNATION_AREA_MANAGER:
+    "requests.resignation.area_manager.create",
+  REQUESTS_CREATE_TRANSFER_PICKER: "requests.transfer.picker.create",
   REQUESTS_CANCEL: "requests.cancel",
   APPROVALS_DECIDE_CHAIN: "approvals.chain.decide",
   APPROVALS_DECIDE_FINAL_LIFECYCLE: "approvals.final_lifecycle.decide",
@@ -106,26 +112,66 @@ export const PERMISSION_DEFINITIONS = [
     systemOnly: false
   },
   {
-    key: PermissionKeys.REQUESTS_CREATE_NEW_HIRE,
-    label: "Create New Hire requests",
-    description: "Create New Hire workflow requests within allowed scope.",
+    key: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+    label: "Create Picker New Hire requests",
+    description: "Create Picker New Hire workflow requests within allowed scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
     riskLevel: PermissionRiskLevels.HIGH,
     assignable: true,
     systemOnly: false
   },
   {
-    key: PermissionKeys.REQUESTS_CREATE_RESIGNATION,
-    label: "Create Resignation requests",
-    description: "Create Resignation workflow requests within allowed scope.",
+    key: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP,
+    label: "Create Champ New Hire requests",
+    description: "Create Champ New Hire workflow requests within allowed scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
     riskLevel: PermissionRiskLevels.HIGH,
     assignable: true,
     systemOnly: false
   },
   {
-    key: PermissionKeys.REQUESTS_CREATE_TRANSFER,
-    label: "Create Transfer requests",
+    key: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER,
+    label: "Create Area Manager New Hire requests",
+    description:
+      "Create Area Manager New Hire workflow requests within allowed scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER,
+    label: "Create Picker Resignation requests",
+    description:
+      "Create Picker Resignation workflow requests within allowed scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP,
+    label: "Create Champ Resignation requests",
+    description:
+      "Create Champ Resignation workflow requests within allowed scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER,
+    label: "Create Area Manager Resignation requests",
+    description:
+      "Create Area Manager Resignation workflow requests within allowed scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER,
+    label: "Create Picker Transfer requests",
     description: "Create Picker Transfer workflow requests within allowed scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
     riskLevel: PermissionRiskLevels.HIGH,
