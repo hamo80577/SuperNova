@@ -18,9 +18,10 @@ import type { OperationalProfileResponse } from "@/lib/api/users";
 import { cn } from "@/lib/utils";
 import {
   formatDate,
-  formatEnum,
   getPrimaryAssignmentLabel,
-  getProfileChainLabel
+  getProfileOperationalStatus,
+  getProfileChainLabel,
+  type UserOperationalStatus
 } from "./users-display-utils";
 
 export function PickerProfileOverview({
@@ -32,6 +33,7 @@ export function PickerProfileOverview({
 }) {
   const user = profile.user;
   const assignment = profile.currentPickerAssignment;
+  const operationalStatus = getProfileOperationalStatus(profile);
 
   return (
     <section className="grid gap-4 lg:grid-cols-2">
@@ -41,15 +43,23 @@ export function PickerProfileOverview({
       >
         <ProfileInfoRow
           action={
-            <a
-              aria-label="Open WhatsApp chat"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
-              href={whatsappHref}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </a>
+            <div className="flex shrink-0 items-center gap-2">
+              <CopyButton
+                aria-label="Copy phone"
+                className="h-10 w-10 p-0"
+                iconOnly
+                text={user.phoneNumber}
+              />
+              <a
+                aria-label="Open WhatsApp chat"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
+                href={whatsappHref}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </a>
+            </div>
           }
           icon={<Phone className="h-4 w-4" />}
           label="Phone"
@@ -87,6 +97,14 @@ export function PickerProfileOverview({
         />
         {user.nationalId ? (
           <ProfileInfoRow
+            action={
+              <CopyButton
+                aria-label="Copy National ID"
+                className="h-10 w-10 p-0"
+                iconOnly
+                text={user.nationalId}
+              />
+            }
             icon={<ShieldCheck className="h-4 w-4" />}
             label="National ID"
             value={user.nationalId}
@@ -118,13 +136,14 @@ export function PickerProfileOverview({
           label="Worked days"
           value={profile.workedDays === null ? "Not set" : `${profile.workedDays} days`}
         />
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          <StateBadge label={formatEnum(user.profileStatus)} tone="slate" />
-          <StateBadge label={formatEnum(user.accountStatus)} tone="orange" />
-          <StateBadge
-            label={formatEnum(user.employmentStatus)}
-            tone={user.employmentStatus === "ACTIVE" ? "green" : "red"}
-          />
+        <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-slate-400">
+              Operational status
+            </p>
+            <p className="mt-1 text-sm text-slate-500">{operationalStatus.title}</p>
+          </div>
+          <StateBadge status={operationalStatus} />
         </div>
       </ProfilePanel>
     </section>
@@ -185,24 +204,24 @@ function ProfileInfoRow({
 }
 
 function StateBadge({
-  label,
-  tone
+  status
 }: {
-  label: string;
-  tone: "green" | "orange" | "red" | "slate";
+  status: UserOperationalStatus;
 }) {
   return (
     <Badge
       className={cn(
         "rounded-full",
-        tone === "green" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-        tone === "orange" && "border-orange-200 bg-orange-50 text-orange-700",
-        tone === "red" && "border-red-200 bg-red-50 text-red-700",
-        tone === "slate" && "border-slate-200 bg-slate-50 text-slate-700"
+        status.tone === "active" &&
+          "border-emerald-200 bg-emerald-50 text-emerald-700",
+        status.tone === "pending" &&
+          "border-amber-200 bg-amber-50 text-amber-700",
+        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
       )}
+      title={status.title}
       variant="outline"
     >
-      {label}
+      {status.label}
     </Badge>
   );
 }

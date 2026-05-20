@@ -1,6 +1,7 @@
 import type { SafeUser, UiTheme, UserRole } from "@/lib/auth/types";
 import { apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
+import type { PendingLifecycleRequestSummary } from "./requests";
 import type {
   AssignmentStatus,
   AssignmentSummary,
@@ -24,6 +25,7 @@ export interface OperationalUsersListItem {
   chain: ChainSummary | null;
   champ: UserSummary | null;
   areaManager: UserSummary | null;
+  pendingRequest: PendingLifecycleRequestSummary | null;
 }
 
 export interface OperationalUsersListResponse {
@@ -245,6 +247,7 @@ export const usersApi = {
       }
     );
     clearApiCache("/admin/organization");
+    clearApiCache("/users");
     clearApiCache("/workspaces");
     return response;
   },

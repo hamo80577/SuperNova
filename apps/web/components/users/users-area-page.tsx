@@ -501,7 +501,8 @@ async function fetchUsersAreaData(
           user: picker.picker,
           assignment: picker.assignment,
           vendor: branch.vendor,
-          chain: branch.chain
+          chain: branch.chain,
+          pendingRequest: picker.pendingRequest ?? null
         }))
       ),
       champs: [],
@@ -521,7 +522,8 @@ async function fetchUsersAreaData(
           assignment: picker.assignment,
           vendor: vendor.vendor,
           chain: chain.chain,
-          champ: vendor.champs[0]?.champ ?? null
+          champ: vendor.champs[0]?.champ ?? null,
+          pendingRequest: picker.pendingRequest ?? null
         }))
       )
     );
@@ -533,7 +535,8 @@ async function fetchUsersAreaData(
           assignment: champ.assignment,
           vendor: vendor.vendor,
           chain: chain.chain,
-          champ: champ.champ
+          champ: champ.champ,
+          pendingRequest: champ.pendingRequest ?? null
         }))
       )
     );
@@ -757,7 +760,8 @@ function toUsersAreaItemFromProfile(
     user: profile.user,
     assignment: profile.currentPickerAssignment,
     vendor: profile.currentPickerAssignment?.vendor ?? null,
-    chain: profile.currentPickerAssignment?.chain ?? null
+    chain: profile.currentPickerAssignment?.chain ?? null,
+    pendingRequest: null
   };
 }
 

@@ -1,4 +1,5 @@
 import type { PageMeta } from "@/lib/api/organization";
+import type { PendingLifecycleRequestSummary } from "@/lib/api/requests";
 import type {
   AssignmentSummary,
   ChainSummary,
@@ -19,6 +20,7 @@ export type UsersAreaItem = {
   chain?: ChainSummary | null;
   champ?: UserSummary | null;
   areaManager?: UserSummary | null;
+  pendingRequest?: PendingLifecycleRequestSummary | null;
 };
 
 export type UsersFilters = Record<UsersFilterKey, string>;

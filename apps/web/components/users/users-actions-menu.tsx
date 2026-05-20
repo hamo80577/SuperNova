@@ -67,7 +67,7 @@ export function UsersActionsMenu({
           className={cn(
             "absolute top-12 z-30 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl",
             "motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]",
-            align === "right" ? "right-0" : "left-0"
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
           )}
         >
           {canTransfer ? (

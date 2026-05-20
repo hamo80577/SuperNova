@@ -3,6 +3,8 @@
 import {
   ArrowRightLeft,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Edit3,
   GitBranch,
@@ -12,13 +14,11 @@ import {
   MessageCircle,
   MoreHorizontal,
   Plus,
-  Save,
   Search,
   ShieldCheck,
   Trash2,
   UserMinus,
   UserRound,
-  Phone,
   X
 } from "lucide-react";
 import {
@@ -35,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
 import { organizationApi, type Chain } from "@/lib/api/organization";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
@@ -43,11 +42,11 @@ import {
   usersApi,
   type AreaManagerChainAssignmentsResponse,
   type OperationalProfileAssignment,
-  type OperationalProfileResponse,
-  type UpdateAdminProfileInput
+  type OperationalProfileResponse
 } from "@/lib/api/users";
 import type { SafeUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import { AdminProfileEditDialog } from "./admin-profile-edit-dialog";
 import { PasswordAccessDialog } from "./password-access-dialog";
 import { PickerProfileOverview } from "./picker-profile-overview";
 import { UserAvatar } from "./user-avatar";
@@ -57,7 +56,9 @@ import {
   formatDateTime,
   formatEnum,
   getPrimaryAssignmentLabel,
-  normalizePhoneForWhatsapp
+  getProfileOperationalStatus,
+  normalizePhoneForWhatsapp,
+  type UserOperationalStatus
 } from "./users-display-utils";
 
 type LoadState =
@@ -153,8 +154,10 @@ function ProfileContent({
   profile: OperationalProfileResponse;
 }) {
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const user = profile.user;
   const whatsappHref = `https://wa.me/${normalizePhoneForWhatsapp(user.phoneNumber)}`;
+  const operationalStatus = getProfileOperationalStatus(profile);
 
   return (
     <>
@@ -167,18 +170,14 @@ function ProfileContent({
               name={user.nameEn}
               role={user.role}
               size="lg"
+              statusTone={operationalStatus.tone}
             />
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap gap-1.5">
                 <Badge className="rounded-full border-orange-200 bg-orange-50 text-orange-700" variant="outline">
                   {formatEnum(user.role)}
                 </Badge>
-                <Badge className="rounded-full" variant="muted">
-                  {formatEnum(user.accountStatus)}
-                </Badge>
-                <Badge className="rounded-full" variant="outline">
-                  {formatEnum(user.employmentStatus)}
-                </Badge>
+                <OperationalStatusBadge status={operationalStatus} />
               </div>
               <h2 className="truncate text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
                 {user.nameEn}
@@ -186,27 +185,17 @@ function ProfileContent({
               <p className="truncate text-sm text-slate-500">
                 {getPrimaryAssignmentLabel(profile)}
               </p>
-              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200">
-                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{user.phoneNumber}</span>
-                </span>
-                <a
-                  aria-label="Open WhatsApp chat"
-                  className="grid h-8 w-8 place-items-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
-                  href={whatsappHref}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                </a>
-              </div>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
             <ProfileHeaderActions
               actions={actions}
+              onEdit={
+                profile.permissions.canEditProfile
+                  ? () => setEditOpen(true)
+                  : undefined
+              }
               onPassword={() => setPasswordOpen(true)}
               profile={profile}
             />
@@ -226,7 +215,6 @@ function ProfileContent({
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 sm:p-5">
         {user.role === "CHAMP" ? (
           <ChampProfileCard
-            onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
           />
@@ -238,7 +226,6 @@ function ProfileContent({
           />
         ) : (
           <PickerProfileCard
-            onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
           />
@@ -251,16 +238,26 @@ function ProfileContent({
           profile={profile}
         />
       ) : null}
+
+      {editOpen ? (
+        <AdminProfileEditDialog
+          onClose={() => setEditOpen(false)}
+          onSaved={onReload}
+          user={user}
+        />
+      ) : null}
     </>
   );
 }
 
 function ProfileHeaderActions({
   actions,
+  onEdit,
   onPassword,
   profile
 }: {
   actions?: OperationalUserProfileActions;
+  onEdit?: () => void;
   onPassword: () => void;
   profile: OperationalProfileResponse;
 }) {
@@ -272,9 +269,10 @@ function ProfileHeaderActions({
       user.role === "CHAMP" ||
       user.role === "AREA_MANAGER") &&
     Boolean(actions?.onResignation);
+  const canEdit = profile.permissions.canEditProfile && Boolean(onEdit);
   const canPassword = hasPasswordAccess(profile);
 
-  if (!canTransfer && !canResign && !canPassword) {
+  if (!canTransfer && !canResign && !canEdit && !canPassword) {
     return null;
   }
 
@@ -292,6 +290,17 @@ function ProfileHeaderActions({
 
       {open ? (
         <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]">
+          {canEdit ? (
+            <HeaderMenuAction
+              icon={<Edit3 className="h-4 w-4" />}
+              label="Edit profile"
+              onClick={() => {
+                setOpen(false);
+                onEdit?.();
+              }}
+              tone="slate"
+            />
+          ) : null}
           {canTransfer ? (
             <HeaderMenuAction
               icon={<ArrowRightLeft className="h-4 w-4" />}
@@ -359,17 +368,37 @@ function HeaderMenuAction({
   );
 }
 
+function OperationalStatusBadge({
+  status
+}: {
+  status: UserOperationalStatus;
+}) {
+  return (
+    <Badge
+      className={cn(
+        "rounded-full",
+        status.tone === "active" &&
+          "border-emerald-200 bg-emerald-50 text-emerald-700",
+        status.tone === "pending" &&
+          "border-amber-200 bg-amber-50 text-amber-700",
+        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
+      )}
+      title={status.title}
+      variant="outline"
+    >
+      {status.label}
+    </Badge>
+  );
+}
+
 function PickerProfileCard({
-  onReload,
   profile,
   whatsappHref
 }: {
-  onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
   const [tab, setTab] = useState<"overview" | "requests" | "activity">("overview");
-  const user = profile.user;
 
   return (
     <div className="grid gap-4">
@@ -387,11 +416,7 @@ function PickerProfileCard({
         <div className="grid gap-4">
           <PickerProfileOverview profile={profile} whatsappHref={whatsappHref} />
           <ResignationStatusSection profile={profile} />
-          {profile.permissions.canEditProfile ? (
-            <AdminEditPanel onReload={onReload} user={user} />
-          ) : (
-            <ReadOnlyDetails profile={profile} />
-          )}
+          <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "requests" ? (
         <RelatedRequestsPanel profile={profile} />
@@ -403,16 +428,13 @@ function PickerProfileCard({
 }
 
 function ChampProfileCard({
-  onReload,
   profile,
   whatsappHref
 }: {
-  onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
   const [tab, setTab] = useState<"overview" | "branches" | "log">("overview");
-  const user = profile.user;
 
   return (
     <div className="grid gap-4">
@@ -428,11 +450,7 @@ function ChampProfileCard({
       {tab === "overview" ? (
         <div className="grid gap-4">
           <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
-          {profile.permissions.canEditProfile ? (
-            <AdminEditPanel onReload={onReload} user={user} />
-          ) : (
-            <ReadOnlyDetails profile={profile} />
-          )}
+          <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "branches" ? (
         <AssignmentList
@@ -457,7 +475,6 @@ function AreaManagerProfileCard({
   whatsappHref: string;
 }) {
   const [tab, setTab] = useState<"overview" | "chains" | "log">("overview");
-  const user = profile.user;
 
   return (
     <div className="grid gap-4">
@@ -473,11 +490,7 @@ function AreaManagerProfileCard({
       {tab === "overview" ? (
         <div className="grid gap-4">
           <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
-          {profile.permissions.canEditProfile ? (
-            <AdminEditPanel onReload={onReload} user={user} />
-          ) : (
-            <ReadOnlyDetails profile={profile} />
-          )}
+          <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "chains" ? (
         profile.permissions.canEditProfile ? (
@@ -1216,122 +1229,6 @@ function RelatedRequestsPanel({
   );
 }
 
-function AdminEditPanel({
-  onReload,
-  user
-}: {
-  onReload: () => void;
-  user: SafeUser;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<UpdateAdminProfileInput>(() => toEditForm(user));
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setForm(toEditForm(user));
-  }, [user]);
-
-  function updateField<Key extends keyof UpdateAdminProfileInput>(
-    key: Key,
-    value: UpdateAdminProfileInput[Key]
-  ) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      try {
-        await usersApi.updateAdminProfile(user.id, form);
-        setEditing(false);
-        onReload();
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error ? caughtError.message : "Unable to save profile."
-        );
-      }
-    });
-  }
-
-  if (!editing) {
-    return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-slate-950">Profile data</h3>
-          <Button
-            className="h-10 rounded-xl"
-            onClick={() => setEditing(true)}
-            type="button"
-            variant="outline"
-          >
-            <Edit3 className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-        </div>
-        <ProfileRows user={user} />
-      </section>
-    );
-  }
-
-  return (
-    <form className="rounded-2xl border border-orange-200 bg-orange-50/30 p-4" onSubmit={onSubmit}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-950">Edit safe profile fields</h3>
-        <Button
-          className="h-10 rounded-xl"
-          onClick={() => setEditing(false)}
-          type="button"
-          variant="outline"
-        >
-          Cancel
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <EditField label="English name" value={form.nameEn ?? ""} onChange={(value) => updateField("nameEn", value)} />
-        <EditField label="Arabic name" value={form.nameAr ?? ""} onChange={(value) => updateField("nameAr", value)} />
-        <EditField label="Phone" value={form.phoneNumber ?? ""} onChange={(value) => updateField("phoneNumber", value)} />
-        <EditField label="National ID" value={form.nationalId ?? ""} onChange={(value) => updateField("nationalId", value)} />
-        <EditField label="Shopper ID" value={form.shopperId ?? ""} onChange={(value) => updateField("shopperId", value)} />
-        <EditField label="IBS ID" value={form.ibsId ?? ""} onChange={(value) => updateField("ibsId", value)} />
-        <EditField label="Date of birth" type="date" value={form.dateOfBirth ?? ""} onChange={(value) => updateField("dateOfBirth", value)} />
-        <EditField label="Joining date" type="date" value={form.joiningDate ?? ""} onChange={(value) => updateField("joiningDate", value)} />
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-          Gender
-          <Select
-            aria-label="Gender"
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
-            onChange={(event) => updateField("gender", event.target.value as SafeUser["gender"])}
-            value={form.gender ?? "UNSPECIFIED"}
-          >
-            <option value="UNSPECIFIED">Unspecified</option>
-            <option value="MALE">Male</option>
-            <option value="FEMALE">Female</option>
-          </Select>
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700 sm:col-span-2">
-          Address
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => updateField("address", event.target.value)}
-            value={form.address ?? ""}
-          />
-        </label>
-      </div>
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-      <Button
-        className="mt-4 h-11 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
-        disabled={isPending}
-        type="submit"
-      >
-        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-        Save profile
-      </Button>
-    </form>
-  );
-}
-
 function ReadOnlyDetails({ profile }: { profile: OperationalProfileResponse }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1348,6 +1245,7 @@ function ActivityPanel({
   profile: OperationalProfileResponse;
   title?: string;
 }) {
+  const [page, setPage] = useState(1);
   const items = profile.activity.length
     ? profile.activity
     : profile.recentRequests.map((request) => ({
@@ -1358,31 +1256,98 @@ function ActivityPanel({
         actor: null,
         createdAt: request.createdAt
       }));
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visibleItems = items.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [profile.user.id]);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
-      <div className="mt-3 grid gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Latest actions connected to this user.
+          </p>
+        </div>
         {items.length ? (
-          items.slice(0, 8).map((item) => (
-            <div className="flex gap-3 rounded-xl bg-slate-50 p-3" key={item.id}>
-              <div className="mt-1 h-2.5 w-2.5 rounded-full bg-orange-500" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-950">
-                  {formatEnum(item.action)}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {item.actor?.nameEn ?? item.entityType} · {formatDateTime(item.createdAt)}
-                </p>
-              </div>
-            </div>
-          ))
+          <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+            {items.length} actions
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-4">
+        {visibleItems.length ? (
+          <ol className="relative grid gap-0 before:absolute before:left-4 before:top-4 before:h-[calc(100%-2rem)] before:w-px before:bg-slate-200">
+            {visibleItems.map((item) => (
+              <li className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-3 pb-4 last:pb-0" key={item.id}>
+                <span className="relative z-10 mt-1 grid h-8 w-8 place-items-center rounded-full border border-orange-200 bg-orange-50 text-orange-700 shadow-sm">
+                  <CalendarDays className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {formatEnum(item.action)}
+                    </p>
+                    <time className="shrink-0 text-xs font-medium text-slate-500">
+                      {formatDateTime(item.createdAt)}
+                    </time>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.actor?.nameEn
+                      ? `By ${item.actor.nameEn}`
+                      : `Recorded on ${formatEnum(item.entityType)}`}
+                  </p>
+                  <p className="mt-2 truncate font-mono text-[11px] text-slate-400">
+                    {item.entityType} · {item.entityId}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
         ) : (
           <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
             No recent activity yet.
           </p>
         )}
       </div>
+
+      {totalPages > 1 ? (
+        <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-slate-500">
+            Page {safePage} of {totalPages}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Button
+              className="h-10 rounded-xl"
+              disabled={safePage <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              type="button"
+              variant="outline"
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              className="h-10 rounded-xl"
+              disabled={safePage >= totalPages}
+              onClick={() =>
+                setPage((current) => Math.min(totalPages, current + 1))
+              }
+              type="button"
+              variant="outline"
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1431,99 +1396,43 @@ function CenteredState({
 
 function ProfileRows({ user }: { user: SafeUser }) {
   return (
-    <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <ProfileRow label="English name" value={user.nameEn} />
-      <ProfileRow label="Arabic name" value={user.nameAr ?? "Not set"} />
-      <ProfileRow
-        copyValue={user.shopperId ?? undefined}
-        label="Shopper ID"
-        value={user.shopperId ?? "Not set"}
-      />
-      <ProfileRow
-        copyValue={user.ibsId ?? undefined}
-        label="IBS ID"
-        value={user.ibsId ?? "Not set"}
-      />
-      <ProfileRow label="National ID" value={user.nationalId ?? "Not set"} />
+    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
       <ProfileRow label="Gender" value={formatEnum(user.gender)} />
       <ProfileRow label="Date of birth" value={formatDate(user.dateOfBirth)} />
       <ProfileRow label="Joining date" value={formatDate(user.joiningDate)} />
       <ProfileRow label="Last login" value={formatDateTime(user.lastLoginAt)} />
       <ProfileRow label="Block status" value={formatEnum(user.blockStatus)} />
-      <ProfileRow label="Address" value={user.address ?? "Not set"} />
+      <ProfileRow
+        className="sm:col-span-2 xl:col-span-3"
+        label="Address"
+        value={user.address ?? "Not set"}
+      />
     </div>
   );
 }
 
 function ProfileRow({
-  copyValue,
+  className,
   label,
   value
 }: {
-  copyValue?: string;
+  className?: string;
   label: string;
   value: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={cn(
+        "flex min-h-[86px] min-w-0 items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3",
+        className
+      )}
+    >
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
         <p className="mt-1 break-words text-sm font-medium text-slate-950">{value}</p>
       </div>
-      {copyValue ? (
-        <CopyButton
-          aria-label={`Copy ${label}`}
-          className="h-9 w-9 p-0"
-          iconOnly
-          size="sm"
-          text={copyValue}
-        />
-      ) : null}
     </div>
   );
-}
-
-function EditField({
-  label,
-  onChange,
-  type = "text",
-  value
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  type?: string;
-  value: string;
-}) {
-  return (
-    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-      {label}
-      <Input
-        className="h-11 rounded-xl bg-white"
-        onChange={(event) => onChange(event.target.value)}
-        type={type}
-        value={value}
-      />
-    </label>
-  );
-}
-
-function toEditForm(user: SafeUser): UpdateAdminProfileInput {
-  return {
-    nameEn: user.nameEn,
-    nameAr: user.nameAr ?? "",
-    phoneNumber: user.phoneNumber,
-    nationalId: user.nationalId ?? "",
-    address: user.address ?? "",
-    dateOfBirth: toDateInput(user.dateOfBirth),
-    gender: user.gender,
-    joiningDate: toDateInput(user.joiningDate),
-    shopperId: user.shopperId ?? "",
-    ibsId: user.ibsId ?? ""
-  };
-}
-
-function toDateInput(value: string | null) {
-  return value ? value.slice(0, 10) : "";
 }
 
 function hasPasswordAccess(profile: OperationalProfileResponse) {

@@ -4,7 +4,6 @@ import { Building2, Network } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { UserAvatar } from "./user-avatar";
 import type { UsersActionHandlers } from "./users-actions-menu";
 import { UsersActionsMenu } from "./users-actions-menu";
@@ -13,7 +12,9 @@ import {
   formatEnum,
   getContextNote,
   getItemBranch,
-  getItemChainName
+  getItemChainName,
+  getUserOperationalStatus,
+  type UserOperationalStatus
 } from "./users-display-utils";
 
 export function UsersCardGrid({
@@ -50,6 +51,7 @@ function UserCard({
 }) {
   const branch = getItemBranch(item);
   const chainName = getItemChainName(item);
+  const operationalStatus = getUserOperationalStatus(item);
 
   return (
     <article
@@ -71,6 +73,7 @@ function UserCard({
             employmentStatus={item.user.employmentStatus}
             name={item.user.nameEn}
             role={item.user.role}
+            statusTone={operationalStatus.tone}
           />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-950">
@@ -92,22 +95,14 @@ function UserCard({
         >
           {formatEnum(item.user.role)}
         </Badge>
-        <UserStatusPill status={item.user.employmentStatus} />
-        <Badge className="rounded-full" variant="muted">
-          {formatEnum(item.user.accountStatus)}
-        </Badge>
+        <StatusPill status={operationalStatus} />
       </div>
 
       <div className="grid min-h-0 gap-2 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <p className="min-w-0 truncate text-xs font-semibold uppercase text-slate-400">
             {getContextNote(item)}
           </p>
-          {item.assignment?.status ? (
-            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200">
-              {formatEnum(item.assignment.status)}
-            </span>
-          ) : null}
         </div>
         {branch ? (
           <ContextLine
@@ -155,21 +150,20 @@ function ContextLine({
   );
 }
 
-function UserStatusPill({ status }: { status: string }) {
+function StatusPill({ status }: { status: UserOperationalStatus }) {
   return (
     <Badge
-      className={cn(
-        "rounded-full",
-        status === "ACTIVE" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
-        status === "NEW_HIRE_PENDING" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        (status === "RESIGNED" || status === "ARCHIVED") &&
-          "border-red-200 bg-red-50 text-red-700"
-      )}
+      className={
+        status.tone === "active"
+          ? "rounded-full border-emerald-200 bg-emerald-50 text-emerald-700"
+          : status.tone === "pending"
+            ? "rounded-full border-amber-200 bg-amber-50 text-amber-700"
+            : "rounded-full border-red-200 bg-red-50 text-red-700"
+      }
+      title={status.title}
       variant="outline"
     >
-      {formatEnum(status)}
+      {status.label}
     </Badge>
   );
 }

@@ -1,5 +1,5 @@
 import type { SafeUser } from "@/lib/auth/types";
-import type { RequestSummary } from "./requests";
+import type { PendingLifecycleRequestSummary, RequestSummary } from "./requests";
 import { apiGet } from "./request";
 
 export type AssignmentStatus = "ACTIVE" | "CLOSED";
@@ -58,11 +58,13 @@ export interface PickerWorkspace {
 export interface ScopedPicker {
   assignment: AssignmentSummary;
   picker: UserSummary;
+  pendingRequest?: PendingLifecycleRequestSummary | null;
 }
 
 export interface ScopedChamp {
   assignment: AssignmentSummary;
   champ: UserSummary;
+  pendingRequest?: PendingLifecycleRequestSummary | null;
 }
 
 export interface ChampBranch {

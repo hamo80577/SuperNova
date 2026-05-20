@@ -8,6 +8,8 @@ import {
   EmploymentStatus,
   Gender,
   ProfileStatus,
+  RequestStatus,
+  RequestType,
   UiTheme,
   UserRole,
   VendorStatus
@@ -15,7 +17,9 @@ import {
 
 import { UsersService } from "../src/users/users.service";
 
-function serviceHarness(options: { users?: unknown[]; total?: number } = {}) {
+function serviceHarness(
+  options: { pendingRequests?: unknown[]; users?: unknown[]; total?: number } = {}
+) {
   let countWhere: unknown = null;
   let findManyWhere: unknown = null;
   let findManyArgs: unknown = null;
@@ -49,6 +53,9 @@ function serviceHarness(options: { users?: unknown[]; total?: number } = {}) {
             "areaManagerId"
           )
         )
+    },
+    request: {
+      findMany: () => Promise.resolve(options.pendingRequests ?? [])
     },
     $transaction: (promises: Array<Promise<unknown>>) => Promise.all(promises)
   };
@@ -337,6 +344,47 @@ async function run() {
       pageSize: 20,
       total: 2,
       totalPages: 1
+    });
+  }
+
+  {
+    const activeChain = chain("chain-active");
+    const activeVendor = vendor("vendor-active", activeChain);
+    const harness = serviceHarness({
+      total: 1,
+      users: [
+        user("picker-pending", UserRole.PICKER, {
+          pickerBranchAssignments: [
+            assignment("active-assignment", AssignmentStatus.ACTIVE, "2025-01-01", {
+              vendor: activeVendor
+            })
+          ]
+        })
+      ],
+      pendingRequests: [
+        {
+          id: "request-transfer-open",
+          type: RequestType.TRANSFER,
+          status: RequestStatus.PENDING_ADMIN,
+          currentStep: "ADMIN_FINAL_APPROVAL",
+          targetUserId: "picker-pending",
+          createdAt: new Date("2025-05-01T00:00:00.000Z")
+        }
+      ]
+    });
+
+    const result = await harness.service.listOperational({
+      page: 1,
+      pageSize: 20,
+      role: UserRole.PICKER
+    });
+
+    assert.deepEqual(result.items[0].pendingRequest, {
+      id: "request-transfer-open",
+      type: RequestType.TRANSFER,
+      status: RequestStatus.PENDING_ADMIN,
+      currentStep: "ADMIN_FINAL_APPROVAL",
+      createdAt: new Date("2025-05-01T00:00:00.000Z")
     });
   }
 }

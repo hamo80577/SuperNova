@@ -54,6 +54,8 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/components/users/users-table-view.tsx`
   - `apps/web/components/users/user-avatar.tsx`
   - `apps/web/components/users/operational-user-profile-modal.tsx`
+  - `apps/web/components/users/admin-profile-edit-dialog.tsx`
+  - `apps/web/components/users/admin-profile-edit-validation.ts`
   - `apps/web/components/users/picker-profile-overview.tsx`
   - `apps/web/components/users/password-access-dialog.tsx`
   - `apps/web/components/users/user-request-detail-modal.tsx`
@@ -67,8 +69,8 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/users/temporary-password.service.ts`
 - Key API endpoints:
   - `GET /api/users`: Admin/Super Admin paginated safe-user list.
-  - `GET /api/users/operational-list`: Admin/Super Admin paginated Users page list with assignment-table Branch/Chain context.
-  - `GET /api/users/:id/operational-profile`: Operational profile modal data, requests, activity, and credential permissions.
+  - `GET /api/users/operational-list`: Admin/Super Admin paginated Users page list with assignment-table Branch/Chain context and latest pending Transfer/Resignation summary for operational status.
+  - `GET /api/users/:id/operational-profile`: Operational profile modal data, recent requests, request/user-linked activity timeline data, and credential permissions.
   - `GET /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin read of active Area Manager Chain assignments.
   - `POST /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin adds active `ChainAreaManagerAssignment` rows from the Area Manager profile.
   - `DELETE /api/users/:id/area-manager-chain-assignments/:assignmentId`: Admin/Super Admin closes an active Area Manager Chain assignment unless open requests still require that Chain.
@@ -80,9 +82,12 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/users/dto/profile-completion.dto.ts`
   - `apps/web/lib/auth/types.ts`
 - Important tests:
+  - `apps/web/components/users/admin-profile-edit-validation.test.ts`
   - `apps/api/test/users-list-filters.test.ts`
   - `apps/api/test/users-admin-profile.dto.test.ts`
   - `apps/api/test/users-area-manager-chain-assignments.test.ts`
+- Notes:
+  - Operational profiles keep identity/contact, operational context, and profile data separated. Admin/Super Admin profile edits open from the profile quick action menu in a top-layer dialog with client-side required-field validation.
 
 ### Workspaces
 
@@ -96,6 +101,8 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/workspaces/workspaces.controller.ts`
   - `apps/api/src/workspaces/workspaces.service.ts`
   - `apps/api/src/workspaces/workspaces.module.ts`
+- Notes:
+  - Champ and Area Manager workspace scoped Picker/Champ rows expose latest pending Transfer/Resignation summary so Users status can render as Active, Pending, or Resigned consistently across roles.
 - Important DTO/types:
   - `apps/web/lib/api/workspaces.ts`
   - `apps/web/components/workspaces/champ/champ-branch-types.ts`

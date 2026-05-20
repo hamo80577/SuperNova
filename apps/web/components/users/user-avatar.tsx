@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getInitials } from "./users-display-utils";
 
 type AvatarSize = "sm" | "md" | "lg";
+type AvatarStatusTone = "active" | "pending" | "resigned";
 
 const roleTone: Record<UserRole, string> = {
   PICKER: "bg-orange-50 text-orange-700 ring-orange-100",
@@ -23,6 +24,12 @@ const statusDot: Record<SafeUser["employmentStatus"], string> = {
   RESIGNED: "bg-red-500"
 };
 
+const operationalStatusDot: Record<AvatarStatusTone, string> = {
+  active: "bg-emerald-500",
+  pending: "bg-amber-500",
+  resigned: "bg-red-500"
+};
+
 export function UserAvatar({
   accountStatus,
   className,
@@ -30,7 +37,8 @@ export function UserAvatar({
   name,
   role,
   showStatus = true,
-  size = "md"
+  size = "md",
+  statusTone
 }: {
   accountStatus?: SafeUser["accountStatus"];
   className?: string;
@@ -39,8 +47,14 @@ export function UserAvatar({
   role: UserRole;
   showStatus?: boolean;
   size?: AvatarSize;
+  statusTone?: AvatarStatusTone;
 }) {
   const initials = getInitials(name);
+  const dotClass = statusTone
+    ? operationalStatusDot[statusTone]
+    : accountStatus === "SUSPENDED" || accountStatus === "ARCHIVED"
+      ? "bg-slate-400"
+      : statusDot[employmentStatus];
 
   return (
     <div
@@ -59,9 +73,7 @@ export function UserAvatar({
         <span
           className={cn(
             "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white",
-            accountStatus === "SUSPENDED" || accountStatus === "ARCHIVED"
-              ? "bg-slate-400"
-              : statusDot[employmentStatus]
+            dotClass
           )}
         />
       ) : null}

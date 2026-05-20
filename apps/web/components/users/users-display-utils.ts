@@ -93,6 +93,156 @@ export function getContextNote(item: UsersAreaItem) {
     : "Open profile for assignment context.";
 }
 
+export type UserOperationalStatus = {
+  label: "Active" | "Pending" | "Resigned";
+  tone: "active" | "pending" | "resigned";
+  title: string;
+};
+
+export function getUserOperationalStatus(
+  item: UsersAreaItem
+): UserOperationalStatus {
+  if (item.pendingRequest) {
+    return {
+      label: "Pending",
+      tone: "pending",
+      title: `${formatEnum(item.pendingRequest.type)} request in progress`
+    };
+  }
+
+  if (
+    item.user.employmentStatus === "RESIGNED" ||
+    item.user.employmentStatus === "ARCHIVED" ||
+    item.user.accountStatus === "ARCHIVED"
+  ) {
+    return {
+      label: "Resigned",
+      tone: "resigned",
+      title: "Resignation confirmed"
+    };
+  }
+
+  if (requiresAssignmentForActiveStatus(item.user.role)) {
+    return item.assignment?.status === "ACTIVE"
+      ? {
+          label: "Active",
+          tone: "active",
+          title: "Active operational assignment"
+        }
+      : {
+          label: "Pending",
+          tone: "pending",
+          title: "No active operational assignment"
+        };
+  }
+
+  return item.user.accountStatus === "ACTIVE" &&
+    item.user.employmentStatus === "ACTIVE"
+    ? {
+        label: "Active",
+        tone: "active",
+        title: "Active user account"
+      }
+    : {
+        label: "Pending",
+        tone: "pending",
+        title: "User is not active yet"
+      };
+}
+
+export function getProfileOperationalStatus(
+  profile: OperationalProfileResponse
+): UserOperationalStatus {
+  const user = profile.user;
+  const hasPendingLifecycleRequest = profile.recentRequests.some(
+    (request) =>
+      (request.type === "TRANSFER" || request.type === "RESIGNATION") &&
+      request.status !== "COMPLETED" &&
+      request.status !== "REJECTED" &&
+      request.status !== "CANCELLED"
+  );
+
+  if (hasPendingLifecycleRequest) {
+    return {
+      label: "Pending",
+      tone: "pending",
+      title: "Transfer or Resignation request in progress"
+    };
+  }
+
+  if (
+    user.employmentStatus === "RESIGNED" ||
+    user.employmentStatus === "ARCHIVED" ||
+    user.accountStatus === "ARCHIVED"
+  ) {
+    return {
+      label: "Resigned",
+      tone: "resigned",
+      title: "Resignation confirmed"
+    };
+  }
+
+  if (user.role === "PICKER") {
+    return profile.currentPickerAssignment?.status === "ACTIVE"
+      ? {
+          label: "Active",
+          tone: "active",
+          title: "Active Branch assignment"
+        }
+      : {
+          label: "Pending",
+          tone: "pending",
+          title: "No active Branch assignment"
+        };
+  }
+
+  if (user.role === "CHAMP") {
+    return profile.champAssignments.some((assignment) => assignment.status === "ACTIVE")
+      ? {
+          label: "Active",
+          tone: "active",
+          title: "Active Branch ownership"
+        }
+      : {
+          label: "Pending",
+          tone: "pending",
+          title: "No active Branch ownership"
+        };
+  }
+
+  if (user.role === "AREA_MANAGER") {
+    return profile.areaManagerAssignments.some(
+      (assignment) => assignment.status === "ACTIVE"
+    )
+      ? {
+          label: "Active",
+          tone: "active",
+          title: "Active Chain assignment"
+        }
+      : {
+          label: "Pending",
+          tone: "pending",
+          title: "No active Chain assignment"
+        };
+  }
+
+  return user.accountStatus === "ACTIVE" && user.employmentStatus === "ACTIVE"
+    ? {
+        label: "Active",
+        tone: "active",
+        title: "Active user account"
+      }
+    : {
+        label: "Pending",
+        tone: "pending",
+        title: "User is not active yet"
+      };
+}
+
+function requiresAssignmentForActiveStatus(role: string) {
+  return role === "PICKER" || role === "CHAMP" || role === "AREA_MANAGER";
+}
+
 export function normalizePhoneForWhatsapp(phoneNumber: string) {
   const digits = phoneNumber.replace(/[^\d]/g, "");
   if (digits.startsWith("00")) {

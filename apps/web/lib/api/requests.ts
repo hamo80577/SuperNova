@@ -82,6 +82,14 @@ export interface RequestSummary {
   approvals: RequestApprovalSummary[];
 }
 
+export interface PendingLifecycleRequestSummary {
+  id: string;
+  type: Extract<RequestType, "RESIGNATION" | "TRANSFER">;
+  status: RequestStatus;
+  currentStep: ApprovalStep | null;
+  createdAt: string;
+}
+
 export interface RequestTargetUserSummary extends UserSummary {
   ibsId?: string | null;
   joiningDate?: string | null;

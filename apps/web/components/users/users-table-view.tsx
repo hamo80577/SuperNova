@@ -11,7 +11,9 @@ import type { UsersAreaItem, UsersSectionId } from "./users-area-types";
 import {
   formatEnum,
   getItemBranch,
-  getItemChainName
+  getItemChainName,
+  getUserOperationalStatus,
+  type UserOperationalStatus
 } from "./users-display-utils";
 
 export function UsersTableView({
@@ -127,18 +129,13 @@ function DesktopUsersTable({
                 </p>
               </td>
               <td className="px-3 py-3">
-                <div className="flex flex-wrap gap-1.5">
-                  <StatusPill status={item.user.employmentStatus} />
-                  <Badge className="rounded-full" variant="muted">
-                    {formatEnum(item.user.accountStatus)}
-                  </Badge>
-                </div>
+                <OperationalStatusPill item={item} />
               </td>
               <td className="px-3 py-3">
                 <PhoneCell item={item} />
               </td>
               <td className="px-3 py-3 text-right">
-                <UsersActionsMenu {...actions} align="left" item={item} />
+                <UsersActionsMenu {...actions} item={item} />
               </td>
             </tr>
           ))}
@@ -206,10 +203,7 @@ function MobileUsersRows({
                   {formatEnum(item.user.role)}
                 </Badge>
               ) : null}
-              <StatusPill status={item.user.employmentStatus} />
-              <Badge className="rounded-full" variant="muted">
-                {formatEnum(item.user.accountStatus)}
-              </Badge>
+              <OperationalStatusPill item={item} />
             </div>
           </div>
 
@@ -221,6 +215,8 @@ function MobileUsersRows({
 }
 
 function UserCell({ item }: { item: UsersAreaItem }) {
+  const operationalStatus = getUserOperationalStatus(item);
+
   return (
     <div className="flex min-w-0 items-center gap-3">
       <UserAvatar
@@ -229,6 +225,7 @@ function UserCell({ item }: { item: UsersAreaItem }) {
         name={item.user.nameEn}
         role={item.user.role}
         size="sm"
+        statusTone={operationalStatus.tone}
       />
       <div className="min-w-0">
         <p className="truncate font-semibold text-slate-950">{item.user.nameEn}</p>
@@ -254,21 +251,27 @@ function PhoneCell({ item }: { item: UsersAreaItem }) {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function OperationalStatusPill({ item }: { item: UsersAreaItem }) {
+  const status = getUserOperationalStatus(item);
+
+  return <StatusPill status={status} />;
+}
+
+function StatusPill({ status }: { status: UserOperationalStatus }) {
   return (
     <Badge
       className={cn(
         "rounded-full",
-        status === "ACTIVE" &&
+        status.tone === "active" &&
           "border-emerald-200 bg-emerald-50 text-emerald-700",
-        status === "NEW_HIRE_PENDING" &&
+        status.tone === "pending" &&
           "border-amber-200 bg-amber-50 text-amber-700",
-        (status === "RESIGNED" || status === "ARCHIVED") &&
-          "border-red-200 bg-red-50 text-red-700"
+        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
       )}
+      title={status.title}
       variant="outline"
     >
-      {formatEnum(status)}
+      {status.label}
     </Badge>
   );
 }

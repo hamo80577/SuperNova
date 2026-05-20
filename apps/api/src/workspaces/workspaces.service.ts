@@ -6,6 +6,7 @@ import {
   EmploymentStatus,
   Prisma,
   RequestStatus,
+  RequestType,
   User,
   VendorStatus
 } from "@prisma/client";
@@ -78,6 +79,14 @@ const areaManagerChainInclude = {
 type ChampBranchAssignment = Prisma.VendorChampAssignmentGetPayload<{
   include: typeof champBranchInclude;
 }>;
+
+type PendingLifecycleRequestSummary = {
+  id: string;
+  type: RequestType;
+  status: RequestStatus;
+  currentStep: string | null;
+  createdAt: Date;
+};
 
 const pendingRequestStatuses = [
   RequestStatus.PENDING_AREA_MANAGER,
@@ -165,9 +174,23 @@ export class WorkspacesService {
       include: champBranchInclude,
       orderBy: { createdAt: "desc" }
     });
+    const pendingRequestsByTargetUserId =
+      await this.getPendingLifecycleRequestsByTargetUserId(
+        assignments.flatMap((assignment) =>
+          assignment.vendor.pickerAssignments.map(
+            (pickerAssignment) => pickerAssignment.pickerId
+          )
+        )
+      );
 
     const branches = await Promise.all(
-      assignments.map((assignment) => this.toChampBranchSummary(assignment, userId))
+      assignments.map((assignment) =>
+        this.toChampBranchSummary(
+          assignment,
+          userId,
+          pendingRequestsByTargetUserId
+        )
+      )
     );
 
     return {
@@ -232,7 +255,16 @@ export class WorkspacesService {
       })
     ]);
 
-    const branch = this.mapChampBranchAssignment(assignment);
+    const pendingRequestsByTargetUserId =
+      await this.getPendingLifecycleRequestsByTargetUserId(
+        assignment.vendor.pickerAssignments.map(
+          (pickerAssignment) => pickerAssignment.pickerId
+        )
+      );
+    const branch = this.mapChampBranchAssignment(
+      assignment,
+      pendingRequestsByTargetUserId
+    );
 
     return {
       ...branch,
@@ -260,6 +292,19 @@ export class WorkspacesService {
       include: areaManagerChainInclude,
       orderBy: { createdAt: "desc" }
     });
+    const pendingRequestsByTargetUserId =
+      await this.getPendingLifecycleRequestsByTargetUserId(
+        assignments.flatMap((assignment) =>
+          assignment.chain.vendors.flatMap((vendor) => [
+            ...vendor.pickerAssignments.map(
+              (pickerAssignment) => pickerAssignment.pickerId
+            ),
+            ...vendor.champAssignments.map(
+              (champAssignment) => champAssignment.champId
+            )
+          ])
+        )
+      );
 
     const usersById = new Map<string, ReturnType<typeof toUserSummary>>();
     const chains = assignments.map((assignment) => {
@@ -274,7 +319,8 @@ export class WorkspacesService {
               status: pickerAssignment.status,
               startDate: pickerAssignment.startDate
             },
-            picker
+            picker,
+            pendingRequest: pendingRequestsByTargetUserId.get(picker.id) ?? null
           };
         });
         const champs = vendor.champAssignments.map((champAssignment) => {
@@ -287,7 +333,8 @@ export class WorkspacesService {
               status: champAssignment.status,
               startDate: champAssignment.startDate
             },
-            champ
+            champ,
+            pendingRequest: pendingRequestsByTargetUserId.get(champ.id) ?? null
           };
         });
 
@@ -424,7 +471,8 @@ export class WorkspacesService {
 
   private async toChampBranchSummary(
     assignment: ChampBranchAssignment,
-    champId: string
+    champId: string,
+    pendingRequestsByTargetUserId: Map<string, PendingLifecycleRequestSummary>
   ) {
     const [recentRequestCount, pendingRequestCount] = await this.prisma.$transaction([
       this.prisma.request.count({
@@ -440,13 +488,16 @@ export class WorkspacesService {
     ]);
 
     return {
-      ...this.mapChampBranchAssignment(assignment),
+      ...this.mapChampBranchAssignment(assignment, pendingRequestsByTargetUserId),
       recentRequestCount,
       pendingRequestCount
     };
   }
 
-  private mapChampBranchAssignment(assignment: ChampBranchAssignment) {
+  private mapChampBranchAssignment(
+    assignment: ChampBranchAssignment,
+    pendingRequestsByTargetUserId: Map<string, PendingLifecycleRequestSummary>
+  ) {
     const pickers = assignment.vendor.pickerAssignments.map((pickerAssignment) => ({
       assignment: {
         id: pickerAssignment.id,
@@ -454,7 +505,9 @@ export class WorkspacesService {
         startDate: pickerAssignment.startDate,
         endDate: pickerAssignment.endDate
       },
-      picker: toUserSummary(pickerAssignment.picker)
+      picker: toUserSummary(pickerAssignment.picker),
+      pendingRequest:
+        pendingRequestsByTargetUserId.get(pickerAssignment.pickerId) ?? null
     }));
 
     return {
@@ -469,6 +522,48 @@ export class WorkspacesService {
       activePickerCount: pickers.length,
       pickers
     };
+  }
+
+  private async getPendingLifecycleRequestsByTargetUserId(targetUserIds: string[]) {
+    const uniqueTargetUserIds = Array.from(new Set(targetUserIds));
+
+    if (!uniqueTargetUserIds.length) {
+      return new Map<string, PendingLifecycleRequestSummary>();
+    }
+
+    const requests = await this.prisma.request.findMany({
+      where: {
+        targetUserId: { in: uniqueTargetUserIds },
+        type: { in: [RequestType.RESIGNATION, RequestType.TRANSFER] },
+        status: { in: pendingRequestStatuses }
+      },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        currentStep: true,
+        targetUserId: true,
+        createdAt: true
+      },
+      orderBy: [{ targetUserId: "asc" }, { createdAt: "desc" }]
+    });
+    const mapped = new Map<string, PendingLifecycleRequestSummary>();
+
+    for (const request of requests) {
+      if (!request.targetUserId || mapped.has(request.targetUserId)) {
+        continue;
+      }
+
+      mapped.set(request.targetUserId, {
+        id: request.id,
+        type: request.type,
+        status: request.status,
+        currentStep: request.currentStep,
+        createdAt: request.createdAt
+      });
+    }
+
+    return mapped;
   }
 
   private getProfileCompletion(user: User) {

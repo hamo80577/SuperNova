@@ -16,6 +16,7 @@ import {
   Prisma,
   ProfileStatus,
   RequestStatus,
+  RequestType,
   User,
   UserRole
 } from "@prisma/client";
@@ -24,6 +25,7 @@ import bcrypt from "bcryptjs";
 import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { PrismaService } from "../prisma/prisma.service";
+import { pendingRequestStatuses } from "../requests/request-status-machine";
 import type { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignment.dto";
 import type { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
@@ -85,6 +87,15 @@ type OperationalListContext = {
   chain: OperationalChainSummary | null;
   champ: OperationalUserSummary | null;
   areaManager: OperationalUserSummary | null;
+  pendingRequest: OperationalPendingRequestSummary | null;
+};
+
+type OperationalPendingRequestSummary = {
+  id: string;
+  type: RequestType;
+  status: RequestStatus;
+  currentStep: string | null;
+  createdAt: Date;
 };
 
 @Injectable()
@@ -168,7 +179,8 @@ export class UsersService {
           vendor: context.vendor,
           chain: context.chain,
           champ: context.champ,
-          areaManager: context.areaManager
+          areaManager: context.areaManager,
+          pendingRequest: context.pendingRequest
         };
       }),
       meta: {
@@ -341,8 +353,7 @@ export class UsersService {
       currentPickerAssignment,
       champAssignments,
       areaManagerAssignments,
-      recentRequests,
-      activity
+      recentRequests
     ] = await this.prisma.$transaction([
       this.prisma.pickerBranchAssignment.findFirst({
         where: { pickerId: user.id, status: AssignmentStatus.ACTIVE },
@@ -370,20 +381,25 @@ export class UsersService {
           destinationVendor: { include: { chain: true } }
         },
         orderBy: { createdAt: "desc" },
-        take: 6
-      }),
-      this.prisma.auditLog.findMany({
-        where: {
-          OR: [
-            { entityType: "User", entityId: user.id },
-            { actorUserId: user.id }
-          ]
-        },
-        include: { actor: true },
-        orderBy: { createdAt: "desc" },
-        take: 8
+        take: 12
       })
     ]);
+    const requestIds = recentRequests.map((request) => request.id);
+    const activityFilters: Prisma.AuditLogWhereInput[] = [
+      { entityType: "User", entityId: user.id },
+      { actorUserId: user.id }
+    ];
+
+    if (requestIds.length) {
+      activityFilters.push({ entityType: "Request", entityId: { in: requestIds } });
+    }
+
+    const activity = await this.prisma.auditLog.findMany({
+      where: { OR: activityFilters },
+      include: { actor: true },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
 
     return {
       user: toSafeUser(user),
@@ -1045,6 +1061,7 @@ export class UsersService {
   }
 
   private async getOperationalListContexts(users: User[]) {
+    const userIds = users.map((user) => user.id);
     const pickerIds = users
       .filter((user) => user.role === UserRole.PICKER)
       .map((user) => user.id);
@@ -1058,7 +1075,8 @@ export class UsersService {
     const [
       pickerAssignments,
       champAssignments,
-      areaManagerAssignments
+      areaManagerAssignments,
+      pendingLifecycleRequests
     ] = await Promise.all([
       pickerIds.length
         ? this.prisma.pickerBranchAssignment.findMany({
@@ -1107,6 +1125,24 @@ export class UsersService {
               { updatedAt: "desc" }
             ]
           })
+        : Promise.resolve([]),
+      userIds.length
+        ? this.prisma.request.findMany({
+            where: {
+              targetUserId: { in: userIds },
+              type: { in: [RequestType.RESIGNATION, RequestType.TRANSFER] },
+              status: { in: [...pendingRequestStatuses] }
+            },
+            select: {
+              id: true,
+              type: true,
+              status: true,
+              currentStep: true,
+              targetUserId: true,
+              createdAt: true
+            },
+            orderBy: [{ targetUserId: "asc" }, { createdAt: "desc" }]
+          })
         : Promise.resolve([])
     ]);
     const pickerAssignmentsByUserId = this.groupBy(
@@ -1121,16 +1157,20 @@ export class UsersService {
       areaManagerAssignments,
       (assignment) => assignment.areaManagerId
     );
+    const pendingRequestsByUserId =
+      this.mapPendingLifecycleRequestsByUserId(pendingLifecycleRequests);
     const contexts = new Map<string, OperationalListContext>();
 
     for (const user of users) {
+      const pendingRequest = pendingRequestsByUserId.get(user.id) ?? null;
+
       if (user.role === UserRole.PICKER) {
         const assignment = this.selectDisplayAssignment(
           pickerAssignmentsByUserId.get(user.id)
         );
 
         if (!assignment) {
-          contexts.set(user.id, this.emptyOperationalContext(user));
+          contexts.set(user.id, this.emptyOperationalContext(user, pendingRequest));
           continue;
         }
 
@@ -1141,7 +1181,8 @@ export class UsersService {
           vendor: this.toVendorSummary(assignment.vendor),
           chain: this.toChainSummary(assignment.vendor.chain),
           champ: champ ? this.toUserSummary(champ) : null,
-          areaManager: null
+          areaManager: null,
+          pendingRequest
         });
         continue;
       }
@@ -1152,7 +1193,7 @@ export class UsersService {
         );
 
         if (!assignment) {
-          contexts.set(user.id, this.emptyOperationalContext(user));
+          contexts.set(user.id, this.emptyOperationalContext(user, pendingRequest));
           continue;
         }
 
@@ -1162,7 +1203,8 @@ export class UsersService {
           vendor: this.toVendorSummary(assignment.vendor),
           chain: this.toChainSummary(assignment.vendor.chain),
           champ: this.toUserSummary(user),
-          areaManager: null
+          areaManager: null,
+          pendingRequest
         });
         continue;
       }
@@ -1173,7 +1215,7 @@ export class UsersService {
         );
 
         if (!assignment) {
-          contexts.set(user.id, this.emptyOperationalContext(user));
+          contexts.set(user.id, this.emptyOperationalContext(user, pendingRequest));
           continue;
         }
 
@@ -1183,12 +1225,45 @@ export class UsersService {
           vendor: null,
           chain: this.toChainSummary(assignment.chain),
           champ: null,
-          areaManager: this.toUserSummary(user)
+          areaManager: this.toUserSummary(user),
+          pendingRequest
         });
+        continue;
       }
+
+      contexts.set(user.id, this.emptyOperationalContext(user, pendingRequest));
     }
 
     return contexts;
+  }
+
+  private mapPendingLifecycleRequestsByUserId(
+    requests: Array<{
+      id: string;
+      type: RequestType;
+      status: RequestStatus;
+      currentStep: string | null;
+      targetUserId: string | null;
+      createdAt: Date;
+    }>
+  ) {
+    const mapped = new Map<string, OperationalPendingRequestSummary>();
+
+    for (const request of requests) {
+      if (!request.targetUserId || mapped.has(request.targetUserId)) {
+        continue;
+      }
+
+      mapped.set(request.targetUserId, {
+        id: request.id,
+        type: request.type,
+        status: request.status,
+        currentStep: request.currentStep,
+        createdAt: request.createdAt
+      });
+    }
+
+    return mapped;
   }
 
   private groupBy<T>(items: T[], getKey: (item: T) => string) {
@@ -1235,7 +1310,10 @@ export class UsersService {
     })[0];
   }
 
-  private emptyOperationalContext(user: User): OperationalListContext {
+  private emptyOperationalContext(
+    user: User,
+    pendingRequest: OperationalPendingRequestSummary | null = null
+  ): OperationalListContext {
     return {
       key: user.id,
       assignment: null,
@@ -1243,7 +1321,8 @@ export class UsersService {
       chain: null,
       champ: user.role === UserRole.CHAMP ? this.toUserSummary(user) : null,
       areaManager:
-        user.role === UserRole.AREA_MANAGER ? this.toUserSummary(user) : null
+        user.role === UserRole.AREA_MANAGER ? this.toUserSummary(user) : null,
+      pendingRequest
     };
   }
 
