@@ -8,10 +8,14 @@ import {
 } from "@nestjs/common";
 import {
   AccountStatus,
+  ApprovalStatus,
   AssignmentStatus,
+  BlockStatus,
   ChainStatus,
+  EmploymentStatus,
   Prisma,
   ProfileStatus,
+  RequestStatus,
   User,
   UserRole
 } from "@prisma/client";
@@ -20,6 +24,7 @@ import bcrypt from "bcryptjs";
 import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { PrismaService } from "../prisma/prisma.service";
+import type { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignment.dto";
 import type { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import type { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
@@ -444,6 +449,173 @@ export class UsersService {
     };
   }
 
+  async getAreaManagerChainAssignments(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException("User was not found.");
+    }
+
+    if (user.role !== UserRole.AREA_MANAGER) {
+      throw new BadRequestException("Target user must be an Area Manager.");
+    }
+
+    return this.toAreaManagerChainAssignmentsResponse(user);
+  }
+
+  async addAreaManagerChainAssignments(
+    userId: string,
+    dto: AreaManagerChainAssignmentDto,
+    currentUser: AuthenticatedUser,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    this.assertAdminActor(currentUser);
+    const targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    this.assertAssignableAreaManager(targetUser);
+
+    const chainIds = Array.from(new Set(dto.chainIds));
+    const chains = await this.prisma.chain.findMany({
+      where: {
+        id: { in: chainIds },
+        status: ChainStatus.ACTIVE
+      }
+    });
+
+    if (chains.length !== chainIds.length) {
+      throw new BadRequestException(
+        "One or more selected Chains were not found or inactive."
+      );
+    }
+
+    const existingAssignments =
+      await this.prisma.chainAreaManagerAssignment.findMany({
+        where: {
+          areaManagerId: targetUser.id,
+          chainId: { in: chainIds },
+          status: AssignmentStatus.ACTIVE
+        },
+        select: { chainId: true }
+      });
+    const existingChainIds = new Set(
+      existingAssignments.map((assignment) => assignment.chainId)
+    );
+    const newChainIds = chainIds.filter((chainId) => !existingChainIds.has(chainId));
+
+    if (newChainIds.length) {
+      await this.prisma.$transaction(async (tx) => {
+        const created = await Promise.all(
+          newChainIds.map((chainId) =>
+            tx.chainAreaManagerAssignment.create({
+              data: {
+                areaManagerId: targetUser.id,
+                chainId,
+                status: AssignmentStatus.ACTIVE
+              }
+            })
+          )
+        );
+
+        await tx.auditLog.createMany({
+          data: created.map((assignment) => ({
+            actorUserId: currentUser.id,
+            action: "AREA_MANAGER_CHAIN_ASSIGNMENT_CREATED",
+            entityType: "ChainAreaManagerAssignment",
+            entityId: assignment.id,
+            newValue: {
+              areaManagerId: assignment.areaManagerId,
+              chainId: assignment.chainId
+            },
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }))
+        });
+      });
+    }
+
+    return this.toAreaManagerChainAssignmentsResponse(targetUser);
+  }
+
+  async removeAreaManagerChainAssignment(
+    userId: string,
+    assignmentId: string,
+    currentUser: AuthenticatedUser,
+    context: {
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    }
+  ) {
+    this.assertAdminActor(currentUser);
+
+    const assignment = await this.prisma.chainAreaManagerAssignment.findUnique({
+      where: { id: assignmentId },
+      include: { areaManager: true, chain: true }
+    });
+
+    if (!assignment) {
+      throw new NotFoundException("Area Manager Chain assignment was not found.");
+    }
+
+    if (assignment.areaManagerId !== userId) {
+      throw new BadRequestException(
+        "Area Manager Chain assignment does not belong to this user."
+      );
+    }
+
+    if (assignment.status !== AssignmentStatus.ACTIVE) {
+      throw new BadRequestException("Only active Chain assignments can be removed.");
+    }
+
+    const openRequestCount = await this.countOpenRequestsForAreaManagerChain(
+      assignment.areaManagerId,
+      assignment.chainId
+    );
+
+    if (openRequestCount > 0) {
+      throw new BadRequestException(
+        "Cannot remove this Chain from the Area Manager while open requests require action on this Chain."
+      );
+    }
+
+    const closedAt = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.chainAreaManagerAssignment.update({
+        where: { id: assignment.id },
+        data: {
+          status: AssignmentStatus.CLOSED,
+          endDate: closedAt
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: currentUser.id,
+          action: "AREA_MANAGER_CHAIN_ASSIGNMENT_CLOSED",
+          entityType: "ChainAreaManagerAssignment",
+          entityId: assignment.id,
+          oldValue: {
+            status: assignment.status,
+            areaManagerId: assignment.areaManagerId,
+            chainId: assignment.chainId
+          },
+          newValue: {
+            status: AssignmentStatus.CLOSED,
+            areaManagerId: assignment.areaManagerId,
+            chainId: assignment.chainId,
+            endDate: closedAt.toISOString()
+          },
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null
+        }
+      });
+    });
+
+    return this.toAreaManagerChainAssignmentsResponse(assignment.areaManager);
+  }
+
   async updateAdminProfile(
     userId: string,
     dto: UpdateAdminProfileDto,
@@ -670,6 +842,104 @@ export class UsersService {
       temporaryPasswordExpiresAt,
       temporaryPasswordCreatedAt
     };
+  }
+
+  private async toAreaManagerChainAssignmentsResponse(user: User) {
+    const assignments = await this.prisma.chainAreaManagerAssignment.findMany({
+      where: {
+        areaManagerId: user.id,
+        status: AssignmentStatus.ACTIVE
+      },
+      include: { chain: true },
+      orderBy: [
+        { startDate: "desc" },
+        { updatedAt: "desc" }
+      ]
+    });
+
+    return {
+      user: toSafeUser(user),
+      assignments: assignments.map((assignment) => ({
+        id: assignment.id,
+        status: assignment.status,
+        startDate: assignment.startDate,
+        endDate: assignment.endDate,
+        chain: this.toChainSummary(assignment.chain)
+      }))
+    };
+  }
+
+  private assertAdminActor(currentUser: AuthenticatedUser) {
+    if (!this.isAdmin(currentUser)) {
+      throw new ForbiddenException(
+        "Only Admin users can manage Area Manager Chain assignments."
+      );
+    }
+  }
+
+  private assertAssignableAreaManager(user: User | null): asserts user is User {
+    if (!user) {
+      throw new NotFoundException("User was not found.");
+    }
+
+    if (user.role !== UserRole.AREA_MANAGER) {
+      throw new BadRequestException("Target user must be an Area Manager.");
+    }
+
+    if (
+      user.accountStatus !== AccountStatus.ACTIVE ||
+      user.employmentStatus !== EmploymentStatus.ACTIVE
+    ) {
+      throw new BadRequestException(
+        "Area Manager must be active before Chains can be assigned."
+      );
+    }
+
+    if (user.blockStatus === BlockStatus.PERMANENT_BLOCK) {
+      throw new BadRequestException(
+        "Permanently blocked Area Managers cannot receive Chain assignments."
+      );
+    }
+
+    if (
+      user.blockStatus === BlockStatus.TEMPORARY_BLOCK &&
+      user.blockedUntil &&
+      user.blockedUntil.getTime() > Date.now()
+    ) {
+      throw new BadRequestException(
+        "Temporarily blocked Area Managers cannot receive Chain assignments."
+      );
+    }
+  }
+
+  private countOpenRequestsForAreaManagerChain(
+    areaManagerId: string,
+    chainId: string
+  ) {
+    const openStatuses = [
+      RequestStatus.DRAFT,
+      RequestStatus.PENDING_AREA_MANAGER,
+      RequestStatus.PENDING_DESTINATION_AREA_MANAGER,
+      RequestStatus.PENDING_ADMIN
+    ];
+
+    return this.prisma.request.count({
+      where: {
+        status: { in: openStatuses },
+        OR: [
+          { sourceChainId: chainId },
+          { destinationChainId: chainId },
+          {
+            approvals: {
+              some: {
+                approverId: areaManagerId,
+                status: ApprovalStatus.PENDING
+              }
+            }
+          }
+        ]
+      }
+    });
   }
 
   private async getOperationalPermissions(

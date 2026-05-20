@@ -456,32 +456,12 @@ export class NewHireFinalizationService {
     payload: NewHirePayload,
     context: RequestContext
   ) {
-    const chainIds = payload.source.chainIds ?? [];
-
-    if (!payload.source.chainId || !chainIds.length) {
-      throw new BadRequestException(
-        "Area Manager New Hire request is missing Chain context."
-      );
-    }
-
-    if (
-      request.sourceChainId !== payload.source.chainId ||
-      !chainIds.includes(payload.source.chainId)
-    ) {
-      throw new BadRequestException(
-        "Stored Area Manager New Hire Chain context no longer matches the request."
-      );
-    }
-
-    const [existingPhone, existingNationalId, chains] = await Promise.all([
+    const [existingPhone, existingNationalId] = await Promise.all([
       this.prisma.user.findUnique({
         where: { phoneNumber: payload.candidate.phoneNumber }
       }),
       this.prisma.user.findUnique({
         where: { nationalId: payload.candidate.nationalId }
-      }),
-      this.prisma.chain.findMany({
-        where: { id: { in: chainIds } }
       })
     ]);
 
@@ -491,17 +471,6 @@ export class NewHireFinalizationService {
 
     if (existingNationalId) {
       throw new ConflictException("Candidate National ID already belongs to a user.");
-    }
-
-    if (chains.length !== chainIds.length) {
-      throw new NotFoundException("One or more selected Chains were not found.");
-    }
-
-    const inactiveChain = chains.find((chain) => chain.status !== ChainStatus.ACTIVE);
-    if (inactiveChain) {
-      throw new BadRequestException(
-        `Selected Chain ${inactiveChain.chainName} is not active.`
-      );
     }
 
     const temporaryPasswordBundle = await this.createTemporaryPasswordBundle();
@@ -520,18 +489,6 @@ export class NewHireFinalizationService {
         }
       });
 
-      const assignments = await Promise.all(
-        chainIds.map((chainId) =>
-          tx.chainAreaManagerAssignment.create({
-            data: {
-              areaManagerId: areaManager.id,
-              chainId,
-              status: AssignmentStatus.ACTIVE
-            }
-          })
-        )
-      );
-
       await tx.requestApproval.update({
         where: { id: adminApproval.id },
         data: {
@@ -546,8 +503,6 @@ export class NewHireFinalizationService {
         ...payload,
         finalization: {
           userId: areaManager.id,
-          assignmentIds: assignments.map((assignment) => assignment.id),
-          assignmentType: "ChainAreaManagerAssignment",
           completedAt: completedAt.toISOString()
         }
       };
@@ -569,7 +524,7 @@ export class NewHireFinalizationService {
           userId: request.createdById,
           type: "NEW_HIRE_COMPLETED",
           title: "New Hire completed",
-          body: "Area Manager account was created. Open the user profile for credential handoff.",
+          body: "Area Manager account was created. Assign Chains from the user profile for operational scope.",
           payload: {
             requestId: request.id,
             userId: areaManager.id,
@@ -642,18 +597,6 @@ export class NewHireFinalizationService {
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null
           },
-          ...assignments.map((assignment) => ({
-            actorUserId: context.actor.id,
-            action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CREATED",
-            entityType: "ChainAreaManagerAssignment",
-            entityId: assignment.id,
-            newValue: {
-              areaManagerId: assignment.areaManagerId,
-              chainId: assignment.chainId
-            },
-            ipAddress: context.ipAddress ?? null,
-            userAgent: context.userAgent ?? null
-          })),
           {
             actorUserId: context.actor.id,
             action: "REQUEST_COMPLETED",
@@ -670,19 +613,15 @@ export class NewHireFinalizationService {
         ]
       });
 
-      return { completedRequest, user: areaManager, assignments };
+      return { completedRequest, user: areaManager };
     });
-
-    const assignment = result.assignments[0];
 
     return {
       request: toRequestSummary(result.completedRequest),
       user: this.toFinalizedUserResponse(result.user),
       picker: this.toFinalizedUserResponse(result.user),
-      assignment: this.toFinalizedChainAreaManagerAssignmentResponse(assignment),
-      assignments: result.assignments.map((item) =>
-        this.toFinalizedChainAreaManagerAssignmentResponse(item)
-      )
+      assignment: null,
+      assignments: []
     };
   }
 
@@ -953,20 +892,6 @@ export class NewHireFinalizationService {
 
       throw error;
     }
-  }
-
-  private toFinalizedChainAreaManagerAssignmentResponse(
-    assignment: Prisma.ChainAreaManagerAssignmentGetPayload<Record<string, never>>
-  ) {
-    return {
-      id: assignment.id,
-      assignmentType: "ChainAreaManagerAssignment" as const,
-      status: assignment.status,
-      startDate: assignment.startDate,
-      chainId: assignment.chainId,
-      userId: assignment.areaManagerId,
-      areaManagerId: assignment.areaManagerId
-    };
   }
 
   private activeChampConflictMessage(champName?: string | null) {

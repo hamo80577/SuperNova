@@ -58,7 +58,7 @@ type LoadState<T> =
   | { status: "ready"; data: T };
 
 type AddMode = "chain" | "vendor" | null;
-type AssignMode = "picker" | "champ" | "areaManager" | null;
+type AssignMode = "picker" | "champ" | null;
 type BranchNewHireTargetRole = Extract<NewHireTargetRole, "PICKER" | "CHAMP">;
 type PickerAction =
   | { type: "transfer"; picker: SafePicker }
@@ -82,8 +82,6 @@ export function OrganizationControlCenter() {
     canScrollLeft: false,
     canScrollRight: false
   });
-  const [areaManagerChain, setAreaManagerChain] =
-    useState<OrganizationChainSummary | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
   async function loadOrganization(preferredChainId = selectedChainId) {
@@ -319,18 +317,6 @@ export function OrganizationControlCenter() {
               />
             </div>
           </div>
-          <div>
-            <Button
-              className="h-11 rounded-xl border-slate-200"
-              onClick={() => setAreaManagerChain(selectedChain)}
-              type="button"
-              variant="outline"
-            >
-              <UserCog className="mr-2 h-4 w-4 text-orange-600" />
-              Assign Area Manager
-            </Button>
-          </div>
-
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative sm:w-80">
               <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
@@ -381,17 +367,6 @@ export function OrganizationControlCenter() {
         />
       ) : null}
 
-      {areaManagerChain ? (
-        <AreaManagerModal
-          chain={areaManagerChain}
-          onClose={() => setAreaManagerChain(null)}
-          onSaved={() => {
-            const chainId = areaManagerChain.id;
-            setAreaManagerChain(null);
-            void loadOrganization(chainId);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
@@ -900,7 +875,6 @@ function BranchDetailSheet({
       {state.status === "ready" && assignMode ? (
         <AssignModal
           branch={state.data.branch}
-          chain={state.data.chain}
           mode={assignMode}
           onClose={() => setAssignMode(null)}
           onSaved={() => {
@@ -1173,19 +1147,16 @@ function PeopleTable({
 
 function AssignModal({
   branch,
-  chain,
   mode,
   onClose,
   onSaved
 }: {
   branch: OrganizationBranchSummary;
-  chain: AdminOrganizationBranchDetail["chain"];
   mode: Exclude<AssignMode, null>;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const role: UserRole =
-    mode === "picker" ? "PICKER" : mode === "champ" ? "CHAMP" : "AREA_MANAGER";
+  const role: UserRole = mode === "picker" ? "PICKER" : "CHAMP";
   const [users, setUsers] = useState<SafeUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SafeUser | null>(null);
   const [query, setQuery] = useState("");
@@ -1223,10 +1194,6 @@ function AssignModal({
           await adminOrganizationApi.replaceChamp(branch.id, {
             champId: selectedUser?.id ?? ""
           });
-        } else {
-          await adminOrganizationApi.replaceAreaManager(chain.id, {
-            areaManagerId: selectedUser?.id ?? ""
-          });
         }
         onSaved();
       } catch (caughtError) {
@@ -1245,9 +1212,7 @@ function AssignModal({
       title={
         mode === "picker"
           ? "Transfer Picker"
-          : mode === "champ"
-            ? "Assign Champ"
-            : "Assign Area Manager"
+          : "Assign Champ"
       }
     >
       <form className="grid gap-4" onSubmit={onSubmit}>
@@ -1273,103 +1238,6 @@ function AssignModal({
           <Button disabled={isPending || !selectedUser} type="submit">
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {mode === "picker" ? "Create Transfer" : "Save"}
-          </Button>
-        </div>
-      </form>
-    </ModalFrame>
-  );
-}
-
-function AreaManagerModal({
-  chain,
-  onClose,
-  onSaved
-}: {
-  chain: OrganizationChainSummary;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [users, setUsers] = useState<SafeUser[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [query, setQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    usersApi
-      .list({
-        page: 1,
-        pageSize: 100,
-        role: "AREA_MANAGER",
-        status: "ACTIVE",
-        q: query
-      })
-      .then((response) => setUsers(response.items))
-      .catch((caughtError) =>
-        setError(
-          caughtError instanceof Error ? caughtError.message : "Unable to load users."
-        )
-      );
-  }, [query]);
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      try {
-        await adminOrganizationApi.replaceAreaManager(chain.id, {
-          areaManagerId: selectedUserId
-        });
-        onSaved();
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to assign Area Manager."
-        );
-      }
-    });
-  }
-
-  return (
-    <ModalFrame onClose={onClose} title="Assign Area Manager">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        {error ? <InlineError message={error} /> : null}
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-          <p className="font-medium text-slate-950">{chain.chainName}</p>
-          <p className="text-slate-500">{chain.chainCode}</p>
-        </div>
-        <FormField label="Search Area Manager">
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Name or phone"
-            value={query}
-          />
-        </FormField>
-        <FormField label="Area Manager">
-          <Select
-            aria-label="Area Manager"
-            className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
-            onChange={(event) => setSelectedUserId(event.target.value)}
-            required
-            value={selectedUserId}
-          >
-            <option value="">Select Area Manager</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.nameEn} · {user.phoneNumber}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={isPending || !selectedUserId} type="submit">
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save
           </Button>
         </div>
       </form>

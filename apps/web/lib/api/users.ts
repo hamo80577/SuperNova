@@ -77,6 +77,17 @@ export interface OperationalProfileAssignment {
   chain: ChainSummary;
 }
 
+export interface AreaManagerChainAssignmentsResponse {
+  user: SafeUser;
+  assignments: Array<{
+    id: string;
+    status: AssignmentStatus;
+    startDate: string;
+    endDate: string | null;
+    chain: ChainSummary;
+  }>;
+}
+
 export interface OperationalProfileResponse {
   user: SafeUser;
   workedDays: number | null;
@@ -192,6 +203,38 @@ export const usersApi = {
     return apiRequest<OperationalProfileResponse>(
       `/users/${id}/operational-profile`
     );
+  },
+  areaManagerChainAssignments(id: string) {
+    return apiRequest<AreaManagerChainAssignmentsResponse>(
+      `/users/${id}/area-manager-chain-assignments`
+    );
+  },
+  async addAreaManagerChainAssignments(id: string, chainIds: string[]) {
+    const response = await apiRequest<AreaManagerChainAssignmentsResponse>(
+      `/users/${id}/area-manager-chain-assignments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ chainIds })
+      }
+    );
+    clearApiCache(`/users/${id}/operational-profile`);
+    clearApiCache("/users/operational-list");
+    clearApiCache("/admin/organization");
+    clearApiCache("/workspaces");
+    return response;
+  },
+  async removeAreaManagerChainAssignment(id: string, assignmentId: string) {
+    const response = await apiRequest<AreaManagerChainAssignmentsResponse>(
+      `/users/${id}/area-manager-chain-assignments/${assignmentId}`,
+      {
+        method: "DELETE"
+      }
+    );
+    clearApiCache(`/users/${id}/operational-profile`);
+    clearApiCache("/users/operational-list");
+    clearApiCache("/admin/organization");
+    clearApiCache("/workspaces");
+    return response;
   },
   async updateAdminProfile(id: string, input: UpdateAdminProfileInput) {
     const response = await apiRequest<{ user: SafeUser }>(

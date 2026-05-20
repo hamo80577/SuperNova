@@ -217,10 +217,57 @@ async function assertAreaManagerPickerNewHireCapturesShopperId() {
   assert.equal(capturedBranchContext.areaManagerCapturedShopperId, "SHOP_789");
 }
 
+async function assertAreaManagerNewHireDoesNotRequireChainContext() {
+  let capturedContext: any = null;
+  const workflow = new NewHireWorkflowService(
+    {} as any,
+    {
+      validateNewHireCandidateForCreate: async (
+        candidate: any,
+        rehireUserId: string | undefined,
+        validatedTargetRole: UserRole
+      ) => {
+        assert.equal(candidate.phoneNumber, phoneNumber);
+        assert.equal(candidate.nationalId, nationalId);
+        assert.equal(rehireUserId, undefined);
+        assert.equal(validatedTargetRole, UserRole.AREA_MANAGER);
+        return {
+          rehireUser: null,
+          matchedBy: []
+        };
+      }
+    } as any,
+    {} as any,
+    {
+      createAreaManagerNewHire: async (_candidate: any, context: any) => {
+        capturedContext = context;
+        return { id: "area-manager-request" };
+      }
+    } as any,
+    {} as any,
+    {} as any
+  );
+
+  const created = await workflow.createNewHire(
+    {
+      targetRole: UserRole.AREA_MANAGER,
+      nameEn: "New Area Manager",
+      phoneNumber,
+      nationalId
+    },
+    { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+  );
+
+  assert.equal((created as { id: string }).id, "area-manager-request");
+  assert.equal(capturedContext.targetRole, UserRole.AREA_MANAGER);
+  assert.equal("chainIds" in capturedContext, false);
+}
+
 async function run() {
   await assertCreateRehireWithoutEditableNames(UserRole.PICKER);
   await assertCreateRehireWithoutEditableNames(UserRole.CHAMP);
   await assertAreaManagerPickerNewHireCapturesShopperId();
+  await assertAreaManagerNewHireDoesNotRequireChainContext();
 
   const picker = candidateUser({ id: "picker-1", role: UserRole.PICKER });
   const champ = candidateUser({ id: "champ-1", role: UserRole.CHAMP });

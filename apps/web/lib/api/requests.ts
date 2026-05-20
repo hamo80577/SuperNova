@@ -257,8 +257,7 @@ export interface FinalizedNewHireAssignment {
   id: string;
   assignmentType:
     | "PickerBranchAssignment"
-    | "VendorChampAssignment"
-    | "ChainAreaManagerAssignment";
+    | "VendorChampAssignment";
   status: string;
   startDate: string;
   vendorId?: string;
@@ -296,7 +295,7 @@ export interface FinalizeNewHireResponse {
     profileStatus: string;
     mustChangePassword: boolean;
   };
-  assignment: FinalizedNewHireAssignment;
+  assignment: FinalizedNewHireAssignment | null;
   assignments?: FinalizedNewHireAssignment[];
 }
 

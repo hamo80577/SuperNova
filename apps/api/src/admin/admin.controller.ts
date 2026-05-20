@@ -21,8 +21,7 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { AdminService } from "./admin.service";
 import {
   AdminAssignPickerDto,
-  AdminReplaceBranchChampDto,
-  AdminReplaceChainAreaManagerDto
+  AdminReplaceBranchChampDto
 } from "./dto/admin-organization-action.dto";
 import {
   AdminPageQueryDto,
@@ -92,16 +91,7 @@ export class AdminController {
   }
 
   @Post("organization/chains/:chainId/replace-area-manager")
-  replaceChainAreaManager(
-    @Param("chainId", ParseUUIDPipe) chainId: string,
-    @Body() dto: AdminReplaceChainAreaManagerDto,
-    @CurrentUser() user: AuthenticatedUser,
-    @Req() request: AuthenticatedRequest
-  ) {
-    return this.adminService.replaceChainAreaManager(chainId, dto, {
-      actor: user,
-      ipAddress: request.ip,
-      userAgent: request.headers["user-agent"] ?? null
-    });
+  replaceChainAreaManager() {
+    return this.adminService.replaceChainAreaManager();
   }
 }

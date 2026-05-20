@@ -18,6 +18,7 @@ import {
 
 import { NewHireApprovalService } from "../src/requests/workflows/new-hire-approval.service";
 import { NewHireFinalizationService } from "../src/requests/workflows/new-hire-finalization.service";
+import { parseNewHirePayload } from "../src/requests/workflows/new-hire-payload";
 
 const now = new Date("2026-01-01T10:00:00.000Z");
 
@@ -233,6 +234,59 @@ function pendingAdminRequest(payloadOverrides: Record<string, unknown> = {}) {
   return request as any;
 }
 
+function pendingAdminAreaManagerRequest(payloadOverrides: Record<string, unknown> = {}) {
+  const request = {
+    id: "area-manager-request",
+    type: RequestType.NEW_HIRE,
+    status: RequestStatus.PENDING_ADMIN,
+    currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
+    createdById: "admin-1",
+    targetUserId: null,
+    sourceVendorId: null,
+    sourceChainId: null,
+    destinationVendorId: null,
+    destinationChainId: null,
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: user("admin-1", UserRole.ADMIN),
+    targetUser: null,
+    sourceVendor: null,
+    sourceChain: null,
+    destinationVendor: null,
+    destinationChain: null,
+    payload: {
+      targetRole: UserRole.AREA_MANAGER,
+      mode: "NEW_AREA_MANAGER",
+      candidate: {
+        nameEn: "New Area Manager",
+        phoneNumber: "01055555555",
+        nationalId: "55555555555555",
+        gender: Gender.UNSPECIFIED
+      },
+      source: {},
+      ...payloadOverrides
+    },
+    approvals: [
+      {
+        id: "admin-approval-1",
+        requestId: "area-manager-request",
+        step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+        approverRole: UserRole.ADMIN,
+        approverId: null,
+        approver: null,
+        status: ApprovalStatus.PENDING,
+        decisionAt: null,
+        notes: null,
+        createdAt: now,
+        updatedAt: now
+      }
+    ]
+  } as any;
+  request.approvals[0].request = request;
+  return request;
+}
+
 function finalizationHarness(request: any) {
   let createdUserData: any = null;
   const createdUser = user("created-picker", UserRole.PICKER, {
@@ -330,6 +384,73 @@ function finalizationHarness(request: any) {
   };
 }
 
+function areaManagerFinalizationHarness(request: any) {
+  let chainAssignmentCreateCalled = false;
+  const createdUser = user("created-area-manager", UserRole.AREA_MANAGER, {
+    phoneNumber: "01055555555",
+    nationalId: "55555555555555",
+    mustChangePassword: true,
+    profileStatus: ProfileStatus.COMPLETE
+  });
+
+  const prisma = {
+    request: {
+      findUnique: async () => request
+    },
+    user: {
+      findUnique: async () => null
+    },
+    $transaction: async (callback: any) =>
+      callback({
+        user: {
+          create: async () => createdUser
+        },
+        chainAreaManagerAssignment: {
+          create: async () => {
+            chainAssignmentCreateCalled = true;
+            throw new Error("Area Manager New Hire must not create Chain assignments.");
+          }
+        },
+        requestApproval: {
+          update: async () => ({})
+        },
+        request: {
+          update: async (args: any) => ({
+            ...request,
+            status: args.data.status,
+            currentStep: args.data.currentStep,
+            completedAt: args.data.completedAt,
+            targetUserId: createdUser.id,
+            targetUser: createdUser,
+            payload: args.data.payload
+          })
+        },
+        notification: {
+          create: async () => ({}),
+          createMany: async () => ({})
+        },
+        auditLog: {
+          createMany: async () => ({})
+        }
+      })
+  };
+
+  return {
+    service: new NewHireFinalizationService(
+      prisma as any,
+      {
+        findCandidateUserById: async () => null,
+        evaluateNewHireMatch: () => ({ decision: "ACTIVE_DUPLICATE" })
+      } as any,
+      {
+        generate: () => "TempPass123",
+        encrypt: () => "ciphertext"
+      } as any
+    ),
+    wasChainAssignmentCreateCalled: () => chainAssignmentCreateCalled
+  };
+}
+
 async function run() {
   await assert.rejects(
     () =>
@@ -402,6 +523,39 @@ async function run() {
       { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
     );
     assert.equal(harness.getCreatedUserData().shopperId, "SHOP_STORED");
+  }
+
+  {
+    const parsed = parseNewHirePayload({
+      targetRole: UserRole.AREA_MANAGER,
+      mode: "NEW_AREA_MANAGER",
+      candidate: {
+        nameEn: "New Area Manager",
+        phoneNumber: "01055555555",
+        nationalId: "55555555555555",
+        gender: Gender.UNSPECIFIED
+      },
+      source: {}
+    } as any);
+
+    assert.equal(parsed.targetRole, UserRole.AREA_MANAGER);
+    assert.deepEqual(parsed.source, {});
+  }
+
+  {
+    const harness = areaManagerFinalizationHarness(
+      pendingAdminAreaManagerRequest()
+    );
+    const result = await harness.service.finalizeNewHire(
+      "area-manager-request",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+
+    assert.equal(result.user.role, UserRole.AREA_MANAGER);
+    assert.equal(result.assignment, null);
+    assert.deepEqual(result.assignments, []);
+    assert.equal(harness.wasChainAssignmentCreateCalled(), false);
   }
 }
 

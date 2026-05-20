@@ -69,7 +69,11 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `GET /api/users`: Admin/Super Admin paginated safe-user list.
   - `GET /api/users/operational-list`: Admin/Super Admin paginated Users page list with assignment-table Branch/Chain context.
   - `GET /api/users/:id/operational-profile`: Operational profile modal data, requests, activity, and credential permissions.
+  - `GET /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin read of active Area Manager Chain assignments.
+  - `POST /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin adds active `ChainAreaManagerAssignment` rows from the Area Manager profile.
+  - `DELETE /api/users/:id/area-manager-chain-assignments/:assignmentId`: Admin/Super Admin closes an active Area Manager Chain assignment unless open requests still require that Chain.
 - Important DTO/types:
+  - `apps/api/src/users/dto/area-manager-chain-assignment.dto.ts`
   - `apps/api/src/users/dto/safe-user.dto.ts`
   - `apps/api/src/users/dto/list-users-query.dto.ts`
   - `apps/api/src/users/dto/admin-profile.dto.ts`
@@ -77,6 +81,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/lib/auth/types.ts`
 - Important tests:
   - `apps/api/test/users-list-filters.test.ts`
+  - `apps/api/test/users-area-manager-chain-assignments.test.ts`
 
 ### Workspaces
 
@@ -211,6 +216,8 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/web/lib/api/organization.ts`
   - `apps/web/lib/api/admin-organization.ts`
 - Main API files:
+  - `apps/api/src/admin/admin.controller.ts`
+  - `apps/api/src/admin/admin.service.ts`
   - `apps/api/src/chains/chains.controller.ts`
   - `apps/api/src/chains/chains.service.ts`
   - `apps/api/src/vendors/vendors.controller.ts`
@@ -225,6 +232,14 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - `apps/api/src/assignments/dto/list-assignments-query.dto.ts`
 - Important tests:
   - No focused organization/assignment test file currently identified.
+
+### Local cleanup scripts
+
+- Main files:
+  - `apps/api/scripts/clear-open-requests.ts`
+- Notes:
+  - `npm run cleanup:open-requests` is a local/dev dry-run by default.
+  - `npm run cleanup:open-requests -- --confirm` deletes only open requests with statuses `DRAFT`, `PENDING_AREA_MANAGER`, `PENDING_DESTINATION_AREA_MANAGER`, and `PENDING_ADMIN`; completed/rejected/cancelled/approved history is not targeted.
 
 ### Notifications
 
@@ -268,9 +283,12 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - API: request creation and finalization create Champ user and `VendorChampAssignment`.
   - No Shopper ID required.
 - New Hire Area Manager:
-  - UI: role selection and Chain context.
-  - API: request creation and finalization create Area Manager user and `ChainAreaManagerAssignment`.
+  - UI: role selection and candidate identity only. Chain assignment is managed from Users List -> Area Manager Profile after creation.
+  - API: request creation and finalization create the Area Manager user only. `ChainAreaManagerAssignment` rows are not created by New Hire finalization.
   - Rehire is not supported.
+- Area Manager Chain assignment:
+  - UI: Admin/Super Admin manages active Chains from the Area Manager operational profile. Organization Control Center displays current Area Manager read-only and no longer assigns Area Managers.
+  - API: Users endpoints add/close `ChainAreaManagerAssignment`; Organization Control Center replacement endpoint returns a Bad Request directing users to the profile path.
 - Rehire Picker:
   - UI: previous profile card is read-only; notes remain available.
   - API: old user profile is source of truth; active duplicate, active temporary block, permanent block, active assignment, and pending duplicate checks run before request creation.
@@ -303,6 +321,8 @@ npm run lint
 npm run build
 npm run prisma:migrate
 npm run db:seed
+npm run cleanup:open-requests
+npm run cleanup:open-requests -- --confirm
 npx tsx apps/api/test/new-hire-workflow.policy.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.approval.test.ts
@@ -311,6 +331,7 @@ npx tsx apps/api/test/offboarding-payload.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/offboarding-workflow.approval-finalization.test.ts
 npx tsx apps/api/test/env-validation.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-list-filters.test.ts
+npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-area-manager-chain-assignments.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
 npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts
 ```

@@ -3,14 +3,19 @@
 import {
   ArrowRightLeft,
   CalendarDays,
+  Check,
   Edit3,
+  GitBranch,
   Infinity as InfinityIcon,
   KeyRound,
   Loader2,
   MessageCircle,
   MoreHorizontal,
+  Plus,
   Save,
+  Search,
   ShieldCheck,
+  Trash2,
   UserMinus,
   UserRound,
   Phone,
@@ -32,9 +37,11 @@ import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
+import { organizationApi, type Chain } from "@/lib/api/organization";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import {
   usersApi,
+  type AreaManagerChainAssignmentsResponse,
   type OperationalProfileAssignment,
   type OperationalProfileResponse,
   type UpdateAdminProfileInput
@@ -473,15 +480,387 @@ function AreaManagerProfileCard({
           )}
         </div>
       ) : tab === "chains" ? (
-        <AssignmentList
-          assignments={profile.areaManagerAssignments}
-          emptyLabel="No active or historical Chain assignments found."
-          title="Chain assignments"
-        />
+        profile.permissions.canEditProfile ? (
+          <AreaManagerChainAssignmentManager
+            onReload={onReload}
+            profile={profile}
+          />
+        ) : (
+          <AssignmentList
+            assignments={profile.areaManagerAssignments}
+            emptyLabel="No active or historical Chain assignments found."
+            title="Chain assignments"
+          />
+        )
       ) : (
         <ActivityPanel profile={profile} title="Manager Log" />
       )}
     </div>
+  );
+}
+
+function AreaManagerChainAssignmentManager({
+  onReload,
+  profile
+}: {
+  onReload: () => void;
+  profile: OperationalProfileResponse;
+}) {
+  const [data, setData] = useState<AreaManagerChainAssignmentsResponse | null>({
+    user: profile.user,
+    assignments: profile.areaManagerAssignments
+  });
+  const [addOpen, setAddOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  async function loadAssignments() {
+    try {
+      setError(null);
+      setData(await usersApi.areaManagerChainAssignments(profile.user.id));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load Chain assignments."
+      );
+    }
+  }
+
+  useEffect(() => {
+    void loadAssignments();
+  }, [profile.user.id]);
+
+  const assignments = data?.assignments ?? [];
+  const assignedChainIds = assignments.map((assignment) => assignment.chain.id);
+
+  function removeAssignment(assignment: AreaManagerChainAssignmentsResponse["assignments"][number]) {
+    const confirmed = window.confirm(
+      `Remove ${assignment.chain.chainName} from this Area Manager?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError(null);
+    setRemovingId(assignment.id);
+    startTransition(async () => {
+      try {
+        setData(
+          await usersApi.removeAreaManagerChainAssignment(
+            profile.user.id,
+            assignment.id
+          )
+        );
+        onReload();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to remove Chain assignment."
+        );
+      } finally {
+        setRemovingId(null);
+      }
+    });
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">
+            Chain assignments
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            Area Manager operating scope is controlled from this profile.
+          </p>
+        </div>
+        <Button
+          className="h-10 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+          onClick={() => setAddOpen(true)}
+          type="button"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Chain
+        </Button>
+      </div>
+
+      {error ? (
+        <p className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-4 grid gap-2">
+        {assignments.length ? (
+          assignments.map((assignment) => (
+            <div
+              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+              key={assignment.id}
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white text-orange-600 shadow-sm">
+                  <GitBranch className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-950">
+                    {assignment.chain.chainName}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {assignment.chain.chainCode} · {formatEnum(assignment.chain.status)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Start {formatDate(assignment.startDate)}
+                  </p>
+                </div>
+              </div>
+              <Button
+                className="h-10 rounded-xl border-red-100 text-red-700 hover:bg-red-50 sm:w-auto"
+                disabled={isPending && removingId === assignment.id}
+                onClick={() => removeAssignment(assignment)}
+                type="button"
+                variant="outline"
+              >
+                {isPending && removingId === assignment.id ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Remove
+              </Button>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+            No Chains assigned yet. Add Chains from this profile.
+          </p>
+        )}
+      </div>
+
+      {addOpen ? (
+        <AddAreaManagerChainsDialog
+          assignedChainIds={assignedChainIds}
+          onClose={() => setAddOpen(false)}
+          onSaved={(response) => {
+            setData(response);
+            setAddOpen(false);
+            onReload();
+          }}
+          userId={profile.user.id}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function AddAreaManagerChainsDialog({
+  assignedChainIds,
+  onClose,
+  onSaved,
+  userId
+}: {
+  assignedChainIds: string[];
+  onClose: () => void;
+  onSaved: (response: AreaManagerChainAssignmentsResponse) => void;
+  userId: string;
+}) {
+  const [chains, setChains] = useState<Chain[]>([]);
+  const [query, setQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const assigned = new Set(assignedChainIds);
+  const selectableChains = chains.filter((chain) => !assigned.has(chain.id));
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    const timeout = window.setTimeout(() => {
+      organizationApi
+        .listChains({
+          page: 1,
+          pageSize: 100,
+          q: query.trim() || undefined,
+          status: "ACTIVE"
+        })
+        .then((response) => {
+          if (alive) {
+            setChains(response.items);
+            setError(null);
+          }
+        })
+        .catch((caughtError) => {
+          if (alive) {
+            setError(
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load Chains."
+            );
+          }
+        })
+        .finally(() => {
+          if (alive) {
+            setLoading(false);
+          }
+        });
+    }, 200);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timeout);
+    };
+  }, [query]);
+
+  function toggle(chainId: string) {
+    setSelectedIds((current) =>
+      current.includes(chainId)
+        ? current.filter((id) => id !== chainId)
+        : [...current, chainId]
+    );
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedIds.length) {
+      setError("Select at least one Chain.");
+      return;
+    }
+
+    setError(null);
+    startTransition(async () => {
+      try {
+        onSaved(await usersApi.addAreaManagerChainAssignments(userId, selectedIds));
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to add Chain assignments."
+        );
+      }
+    });
+  }
+
+  return (
+    <ModalPortal>
+      <div
+        aria-modal="true"
+        className="fixed inset-0 z-[220] grid place-items-center bg-slate-950/45 p-3"
+        role="dialog"
+      >
+        <form
+          className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+          onSubmit={submit}
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">Add Chains</h3>
+              <p className="text-sm text-slate-500">
+                Select one or more active Chains.
+              </p>
+            </div>
+            <Button
+              aria-label="Close Add Chains"
+              className="h-10 w-10 rounded-xl p-0"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <Input
+                className="h-11 rounded-xl pl-9"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search Chain name or code"
+                value={query}
+              />
+            </label>
+
+            {error ? (
+              <p className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </p>
+            ) : null}
+
+            <div className="mt-4 grid gap-2">
+              {loading ? (
+                <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                  Loading Chains...
+                </p>
+              ) : selectableChains.length ? (
+                selectableChains.map((chain) => {
+                  const selected = selectedIds.includes(chain.id);
+                  return (
+                    <button
+                      className={cn(
+                        "flex min-h-14 items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
+                        selected
+                          ? "border-orange-300 bg-orange-50 text-orange-900"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                      )}
+                      key={chain.id}
+                      onClick={() => toggle(chain.id)}
+                      type="button"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {chain.chainName}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {chain.chainCode} · {formatEnum(chain.status)}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          "grid h-8 w-8 shrink-0 place-items-center rounded-full border",
+                          selected
+                            ? "border-orange-300 bg-orange-600 text-white"
+                            : "border-slate-200 bg-slate-50 text-slate-400"
+                        )}
+                      >
+                        {selected ? <Check className="h-4 w-4" /> : null}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                  No active unassigned Chains found.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+            <Button
+              className="h-11 rounded-xl"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+              disabled={isPending || !selectedIds.length}
+              type="submit"
+            >
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Add Selected
+            </Button>
+          </div>
+        </form>
+      </div>
+    </ModalPortal>
   );
 }
 

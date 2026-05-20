@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   NotFoundException,
@@ -20,6 +21,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
+import { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignment.dto";
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
@@ -80,6 +82,48 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.usersService.getOperationalProfile(id, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Get(":id/area-manager-chain-assignments")
+  getAreaManagerChainAssignments(@Param("id") id: string) {
+    return this.usersService.getAreaManagerChainAssignments(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Post(":id/area-manager-chain-assignments")
+  addAreaManagerChainAssignments(
+    @Param("id") id: string,
+    @Body() dto: AreaManagerChainAssignmentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.addAreaManagerChainAssignments(id, dto, user, {
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Delete(":id/area-manager-chain-assignments/:assignmentId")
+  removeAreaManagerChainAssignment(
+    @Param("id") id: string,
+    @Param("assignmentId") assignmentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.usersService.removeAreaManagerChainAssignment(
+      id,
+      assignmentId,
+      user,
+      {
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"] ?? null
+      }
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

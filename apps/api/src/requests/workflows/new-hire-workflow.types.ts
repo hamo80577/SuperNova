@@ -89,10 +89,9 @@ export type NewHirePayload = {
     userId: string;
     assignmentId?: string;
     assignmentIds?: string[];
-    assignmentType:
+    assignmentType?:
       | "PickerBranchAssignment"
-      | "VendorChampAssignment"
-      | "ChainAreaManagerAssignment";
+      | "VendorChampAssignment";
     shopperId?: string;
     completedAt: string;
   };
@@ -110,8 +109,6 @@ export type BranchNewHireContext = {
 
 export type AreaManagerNewHireContext = {
   targetRole: Extract<UserRole, "AREA_MANAGER">;
-  chains: Chain[];
-  chainIds: string[];
 };
 
 export type NewHireCandidateMatch = {

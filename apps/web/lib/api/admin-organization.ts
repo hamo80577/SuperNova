@@ -74,7 +74,7 @@ export interface AdminAssignPickerResult {
 }
 
 export interface AdminReplaceAssignmentResult {
-  mode: "NO_CHANGE" | "CHAMP_REPLACED" | "AREA_MANAGER_REPLACED";
+  mode: "NO_CHANGE" | "CHAMP_REPLACED";
   message?: string;
   assignment?: unknown;
 }
@@ -106,21 +106,6 @@ export const adminOrganizationApi = {
   ) {
     const response = await apiRequest<AdminReplaceAssignmentResult>(
       `/admin/organization/branches/${vendorId}/replace-champ`,
-      {
-        method: "POST",
-        body: JSON.stringify(payload)
-      }
-    );
-    clearApiCache("/admin/organization");
-    clearApiCache("/workspaces");
-    return response;
-  },
-  async replaceAreaManager(
-    chainId: string,
-    payload: { areaManagerId: string; startDate?: string }
-  ) {
-    const response = await apiRequest<AdminReplaceAssignmentResult>(
-      `/admin/organization/chains/${chainId}/replace-area-manager`,
       {
         method: "POST",
         body: JSON.stringify(payload)

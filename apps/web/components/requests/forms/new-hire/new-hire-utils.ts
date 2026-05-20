@@ -56,7 +56,6 @@ export function applyFixedNewHireBranch(
       targetRole: NewHireTargetRole;
       sourceChainId: string;
       sourceVendorId: string;
-      chainIds: string[];
       nameEn: string;
       nameAr: string;
       phoneNumber: string;
@@ -138,8 +137,8 @@ export function buildNewHireApprovalSteps(
         skipped: false
       },
       {
-        label: "Chain assignment applied",
-        description: "ChainAreaManagerAssignment rows are created during finalization.",
+        label: "Profile Chain assignment",
+        description: "Admin assigns Chains later from the Area Manager profile.",
         skipped: false
       },
       {

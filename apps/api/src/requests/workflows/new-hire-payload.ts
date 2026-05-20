@@ -80,13 +80,6 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
     throw new BadRequestException("New Hire request payload is missing Branch context.");
   }
 
-  if (
-    targetRole === UserRole.AREA_MANAGER &&
-    (!chainIds?.length || typeof chainId !== "string")
-  ) {
-    throw new BadRequestException("New Hire request payload is missing Chain context.");
-  }
-
   const storedMode =
     objectPayload.mode === "REHIRE" ||
     objectPayload.mode === "NEW_CHAMP" ||

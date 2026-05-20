@@ -35,11 +35,7 @@ import { NewHireApprovalService } from "./new-hire-approval.service";
 import { NewHireCandidateService } from "./new-hire-candidate.service";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
-import type {
-  AreaManagerNewHireContext,
-  BranchNewHireContext,
-  RequestContext
-} from "./new-hire-workflow.types";
+import type { BranchNewHireContext, RequestContext } from "./new-hire-workflow.types";
 
 @Injectable()
 export class NewHireWorkflowService {
@@ -85,10 +81,9 @@ export class NewHireWorkflowService {
 
     if (targetRole === UserRole.AREA_MANAGER) {
       this.assertNoCreateShopperId(dto);
-      const areaManagerContext = await this.resolveAreaManagerNewHireContext(dto);
       return this.newHireRequestCreationService.createAreaManagerNewHire(
         candidate,
-        areaManagerContext,
+        { targetRole: UserRole.AREA_MANAGER },
         context
       );
     }
@@ -265,39 +260,6 @@ export class NewHireWorkflowService {
     );
   }
 
-  private async resolveAreaManagerNewHireContext(
-    dto: CreateNewHireRequestDto
-  ): Promise<AreaManagerNewHireContext> {
-    const chainIds = this.normalizeChainIds(dto);
-
-    if (!chainIds.length) {
-      throw new BadRequestException(
-        "AREA_MANAGER New Hire requires at least one sourceChainId or chainIds value."
-      );
-    }
-
-    const chains = await this.prisma.chain.findMany({
-      where: { id: { in: chainIds } }
-    });
-
-    if (chains.length !== chainIds.length) {
-      throw new NotFoundException("One or more selected Chains were not found.");
-    }
-
-    const inactiveChain = chains.find((chain) => chain.status !== ChainStatus.ACTIVE);
-    if (inactiveChain) {
-      throw new BadRequestException(
-        `Selected Chain ${inactiveChain.chainName} is not active.`
-      );
-    }
-
-    return {
-      targetRole: UserRole.AREA_MANAGER,
-      chains,
-      chainIds
-    };
-  }
-
   private async findActiveVendorOrThrow(vendorId: string) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
@@ -372,15 +334,6 @@ export class NewHireWorkflowService {
     return this.applyPolicyValidation(() =>
       normalizeNewHireTargetRole(targetRole)
     );
-  }
-
-  private normalizeChainIds(dto: {
-    sourceChainId?: string;
-    chainIds?: string[];
-  }) {
-    return Array.from(
-      new Set([...(dto.chainIds ?? []), dto.sourceChainId].filter(Boolean))
-    ) as string[];
   }
 
   private normalizeShopperId(value: string | null | undefined, message: string) {

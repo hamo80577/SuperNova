@@ -159,16 +159,7 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
 
   const isRehire = context.mode === "REHIRE";
   const selectedChainText =
-    context.targetRole === "AREA_MANAGER"
-      ? [
-          request.sourceChain?.chainName,
-          ...(context.source.chainIds ?? []).filter(
-            (chainId) => chainId !== request.sourceChain?.id
-          )
-        ]
-          .filter(Boolean)
-          .join(", ") || "Not available"
-      : request.sourceChain?.chainName ?? context.source.chainId ?? "Not available";
+    request.sourceChain?.chainName ?? context.source.chainId ?? "Not available";
 
   return (
     <InfoCard title="New Hire">
@@ -199,16 +190,18 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
           <ProfileRow label="Date of birth" value={formatDateValue(context.dateOfBirth)} />
           <ProfileRow label="Gender" value={formatEnum(context.gender)} />
           <ProfileRow label="Address" value={context.address ?? "Not available"} />
-          <ProfileRow label="Source Chain" value={selectedChainText} />
           {context.targetRole !== "AREA_MANAGER" ? (
-            <ProfileRow
-              label="Source Branch"
-              value={request.sourceVendor?.vendorName ?? context.source.vendorId ?? "Not available"}
-            />
+            <>
+              <ProfileRow label="Source Chain" value={selectedChainText} />
+              <ProfileRow
+                label="Source Branch"
+                value={request.sourceVendor?.vendorName ?? context.source.vendorId ?? "Not available"}
+              />
+            </>
           ) : (
             <ProfileRow
-              label="Selected Chain IDs"
-              value={(context.source.chainIds ?? []).join(", ") || "Not available"}
+              label="Chain assignment"
+              value="Chain assignment is managed from the Area Manager profile after creation."
             />
           )}
           {context.targetRole === "PICKER" ? (
@@ -249,14 +242,21 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
           ) : null}
           <Definition
             label="Assignment type"
-            value={context.finalization.assignmentType}
+            value={
+              context.finalization.assignmentType ??
+              (context.targetRole === "AREA_MANAGER"
+                ? "Managed from Area Manager profile"
+                : "Not available")
+            }
           />
           <Definition
             label="Assignment result"
             value={
               context.finalization.assignmentId ??
               context.finalization.assignmentIds?.join(", ") ??
-              "Not available"
+              (context.targetRole === "AREA_MANAGER"
+                ? "No Chain assignment created during New Hire"
+                : "Not available")
             }
           />
           <Definition

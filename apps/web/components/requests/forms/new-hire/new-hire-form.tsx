@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
-import { X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -44,7 +43,6 @@ export function NewHireRequestForm({
     targetRole: initialTargetRole,
     sourceChainId: "",
     sourceVendorId: "",
-    chainIds: [] as string[],
     nameEn: "",
     nameAr: "",
     phoneNumber: "",
@@ -243,7 +241,6 @@ export function NewHireRequestForm({
         : {
             ...current,
             targetRole: allowedTargetRoles[0],
-            chainIds: [],
             sourceChainId: fixedSourceVendorId ? current.sourceChainId : "",
             sourceVendorId: fixedSourceVendorId ?? ""
           }
@@ -261,7 +258,6 @@ export function NewHireRequestForm({
         : {
             ...current,
             targetRole: initialTargetRole,
-            chainIds: initialTargetRole === "AREA_MANAGER" ? current.chainIds : [],
             sourceChainId:
               initialTargetRole === "AREA_MANAGER" && !fixedSourceVendorId
                 ? ""
@@ -281,15 +277,9 @@ export function NewHireRequestForm({
 
     setForm((current) => {
       if (current.targetRole === "AREA_MANAGER") {
-        if (current.chainIds.length || chains.length !== 1) {
-          return current;
-        }
-
-        return {
-          ...current,
-          chainIds: [chains[0].id],
-          sourceChainId: chains[0].id
-        };
+        return current.sourceChainId || current.sourceVendorId
+          ? { ...current, sourceChainId: "", sourceVendorId: "" }
+          : current;
       }
 
       if (current.sourceVendorId) {
@@ -361,7 +351,6 @@ export function NewHireRequestForm({
     setForm((current) => ({
       ...current,
       targetRole,
-      chainIds: targetRole === "AREA_MANAGER" ? current.chainIds : [],
       sourceChainId:
         targetRole === "AREA_MANAGER" && !fixedSourceVendorId
           ? ""
@@ -392,15 +381,11 @@ export function NewHireRequestForm({
     user?.role === "AREA_MANAGER" && form.targetRole === "PICKER";
   const selectedVendor = vendors.find((vendor) => vendor.id === form.sourceVendorId);
   const selectedChain = chains.find((chain) => chain.id === form.sourceChainId);
-  const selectedChains = chains.filter((chain) => form.chainIds.includes(chain.id));
   const lookupContextReady = isAreaManagerTarget
-    ? form.chainIds.length > 0
+    ? true
     : Boolean(form.sourceVendorId);
   const canLookupCandidate =
     lookupContextReady && (isPhoneValid || isNationalIdValid);
-  const availableAreaManagerChains = chains.filter(
-    (chain) => !form.chainIds.includes(chain.id)
-  );
   const filteredVendors = vendors
     .filter((vendor) => !form.sourceChainId || vendor.chainId === form.sourceChainId);
   const lookupStatus = lookupResponse?.status;
@@ -439,9 +424,8 @@ export function NewHireRequestForm({
         try {
           const result = await requestsApi.lookupNewHireCandidate({
             targetRole: form.targetRole,
-            sourceVendorId: form.sourceVendorId || undefined,
-            sourceChainId: form.sourceChainId || undefined,
-            chainIds: isAreaManagerTarget ? form.chainIds : undefined,
+            sourceVendorId: isBranchTarget ? form.sourceVendorId || undefined : undefined,
+            sourceChainId: isBranchTarget ? form.sourceChainId || undefined : undefined,
             phoneNumber: isPhoneValid ? phoneNumber : undefined,
             nationalId: isNationalIdValid ? nationalId : undefined
           });
@@ -474,13 +458,12 @@ export function NewHireRequestForm({
     };
   }, [
     canLookupCandidate,
-    form.chainIds,
     form.nationalId,
     form.phoneNumber,
     form.sourceChainId,
     form.sourceVendorId,
     form.targetRole,
-    isAreaManagerTarget,
+    isBranchTarget,
     isNationalIdValid,
     isPhoneValid
   ]);
@@ -503,20 +486,6 @@ export function NewHireRequestForm({
     resetLookup();
   }
 
-  function toggleChain(chainId: string) {
-    setForm((current) => {
-      const chainIds = current.chainIds.includes(chainId)
-        ? current.chainIds.filter((id) => id !== chainId)
-        : [...current.chainIds, chainId];
-      return {
-        ...current,
-        chainIds,
-        sourceChainId: chainIds[0] ?? ""
-      };
-    });
-    resetLookup();
-  }
-
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!allowedTargetRoles.includes(form.targetRole)) {
@@ -533,10 +502,6 @@ export function NewHireRequestForm({
     }
     if (isBranchTarget && !form.sourceVendorId) {
       setError("Select the Chain and Branch before submitting New Hire.");
-      return;
-    }
-    if (isAreaManagerTarget && !form.chainIds.length) {
-      setError("Select at least one Chain before creating an Area Manager.");
       return;
     }
     if (!lookupResponse) {
@@ -568,10 +533,9 @@ export function NewHireRequestForm({
         const created = await requestsApi.createNewHire({
           targetRole: form.targetRole,
           sourceVendorId: isBranchTarget ? form.sourceVendorId : undefined,
-          sourceChainId: isAreaManagerTarget
-            ? form.chainIds[0]
-            : form.sourceChainId || selectedVendor?.chainId || undefined,
-          chainIds: isAreaManagerTarget ? form.chainIds : undefined,
+          sourceChainId: isBranchTarget
+            ? form.sourceChainId || selectedVendor?.chainId || undefined
+            : undefined,
           rehireUserId:
             lookupStatus === "REHIRE_AVAILABLE"
               ? selectedRehireUserId || undefined
@@ -635,7 +599,7 @@ export function NewHireRequestForm({
           branchLocked
             ? "The Branch is locked from the current workspace."
             : isAreaManagerTarget
-              ? "Area Managers are assigned directly to one or more Chains."
+              ? "Create the Area Manager account. Chain scope is assigned from the user profile after approval."
               : "Choose the operational context for this request."
         }
         title="Operational context"
@@ -647,44 +611,13 @@ export function NewHireRequestForm({
             selectedVendor={selectedVendor ?? null}
           />
         ) : isAreaManagerTarget ? (
-          <div className="grid gap-3">
-            <Field label="Chain">
-              <Select
-                aria-label="Chain"
-                disabled={isLoadingVendors}
-                emptyMessage="No Chain matches this search."
-                onChange={(event) => {
-                  if (event.target.value) {
-                    toggleChain(event.target.value);
-                  }
-                }}
-                searchable
-                searchPlaceholder="Search Chain name or code"
-                value=""
-              >
-                <option value="">Select Chain</option>
-                {availableAreaManagerChains.map((chain) => (
-                  <option key={chain.id} value={chain.id}>
-                    {chain.chainName} / {chain.chainCode}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {selectedChains.length ? (
-              <div className="flex flex-wrap gap-2">
-                {selectedChains.map((chain) => (
-                  <button
-                    className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-800"
-                    key={chain.id}
-                    onClick={() => toggleChain(chain.id)}
-                    type="button"
-                  >
-                    {chain.chainName}
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+          <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-950">
+              Chain assignment is managed from the Area Manager profile after creation.
+            </p>
+            <p className="mt-1 text-slate-600">
+              Admin final approval creates the user only. Admin/Super Admin can assign Chains from Users List - Area Manager Profile.
+            </p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">

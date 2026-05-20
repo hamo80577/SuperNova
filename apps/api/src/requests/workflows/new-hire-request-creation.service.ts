@@ -239,17 +239,14 @@ export class NewHireRequestCreationService {
 
   async createAreaManagerNewHire(
     candidate: NormalizedNewHireCandidate,
-    areaManagerContext: AreaManagerNewHireContext,
+    _areaManagerContext: AreaManagerNewHireContext,
     context: RequestContext
   ) {
     const payload: NewHirePayload = {
       targetRole: UserRole.AREA_MANAGER,
       mode: "NEW_AREA_MANAGER",
       candidate,
-      source: {
-        chainId: areaManagerContext.chainIds[0],
-        chainIds: areaManagerContext.chainIds
-      }
+      source: {}
     };
 
     assertRequestPayloadSafe(payload as unknown as Record<string, unknown>);
@@ -261,7 +258,6 @@ export class NewHireRequestCreationService {
           status: RequestStatus.PENDING_ADMIN,
           currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
           createdById: context.actor.id,
-          sourceChainId: areaManagerContext.chainIds[0],
           payload: payload as Prisma.InputJsonValue
         }
       });
@@ -287,8 +283,7 @@ export class NewHireRequestCreationService {
               id: request.id,
               type: request.type,
               targetRole: UserRole.AREA_MANAGER,
-              sourceChainId: request.sourceChainId,
-              chainIds: areaManagerContext.chainIds
+              chainAssignmentManagedFrom: "AREA_MANAGER_PROFILE"
             },
             ipAddress: context.ipAddress ?? null,
             userAgent: context.userAgent ?? null

@@ -30,8 +30,7 @@ import { RequestsService } from "../requests/requests.service";
 import { redactJson } from "../security/sensitive-data.utils";
 import type {
   AdminAssignPickerDto,
-  AdminReplaceBranchChampDto,
-  AdminReplaceChainAreaManagerDto
+  AdminReplaceBranchChampDto
 } from "./dto/admin-organization-action.dto";
 import type {
   AdminPageQueryDto,
@@ -525,113 +524,10 @@ export class AdminService {
     };
   }
 
-  async replaceChainAreaManager(
-    chainId: string,
-    dto: AdminReplaceChainAreaManagerDto,
-    context: AdminActionContext
-  ) {
-    const [chain, areaManager, currentAssignment] =
-      await this.prisma.$transaction([
-        this.prisma.chain.findUnique({ where: { id: chainId } }),
-        this.prisma.user.findUnique({ where: { id: dto.areaManagerId } }),
-        this.prisma.chainAreaManagerAssignment.findFirst({
-          where: { chainId, status: AssignmentStatus.ACTIVE },
-          include: { areaManager: true }
-        })
-      ]);
-
-    this.assertActiveChain(chain);
-    this.assertUserRole(areaManager, UserRole.AREA_MANAGER, "Area Manager");
-    this.assertActiveAccount(areaManager, "Area Manager");
-
-    if (currentAssignment?.areaManagerId === dto.areaManagerId) {
-      return {
-        mode: "NO_CHANGE" as const,
-        message: "Area Manager is already assigned to this Chain."
-      };
-    }
-
-    const now = new Date();
-    const startDate = this.parseDate(dto.startDate);
-    const created = await this.prisma.$transaction(async (tx) => {
-      if (currentAssignment) {
-        await tx.chainAreaManagerAssignment.update({
-          where: { id: currentAssignment.id },
-          data: { status: AssignmentStatus.CLOSED, endDate: now }
-        });
-      }
-
-      const next = await tx.chainAreaManagerAssignment.create({
-        data: {
-          chainId,
-          areaManagerId: dto.areaManagerId,
-          status: AssignmentStatus.ACTIVE,
-          startDate
-        },
-        include: { areaManager: true, chain: true }
-      });
-
-      await tx.auditLog.create({
-        data: {
-          actorUserId: context.actor.id,
-          action: "ADMIN_CHAIN_AREA_MANAGER_REPLACED",
-          entityType: "ChainAreaManagerAssignment",
-          entityId: next.id,
-          oldValue: currentAssignment
-            ? {
-                assignmentId: currentAssignment.id,
-                areaManagerId: currentAssignment.areaManagerId,
-                chainId: currentAssignment.chainId
-              }
-            : undefined,
-          newValue: {
-            assignmentId: next.id,
-            areaManagerId: next.areaManagerId,
-            chainId: next.chainId
-          },
-          ipAddress: context.ipAddress ?? null,
-          userAgent: context.userAgent ?? null
-        }
-      });
-
-      return next;
-    });
-
-    await this.notificationsService.create({
-      userId: dto.areaManagerId,
-      type: "ASSIGNMENT_UPDATED",
-      title: "Chain assignment updated",
-      body: `You are now assigned to ${chain.chainName}.`,
-      payload: { chainId, assignmentId: created.id }
-    });
-
-    if (currentAssignment) {
-      await this.notificationsService.create({
-        userId: currentAssignment.areaManagerId,
-        type: "ASSIGNMENT_UPDATED",
-        title: "Chain assignment ended",
-        body: `Your assignment to ${chain.chainName} was closed.`,
-        payload: { chainId, assignmentId: currentAssignment.id }
-      });
-    }
-
-    await this.notificationsService.notifyAdmins({
-      type: "ASSIGNMENT_UPDATED",
-      title: "Area Manager changed",
-      body: `${areaManager.nameEn} is now assigned to ${chain.chainName}.`,
-      payload: { chainId, areaManagerId: areaManager.id, assignmentId: created.id }
-    });
-
-    return {
-      mode: "AREA_MANAGER_REPLACED" as const,
-      assignment: {
-        id: created.id,
-        status: created.status,
-        startDate: created.startDate,
-        areaManager: toUserSummary(created.areaManager),
-        chain: toChainSummary(created.chain)
-      }
-    };
+  async replaceChainAreaManager() {
+    throw new BadRequestException(
+      "Area Manager Chain assignments are managed from the Area Manager profile."
+    );
   }
 
   private async getRequestCountsByVendor(vendorIds: string[]) {
@@ -737,18 +633,6 @@ export class AdminService {
 
     if (vendor.chain.status !== ChainStatus.ACTIVE) {
       throw new BadRequestException("Branch Chain is not active.");
-    }
-  }
-
-  private assertActiveChain(
-    chain: { status: ChainStatus } | null
-  ): asserts chain is { status: ChainStatus } {
-    if (!chain) {
-      throw new NotFoundException("Chain was not found.");
-    }
-
-    if (chain.status !== ChainStatus.ACTIVE) {
-      throw new BadRequestException("Chain is not active.");
     }
   }
 

@@ -401,7 +401,7 @@ export function parseNewHirePayload(payload: unknown) {
           assignmentType:
             typeof finalizationPayload.assignmentType === "string"
               ? finalizationPayload.assignmentType
-              : "Not available",
+              : undefined,
           shopperId:
             typeof finalizationPayload.shopperId === "string"
               ? finalizationPayload.shopperId
