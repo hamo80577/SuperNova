@@ -178,6 +178,8 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_EDIT_PROFILE);
+
     return this.usersService.updateAdminProfile(id, dto, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -224,6 +226,11 @@ export class UsersController {
   @Roles(UserRole.PICKER)
   @Get("me/profile-completion")
   getProfileCompletion(@CurrentUser() user: AuthenticatedUser) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    );
+
     return this.usersService.getProfileCompletion(user.id);
   }
 
@@ -235,6 +242,11 @@ export class UsersController {
     @Body() dto: UpdateProfileCompletionDto,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    );
+
     return this.usersService.updateProfileCompletion(user.id, dto, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

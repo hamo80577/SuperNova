@@ -194,6 +194,12 @@ async function run() {
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
   ]);
+  assert.deepEqual(rolesFor("updateAdminProfile"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getProfileCompletion"), [UserRole.PICKER]);
+  assert.deepEqual(rolesFor("updateProfileCompletion"), [UserRole.PICKER]);
 
   assert.equal(await controller.getMe(champ), responses.me);
   assert.equal(
@@ -348,7 +354,20 @@ async function run() {
     responses.updatedProfileCompletion
   );
 
-  assert.deepEqual(policyCalls, []);
+  assert.deepEqual(policyCalls, [
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_EDIT_PROFILE
+    },
+    {
+      actor: picker,
+      permissionKey: PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    },
+    {
+      actor: picker,
+      permissionKey: PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    }
+  ]);
   assert.deepEqual(serviceCalls, [
     `admin-profile:target-user:Target User:${admin.id}:127.0.0.1:users-access-policy-test`,
     `profile-completion:${picker.id}`,
