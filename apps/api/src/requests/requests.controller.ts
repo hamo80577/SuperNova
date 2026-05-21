@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,7 +14,7 @@ import {
 import { UserRole } from "@prisma/client";
 
 import { AccessPolicyService } from "../access-control/access-policy.service";
-import { PermissionKeys } from "../access-control/permissions";
+import { PermissionKeys, type PermissionKey } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -116,6 +117,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForNewHireTargetRole(dto.targetRole)
+    );
+
     return this.requestsService.createNewHire(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -130,6 +136,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForOffboardingTargetRole(dto.targetRole)
+    );
+
     return this.requestsService.createOffboarding(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -144,6 +155,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+    );
+
     return this.requestsService.createTransfer(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -228,5 +244,37 @@ export class RequestsController {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
     });
+  }
+
+  private permissionForNewHireTargetRole(targetRole?: UserRole): PermissionKey {
+    switch (targetRole ?? UserRole.PICKER) {
+      case UserRole.PICKER:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER;
+      case UserRole.CHAMP:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP;
+      case UserRole.AREA_MANAGER:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER;
+      default:
+        throw new BadRequestException(
+          "targetRole must be PICKER, CHAMP, or AREA_MANAGER."
+        );
+    }
+  }
+
+  private permissionForOffboardingTargetRole(
+    targetRole?: UserRole
+  ): PermissionKey {
+    switch (targetRole ?? UserRole.PICKER) {
+      case UserRole.PICKER:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER;
+      case UserRole.CHAMP:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP;
+      case UserRole.AREA_MANAGER:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER;
+      default:
+        throw new BadRequestException(
+          "targetRole must be PICKER, CHAMP, or AREA_MANAGER."
+        );
+    }
   }
 }
