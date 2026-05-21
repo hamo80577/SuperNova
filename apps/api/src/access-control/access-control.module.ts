@@ -1,4 +1,9 @@
 import { Module } from "@nestjs/common";
 
-@Module({})
+import { AccessPolicyService } from "./access-policy.service";
+
+@Module({
+  providers: [AccessPolicyService],
+  exports: [AccessPolicyService]
+})
 export class AccessControlModule {}
