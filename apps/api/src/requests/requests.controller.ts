@@ -12,6 +12,8 @@ import {
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
+import { AccessPolicyService } from "../access-control/access-policy.service";
+import { PermissionKeys } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -34,7 +36,9 @@ import { RequestsService } from "./requests.service";
 export class RequestsController {
   constructor(
     @Inject(RequestsService)
-    private readonly requestsService: RequestsService
+    private readonly requestsService: RequestsService,
+    @Inject(AccessPolicyService)
+    private readonly accessPolicy: AccessPolicyService
   ) {}
 
   @Get("status")
@@ -48,6 +52,8 @@ export class RequestsController {
     @Query() query: ListRequestsQueryDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.list(query, user);
   }
 
@@ -57,6 +63,8 @@ export class RequestsController {
     @Query() query: ListRequestsQueryDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.listSubmitted(query, user);
   }
 
@@ -86,6 +94,8 @@ export class RequestsController {
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.getById(id, user);
   }
 
