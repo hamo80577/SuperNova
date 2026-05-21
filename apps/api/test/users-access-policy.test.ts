@@ -281,7 +281,7 @@ async function run() {
   serviceCalls.length = 0;
 
   assert.equal(
-    await controller.getAreaManagerChainAssignments("area-manager-user"),
+    await controller.getAreaManagerChainAssignments("area-manager-user", admin),
     responses.areaManagerAssignments
   );
   assert.equal(
@@ -302,6 +302,30 @@ async function run() {
     ),
     responses.areaManagerAssignments
   );
+
+  assert.deepEqual(policyCalls, [
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    }
+  ]);
+  assert.deepEqual(serviceCalls, [
+    "area-manager-chain-assignments:area-manager-user",
+    `add-area-manager-chain-assignments:area-manager-user:chain-1:${admin.id}:127.0.0.1:users-access-policy-test`,
+    `remove-area-manager-chain-assignment:area-manager-user:assignment-1:${admin.id}:127.0.0.1:users-access-policy-test`
+  ]);
+
+  policyCalls.length = 0;
+  serviceCalls.length = 0;
+
   assert.equal(
     await controller.updateAdminProfile(
       "target-user",
@@ -326,9 +350,6 @@ async function run() {
 
   assert.deepEqual(policyCalls, []);
   assert.deepEqual(serviceCalls, [
-    "area-manager-chain-assignments:area-manager-user",
-    `add-area-manager-chain-assignments:area-manager-user:chain-1:${admin.id}:127.0.0.1:users-access-policy-test`,
-    `remove-area-manager-chain-assignment:area-manager-user:assignment-1:${admin.id}:127.0.0.1:users-access-policy-test`,
     `admin-profile:target-user:Target User:${admin.id}:127.0.0.1:users-access-policy-test`,
     `profile-completion:${picker.id}`,
     `update-profile-completion:${picker.id}:Picker User:127.0.0.1:users-access-policy-test`

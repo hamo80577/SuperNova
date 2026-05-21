@@ -112,7 +112,15 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get(":id/area-manager-chain-assignments")
-  getAreaManagerChainAssignments(@Param("id") id: string) {
+  getAreaManagerChainAssignments(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.getAreaManagerChainAssignments(id);
   }
 
@@ -125,6 +133,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.addAreaManagerChainAssignments(id, dto, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -140,6 +153,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.removeAreaManagerChainAssignment(
       id,
       assignmentId,
