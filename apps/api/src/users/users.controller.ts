@@ -14,6 +14,8 @@ import {
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
+import { AccessPolicyService } from "../access-control/access-policy.service";
+import { PermissionKeys } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -29,7 +31,11 @@ import { UsersService } from "./users.service";
 
 @Controller("users")
 export class UsersController {
-  constructor(@Inject(UsersService) private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(UsersService) private readonly usersService: UsersService,
+    @Inject(AccessPolicyService)
+    private readonly accessPolicy: AccessPolicyService
+  ) {}
 
   @Get("status")
   getStatus() {
@@ -39,20 +45,34 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get()
-  list(@Query() query: ListUsersQueryDto) {
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListUsersQueryDto
+  ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
     return this.usersService.list(query);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get("operational-list")
-  listOperational(@Query() query: ListUsersQueryDto) {
+  listOperational(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListUsersQueryDto
+  ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
     return this.usersService.listOperational(query);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("me")
   async getMe(@CurrentUser() user: AuthenticatedUser) {
+    // TODO(access-control): replace with a narrower USERS_VIEW_SELF permission if the catalog adds one.
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
+    );
+
     const currentUser = await this.usersService.getSafeCurrentUser(user.id);
 
     if (!currentUser) {
@@ -81,6 +101,10 @@ export class UsersController {
     @Param("id") id: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
+    );
     return this.usersService.getOperationalProfile(id, user);
   }
 
