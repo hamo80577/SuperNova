@@ -261,6 +261,25 @@ async function run() {
     await controller.resetTemporaryPassword("target-user", admin, request),
     responses.resetTemporaryPassword
   );
+
+  assert.deepEqual(policyCalls, [
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_READ_TEMPORARY_PASSWORD
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_MANAGE_TEMPORARY_PASSWORD
+    }
+  ]);
+  assert.deepEqual(serviceCalls, [
+    `reveal-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`,
+    `reset-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`
+  ]);
+
+  policyCalls.length = 0;
+  serviceCalls.length = 0;
+
   assert.equal(
     await controller.getAreaManagerChainAssignments("area-manager-user"),
     responses.areaManagerAssignments
@@ -307,8 +326,6 @@ async function run() {
 
   assert.deepEqual(policyCalls, []);
   assert.deepEqual(serviceCalls, [
-    `reveal-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`,
-    `reset-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`,
     "area-manager-chain-assignments:area-manager-user",
     `add-area-manager-chain-assignments:area-manager-user:chain-1:${admin.id}:127.0.0.1:users-access-policy-test`,
     `remove-area-manager-chain-assignment:area-manager-user:assignment-1:${admin.id}:127.0.0.1:users-access-policy-test`,

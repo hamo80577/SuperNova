@@ -173,6 +173,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_READ_TEMPORARY_PASSWORD
+    );
+
     return this.usersService.revealTemporaryPassword(id, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -186,6 +191,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_TEMPORARY_PASSWORD
+    );
+
     return this.usersService.resetTemporaryPassword(id, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
