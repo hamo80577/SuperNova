@@ -13,12 +13,15 @@ import {
   PermissionKeys,
   type PermissionKey
 } from "../src/access-control";
+import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
 import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import type { CancelRequestDto } from "../src/requests/dto/cancel-request.dto";
 import type { CreateNewHireRequestDto } from "../src/requests/dto/create-new-hire-request.dto";
 import type { CreateOffboardingRequestDto } from "../src/requests/dto/create-offboarding-request.dto";
 import type { CreateTransferRequestDto } from "../src/requests/dto/create-transfer-request.dto";
+import type { FinalizeNewHireDto } from "../src/requests/dto/finalize-new-hire.dto";
+import type { FinalizeOffboardingDto } from "../src/requests/dto/finalize-offboarding.dto";
 import type { ListRequestsQueryDto } from "../src/requests/dto/list-requests-query.dto";
 import { RequestsController } from "../src/requests/requests.controller";
 import type { RequestsService } from "../src/requests/requests.service";
@@ -48,7 +51,9 @@ const responses = {
   cancel: { id: "request-3", status: "CANCELLED" },
   newHire: { id: "request-4", type: "NEW_HIRE" },
   offboarding: { id: "request-5", type: "RESIGNATION" },
-  transfer: { id: "request-6", type: "TRANSFER" }
+  transfer: { id: "request-6", type: "TRANSFER" },
+  finalizeNewHire: { id: "request-7", status: "COMPLETED" },
+  finalizeOffboarding: { id: "request-8", status: "COMPLETED" }
 };
 
 const requestsService = {
@@ -134,6 +139,34 @@ const requestsService = {
       `transfer:${dto.targetUserId}:${context.actor.id}:${context.ipAddress}:${context.userAgent}`
     );
     return responses.transfer;
+  },
+  finalizeNewHire: async (
+    requestId: string,
+    dto: FinalizeNewHireDto,
+    context: {
+      actor: AuthenticatedUser;
+      ipAddress?: string;
+      userAgent?: string | null;
+    }
+  ) => {
+    serviceCalls.push(
+      `finalizeNewHire:${requestId}:${dto.shopperId ?? "none"}:${context.actor.id}:${context.ipAddress}:${context.userAgent}`
+    );
+    return responses.finalizeNewHire;
+  },
+  finalizeOffboarding: async (
+    requestId: string,
+    dto: FinalizeOffboardingDto,
+    context: {
+      actor: AuthenticatedUser;
+      ipAddress?: string;
+      userAgent?: string | null;
+    }
+  ) => {
+    serviceCalls.push(
+      `finalizeOffboarding:${requestId}:${dto.confirmInternalDeactivation}:${dto.notes ?? "none"}:${context.actor.id}:${context.ipAddress}:${context.userAgent}`
+    );
+    return responses.finalizeOffboarding;
   }
 } as unknown as RequestsService;
 
@@ -153,6 +186,10 @@ function createController(policy: AccessPolicyService = recordingPolicy) {
     requestsService,
     policy
   ]) as RequestsController;
+}
+
+function rolesFor(methodName: keyof RequestsController) {
+  return Reflect.getMetadata(ROLES_KEY, RequestsController.prototype[methodName]);
 }
 
 function newHireDto(targetRole?: UserRole): CreateNewHireRequestDto {
@@ -206,6 +243,13 @@ async function run() {
     headers: { "user-agent": "requests-policy-test" }
   } as AuthenticatedRequest;
   const cancelDto = { notes: "No longer needed" } satisfies CancelRequestDto;
+  const finalizeNewHireDto = {
+    shopperId: "SHOPPER-1"
+  } satisfies FinalizeNewHireDto;
+  const finalizeOffboardingDto = {
+    confirmInternalDeactivation: true,
+    notes: "Confirmed"
+  } satisfies FinalizeOffboardingDto;
 
   assert.equal(await controller.list(listQuery, champ), responses.list);
   assert.equal(
@@ -290,6 +334,24 @@ async function run() {
     await controller.createTransfer(transferDto(), champ, request),
     responses.transfer
   );
+  assert.equal(
+    await controller.finalizeNewHire(
+      "request-7",
+      finalizeNewHireDto,
+      admin,
+      request
+    ),
+    responses.finalizeNewHire
+  );
+  assert.equal(
+    await controller.finalizeOffboarding(
+      "request-8",
+      finalizeOffboardingDto,
+      admin,
+      request
+    ),
+    responses.finalizeOffboarding
+  );
 
   assert.deepEqual(policyCalls, [
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
@@ -348,6 +410,14 @@ async function run() {
     {
       actor: champ,
       permissionKey: PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
     }
   ]);
   assert.deepEqual(serviceCalls, [
@@ -368,7 +438,17 @@ async function run() {
     `offboarding:PICKER:${admin.id}:127.0.0.1:requests-policy-test`,
     `offboarding:CHAMP:${admin.id}:127.0.0.1:requests-policy-test`,
     `offboarding:AREA_MANAGER:${admin.id}:127.0.0.1:requests-policy-test`,
-    `transfer:picker-1:${champ.id}:127.0.0.1:requests-policy-test`
+    `transfer:picker-1:${champ.id}:127.0.0.1:requests-policy-test`,
+    `finalizeNewHire:request-7:SHOPPER-1:${admin.id}:127.0.0.1:requests-policy-test`,
+    `finalizeOffboarding:request-8:true:Confirmed:${admin.id}:127.0.0.1:requests-policy-test`
+  ]);
+  assert.deepEqual(rolesFor("finalizeNewHire"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("finalizeOffboarding"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
   ]);
 
   const realPolicyController = createController(new AccessPolicyService());

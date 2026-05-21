@@ -176,6 +176,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+    );
+
     return this.requestsService.finalizeNewHire(id, dto, {
       actor: user,
       ipAddress: request.ip,
@@ -192,6 +197,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+    );
+
     return this.requestsService.finalizeOffboarding(id, dto, {
       actor: user,
       ipAddress: request.ip,
