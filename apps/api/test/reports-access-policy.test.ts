@@ -124,20 +124,20 @@ async function run() {
   );
   await assert.doesNotReject(() => realPolicyController.getChampOverview(champ));
 
-  assert.throws(
-    () => realPolicyController.getAdminOverview(champ),
+  await assert.rejects(
+    async () => realPolicyController.getAdminOverview(champ),
     /Missing required permission/
   );
-  assert.throws(
-    () => realPolicyController.getAdminOverview(areaManager),
+  await assert.rejects(
+    async () => realPolicyController.getAdminOverview(areaManager),
     /Missing required permission/
   );
-  assert.throws(
-    () => realPolicyController.getAreaManagerOverview(admin),
+  await assert.rejects(
+    async () => realPolicyController.getAreaManagerOverview(admin),
     /Missing required permission/
   );
-  assert.throws(
-    () => realPolicyController.getChampOverview(admin),
+  await assert.rejects(
+    async () => realPolicyController.getChampOverview(admin),
     /Missing required permission/
   );
 }
