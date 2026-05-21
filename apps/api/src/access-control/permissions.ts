@@ -48,6 +48,8 @@ export const PermissionKeys = {
   APPROVALS_DECIDE_CHAIN: "approvals.chain.decide",
   APPROVALS_DECIDE_FINAL_LIFECYCLE: "approvals.final_lifecycle.decide",
 
+  USERS_VIEW_SELF: "users.self.view",
+  USERS_EDIT_OWN_PREFERENCES: "users.preferences.edit_own",
   USERS_VIEW_OPERATIONAL_PROFILE: "users.operational_profile.view",
   USERS_LIST_OPERATIONAL: "users.operational_list.view",
   USERS_EDIT_PROFILE: "users.profile.edit",
@@ -206,6 +208,24 @@ export const PERMISSION_DEFINITIONS = [
     systemOnly: false
   },
 
+  {
+    key: PermissionKeys.USERS_VIEW_SELF,
+    label: "View own profile",
+    description: "View the authenticated user's own safe profile.",
+    group: PermissionGroups.USERS_PROFILES,
+    riskLevel: PermissionRiskLevels.LOW,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.USERS_EDIT_OWN_PREFERENCES,
+    label: "Edit own preferences",
+    description: "Update the authenticated user's own UI/user preferences.",
+    group: PermissionGroups.USERS_PROFILES,
+    riskLevel: PermissionRiskLevels.LOW,
+    assignable: true,
+    systemOnly: false
+  },
   {
     key: PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE,
     label: "View operational profiles",

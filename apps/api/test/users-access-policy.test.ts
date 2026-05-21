@@ -209,7 +209,7 @@ async function run() {
   assert.deepEqual(policyCalls, [
     {
       actor: champ,
-      permissionKey: PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
+      permissionKey: PermissionKeys.USERS_VIEW_SELF
     },
     {
       actor: champ,
@@ -239,6 +239,20 @@ async function run() {
     ),
     responses.preferences
   );
+
+  assert.deepEqual(policyCalls, [
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+    }
+  ]);
+  assert.deepEqual(serviceCalls, [
+    `preferences:${admin.id}:TEAL:127.0.0.1:users-access-policy-test`
+  ]);
+
+  policyCalls.length = 0;
+  serviceCalls.length = 0;
+
   assert.equal(
     await controller.revealTemporaryPassword("target-user", admin, request),
     responses.temporaryPassword
@@ -293,7 +307,6 @@ async function run() {
 
   assert.deepEqual(policyCalls, []);
   assert.deepEqual(serviceCalls, [
-    `preferences:${admin.id}:TEAL:127.0.0.1:users-access-policy-test`,
     `reveal-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`,
     `reset-password:target-user:${admin.id}:127.0.0.1:users-access-policy-test`,
     "area-manager-chain-assignments:area-manager-user",

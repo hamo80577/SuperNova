@@ -67,11 +67,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Get("me")
   async getMe(@CurrentUser() user: AuthenticatedUser) {
-    // TODO(access-control): replace with a narrower USERS_VIEW_SELF permission if the catalog adds one.
-    this.accessPolicy.assertCan(
-      user,
-      PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
-    );
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_VIEW_SELF);
 
     const currentUser = await this.usersService.getSafeCurrentUser(user.id);
 
@@ -89,6 +85,11 @@ export class UsersController {
     @Body() dto: UpdateUserPreferencesDto,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+    );
+
     return this.usersService.updatePreferences(user.id, dto, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

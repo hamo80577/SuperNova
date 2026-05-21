@@ -59,6 +59,29 @@ assert.deepEqual(getPermissionDefinition(PermissionKeys.REQUESTS_VIEW), {
   systemOnly: false
 });
 
+assert.deepEqual(getPermissionDefinition(PermissionKeys.USERS_VIEW_SELF), {
+  key: PermissionKeys.USERS_VIEW_SELF,
+  label: "View own profile",
+  description: "View the authenticated user's own safe profile.",
+  group: PermissionGroups.USERS_PROFILES,
+  riskLevel: PermissionRiskLevels.LOW,
+  assignable: true,
+  systemOnly: false
+});
+
+assert.deepEqual(
+  getPermissionDefinition(PermissionKeys.USERS_EDIT_OWN_PREFERENCES),
+  {
+    key: PermissionKeys.USERS_EDIT_OWN_PREFERENCES,
+    label: "Edit own preferences",
+    description: "Update the authenticated user's own UI/user preferences.",
+    group: PermissionGroups.USERS_PROFILES,
+    riskLevel: PermissionRiskLevels.LOW,
+    assignable: true,
+    systemOnly: false
+  }
+);
+
 const targetRoleLifecyclePermissionKeys = [
   PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
   PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP,

@@ -63,6 +63,11 @@ const areaManagerLifecyclePermissionKeys = [
   PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER
 ];
 
+const ownUserPermissionKeys = [
+  PermissionKeys.USERS_VIEW_SELF,
+  PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+];
+
 function assertHasPermission(role: UserRole, permissionKey: PermissionKey) {
   assert.equal(
     roleHasPermission(role, permissionKey),
@@ -99,6 +104,10 @@ for (const role of Object.values(UserRole)) {
       catalogPermissionKeys.has(permissionKey),
       `${role} references unknown permission ${permissionKey}`
     );
+  }
+
+  for (const permissionKey of ownUserPermissionKeys) {
+    assertHasPermission(role, permissionKey);
   }
 }
 
