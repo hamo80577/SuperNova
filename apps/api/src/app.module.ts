@@ -6,6 +6,7 @@ import { AssignmentsModule } from "./assignments/assignments.module";
 import { AdminModule } from "./admin/admin.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
+import { AccessControlModule } from "./access-control/access-control.module";
 import configuration from "./config/configuration";
 import { validateEnvironment } from "./config/env.validation";
 import { ChainsModule } from "./chains/chains.module";
@@ -36,6 +37,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     AssignmentsModule,
     RequestsModule,
     ApprovalsModule,
+    AccessControlModule,
     NotificationsModule,
     AuditModule,
     AdminModule,
