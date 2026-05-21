@@ -1,26 +1,76 @@
 import assert from "node:assert/strict";
 
-import { UserRole } from "@prisma/client";
+import {
+  AccountStatus,
+  EmploymentStatus,
+  ProfileStatus,
+  UserRole
+} from "@prisma/client";
 
 import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
+import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
+import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import {
   AccessControlController,
+  AccessPolicyService,
   listPermissions,
   listPermissionsByGroup,
+  PermissionKeys,
   SYSTEM_ROLE_PERMISSIONS
 } from "../src/access-control";
 
-const controller = new AccessControlController();
-const overview = controller.getOverview();
+function actor(role: UserRole): AuthenticatedUser {
+  return {
+    id: `actor-${role.toLowerCase()}`,
+    role,
+    nameEn: role,
+    phoneNumber: "01000000000",
+    accountStatus: AccountStatus.ACTIVE,
+    employmentStatus: EmploymentStatus.ACTIVE,
+    profileStatus: ProfileStatus.COMPLETE,
+    mustChangePassword: false
+  };
+}
+
+function requestFor(user: AuthenticatedUser): AuthenticatedRequest {
+  return { user } as AuthenticatedRequest;
+}
 
 assert.deepEqual(
   Reflect.getMetadata(ROLES_KEY, AccessControlController),
   [UserRole.SUPER_ADMIN]
 );
 
+const policyCalls: Array<{
+  actor: AuthenticatedUser;
+  permissionKey: string;
+}> = [];
+
+const recordingPolicy = {
+  assertCan: (policyActor: AuthenticatedUser, permissionKey: string) => {
+    policyCalls.push({ actor: policyActor, permissionKey });
+  }
+};
+
+const controller = new AccessControlController(recordingPolicy as AccessPolicyService);
+const superAdminRequest = requestFor(actor(UserRole.SUPER_ADMIN));
+const overview = controller.getOverview(superAdminRequest);
+
+assert.deepEqual(policyCalls, [
+  {
+    actor: superAdminRequest.user,
+    permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW
+  }
+]);
+
 assert.equal(overview.permissions, listPermissions());
 assert.equal(overview.permissionsByGroup, listPermissionsByGroup());
 assert.equal(overview.systemRolePermissions, SYSTEM_ROLE_PERMISSIONS);
+assert.deepEqual(Object.keys(overview).sort(), [
+  "permissions",
+  "permissionsByGroup",
+  "systemRolePermissions"
+]);
 
 assert.ok(overview.permissions.length > 0);
 assert.ok(
@@ -32,4 +82,15 @@ assert.equal(
     "access_control.system_role_matrix.manage"
   ),
   false
+);
+
+const realPolicyController = new AccessControlController(new AccessPolicyService());
+
+assert.doesNotThrow(() =>
+  realPolicyController.getOverview(requestFor(actor(UserRole.SUPER_ADMIN)))
+);
+
+assert.throws(
+  () => realPolicyController.getOverview(requestFor(actor(UserRole.ADMIN))),
+  /Missing required permission/
 );
