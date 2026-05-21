@@ -148,10 +148,10 @@ const recordingPolicy = {
   }
 } as AccessPolicyService;
 
-function createController() {
+function createController(policy: AccessPolicyService = recordingPolicy) {
   return Reflect.construct(RequestsController, [
     requestsService,
-    recordingPolicy
+    policy
   ]) as RequestsController;
 }
 
@@ -195,6 +195,7 @@ function transferDto(): CreateTransferRequestDto {
 async function run() {
   const controller = createController();
   const champ = actor(UserRole.CHAMP);
+  const admin = actor(UserRole.ADMIN);
   const listQuery = { page: 2, type: undefined } satisfies ListRequestsQueryDto;
   const submittedQuery = {
     page: 3,
@@ -226,13 +227,21 @@ async function run() {
     responses.newHire
   );
   assert.equal(
-    await controller.createNewHire(newHireDto(UserRole.CHAMP), champ, request),
+    await controller.createNewHire(newHireDto(), admin, request),
+    responses.newHire
+  );
+  assert.equal(
+    await controller.createNewHire(newHireDto(UserRole.PICKER), admin, request),
+    responses.newHire
+  );
+  assert.equal(
+    await controller.createNewHire(newHireDto(UserRole.CHAMP), admin, request),
     responses.newHire
   );
   assert.equal(
     await controller.createNewHire(
       newHireDto(UserRole.AREA_MANAGER),
-      champ,
+      admin,
       request
     ),
     responses.newHire
@@ -250,9 +259,21 @@ async function run() {
     responses.offboarding
   );
   assert.equal(
+    await controller.createOffboarding(offboardingDto(), admin, request),
+    responses.offboarding
+  );
+  assert.equal(
+    await controller.createOffboarding(
+      offboardingDto(UserRole.PICKER),
+      admin,
+      request
+    ),
+    responses.offboarding
+  );
+  assert.equal(
     await controller.createOffboarding(
       offboardingDto(UserRole.CHAMP),
-      champ,
+      admin,
       request
     ),
     responses.offboarding
@@ -260,7 +281,7 @@ async function run() {
   assert.equal(
     await controller.createOffboarding(
       offboardingDto(UserRole.AREA_MANAGER),
-      champ,
+      admin,
       request
     ),
     responses.offboarding
@@ -285,11 +306,19 @@ async function run() {
       permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
     },
     {
-      actor: champ,
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    },
+    {
+      actor: admin,
       permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP
     },
     {
-      actor: champ,
+      actor: admin,
       permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER
     },
     {
@@ -301,11 +330,19 @@ async function run() {
       permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
     },
     {
-      actor: champ,
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+    },
+    {
+      actor: admin,
       permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP
     },
     {
-      actor: champ,
+      actor: admin,
       permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER
     },
     {
@@ -321,14 +358,59 @@ async function run() {
     `cancel:request-3:No longer needed:${champ.id}:127.0.0.1:requests-policy-test`,
     `newHire:missing:${champ.id}:127.0.0.1:requests-policy-test`,
     `newHire:PICKER:${champ.id}:127.0.0.1:requests-policy-test`,
-    `newHire:CHAMP:${champ.id}:127.0.0.1:requests-policy-test`,
-    `newHire:AREA_MANAGER:${champ.id}:127.0.0.1:requests-policy-test`,
+    `newHire:missing:${admin.id}:127.0.0.1:requests-policy-test`,
+    `newHire:PICKER:${admin.id}:127.0.0.1:requests-policy-test`,
+    `newHire:CHAMP:${admin.id}:127.0.0.1:requests-policy-test`,
+    `newHire:AREA_MANAGER:${admin.id}:127.0.0.1:requests-policy-test`,
     `offboarding:missing:${champ.id}:127.0.0.1:requests-policy-test`,
     `offboarding:PICKER:${champ.id}:127.0.0.1:requests-policy-test`,
-    `offboarding:CHAMP:${champ.id}:127.0.0.1:requests-policy-test`,
-    `offboarding:AREA_MANAGER:${champ.id}:127.0.0.1:requests-policy-test`,
+    `offboarding:missing:${admin.id}:127.0.0.1:requests-policy-test`,
+    `offboarding:PICKER:${admin.id}:127.0.0.1:requests-policy-test`,
+    `offboarding:CHAMP:${admin.id}:127.0.0.1:requests-policy-test`,
+    `offboarding:AREA_MANAGER:${admin.id}:127.0.0.1:requests-policy-test`,
     `transfer:picker-1:${champ.id}:127.0.0.1:requests-policy-test`
   ]);
+
+  const realPolicyController = createController(new AccessPolicyService());
+  serviceCalls.length = 0;
+
+  await assert.rejects(
+    async () =>
+      realPolicyController.createNewHire(
+        newHireDto(UserRole.CHAMP),
+        champ,
+        request
+      ),
+    /Missing required permission/
+  );
+  await assert.rejects(
+    async () =>
+      realPolicyController.createNewHire(
+        newHireDto(UserRole.AREA_MANAGER),
+        champ,
+        request
+      ),
+    /Missing required permission/
+  );
+  await assert.rejects(
+    async () =>
+      realPolicyController.createOffboarding(
+        offboardingDto(UserRole.CHAMP),
+        champ,
+        request
+      ),
+    /Missing required permission/
+  );
+  await assert.rejects(
+    async () =>
+      realPolicyController.createOffboarding(
+        offboardingDto(UserRole.AREA_MANAGER),
+        champ,
+        request
+      ),
+    /Missing required permission/
+  );
+  assert.deepEqual(serviceCalls, []);
 }
 
 void run();
