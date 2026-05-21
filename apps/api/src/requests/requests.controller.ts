@@ -204,6 +204,8 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.submit(id, {
       actor: user,
       ipAddress: request.ip,
@@ -219,6 +221,8 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_CANCEL);
+
     return this.requestsService.cancel(id, dto, {
       actor: user,
       ipAddress: request.ip,

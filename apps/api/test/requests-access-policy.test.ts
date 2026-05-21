@@ -12,7 +12,9 @@ import {
   PermissionKeys,
   type PermissionKey
 } from "../src/access-control";
+import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
+import type { CancelRequestDto } from "../src/requests/dto/cancel-request.dto";
 import type { ListRequestsQueryDto } from "../src/requests/dto/list-requests-query.dto";
 import { RequestsController } from "../src/requests/requests.controller";
 import type { RequestsService } from "../src/requests/requests.service";
@@ -37,7 +39,9 @@ const responses = {
     items: [],
     meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 }
   },
-  detail: { id: "request-1" }
+  detail: { id: "request-1" },
+  submit: { id: "request-2", status: "PENDING_AREA_MANAGER" },
+  cancel: { id: "request-3", status: "CANCELLED" }
 };
 
 const requestsService = {
@@ -57,6 +61,33 @@ const requestsService = {
   getById: async (requestId: string, currentUser: AuthenticatedUser) => {
     serviceCalls.push(`detail:${requestId}:${currentUser.id}`);
     return responses.detail;
+  },
+  submit: async (
+    requestId: string,
+    context: {
+      actor: AuthenticatedUser;
+      ipAddress?: string;
+      userAgent?: string | null;
+    }
+  ) => {
+    serviceCalls.push(
+      `submit:${requestId}:${context.actor.id}:${context.ipAddress}:${context.userAgent}`
+    );
+    return responses.submit;
+  },
+  cancel: async (
+    requestId: string,
+    dto: CancelRequestDto,
+    context: {
+      actor: AuthenticatedUser;
+      ipAddress?: string;
+      userAgent?: string | null;
+    }
+  ) => {
+    serviceCalls.push(
+      `cancel:${requestId}:${dto.notes ?? "none"}:${context.actor.id}:${context.ipAddress}:${context.userAgent}`
+    );
+    return responses.cancel;
   }
 } as unknown as RequestsService;
 
@@ -86,6 +117,11 @@ async function run() {
     page: 3,
     status: undefined
   } satisfies ListRequestsQueryDto;
+  const request = {
+    ip: "127.0.0.1",
+    headers: { "user-agent": "requests-policy-test" }
+  } as AuthenticatedRequest;
+  const cancelDto = { notes: "No longer needed" } satisfies CancelRequestDto;
 
   assert.equal(await controller.list(listQuery, champ), responses.list);
   assert.equal(
@@ -93,16 +129,25 @@ async function run() {
     responses.submitted
   );
   assert.equal(await controller.getById("request-1", champ), responses.detail);
+  assert.equal(await controller.submit("request-2", champ, request), responses.submit);
+  assert.equal(
+    await controller.cancel("request-3", cancelDto, champ, request),
+    responses.cancel
+  );
 
   assert.deepEqual(policyCalls, [
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
-    { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW }
+    { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
+    { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
+    { actor: champ, permissionKey: PermissionKeys.REQUESTS_CANCEL }
   ]);
   assert.deepEqual(serviceCalls, [
     `list:2:none:${champ.id}`,
     `submitted:3:none:${champ.id}`,
-    `detail:request-1:${champ.id}`
+    `detail:request-1:${champ.id}`,
+    `submit:request-2:${champ.id}:127.0.0.1:requests-policy-test`,
+    `cancel:request-3:No longer needed:${champ.id}:127.0.0.1:requests-policy-test`
   ]);
 }
 
