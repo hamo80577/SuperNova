@@ -25,6 +25,11 @@ enum AccessRoleStatus {
   INACTIVE
 }
 
+enum AccessRoleAssignmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum AccountStatus {
   ACTIVE
   INACTIVE
@@ -149,6 +154,7 @@ model User {
   approvals                   RequestApproval[]                @relation("RequestApprover")
   notifications               Notification[]
   auditLogsAsActor            AuditLog[]                       @relation("AuditActor")
+  accessRoleAssignments       UserAccessRoleAssignment[]       @relation("UserAccessRoleAssignments")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -168,6 +174,7 @@ model AccessRole {
   status      AccessRoleStatus @default(ACTIVE)
   isSystem    Boolean          @default(false)
   permissions AccessRolePermission[] @relation("AccessRolePermissions")
+  userAssignments UserAccessRoleAssignment[] @relation("AccessRoleAssignments")
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -185,6 +192,23 @@ model AccessRolePermission {
 
   @@unique([accessRoleId, permissionKey])
   @@index([permissionKey])
+}
+
+model UserAccessRoleAssignment {
+  id           String                     @id @default(uuid())
+  userId       String
+  accessRoleId String
+  status       AccessRoleAssignmentStatus @default(ACTIVE)
+  startsAt     DateTime                   @default(now())
+  endsAt       DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  user         User                       @relation("UserAccessRoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  accessRole   AccessRole                 @relation("AccessRoleAssignments", fields: [accessRoleId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([accessRoleId, status])
+  @@index([userId, accessRoleId, status])
 }
 
 model Chain {
