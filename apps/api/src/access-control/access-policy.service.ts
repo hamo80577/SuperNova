@@ -5,7 +5,12 @@ import {
   OnModuleInit,
   Optional
 } from "@nestjs/common";
-import { AccessRoleKind, AccessRoleStatus, UserRole } from "@prisma/client";
+import {
+  AccessRoleAssignmentStatus,
+  AccessRoleKind,
+  AccessRoleStatus,
+  UserRole
+} from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { roleHasPermission } from "./role-permission.matrix";
@@ -25,12 +30,24 @@ type DbSystemAccessRoleRow = Readonly<{
   permissions: readonly Readonly<{ permissionKey: string }>[];
 }>;
 
+type DbUserAccessRoleAssignmentRow = Readonly<{
+  userId: string;
+  accessRole: Readonly<{
+    permissions: readonly Readonly<{ permissionKey: string }>[];
+  }>;
+}>;
+
 @Injectable()
 export class AccessPolicyService implements OnModuleInit {
   private readonly logger = new Logger(AccessPolicyService.name);
   private dbSystemRolePermissions: DbSystemRolePermissions | null = null;
   private dbPermissionCacheReady = false;
   private dbPermissionCacheError: string | null = null;
+  private dbUserAccessRolePermissionsByUserId:
+    | ReadonlyMap<string, ReadonlySet<PermissionKey>>
+    | null = null;
+  private dbUserAccessRolePermissionCacheReady = false;
+  private dbUserAccessRolePermissionCacheError: string | null = null;
 
   constructor(
     @Optional() private readonly prisma: PrismaService | undefined = undefined
@@ -38,6 +55,7 @@ export class AccessPolicyService implements OnModuleInit {
 
   async onModuleInit() {
     await this.loadDbSystemRolePermissionCache();
+    await this.loadDbUserAccessRolePermissionCache();
   }
 
   hasPermission(
@@ -49,10 +67,18 @@ export class AccessPolicyService implements OnModuleInit {
       : undefined;
 
     if (dbPermissions) {
-      return dbPermissions.has(permissionKey);
+      if (dbPermissions.has(permissionKey)) {
+        return true;
+      }
+    } else if (roleHasPermission(actor.role, permissionKey)) {
+      return true;
     }
 
-    return roleHasPermission(actor.role, permissionKey);
+    const userPermissions = this.dbUserAccessRolePermissionCacheReady
+      ? this.dbUserAccessRolePermissionsByUserId?.get(actor.id)
+      : undefined;
+
+    return userPermissions?.has(permissionKey) ?? false;
   }
 
   can(
@@ -111,6 +137,54 @@ export class AccessPolicyService implements OnModuleInit {
     }
   }
 
+  private async loadDbUserAccessRolePermissionCache() {
+    if (!this.prisma) {
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const assignments =
+        (await this.prisma.userAccessRoleAssignment.findMany({
+          where: {
+            status: AccessRoleAssignmentStatus.ACTIVE,
+            startsAt: { lte: now },
+            OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+            accessRole: {
+              kind: AccessRoleKind.CUSTOM,
+              status: AccessRoleStatus.ACTIVE,
+              isSystem: false
+            }
+          },
+          select: {
+            userId: true,
+            accessRole: {
+              select: {
+                permissions: {
+                  select: { permissionKey: true }
+                }
+              }
+            }
+          }
+        })) as DbUserAccessRoleAssignmentRow[];
+
+      const cache =
+        this.buildValidatedDbUserAccessRolePermissionCache(assignments);
+
+      this.dbUserAccessRolePermissionsByUserId = cache;
+      this.dbUserAccessRolePermissionCacheReady = true;
+      this.dbUserAccessRolePermissionCacheError = null;
+    } catch (error) {
+      this.dbUserAccessRolePermissionsByUserId = null;
+      this.dbUserAccessRolePermissionCacheReady = false;
+      this.dbUserAccessRolePermissionCacheError =
+        error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Ignoring custom access role assignment permissions: ${this.dbUserAccessRolePermissionCacheError}`
+      );
+    }
+  }
+
   private buildValidatedDbSystemRolePermissionCache(
     accessRoles: readonly DbSystemAccessRoleRow[]
   ): DbSystemRolePermissions {
@@ -163,5 +237,34 @@ export class AccessPolicyService implements OnModuleInit {
     }
 
     return permissionsByRole;
+  }
+
+  private buildValidatedDbUserAccessRolePermissionCache(
+    assignments: readonly DbUserAccessRoleAssignmentRow[]
+  ): ReadonlyMap<string, ReadonlySet<PermissionKey>> {
+    const permissionsByUserId = new Map<string, Set<PermissionKey>>();
+
+    for (const assignment of assignments) {
+      let userPermissions = permissionsByUserId.get(assignment.userId);
+
+      if (!userPermissions) {
+        userPermissions = new Set<PermissionKey>();
+        permissionsByUserId.set(assignment.userId, userPermissions);
+      }
+
+      for (const permission of assignment.accessRole.permissions) {
+        const permissionKey = permission.permissionKey as PermissionKey;
+
+        if (!PERMISSION_DEFINITION_BY_KEY[permissionKey]) {
+          throw new Error(
+            `Unknown permission ${permission.permissionKey} in CUSTOM access role assignment for user ${assignment.userId}.`
+          );
+        }
+
+        userPermissions.add(permissionKey);
+      }
+    }
+
+    return permissionsByUserId;
   }
 }

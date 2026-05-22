@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 
 import { ForbiddenException } from "@nestjs/common";
-import { UserRole } from "@prisma/client";
+import {
+  AccessRoleAssignmentStatus,
+  AccessRoleKind,
+  AccessRoleStatus,
+  UserRole
+} from "@prisma/client";
 
 import {
   AccessPolicyService,
@@ -24,8 +29,25 @@ type MockAccessRoleRow = Readonly<{
   permissions: readonly Readonly<{ permissionKey: string }>[];
 }>;
 
-function mockPrisma(rows: readonly MockAccessRoleRow[]) {
+type MockUserAccessRoleAssignmentRow = Readonly<{
+  userId: string;
+  status: AccessRoleAssignmentStatus;
+  startsAt: Date;
+  endsAt: Date | null;
+  accessRole: Readonly<{
+    kind: AccessRoleKind;
+    status: AccessRoleStatus;
+    isSystem: boolean;
+    permissions: readonly Readonly<{ permissionKey: string }>[];
+  }>;
+}>;
+
+function mockPrisma(
+  rows: readonly MockAccessRoleRow[],
+  userAccessRoleAssignmentRows: readonly MockUserAccessRoleAssignmentRow[] = []
+) {
   let findManyCalls = 0;
+  let userAccessRoleAssignmentFindManyCalls = 0;
 
   return {
     accessRole: {
@@ -34,8 +56,61 @@ function mockPrisma(rows: readonly MockAccessRoleRow[]) {
         return rows;
       }
     },
+    userAccessRoleAssignment: {
+      findMany: async (query?: {
+        where?: {
+          status?: AccessRoleAssignmentStatus;
+          startsAt?: { lte?: Date };
+          OR?: readonly (
+            | { endsAt: null }
+            | { endsAt: { gt?: Date } }
+          )[];
+          accessRole?: {
+            kind?: AccessRoleKind;
+            status?: AccessRoleStatus;
+            isSystem?: boolean;
+          };
+        };
+      }) => {
+        userAccessRoleAssignmentFindManyCalls += 1;
+        const now = query?.where?.startsAt?.lte;
+        const usesExpectedFilter =
+          query?.where?.status === AccessRoleAssignmentStatus.ACTIVE &&
+          now instanceof Date &&
+          query.where.OR?.some((condition) => condition.endsAt === null) &&
+          query.where.OR?.some(
+            (condition) =>
+              typeof condition.endsAt === "object" &&
+              condition.endsAt?.gt instanceof Date
+          ) &&
+          query.where.accessRole?.kind === AccessRoleKind.CUSTOM &&
+          query.where.accessRole.status === AccessRoleStatus.ACTIVE &&
+          query.where.accessRole.isSystem === false;
+        const matchingRows = usesExpectedFilter
+          ? userAccessRoleAssignmentRows.filter(
+              (row) =>
+                row.status === AccessRoleAssignmentStatus.ACTIVE &&
+                row.startsAt <= now &&
+                (row.endsAt === null || row.endsAt > now) &&
+                row.accessRole.kind === AccessRoleKind.CUSTOM &&
+                row.accessRole.status === AccessRoleStatus.ACTIVE &&
+                row.accessRole.isSystem === false
+            )
+          : userAccessRoleAssignmentRows;
+
+        return matchingRows.map((row) => ({
+          userId: row.userId,
+          accessRole: {
+            permissions: row.accessRole.permissions
+          }
+        }));
+      }
+    },
     get findManyCalls() {
       return findManyCalls;
+    },
+    get userAccessRoleAssignmentFindManyCalls() {
+      return userAccessRoleAssignmentFindManyCalls;
     }
   };
 }
@@ -49,6 +124,28 @@ function completeDbRows(
       (permissionKey) => ({ permissionKey })
     )
   }));
+}
+
+function customAssignmentRow(
+  userId: string,
+  permissions: readonly (PermissionKey | string)[],
+  overrides: Partial<MockUserAccessRoleAssignmentRow> = {}
+): MockUserAccessRoleAssignmentRow {
+  const now = Date.now();
+
+  return {
+    userId,
+    status: AccessRoleAssignmentStatus.ACTIVE,
+    startsAt: new Date(now - 60_000),
+    endsAt: null,
+    accessRole: {
+      kind: AccessRoleKind.CUSTOM,
+      status: AccessRoleStatus.ACTIVE,
+      isSystem: false,
+      permissions: permissions.map((permissionKey) => ({ permissionKey }))
+    },
+    ...overrides
+  };
 }
 
 function isPromiseLike(value: unknown) {
@@ -216,6 +313,7 @@ const dbBackedService = new AccessPolicyService(validDbPrisma as never);
 await dbBackedService.onModuleInit();
 
 assert.equal(validDbPrisma.findManyCalls, 1);
+assert.equal(validDbPrisma.userAccessRoleAssignmentFindManyCalls, 1);
 assert.equal(
   dbBackedService.hasPermission(
     actor(UserRole.PICKER),
@@ -260,6 +358,200 @@ const syncAssertCanResult = dbBackedService.assertCan(
 assert.equal(isPromiseLike(syncHasPermissionResult), false);
 assert.equal(isPromiseLike(syncCanResult), false);
 assert.equal(syncAssertCanResult, undefined);
+
+const assignedPicker = actor(UserRole.PICKER);
+const unassignedPicker = {
+  id: "unassigned-picker",
+  role: UserRole.PICKER
+} satisfies AccessPolicyActor;
+const customGrantPrisma = mockPrisma(completeDbRows(), [
+  customAssignmentRow(assignedPicker.id, [
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ])
+]);
+const customGrantService = new AccessPolicyService(customGrantPrisma as never);
+
+await customGrantService.onModuleInit();
+
+assert.equal(customGrantPrisma.findManyCalls, 1);
+assert.equal(customGrantPrisma.userAccessRoleAssignmentFindManyCalls, 1);
+assert.equal(
+  customGrantService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+assert.equal(
+  customGrantService.hasPermission(
+    unassignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.doesNotThrow(() =>
+  customGrantService.assertCan(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  )
+);
+assert.throws(
+  () =>
+    customGrantService.assertCan(
+      unassignedPicker,
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    ),
+  ForbiddenException
+);
+assert.equal(
+  customGrantService.hasPermission(assignedPicker, PermissionKeys.REQUESTS_VIEW),
+  true
+);
+assert.equal(
+  customGrantService.hasPermission(
+    actor(UserRole.ADMIN),
+    PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+  ),
+  true
+);
+assert.equal(
+  customGrantService.hasPermission(
+    actor(UserRole.SUPER_ADMIN),
+    PermissionKeys.ACCESS_CONTROL_MANAGE_SYSTEM_ROLE_MATRIX
+  ),
+  true
+);
+
+const customSyncHasPermissionResult = customGrantService.hasPermission(
+  assignedPicker,
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+);
+const customSyncCanResult = customGrantService.can(
+  assignedPicker,
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+);
+const customSyncAssertCanResult = customGrantService.assertCan(
+  assignedPicker,
+  PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+);
+
+assert.equal(isPromiseLike(customSyncHasPermissionResult), false);
+assert.equal(isPromiseLike(customSyncCanResult), false);
+assert.equal(customSyncAssertCanResult, undefined);
+
+const emptyCustomAssignmentService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), []) as never
+);
+
+await emptyCustomAssignmentService.onModuleInit();
+assert.equal(
+  emptyCustomAssignmentService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
+assert.equal(
+  emptyCustomAssignmentService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+
+const systemAssignmentIgnoredService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    ], {
+      accessRole: {
+        kind: AccessRoleKind.SYSTEM,
+        status: AccessRoleStatus.ACTIVE,
+        isSystem: true,
+        permissions: [
+          { permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER }
+        ]
+      }
+    })
+  ]) as never
+);
+
+await systemAssignmentIgnoredService.onModuleInit();
+assert.equal(
+  systemAssignmentIgnoredService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+
+const inactiveExpiredFutureAssignmentService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    ], {
+      status: AccessRoleAssignmentStatus.INACTIVE
+    }),
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+    ], {
+      endsAt: new Date(Date.now() - 60_000)
+    }),
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+    ], {
+      startsAt: new Date(Date.now() + 60_000)
+    })
+  ]) as never
+);
+
+await inactiveExpiredFutureAssignmentService.onModuleInit();
+assert.equal(
+  inactiveExpiredFutureAssignmentService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  inactiveExpiredFutureAssignmentService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+  ),
+  false
+);
+assert.equal(
+  inactiveExpiredFutureAssignmentService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+  ),
+  false
+);
+
+const invalidCustomPermissionService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+      "unknown.permission"
+    ])
+  ]) as never
+);
+
+await assert.doesNotReject(() => invalidCustomPermissionService.onModuleInit());
+assert.equal(
+  invalidCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  invalidCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
 
 const missingRoleService = new AccessPolicyService(
   mockPrisma(completeDbRows().filter((row) => row.systemRole !== UserRole.CHAMP)) as never
@@ -310,29 +602,6 @@ assert.equal(
 );
 assert.equal(
   emptyDbService.hasPermission(
-    actor(UserRole.PICKER),
-    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
-  ),
-  false
-);
-
-const userAssignmentProbePrisma = {
-  accessRole: {
-    findMany: async () => completeDbRows()
-  },
-  userAccessRoleAssignment: {
-    findMany: async () => {
-      throw new Error("UserAccessRoleAssignment must not be read in Phase 7E.");
-    }
-  }
-};
-const userAssignmentProbeService = new AccessPolicyService(
-  userAssignmentProbePrisma as never
-);
-
-await userAssignmentProbeService.onModuleInit();
-assert.equal(
-  userAssignmentProbeService.hasPermission(
     actor(UserRole.PICKER),
     PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
   ),
