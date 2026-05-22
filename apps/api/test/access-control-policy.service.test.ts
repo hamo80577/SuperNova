@@ -553,6 +553,74 @@ assert.equal(
   true
 );
 
+const systemOnlyCustomPermissionService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+      PermissionKeys.ACCESS_CONTROL_VIEW
+    ])
+  ]) as never
+);
+
+await assert.doesNotReject(() =>
+  systemOnlyCustomPermissionService.onModuleInit()
+);
+assert.equal(
+  systemOnlyCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  systemOnlyCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.ACCESS_CONTROL_VIEW
+  ),
+  false
+);
+assert.equal(
+  systemOnlyCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
+
+const nonAssignableCustomPermissionService = new AccessPolicyService(
+  mockPrisma(completeDbRows(), [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+      PermissionKeys.ACCESS_CONTROL_VIEW_ROLE_MATRIX
+    ])
+  ]) as never
+);
+
+await assert.doesNotReject(() =>
+  nonAssignableCustomPermissionService.onModuleInit()
+);
+assert.equal(
+  nonAssignableCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  nonAssignableCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.ACCESS_CONTROL_VIEW_ROLE_MATRIX
+  ),
+  false
+);
+assert.equal(
+  nonAssignableCustomPermissionService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
+
 const missingRoleService = new AccessPolicyService(
   mockPrisma(completeDbRows().filter((row) => row.systemRole !== UserRole.CHAMP)) as never
 );

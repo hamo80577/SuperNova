@@ -254,10 +254,24 @@ export class AccessPolicyService implements OnModuleInit {
 
       for (const permission of assignment.accessRole.permissions) {
         const permissionKey = permission.permissionKey as PermissionKey;
+        const permissionDefinition =
+          PERMISSION_DEFINITION_BY_KEY[permissionKey];
 
-        if (!PERMISSION_DEFINITION_BY_KEY[permissionKey]) {
+        if (!permissionDefinition) {
           throw new Error(
             `Unknown permission ${permission.permissionKey} in CUSTOM access role assignment for user ${assignment.userId}.`
+          );
+        }
+
+        if (permissionDefinition.systemOnly) {
+          throw new Error(
+            `System-only permission ${permission.permissionKey} cannot be granted by CUSTOM access role assignment for user ${assignment.userId}.`
+          );
+        }
+
+        if (!permissionDefinition.assignable) {
+          throw new Error(
+            `Non-assignable permission ${permission.permissionKey} cannot be granted by CUSTOM access role assignment for user ${assignment.userId}.`
           );
         }
 

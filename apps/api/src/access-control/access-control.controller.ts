@@ -13,6 +13,13 @@ import {
 } from "./permissions";
 import { SYSTEM_ROLE_PERMISSIONS } from "./role-permission.matrix";
 
+const SYSTEM_ROLE_PERMISSIONS_SOURCE = {
+  source: "CODE_SYSTEM_ROLE_MATRIX",
+  editable: false,
+  note:
+    "System role permissions are code-owned and seeded to DB as mirrors. Runtime policy may load the seeded DB cache at startup with code fallback."
+} as const;
+
 @Controller("access-control")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.SUPER_ADMIN)
@@ -32,7 +39,8 @@ export class AccessControlController {
     return {
       permissions: listPermissions(),
       permissionsByGroup: listPermissionsByGroup(),
-      systemRolePermissions: SYSTEM_ROLE_PERMISSIONS
+      systemRolePermissions: SYSTEM_ROLE_PERMISSIONS,
+      systemRolePermissionsSource: SYSTEM_ROLE_PERMISSIONS_SOURCE
     };
   }
 }

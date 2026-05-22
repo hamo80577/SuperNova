@@ -66,11 +66,18 @@ assert.deepEqual(policyCalls, [
 assert.equal(overview.permissions, listPermissions());
 assert.equal(overview.permissionsByGroup, listPermissionsByGroup());
 assert.equal(overview.systemRolePermissions, SYSTEM_ROLE_PERMISSIONS);
+assert.deepEqual(overview.systemRolePermissionsSource, {
+  source: "CODE_SYSTEM_ROLE_MATRIX",
+  editable: false,
+  note:
+    "System role permissions are code-owned and seeded to DB as mirrors. Runtime policy may load the seeded DB cache at startup with code fallback."
+});
 assert.deepEqual(Object.keys(overview).sort(), [
   "permissions",
   "permissionsByGroup",
+  "systemRolePermissionsSource",
   "systemRolePermissions"
-]);
+].sort());
 
 assert.ok(overview.permissions.length > 0);
 assert.ok(

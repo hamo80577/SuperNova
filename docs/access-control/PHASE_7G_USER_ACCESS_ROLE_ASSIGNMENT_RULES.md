@@ -2,9 +2,13 @@
 
 ## Purpose
 
-Phase 7G adds a database guard for future `UserAccessRoleAssignment` usage and documents assignment semantics before any runtime authorization, API, or UI starts using the table.
+Phase 7G adds a database guard for `UserAccessRoleAssignment` usage and documents assignment semantics before any mutation API or UI starts using the table.
 
-This phase does not change runtime authorization behavior. `UserAccessRoleAssignment` remains inert.
+As of Phase 7H, `AccessPolicyService` reads ACTIVE CUSTOM `UserAccessRoleAssignment` rows at startup as additive user-specific permission grants.
+
+This does not add custom-role assignment mutation APIs, role-management UI, or role-transition behavior.
+
+Manual DB changes to CUSTOM access roles or user assignments can affect authorization after API restart. Until audited APIs exist, those changes must be treated as privileged operational database changes.
 
 ## User Role Remains Primary Persona
 
@@ -22,11 +26,19 @@ Operational role transitions are separate product actions, not access-role assig
 
 ## Additive Permission Grants Only
 
-Access role assignments are intended to be additive in future phases.
+Access role assignments are additive.
 
-Base permissions from `User.role` remain the foundation. Active user access-role assignments may later add extra permissions, but they must not remove base system-role permissions.
+Base permissions from `User.role` remain the foundation. Active CUSTOM user access-role assignments may add extra permissions, but they must not remove base system-role permissions.
 
-Future runtime behavior must define clear merge rules before this table is read by `AccessPolicyService`.
+`AccessPolicyService` checks base system-role permissions first and then checks additive CUSTOM grants for the actor's user id.
+
+CUSTOM grant permissions must:
+
+- exist in the code-owned permission catalog
+- have `assignable === true`
+- have `systemOnly !== true`
+
+If any active CUSTOM assignment contains an unknown, non-assignable, or system-only permission, the custom assignment cache is ignored and base system-role permissions still apply.
 
 ## Operational Scope Remains Assignment-Table Based
 
@@ -72,11 +84,19 @@ Historical rows should remain available. Multiple INACTIVE rows for the same use
 
 SYSTEM `AccessRole` rows are seed/system-managed.
 
+SYSTEM user access-role assignments are ignored by `AccessPolicyService` in this phase.
+
 Do not manually assign SYSTEM `AccessRole` rows to users unless a later phase explicitly approves that product behavior.
 
-Future custom role assignment should normally use CUSTOM `AccessRole` rows.
+Custom role assignment should use CUSTOM `AccessRole` rows.
 
-System role permission rows should continue to be synchronized from `SYSTEM_ROLE_PERMISSIONS` until a later phase explicitly changes ownership.
+System role permission rows are code-owned mirrors:
+
+- `SYSTEM_ROLE_PERMISSIONS` is the source of truth.
+- `prisma/access-role-seed.ts` syncs DB SYSTEM permission rows from the code matrix.
+- Running `npm run db:seed` will sync DB SYSTEM permissions back to the code matrix.
+- Do not manually edit SYSTEM role permission rows in the database in this phase.
+- DB-owned SYSTEM role management is a future explicit decision.
 
 ## Picker To Champ Transition
 
@@ -88,14 +108,14 @@ Access-role assignment must not be used as a shortcut for role transition.
 
 ## Future Runtime Requirements
 
-Before `UserAccessRoleAssignment` affects authorization, define:
+Before adding mutation APIs or UI for `UserAccessRoleAssignment`, define:
 
 - who can assign CUSTOM access roles
-- whether SYSTEM access roles are assignable at all
 - audit behavior for assignment create/revoke
 - active-only assignment write behavior
 - cache refresh or restart expectations for permission changes
 - conflict rules when custom permissions overlap with system permissions
 - product guardrails for high-risk lifecycle and access-control permissions
+- whether SYSTEM access roles are ever assignable to users
 
-Until those decisions are implemented, `UserAccessRoleAssignment` remains schema foundation only.
+Until those decisions are implemented, `UserAccessRoleAssignment` remains read-only runtime foundation with no mutation API or UI.
