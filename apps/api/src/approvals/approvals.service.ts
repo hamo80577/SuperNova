@@ -15,6 +15,12 @@ import {
   UserRole
 } from "@prisma/client";
 
+import { AccessPolicyService } from "../access-control/access-policy.service";
+import {
+  isChainAuthorityStep,
+  isFinalLifecycleAuthorityStep
+} from "../access-control/approval-authority";
+import { PermissionKeys } from "../access-control/permissions";
 import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -54,7 +60,9 @@ export class ApprovalsService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(RequestsService)
-    private readonly requestsService: RequestsService
+    private readonly requestsService: RequestsService,
+    @Inject(AccessPolicyService)
+    private readonly accessPolicy: AccessPolicyService
   ) {}
 
   getFoundationStatus() {
@@ -111,6 +119,7 @@ export class ApprovalsService {
     context: RequestContext
   ) {
     const approval = await this.findApprovalOrThrow(approvalId);
+    this.assertApprovalDecisionPermission(approval, context.actor);
     await this.assertCanDecide(approval, context.actor);
 
     if (
@@ -250,6 +259,7 @@ export class ApprovalsService {
     context: RequestContext
   ) {
     const approval = await this.findApprovalOrThrow(approvalId);
+    this.assertApprovalDecisionPermission(approval, context.actor);
     await this.assertCanDecide(approval, context.actor);
 
     const notes = dto.notes?.trim();
@@ -365,6 +375,35 @@ export class ApprovalsService {
     if (!canAct) {
       throw new ForbiddenException("You do not own this approval step.");
     }
+  }
+
+  private assertApprovalDecisionPermission(
+    approval: Pick<RequestApproval, "id" | "requestId" | "step">,
+    user: AuthenticatedUser
+  ) {
+    if (isChainAuthorityStep(approval.step)) {
+      this.accessPolicy.assertCan(user, PermissionKeys.APPROVALS_DECIDE_CHAIN, {
+        approvalId: approval.id,
+        requestId: approval.requestId
+      });
+      return;
+    }
+
+    if (isFinalLifecycleAuthorityStep(approval.step)) {
+      this.accessPolicy.assertCan(
+        user,
+        PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE,
+        {
+          approvalId: approval.id,
+          requestId: approval.requestId
+        }
+      );
+      return;
+    }
+
+    throw new BadRequestException(
+      `Unsupported approval authority step ${approval.step}.`
+    );
   }
 
   private sortApprovals<T extends Pick<RequestApproval, "step" | "createdAt">>(
