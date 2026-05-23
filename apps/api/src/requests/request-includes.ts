@@ -17,6 +17,18 @@ export type RequestWithRelations = Prisma.RequestGetPayload<{
   include: typeof requestInclude;
 }>;
 
+export const requestDetailInclude = {
+  ...requestInclude,
+  hrSyncLogs: {
+    orderBy: { createdAt: "desc" as const },
+    take: 1
+  }
+} satisfies Prisma.RequestInclude;
+
+export type RequestDetailWithRelations = Prisma.RequestGetPayload<{
+  include: typeof requestDetailInclude;
+}>;
+
 export const requestApprovalWithRequestInclude = {
   request: {
     include: requestInclude

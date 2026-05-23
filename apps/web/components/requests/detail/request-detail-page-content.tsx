@@ -12,6 +12,7 @@ import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
 import { ApprovalStepsIndicator } from "./approval-steps-indicator";
+import { HrSyncStatusCard } from "./hr-sync-status-card";
 import { RequestTimeline } from "./request-timeline";
 import { RequestTypePanel } from "./request-type-panel";
 import { RequestStatusBadge } from "../shared/request-badges";
@@ -131,6 +132,7 @@ export function RequestDetailView() {
       </section>
 
       <RequestTypePanel request={request} />
+      <HrSyncStatusCard hrSync={request.hrSync} />
 
       {request.type === "NEW_HIRE" &&
       request.status === "PENDING_ADMIN" &&

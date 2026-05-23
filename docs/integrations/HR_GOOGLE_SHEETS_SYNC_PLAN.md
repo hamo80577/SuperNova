@@ -4,9 +4,9 @@
 
 This document plans a future HR Sync integration from SuperNova to Google Sheets through a Google Apps Script Web App.
 
-HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton. HR-3 added the backend sender client and Apps Script response contract handling. HR-4 wired post-finalization hooks for Picker New Hire/Rehire and Picker Resignation only.
+HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton. HR-3 added the backend sender client and Apps Script response contract handling. HR-4 wired post-finalization hooks for Picker New Hire/Rehire and Picker Resignation only. HR-5 added a read-only ticket/request detail HR Sync status indicator.
 
-No Apps Script package or UI exists yet. The sender performs an external call only when `HR_SYNC_ENABLED=true` and a supported Picker finalization has completed successfully.
+No Apps Script package exists yet. The sender performs an external call only when `HR_SYNC_ENABLED=true` and a supported Picker finalization has completed successfully.
 
 The integration is planned after Picker lifecycle workflows and before any broad UI/UX work resumes. SuperNova remains a Partner Workforce Operations System, not a generic HR ERP.
 
@@ -114,13 +114,16 @@ Implemented in HR-1 as a dedicated Prisma `HrSyncLog` model/table with enum-back
 
 ## Status and UI Direction
 
-Future ticket/request detail and timeline UI should show:
+Ticket/request detail UI now shows a read-only HR Sync status when a request has an `HrSyncLog`:
 
 - `Sent to HR` with a check mark when sync succeeds.
 - `HR Sync failed` when sync fails.
-- `Skipped` when the request is not applicable.
+- `HR Sync skipped` when sync is disabled or intentionally skipped.
+- `HR Sync pending` when a log exists but has not been sent.
 
-The indicator belongs in ticket detail/timeline UI. No UI is implemented in this phase.
+The indicator is intentionally compact and is shown only on request detail surfaces. The frontend receives only sanitized metadata: status, workflow type, target sheet, sent/updated timestamps, and safe error text. Raw `payloadSnapshot`, raw `responseSnapshot`, deployment URL, and shared secret are never exposed to the frontend.
+
+Retry/admin visibility remains deferred.
 
 ## New Hire and Rehire Payload
 
@@ -241,6 +244,7 @@ Current backend responsibilities:
 - Run only after supported Picker workflow finalization has completed.
 - Never throw in a way that rolls back completed lifecycle finalization after the system state has been applied.
 - Create a `FAILED` HR Sync log, when possible, if an old already-open request is missing `actualJoiningDate` or `lastWorkingDate`.
+- Expose the latest HR Sync log as sanitized request detail metadata only.
 - Provide a clear retryable failure state for future admin visibility.
 
 The service should not own lifecycle rules. New Hire and Resignation workflow services remain authoritative for finalization.
@@ -279,8 +283,8 @@ If HR Sync is disabled:
 3. `HR-2`: Picker New Hire/Rehire `actualJoiningDate` and Picker Resignation `lastWorkingDate` request payload/form fields. Implemented.
 4. `HR-3`: Backend Apps Script sender client and response contract handling inside `HrSyncService`, still not called by workflows. Implemented.
 5. `HR-4`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only. Implemented.
-6. `HR-5`: Google Apps Script package with sample payloads. Deferred until later.
-7. `HR-6`: Ticket details/timeline HR Sync status indicator.
+6. `HR-5`: Ticket/request detail HR Sync status indicator. Implemented.
+7. `HR-6`: Google Apps Script package with sample payloads. Deferred until later.
 8. `HR-7`: Retry/admin visibility and regression.
 
 ## Acceptance Criteria for Future Work
