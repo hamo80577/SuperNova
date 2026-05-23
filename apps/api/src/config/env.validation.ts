@@ -16,6 +16,9 @@ export function validateEnvironment(config: EnvironmentConfig) {
     config,
     "TEMP_PASSWORD_ENCRYPTION_KEY"
   );
+  const hrSyncEnabled = readBooleanString(config, "HR_SYNC_ENABLED", errors);
+  const hrSyncWebAppUrl = readOptionalString(config, "HR_SYNC_WEB_APP_URL");
+  const hrSyncSecret = readOptionalString(config, "HR_SYNC_SECRET");
 
   if (jwtSecret && jwtSecret.length < MIN_SECRET_LENGTH) {
     errors.push(`JWT_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`);
@@ -42,6 +45,22 @@ export function validateEnvironment(config: EnvironmentConfig) {
     );
   }
 
+  if (hrSyncEnabled) {
+    if (!hrSyncWebAppUrl) {
+      errors.push("HR_SYNC_WEB_APP_URL is required when HR_SYNC_ENABLED=true.");
+    } else if (!isValidHttpsUrl(hrSyncWebAppUrl)) {
+      errors.push("HR_SYNC_WEB_APP_URL must be a valid HTTPS URL.");
+    }
+
+    if (!hrSyncSecret) {
+      errors.push("HR_SYNC_SECRET is required when HR_SYNC_ENABLED=true.");
+    } else if (hrSyncSecret.length < MIN_SECRET_LENGTH) {
+      errors.push(
+        `HR_SYNC_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`
+      );
+    }
+  }
+
   if (errors.length > 0) {
     throw new Error(`API environment validation failed: ${errors.join(" ")}`);
   }
@@ -55,6 +74,9 @@ export function validateEnvironment(config: EnvironmentConfig) {
     NODE_ENV: nodeEnv,
     API_PORT: apiPort,
     JWT_EXPIRES_IN: jwtExpiresIn,
+    HR_SYNC_ENABLED: hrSyncEnabled ? "true" : "false",
+    ...(hrSyncWebAppUrl ? { HR_SYNC_WEB_APP_URL: hrSyncWebAppUrl } : {}),
+    ...(hrSyncSecret ? { HR_SYNC_SECRET: hrSyncSecret } : {}),
     ...(temporaryPasswordEncryptionKey
       ? { TEMP_PASSWORD_ENCRYPTION_KEY: temporaryPasswordEncryptionKey }
       : {})
@@ -86,6 +108,25 @@ function readOptionalString(config: EnvironmentConfig, key: string) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function readBooleanString(
+  config: EnvironmentConfig,
+  key: string,
+  errors: string[]
+) {
+  const value = readOptionalString(config, key);
+
+  if (!value) {
+    return false;
+  }
+
+  if (value !== "true" && value !== "false") {
+    errors.push(`${key} must be true or false.`);
+    return false;
+  }
+
+  return value === "true";
+}
+
 function normalizeOrigin(value: string | undefined) {
   if (!value) {
     return undefined;
@@ -100,5 +141,14 @@ function normalizeOrigin(value: string | undefined) {
     return isHttpOrigin && hasNoPathOrQuery ? url.origin : undefined;
   } catch {
     return undefined;
+  }
+}
+
+function isValidHttpsUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:";
+  } catch {
+    return false;
   }
 }

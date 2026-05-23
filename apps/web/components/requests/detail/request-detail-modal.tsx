@@ -11,6 +11,7 @@ import { FinalizeNewHirePanel } from "../actions/finalize-new-hire-panel";
 import { FinalizeOffboardingPanel } from "../actions/finalize-offboarding-panel";
 import { RequestApprovalDecisionPanel } from "../actions/request-approval-decision-panel";
 import { ApprovalStepsIndicator } from "./approval-steps-indicator";
+import { HrSyncStatusCard } from "./hr-sync-status-card";
 import { RequestTimeline } from "./request-timeline";
 import { RequestTypePanel } from "./request-type-panel";
 import { RequestStatusBadge } from "../shared/request-badges";
@@ -95,6 +96,7 @@ export function RequestDetailModal({
           {request ? (
             <div className="grid gap-4">
               <RequestTypePanel request={request} />
+              <HrSyncStatusCard hrSync={request.hrSync} />
 
               {actionableApproval &&
               !(

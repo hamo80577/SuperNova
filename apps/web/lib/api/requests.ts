@@ -18,6 +18,12 @@ export type ApprovalStep =
   | "SOURCE_AREA_MANAGER_APPROVAL"
   | "DESTINATION_AREA_MANAGER_APPROVAL"
   | "ADMIN_FINAL_APPROVAL";
+export type HrSyncStatus = "NOT_SENT" | "SENT" | "FAILED" | "SKIPPED";
+export type HrSyncWorkflowType =
+  | "PICKER_NEW_HIRE"
+  | "PICKER_REHIRE"
+  | "PICKER_RESIGNATION";
+export type HrSyncTargetSheet = "NEW_HIRE" | "RESIGN";
 export type NewHireTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
 export type ResignationTargetRole = "PICKER" | "CHAMP" | "AREA_MANAGER";
 export type OffboardingReasonCode =
@@ -105,7 +111,17 @@ export interface RequestTimelineItem {
   actorUserId: string | null;
 }
 
+export interface RequestHrSyncStatus {
+  status: HrSyncStatus;
+  workflowType: HrSyncWorkflowType;
+  targetSheet: HrSyncTargetSheet;
+  sentAt: string | null;
+  updatedAt: string;
+  errorMessage: string | null;
+}
+
 export interface RequestDetail extends RequestSummary {
+  hrSync?: RequestHrSyncStatus | null;
   timeline: RequestTimelineItem[];
 }
 
@@ -144,6 +160,7 @@ export interface CreateNewHirePayload {
   nationalId: string;
   address?: string;
   dateOfBirth?: string;
+  actualJoiningDate?: string;
   gender?: "MALE" | "FEMALE" | "UNSPECIFIED";
   notes?: string;
   shopperId?: string;
@@ -191,6 +208,7 @@ export interface CreateOffboardingPayload {
   sourceChainId?: string;
   targetUserId: string;
   resignationDate: string;
+  lastWorkingDate?: string;
   reasonCode: OffboardingReasonCode;
   reasonDetails?: string;
   notes?: string;

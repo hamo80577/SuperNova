@@ -39,7 +39,9 @@ import {
   isPendingRequestStatus
 } from "./request-status-machine";
 import {
+  requestDetailInclude,
   requestInclude,
+  type RequestDetailWithRelations,
   type RequestWithRelations
 } from "./request-includes";
 import {
@@ -47,7 +49,11 @@ import {
   type GeneratedApprovalStep
 } from "./request-approval-routing.service";
 import { assertRequestPayloadSafe } from "./request-payload.utils";
-import { toRequestSummary, toTimeline } from "./request-response.utils";
+import {
+  toRequestDetailSummary,
+  toRequestSummary,
+  toTimeline
+} from "./request-response.utils";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
@@ -126,7 +132,7 @@ export class RequestsService {
   }
 
   async getById(id: string, currentUser: AuthenticatedUser) {
-    const request = await this.findRequestOrThrow(id);
+    const request = await this.findRequestDetailOrThrow(id);
 
     if (!(await this.canViewRequest(request, currentUser))) {
       throw new ForbiddenException("You do not have access to this request.");
@@ -138,7 +144,7 @@ export class RequestsService {
     });
 
     return {
-      ...toRequestSummary(request, { includeTargetOperationalFields: true }),
+      ...toRequestDetailSummary(request, { includeTargetOperationalFields: true }),
       timeline: toTimeline(request, auditLogs)
     };
   }
@@ -435,7 +441,23 @@ export class RequestsService {
     return request;
   }
 
-  async canViewRequest(request: RequestWithRelations, user: AuthenticatedUser) {
+  private async findRequestDetailOrThrow(id: string) {
+    const request = await this.prisma.request.findUnique({
+      where: { id },
+      include: requestDetailInclude
+    });
+
+    if (!request) {
+      throw new NotFoundException("Request was not found.");
+    }
+
+    return request;
+  }
+
+  async canViewRequest(
+    request: RequestWithRelations | RequestDetailWithRelations,
+    user: AuthenticatedUser
+  ) {
     if (this.isAdmin(user)) {
       return true;
     }

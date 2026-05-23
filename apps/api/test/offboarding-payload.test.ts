@@ -12,7 +12,8 @@ const pickerPayload = parseOffboardingPayload({
     type: RequestType.RESIGNATION,
     reason: "Voluntary quit",
     reasonCode: "VOLUNTARY_QUIT",
-    resignationDate: "2026-05-18"
+    resignationDate: "2026-05-18",
+    lastWorkingDate: "2026-05-20"
   },
   source: {
     vendorId: "vendor-1",
@@ -34,6 +35,7 @@ assert.equal(pickerPayload.target.userId, "picker-1");
 assert.equal(pickerPayload.target.targetRole, UserRole.PICKER);
 assert.equal(pickerPayload.target.assignmentId, "assignment-1");
 assert.equal(pickerPayload.target.assignmentType, "PickerBranchAssignment");
+assert.equal(pickerPayload.offboarding.lastWorkingDate, "2026-05-20");
 assert.equal(
   pickerPayload.areaManagerDecision?.blockDecision,
   "LEGACY_TEMPORARY_BLOCK"
@@ -79,6 +81,24 @@ const areaManagerPayload = parseOffboardingPayload({
 });
 
 assert.equal(areaManagerPayload.target.targetRole, UserRole.AREA_MANAGER);
+
+const legacyPickerPayload = parseOffboardingPayload({
+  offboarding: {
+    type: RequestType.RESIGNATION,
+    reason: "Voluntary quit",
+    reasonCode: "VOLUNTARY_QUIT",
+    resignationDate: "2026-05-18"
+  },
+  source: {
+    vendorId: "vendor-1",
+    chainId: "chain-1"
+  },
+  target: {
+    pickerId: "picker-1",
+    pickerAssignmentId: "assignment-1"
+  }
+});
+assert.equal(legacyPickerPayload.offboarding.lastWorkingDate, undefined);
 
 assert.equal(blockStatusToDecision(BlockStatus.NO_BLOCK), "NO_BLOCK");
 assert.equal(blockStatusToDecision(BlockStatus.PERMANENT_BLOCK), "PERMANENT");

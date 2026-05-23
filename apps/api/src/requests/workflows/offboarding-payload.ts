@@ -7,6 +7,7 @@ import {
   type OffboardingReasonCode
 } from "./offboarding-workflow.policy";
 import type { OffboardingPayload } from "./offboarding-types";
+import { normalizeOptionalDateOnly } from "./request-date";
 
 export function parseOffboardingPayload(
   payload: Prisma.JsonValue
@@ -51,6 +52,15 @@ export function parseOffboardingPayload(
       ? targetPayload.targetRole
       : undefined
   );
+  const lastWorkingDate =
+    targetRole === UserRole.PICKER
+      ? normalizeOptionalDateOnly(
+          typeof offboardingPayload.lastWorkingDate === "string"
+            ? offboardingPayload.lastWorkingDate
+            : undefined,
+          "lastWorkingDate"
+        )
+      : undefined;
   const userId =
     typeof targetPayload.userId === "string"
       ? targetPayload.userId
@@ -109,7 +119,8 @@ export function parseOffboardingPayload(
         typeof offboardingPayload.notes === "string"
           ? offboardingPayload.notes
           : undefined,
-      resignationDate
+      resignationDate,
+      ...(lastWorkingDate ? { lastWorkingDate } : {})
     },
     source: {
       ...(typeof vendorId === "string" ? { vendorId } : {}),

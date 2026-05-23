@@ -1,0 +1,13 @@
+{
+  "secret": "replace-with-your-32-character-minimum-secret",
+  "eventType": "RESIGN",
+  "payload": {
+    "finalizerDisplayName": "Admin User",
+    "requestType": "Resign",
+    "type": "No Block",
+    "employeeName": "Test Picker",
+    "nationalId": "30001011234567",
+    "lastWorkingDate": "2026-05-23",
+    "title": "Picker"
+  }
+}

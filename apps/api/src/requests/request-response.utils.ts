@@ -1,5 +1,6 @@
 import type {
   AuditLog,
+  HrSyncLog,
   RequestApproval,
   User
 } from "@prisma/client";
@@ -10,7 +11,10 @@ import {
   toVendorSummary
 } from "../assignments/assignment-response.utils";
 import { redactJson } from "../security/sensitive-data.utils";
-import type { RequestWithRelations } from "./request-includes";
+import type {
+  RequestDetailWithRelations,
+  RequestWithRelations
+} from "./request-includes";
 
 type RequestSummaryOptions = {
   includeTargetOperationalFields?: boolean;
@@ -51,6 +55,35 @@ export function toRequestSummary(
       ? toVendorSummary(request.destinationVendor)
       : null,
     approvals: request.approvals.map(toApprovalSummary)
+  };
+}
+
+export function toRequestDetailSummary(
+  request: RequestDetailWithRelations,
+  options: RequestSummaryOptions | number = {}
+) {
+  return {
+    ...toRequestSummary(request, options),
+    hrSync: toRequestHrSyncStatus(request.hrSyncLogs)
+  };
+}
+
+export function toRequestHrSyncStatus(hrSyncLogs?: HrSyncLog[] | null) {
+  const latestLog = [...(hrSyncLogs ?? [])].sort(
+    (left, right) => right.createdAt.getTime() - left.createdAt.getTime()
+  )[0];
+
+  if (!latestLog) {
+    return null;
+  }
+
+  return {
+    status: latestLog.status,
+    workflowType: latestLog.workflowType,
+    targetSheet: latestLog.targetSheet,
+    sentAt: latestLog.sentAt,
+    updatedAt: latestLog.updatedAt,
+    errorMessage: latestLog.errorMessage
   };
 }
 

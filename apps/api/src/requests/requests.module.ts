@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { AccessControlModule } from "../access-control/access-control.module";
 import { AuditModule } from "../audit/audit.module";
+import { HrSyncModule } from "../hr-sync/hr-sync.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { UsersModule } from "../users/users.module";
 import { RequestApprovalRoutingService } from "./request-approval-routing.service";
@@ -26,6 +27,7 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
   imports: [
     AccessControlModule,
     AuditModule,
+    HrSyncModule,
     JwtModule.register({}),
     NotificationsModule,
     UsersModule

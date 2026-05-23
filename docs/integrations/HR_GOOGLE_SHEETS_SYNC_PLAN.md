@@ -4,7 +4,11 @@
 
 This document plans a future HR Sync integration from SuperNova to Google Sheets through a Google Apps Script Web App.
 
-This is documentation only. It does not add backend code, Apps Script code, schema changes, migrations, UI, environment files, or runtime behavior.
+HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton. HR-3 added the backend sender client and Apps Script response contract handling. HR-4 wired post-finalization hooks for Picker New Hire/Rehire and Picker Resignation only. HR-5 added a read-only ticket/request detail HR Sync status indicator. HR-6 added the Google Apps Script package and sample payloads.
+
+The Apps Script package is not automatically deployed. The product owner must copy `Code.gs` into Google Apps Script, run setup, deploy a Web App, and configure backend environment values before end-to-end sync can run.
+
+The sender performs an external call only when `HR_SYNC_ENABLED=true` and a supported Picker finalization has completed successfully.
 
 The integration is planned after Picker lifecycle workflows and before any broad UI/UX work resumes. SuperNova remains a Partner Workforce Operations System, not a generic HR ERP.
 
@@ -17,7 +21,7 @@ Included:
 - Picker Resignation.
 - Post-finalization sync to HR-owned Google Sheets.
 - Backend-to-Google Apps Script POST integration.
-- Future ticket/request detail HR Sync status indicator.
+- Read-only ticket/request detail HR Sync status indicator.
 
 Excluded:
 
@@ -56,6 +60,8 @@ The planned flow:
 7. Apps Script responds with JSON success or failure.
 8. SuperNova updates the HR Sync log with response or error details.
 
+HR-4 implementation rule: steps 2-8 run only after the finalization database transaction succeeds. They are not part of the workflow transaction and cannot roll back Picker creation, rehire, resignation, or assignment closure.
+
 Target Google Sheet tabs:
 
 - `New Hire`
@@ -84,7 +90,7 @@ Rules:
 - Do not log the secret.
 - Redact the deployment URL from user-facing error messages.
 
-These environment variables are planned only. They are not active until the backend integration phase implements them.
+These environment variables are backend-only. HR-1 added placeholder validation and example entries, but no workflow code calls Google Apps Script yet.
 
 ## Recommended Data Model Direction
 
@@ -106,17 +112,20 @@ Planned fields:
 | `createdAt` | Log creation timestamp. |
 | `updatedAt` | Log update timestamp. |
 
-This requires a future Prisma migration. Do not create that migration in this documentation phase.
+Implemented in HR-1 as a dedicated Prisma `HrSyncLog` model/table with enum-backed workflow type, target sheet, and status fields.
 
 ## Status and UI Direction
 
-Future ticket/request detail and timeline UI should show:
+Ticket/request detail UI now shows a read-only HR Sync status when a request has an `HrSyncLog`:
 
 - `Sent to HR` with a check mark when sync succeeds.
 - `HR Sync failed` when sync fails.
-- `Skipped` when the request is not applicable.
+- `HR Sync skipped` when sync is disabled or intentionally skipped.
+- `HR Sync pending` when a log exists but has not been sent.
 
-The indicator belongs in ticket detail/timeline UI. No UI is implemented in this phase.
+The indicator is intentionally compact and is shown only on request detail surfaces. The frontend receives only sanitized metadata: status, workflow type, target sheet, sent/updated timestamps, and safe error text. Raw `payloadSnapshot`, raw `responseSnapshot`, deployment URL, and shared secret are never exposed to the frontend.
+
+Retry/admin visibility remains deferred.
 
 ## New Hire and Rehire Payload
 
@@ -136,14 +145,14 @@ Headers:
 | `New Hire Full Name (English)` | Picker English name. |
 | `New Hire National ID` | Picker national ID. |
 | `New Hire Phone Number` | Picker phone number. |
-| `New Hire Actual Joining/Hiring Date` | Planned `actualJoiningDate` request payload field. |
+| `New Hire Actual Joining/Hiring Date` | `actualJoiningDate` request payload field captured for Picker New Hire/Rehire. |
 | `New Hire Home Address` | Picker home address from request/profile data. |
 | `Vertical` | Always `Local Shops`. |
 | `New Hire Title` | Always `Picker`. |
 
-### Planned Actual Joining Date Change
+### Actual Joining Date Status
 
-Picker New Hire/Rehire must add an `actualJoiningDate` date picker.
+HR-2 added an `actualJoiningDate` date picker to Picker New Hire/Rehire request submission.
 
 Rules:
 
@@ -152,6 +161,7 @@ Rules:
 - Used as the official system reference for the Picker start date.
 - Separate from request creation date.
 - Not required for Champ or Area Manager in this HR Sync scope.
+- Apps Script deployment and end-to-end verification remain deferred to HR-7.
 
 ## Resignation Payload
 
@@ -170,29 +180,30 @@ Headers:
 | `Type` | Request/block status semantics, for example `No Block`, `Temporary Block`, or `Permanent Block`. |
 | `Resigned Employee Name` | Picker English name. |
 | `Resigned Employee National ID` | Picker national ID. |
-| `Resigned Employee Last Working Date (LWD)` | Planned or existing `lastWorkingDate` field from Picker resignation request data. |
+| `Resigned Employee Last Working Date (LWD)` | `lastWorkingDate` field captured for Picker resignation request data. |
 | `Resigned Employee Title` | Always `Picker`. |
 
-### Last Working Date Direction
+### Last Working Date Status
 
-Picker resignation request data should include `lastWorkingDate` if it does not already exist.
+HR-2 added `lastWorkingDate` to Picker resignation request submission.
 
 Rules:
 
 - It represents the Picker's last working date for HR reporting.
 - It must be part of Picker resignation request data.
 - It must not be inferred from finalization date unless a later product decision explicitly allows that fallback.
+- Apps Script deployment and end-to-end verification remain deferred to HR-7.
 
-## Apps Script Package Plan
+## Apps Script Package
 
-Future package location:
+Implemented package location:
 
 ```text
 scripts/google-apps-script/hr-sync/Code.gs
 scripts/google-apps-script/hr-sync/README.md
-scripts/google-apps-script/hr-sync/samples/new-hire.json
-scripts/google-apps-script/hr-sync/samples/rehire.json
-scripts/google-apps-script/hr-sync/samples/resign.json
+scripts/google-apps-script/hr-sync/sample-new-hire.payload.json
+scripts/google-apps-script/hr-sync/sample-rehire.payload.json
+scripts/google-apps-script/hr-sync/sample-resign.payload.json
 ```
 
 Apps Script responsibilities:
@@ -216,18 +227,36 @@ Apps Script responsibilities:
 
 Apps Script should keep deployment URL and spreadsheet ID out of committed source where possible. Use Script Properties for deployment-specific settings.
 
+Deployment is manual:
+
+1. Copy `Code.gs` into a Google Apps Script project.
+2. Run `setupHrSync(spreadsheetUrlOrId, sharedSecret)`.
+3. Deploy the project as a Web App.
+4. Configure backend env with the deployment URL and the same shared secret.
+5. Restart the API.
+
+HR-7 should perform end-to-end verification against the deployed Web App.
+
 ## Backend Service Direction
 
-Future backend implementation should introduce a small focused service, for example `HrSyncService`.
+Backend implementation should keep HR Sync behind a small focused service boundary, `HrSyncService`.
 
-Responsibilities:
+HR-1 added the initial `HrSyncService` skeleton. It can build typed payloads and create/update sync log rows. HR-3 added `sendToHrSheet(...)`, a raw sender method that posts to the configured Apps Script Web App and normalizes success, skipped, and failed results. HR-4 wired this service into Picker New Hire/Rehire and Picker Resignation finalization after successful workflow transactions.
+
+Current backend responsibilities:
 
 - Check `HR_SYNC_ENABLED`.
 - Build event-specific payloads.
 - Create/update `HrSyncLog`.
-- POST to Apps Script with a shared secret.
 - Mark `SENT`, `FAILED`, or `SKIPPED`.
+- Return `SKIPPED` without an HTTP call when HR Sync is disabled.
+- POST `{ secret, eventType, payload }` to the backend-only `HR_SYNC_WEB_APP_URL` when explicitly called and enabled.
+- Validate Apps Script-style JSON responses and normalize sender results.
+- Redact the configured shared secret from sender errors/responses.
+- Run only after supported Picker workflow finalization has completed.
 - Never throw in a way that rolls back completed lifecycle finalization after the system state has been applied.
+- Create a `FAILED` HR Sync log, when possible, if an old already-open request is missing `actualJoiningDate` or `lastWorkingDate`.
+- Expose the latest HR Sync log as sanitized request detail metadata only.
 - Provide a clear retryable failure state for future admin visibility.
 
 The service should not own lifecycle rules. New Hire and Resignation workflow services remain authoritative for finalization.
@@ -245,7 +274,7 @@ If HR Sync fails after finalization:
 
 If HR Sync is disabled:
 
-- Mark applicable requests as `SKIPPED` or avoid creating a send attempt, depending on final data model decision.
+- Mark applicable post-finalization Picker sync attempts as `SKIPPED`.
 - Do not treat disabled sync as a workflow failure.
 
 ## Security Rules
@@ -261,14 +290,14 @@ If HR Sync is disabled:
 
 ## Planned Implementation Phases
 
-1. `HR-0`: Documentation cleanup and integration plan.
-2. `HR-1`: Google Apps Script package with sample payloads.
-3. `HR-2`: Backend env/config, `HrSyncService`, and `HrSyncLog` schema design/migration.
-4. `HR-3`: Picker New Hire/Rehire `actualJoiningDate` request payload and form.
-5. `HR-4`: Picker Resignation `lastWorkingDate` verification or addition if missing.
-6. `HR-5`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only.
-7. `HR-6`: Ticket details/timeline HR Sync status indicator.
-8. `HR-7`: Retry/admin visibility and regression.
+1. `HR-0`: Documentation cleanup and integration plan. Implemented.
+2. `HR-1`: Backend HR Sync foundation: env placeholders, `HrSyncLog` schema/migration, typed payload helpers, and inert `HrSyncService`. Implemented.
+3. `HR-2`: Picker New Hire/Rehire `actualJoiningDate` and Picker Resignation `lastWorkingDate` request payload/form fields. Implemented.
+4. `HR-3`: Backend Apps Script sender client and response contract handling inside `HrSyncService`, still not called by workflows. Implemented.
+5. `HR-4`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only. Implemented.
+6. `HR-5`: Ticket/request detail HR Sync status indicator. Implemented.
+7. `HR-6`: Google Apps Script package with sample payloads. Implemented.
+8. `HR-7`: End-to-end verification against deployed Apps Script, then retry/admin visibility and regression.
 
 ## Acceptance Criteria for Future Work
 

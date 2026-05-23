@@ -15,6 +15,8 @@ import {
   ChainStatus,
   EmploymentStatus,
   Gender,
+  HrSyncTargetSheet,
+  HrSyncWorkflowType,
   Prisma,
   ProfileStatus,
   RequestStatus,
@@ -27,6 +29,7 @@ import {
 import bcrypt from "bcryptjs";
 
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
+import { HrSyncService, type HrSyncEventType } from "../../hr-sync";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TemporaryPasswordService } from "../../users/temporary-password.service";
 import type { FinalizeNewHireDto } from "../dto/finalize-new-hire.dto";
@@ -62,7 +65,9 @@ export class NewHireFinalizationService {
     @Inject(NewHireCandidateService)
     private readonly newHireCandidateService: NewHireCandidateService,
     @Inject(TemporaryPasswordService)
-    private readonly temporaryPasswordService: TemporaryPasswordService
+    private readonly temporaryPasswordService: TemporaryPasswordService,
+    @Inject(HrSyncService)
+    private readonly hrSync: HrSyncService
   ) {}
 
   async finalizeNewHire(
@@ -439,6 +444,8 @@ export class NewHireFinalizationService {
       throw error;
     }
 
+    await this.syncPickerNewHireToHr(request.id, payload, result.user, context);
+
     return {
       request: toRequestSummary(result.completedRequest),
       user: this.toFinalizedUserResponse(result.user),
@@ -448,6 +455,162 @@ export class NewHireFinalizationService {
         finalizableTargetRole
       )
     };
+  }
+
+  private async syncPickerNewHireToHr(
+    requestId: string,
+    payload: NewHirePayload,
+    finalizedUser: User,
+    context: RequestContext
+  ) {
+    if (payload.targetRole !== UserRole.PICKER) {
+      return;
+    }
+
+    const isRehire = payload.mode === "REHIRE";
+    const workflowType = isRehire
+      ? HrSyncWorkflowType.PICKER_REHIRE
+      : HrSyncWorkflowType.PICKER_NEW_HIRE;
+    const eventType: HrSyncEventType = isRehire ? "REHIRE" : "NEW_HIRE";
+    const actualJoiningDate = payload.candidate.actualJoiningDate?.trim();
+    const baseInput = {
+      finalizerDisplayName: this.finalizerDisplayName(context.actor),
+      fullNameEnglish:
+        finalizedUser.nameEn ?? payload.candidate.nameEn ?? "New Picker",
+      nationalId: finalizedUser.nationalId ?? payload.candidate.nationalId,
+      phoneNumber: finalizedUser.phoneNumber ?? payload.candidate.phoneNumber,
+      homeAddress: finalizedUser.address ?? payload.candidate.address ?? ""
+    };
+
+    if (!actualJoiningDate) {
+      await this.recordFailedHrSyncLog({
+        requestId,
+        workflowType,
+        targetSheet: HrSyncTargetSheet.NEW_HIRE,
+        payloadSnapshot: {
+          ...baseInput,
+          requestType: isRehire ? "Rehire" : "New Hire",
+          actualJoiningDate: null
+        },
+        errorMessage: "Missing actualJoiningDate for HR sync."
+      });
+      return;
+    }
+
+    const hrPayload = isRehire
+      ? this.hrSync.buildPickerRehirePayload({
+          ...baseInput,
+          actualJoiningDate
+        })
+      : this.hrSync.buildPickerNewHirePayload({
+          ...baseInput,
+          actualJoiningDate
+        });
+
+    await this.createAndSendHrSyncLog({
+      requestId,
+      workflowType,
+      targetSheet: HrSyncTargetSheet.NEW_HIRE,
+      eventType,
+      payloadSnapshot: hrPayload,
+      payload: hrPayload
+    });
+  }
+
+  private async createAndSendHrSyncLog(params: {
+    requestId: string;
+    workflowType: HrSyncWorkflowType;
+    targetSheet: HrSyncTargetSheet;
+    eventType: HrSyncEventType;
+    payloadSnapshot: Prisma.InputJsonValue;
+    payload: object;
+  }) {
+    let logId: string | null = null;
+
+    try {
+      const log = await this.hrSync.createNotSentLog({
+        requestId: params.requestId,
+        workflowType: params.workflowType,
+        targetSheet: params.targetSheet,
+        payloadSnapshot: params.payloadSnapshot
+      });
+      logId = log.id;
+
+      const result = await this.hrSync.sendToHrSheet({
+        eventType: params.eventType,
+        payload: params.payload
+      });
+
+      if (result.status === "SENT") {
+        await this.hrSync.markSent(log.id, {
+          responseSnapshot: result.rawResponse,
+          sentAt: new Date()
+        });
+        return;
+      }
+
+      if (result.status === "SKIPPED") {
+        await this.hrSync.markSkipped(log.id, {
+          reason: result.reason,
+          responseSnapshot: {
+            status: "SKIPPED",
+            reason: result.reason
+          }
+        });
+        return;
+      }
+
+      await this.hrSync.markFailed(log.id, {
+        errorMessage: result.error,
+        responseSnapshot: result.rawResponse
+          ? (result.rawResponse as Prisma.InputJsonValue)
+          : null
+      });
+    } catch (error) {
+      if (!logId) {
+        return;
+      }
+
+      try {
+        await this.hrSync.markFailed(logId, {
+          errorMessage: this.formatHrSyncError(error),
+          responseSnapshot: null
+        });
+      } catch {
+        // HR Sync must never fail a completed workflow finalization.
+      }
+    }
+  }
+
+  private async recordFailedHrSyncLog(params: {
+    requestId: string;
+    workflowType: HrSyncWorkflowType;
+    targetSheet: HrSyncTargetSheet;
+    payloadSnapshot: Prisma.InputJsonValue;
+    errorMessage: string;
+  }) {
+    try {
+      const log = await this.hrSync.createNotSentLog({
+        requestId: params.requestId,
+        workflowType: params.workflowType,
+        targetSheet: params.targetSheet,
+        payloadSnapshot: params.payloadSnapshot
+      });
+      await this.hrSync.markFailed(log.id, {
+        errorMessage: params.errorMessage,
+        responseSnapshot: null
+      });
+    } catch {
+      // HR Sync logging must never fail a completed workflow finalization.
+    }
+  }
+
+  private finalizerDisplayName(user: AuthenticatedUser) {
+    return user.nameEn ?? user.phoneNumber ?? user.id;
+  }
+
+  private formatHrSyncError(error: unknown) {
+    return error instanceof Error ? error.message : "HR sync failed.";
   }
 
   private async finalizeAreaManagerNewHire(
