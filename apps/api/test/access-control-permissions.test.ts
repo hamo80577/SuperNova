@@ -59,6 +59,20 @@ assert.deepEqual(getPermissionDefinition(PermissionKeys.REQUESTS_VIEW), {
   systemOnly: false
 });
 
+assert.deepEqual(
+  getPermissionDefinition(PermissionKeys.APPROVALS_VIEW_PENDING),
+  {
+    key: PermissionKeys.APPROVALS_VIEW_PENDING,
+    label: "View pending approvals",
+    description:
+      "View approval steps pending for the authenticated actor within workflow scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.MEDIUM,
+    assignable: true,
+    systemOnly: false
+  }
+);
+
 assert.deepEqual(getPermissionDefinition(PermissionKeys.USERS_VIEW_SELF), {
   key: PermissionKeys.USERS_VIEW_SELF,
   label: "View own profile",

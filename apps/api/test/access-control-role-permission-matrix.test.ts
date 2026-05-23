@@ -27,6 +27,7 @@ const lifecycleCreationPermissionKeys = [
 ];
 
 const managementPermissionKeys = [
+  PermissionKeys.APPROVALS_VIEW_PENDING,
   PermissionKeys.APPROVALS_DECIDE_CHAIN,
   PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE,
   PermissionKeys.USERS_EDIT_PROFILE,
@@ -170,6 +171,10 @@ assertHasPermission(
   UserRole.AREA_MANAGER,
   PermissionKeys.APPROVALS_DECIDE_CHAIN
 );
+assertHasPermission(
+  UserRole.AREA_MANAGER,
+  PermissionKeys.APPROVALS_VIEW_PENDING
+);
 
 for (const permissionKey of areaManagerLifecyclePermissionKeys) {
   assertMissingPermission(UserRole.AREA_MANAGER, permissionKey);
@@ -191,6 +196,7 @@ assertHasPermission(
 for (const permissionKey of [
   ...lifecycleCreationPermissionKeys,
   PermissionKeys.REQUESTS_CANCEL,
+  PermissionKeys.APPROVALS_VIEW_PENDING,
   PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE,
   PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE,
   PermissionKeys.USERS_LIST_OPERATIONAL,
@@ -230,6 +236,9 @@ for (const role of [UserRole.PICKER, UserRole.CHAMP, UserRole.AREA_MANAGER]) {
 for (const permissionKey of getPermissionsForRole(UserRole.ADMIN)) {
   assertHasPermission(UserRole.SUPER_ADMIN, permissionKey);
 }
+
+assertMissingPermission(UserRole.CHAMP, PermissionKeys.APPROVALS_VIEW_PENDING);
+assertMissingPermission(UserRole.PICKER, PermissionKeys.APPROVALS_VIEW_PENDING);
 
 for (const permissionKey of [
   PermissionKeys.ACCESS_CONTROL_VIEW,
