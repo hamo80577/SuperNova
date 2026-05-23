@@ -10,14 +10,19 @@ import {
   ApprovalStep,
   ApprovalStatus,
   AssignmentStatus,
+  BlockStatus,
   EmploymentStatus,
+  HrSyncTargetSheet,
+  HrSyncWorkflowType,
   Prisma,
   RequestStatus,
   RequestType,
+  User,
   UserRole
 } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
+import { HrSyncService, type HrSyncEventType } from "../../hr-sync";
 import { PrismaService } from "../../prisma/prisma.service";
 import type { FinalizeOffboardingDto } from "../dto/finalize-offboarding.dto";
 import { requestInclude } from "../request-includes";
@@ -40,7 +45,9 @@ export class OffboardingFinalizationService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(OffboardingTargetService)
-    private readonly targetService: OffboardingTargetService
+    private readonly targetService: OffboardingTargetService,
+    @Inject(HrSyncService)
+    private readonly hrSync: HrSyncService
   ) {}
 
   async finalizeOffboarding(
@@ -297,6 +304,14 @@ export class OffboardingFinalizationService {
       return { completedRequest, resignedUser, closedAssignments };
     });
 
+    await this.syncPickerResignationToHr(
+      request.id,
+      payload,
+      finalizationInput.blockStatus,
+      result.resignedUser,
+      context
+    );
+
     const user = toResignedUserResponse(result.resignedUser);
 
     return {
@@ -306,6 +321,169 @@ export class OffboardingFinalizationService {
       assignment: result.closedAssignments[0] ?? null,
       assignments: result.closedAssignments
     };
+  }
+
+  private async syncPickerResignationToHr(
+    requestId: string,
+    payload: OffboardingPayload,
+    blockStatus: BlockStatus,
+    resignedUser: User,
+    context: OffboardingRequestContext
+  ) {
+    if (payload.target.targetRole !== UserRole.PICKER) {
+      return;
+    }
+
+    const lastWorkingDate = payload.offboarding.lastWorkingDate?.trim();
+    const baseInput = {
+      finalizerDisplayName: this.finalizerDisplayName(context.actor),
+      type: this.formatHrSyncResignationType(blockStatus),
+      employeeName: resignedUser.nameEn,
+      nationalId: resignedUser.nationalId ?? "",
+      lastWorkingDate: lastWorkingDate ?? null
+    };
+
+    if (!lastWorkingDate) {
+      await this.recordFailedHrSyncLog({
+        requestId,
+        workflowType: HrSyncWorkflowType.PICKER_RESIGNATION,
+        targetSheet: HrSyncTargetSheet.RESIGN,
+        payloadSnapshot: {
+          ...baseInput,
+          requestType: "Resign"
+        },
+        errorMessage: "Missing lastWorkingDate for HR sync."
+      });
+      return;
+    }
+
+    const hrPayload = this.hrSync.buildPickerResignationPayload({
+      ...baseInput,
+      lastWorkingDate
+    });
+
+    await this.createAndSendHrSyncLog({
+      requestId,
+      workflowType: HrSyncWorkflowType.PICKER_RESIGNATION,
+      targetSheet: HrSyncTargetSheet.RESIGN,
+      eventType: "RESIGN",
+      payloadSnapshot: hrPayload,
+      payload: hrPayload
+    });
+  }
+
+  private async createAndSendHrSyncLog(params: {
+    requestId: string;
+    workflowType: HrSyncWorkflowType;
+    targetSheet: HrSyncTargetSheet;
+    eventType: HrSyncEventType;
+    payloadSnapshot: Prisma.InputJsonValue;
+    payload: object;
+  }) {
+    let logId: string | null = null;
+
+    try {
+      const log = await this.hrSync.createNotSentLog({
+        requestId: params.requestId,
+        workflowType: params.workflowType,
+        targetSheet: params.targetSheet,
+        payloadSnapshot: params.payloadSnapshot
+      });
+      logId = log.id;
+
+      const result = await this.hrSync.sendToHrSheet({
+        eventType: params.eventType,
+        payload: params.payload
+      });
+
+      if (result.status === "SENT") {
+        await this.hrSync.markSent(log.id, {
+          responseSnapshot: result.rawResponse,
+          sentAt: new Date()
+        });
+        return;
+      }
+
+      if (result.status === "SKIPPED") {
+        await this.hrSync.markSkipped(log.id, {
+          reason: result.reason,
+          responseSnapshot: {
+            status: "SKIPPED",
+            reason: result.reason
+          }
+        });
+        return;
+      }
+
+      await this.hrSync.markFailed(log.id, {
+        errorMessage: result.error,
+        responseSnapshot: result.rawResponse
+          ? (result.rawResponse as Prisma.InputJsonValue)
+          : null
+      });
+    } catch (error) {
+      if (!logId) {
+        return;
+      }
+
+      try {
+        await this.hrSync.markFailed(logId, {
+          errorMessage: this.formatHrSyncError(error),
+          responseSnapshot: null
+        });
+      } catch {
+        // HR Sync must never fail a completed workflow finalization.
+      }
+    }
+  }
+
+  private async recordFailedHrSyncLog(params: {
+    requestId: string;
+    workflowType: HrSyncWorkflowType;
+    targetSheet: HrSyncTargetSheet;
+    payloadSnapshot: Prisma.InputJsonValue;
+    errorMessage: string;
+  }) {
+    try {
+      const log = await this.hrSync.createNotSentLog({
+        requestId: params.requestId,
+        workflowType: params.workflowType,
+        targetSheet: params.targetSheet,
+        payloadSnapshot: params.payloadSnapshot
+      });
+      await this.hrSync.markFailed(log.id, {
+        errorMessage: params.errorMessage,
+        responseSnapshot: null
+      });
+    } catch {
+      // HR Sync logging must never fail a completed workflow finalization.
+    }
+  }
+
+  private formatHrSyncResignationType(blockStatus: BlockStatus | string) {
+    if (
+      blockStatus === BlockStatus.PERMANENT_BLOCK ||
+      blockStatus === "PERMANENT"
+    ) {
+      return "Permanent Block";
+    }
+
+    if (
+      blockStatus === BlockStatus.TEMPORARY_BLOCK ||
+      blockStatus === "TEMPORARY"
+    ) {
+      return "Temporary Block";
+    }
+
+    return "No Block";
+  }
+
+  private finalizerDisplayName(user: AuthenticatedUser) {
+    return user.nameEn ?? user.phoneNumber ?? user.id;
+  }
+
+  private formatHrSyncError(error: unknown) {
+    return error instanceof Error ? error.message : "HR sync failed.";
   }
 
   private resolveAreaManagerFinalizationDecision(

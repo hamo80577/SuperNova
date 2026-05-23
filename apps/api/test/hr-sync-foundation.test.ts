@@ -191,10 +191,32 @@ async function main() {
   assert.equal(failedLog.errorMessage, "Apps Script returned 500.");
   assert.deepEqual(failedLog.responseSnapshot, { ok: false });
 
+  const disabledSendLog = await service.createNotSentLog({
+    requestId: "request-3",
+    workflowType: HrSyncWorkflowType.PICKER_RESIGNATION,
+    targetSheet: HrSyncTargetSheet.RESIGN,
+    payloadSnapshot: service.buildPickerResignationPayload(resignationInput)
+  });
+
+  const markedSkippedLog = await service.markSkipped(disabledSendLog.id, {
+    reason: "HR sync is disabled",
+    responseSnapshot: {
+      status: "SKIPPED",
+      reason: "HR sync is disabled"
+    }
+  });
+
+  assert.equal(markedSkippedLog.status, HrSyncStatus.SKIPPED);
+  assert.equal(markedSkippedLog.errorMessage, "HR sync is disabled");
+  assert.deepEqual(markedSkippedLog.responseSnapshot, {
+    status: "SKIPPED",
+    reason: "HR sync is disabled"
+  });
+
   const latestForRequest = await service.getLatestForRequest("request-1");
   assert.equal(latestForRequest?.id, notSentLog.id);
 
-  assert.equal(rows.length, 2);
+  assert.equal(rows.length, 3);
 }
 
 main().catch((error: unknown) => {

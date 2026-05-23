@@ -78,6 +78,23 @@ const vendor = {
   chain
 };
 
+const noopHrSyncService = {
+  buildPickerResignationPayload: (input: any) => ({
+    ...input,
+    requestType: "Resign",
+    title: "Picker"
+  }),
+  createNotSentLog: async () => ({ id: "hr-sync-log-1" }),
+  sendToHrSheet: async () => ({
+    ok: true,
+    status: "SKIPPED",
+    reason: "test"
+  }),
+  markSent: async () => ({}),
+  markFailed: async () => ({}),
+  markSkipped: async () => ({})
+};
+
 function offboardingPayload(
   targetRole: UserRole.PICKER | UserRole.CHAMP | UserRole.AREA_MANAGER,
   overrides: Record<string, unknown> = {}
@@ -234,7 +251,11 @@ function finalizationHarness(request: any) {
   };
 
   return {
-    service: new OffboardingFinalizationService(prisma as any, targetService as any),
+    service: new OffboardingFinalizationService(
+      prisma as any,
+      targetService as any,
+      noopHrSyncService as any
+    ),
     getUserUpdateData: () => userUpdateData,
     getCompletedPayload: () => completedPayload
   };

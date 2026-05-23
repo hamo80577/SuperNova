@@ -70,6 +70,11 @@ export type HrSyncMarkFailedInput = Readonly<{
   responseSnapshot?: Prisma.InputJsonValue | null;
 }>;
 
+export type HrSyncMarkSkippedInput = Readonly<{
+  reason?: string | null;
+  responseSnapshot?: Prisma.InputJsonValue | null;
+}>;
+
 export type HrSyncEventType = "NEW_HIRE" | "REHIRE" | "RESIGN";
 
 export type HrSyncAppsScriptRequest = Readonly<{

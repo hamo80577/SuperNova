@@ -79,6 +79,30 @@ const vendor = {
   chain
 };
 
+const noopHrSyncService = {
+  buildPickerNewHirePayload: (input: any) => ({
+    ...input,
+    requestType: "New Hire",
+    vertical: "Local Shops",
+    title: "Picker"
+  }),
+  buildPickerRehirePayload: (input: any) => ({
+    ...input,
+    requestType: "Rehire",
+    vertical: "Local Shops",
+    title: "Picker"
+  }),
+  createNotSentLog: async () => ({ id: "hr-sync-log-1" }),
+  sendToHrSheet: async () => ({
+    ok: true,
+    status: "SKIPPED",
+    reason: "test"
+  }),
+  markSent: async () => ({}),
+  markFailed: async () => ({}),
+  markSkipped: async () => ({})
+};
+
 function newHireRequest(
   targetRole: UserRole.PICKER | UserRole.CHAMP,
   payloadOverrides: Record<string, unknown> = {}
@@ -381,7 +405,8 @@ function finalizationHarness(request: any) {
       {
         generate: () => "TempPass123",
         encrypt: () => "ciphertext"
-      } as any
+      } as any,
+      noopHrSyncService as any
     ),
     getCreatedUserData: () => createdUserData
   };
@@ -448,7 +473,8 @@ function areaManagerFinalizationHarness(request: any) {
       {
         generate: () => "TempPass123",
         encrypt: () => "ciphertext"
-      } as any
+      } as any,
+      noopHrSyncService as any
     ),
     wasChainAssignmentCreateCalled: () => chainAssignmentCreateCalled
   };

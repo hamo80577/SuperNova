@@ -8,6 +8,7 @@ import type {
   HrSyncLogCreateInput,
   HrSyncMarkFailedInput,
   HrSyncMarkSentInput,
+  HrSyncMarkSkippedInput,
   HrSyncSendFailure,
   HrSyncSendInput,
   HrSyncSendResult,
@@ -93,6 +94,17 @@ export class HrSyncService {
         status: HrSyncStatus.FAILED,
         responseSnapshot: input.responseSnapshot ?? Prisma.JsonNull,
         errorMessage: input.errorMessage
+      }
+    });
+  }
+
+  async markSkipped(id: string, input: HrSyncMarkSkippedInput = {}) {
+    return this.prisma.hrSyncLog.update({
+      where: { id },
+      data: {
+        status: HrSyncStatus.SKIPPED,
+        responseSnapshot: input.responseSnapshot ?? Prisma.JsonNull,
+        errorMessage: input.reason ?? null
       }
     });
   }
