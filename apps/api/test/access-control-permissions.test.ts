@@ -92,6 +92,63 @@ const targetRoleLifecyclePermissionKeys = [
   PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
 ];
 
+const customRoleManagementPermissionDefinitions = [
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES,
+    label: "View custom access roles",
+    description: "View custom access roles and read-only access role metadata.",
+    riskLevel: PermissionRiskLevels.HIGH
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES,
+    label: "Manage custom access roles",
+    description:
+      "Create, update, deactivate, and manage custom access role metadata.",
+    riskLevel: PermissionRiskLevels.CRITICAL
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES,
+    label: "Assign custom access roles",
+    description: "Assign active custom access roles to users.",
+    riskLevel: PermissionRiskLevels.CRITICAL
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES,
+    label: "Revoke custom access roles",
+    description: "Revoke active custom access role assignments from users.",
+    riskLevel: PermissionRiskLevels.CRITICAL
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS,
+    label: "View effective permissions",
+    description:
+      "View a user's effective permissions from base role and custom access role assignments.",
+    riskLevel: PermissionRiskLevels.HIGH
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_ACCESS_AUDIT,
+    label: "View access-control audit",
+    description:
+      "View audit records related to access roles, permission changes, and user access-role assignments.",
+    riskLevel: PermissionRiskLevels.HIGH
+  }
+];
+
+for (const definition of customRoleManagementPermissionDefinitions) {
+  const actualDefinition = getPermissionDefinition(definition.key);
+
+  assert.ok(keys.includes(definition.key), `Expected ${definition.key}`);
+  assert.deepEqual(actualDefinition, {
+    key: definition.key,
+    label: definition.label,
+    description: definition.description,
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: definition.riskLevel,
+    assignable: false,
+    systemOnly: true
+  });
+}
+
 for (const permissionKey of targetRoleLifecyclePermissionKeys) {
   assert.ok(keys.includes(permissionKey), `Expected ${permissionKey}`);
   assert.equal(

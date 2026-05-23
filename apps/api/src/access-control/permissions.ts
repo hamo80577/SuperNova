@@ -80,6 +80,13 @@ export const PermissionKeys = {
   ACCESS_CONTROL_VIEW_ROLE_MATRIX: "access_control.role_matrix.view",
   ACCESS_CONTROL_MANAGE_SYSTEM_ROLE_MATRIX:
     "access_control.system_role_matrix.manage",
+  ACCESS_CONTROL_VIEW_CUSTOM_ROLES: "access_control.custom_roles.view",
+  ACCESS_CONTROL_MANAGE_CUSTOM_ROLES: "access_control.custom_roles.manage",
+  ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES: "access_control.custom_roles.assign",
+  ACCESS_CONTROL_REVOKE_CUSTOM_ROLES: "access_control.custom_roles.revoke",
+  ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS:
+    "access_control.effective_permissions.view",
+  ACCESS_CONTROL_VIEW_ACCESS_AUDIT: "access_control.audit.view",
 
   SYSTEM_SETTINGS_VIEW: "system_settings.view",
   SYSTEM_SETTINGS_MANAGE: "system_settings.manage",
@@ -425,6 +432,63 @@ export const PERMISSION_DEFINITIONS = [
     description: "Manage system-level role permission mapping in future phases.",
     group: PermissionGroups.ACCESS_CONTROL,
     riskLevel: PermissionRiskLevels.CRITICAL,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES,
+    label: "View custom access roles",
+    description: "View custom access roles and read-only access role metadata.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES,
+    label: "Manage custom access roles",
+    description:
+      "Create, update, deactivate, and manage custom access role metadata.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.CRITICAL,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES,
+    label: "Assign custom access roles",
+    description: "Assign active custom access roles to users.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.CRITICAL,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES,
+    label: "Revoke custom access roles",
+    description: "Revoke active custom access role assignments from users.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.CRITICAL,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS,
+    label: "View effective permissions",
+    description:
+      "View a user's effective permissions from base role and custom access role assignments.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: false,
+    systemOnly: true
+  },
+  {
+    key: PermissionKeys.ACCESS_CONTROL_VIEW_ACCESS_AUDIT,
+    label: "View access-control audit",
+    description:
+      "View audit records related to access roles, permission changes, and user access-role assignments.",
+    group: PermissionGroups.ACCESS_CONTROL,
+    riskLevel: PermissionRiskLevels.HIGH,
     assignable: false,
     systemOnly: true
   },

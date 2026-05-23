@@ -41,6 +41,12 @@ const managementPermissionKeys = [
   PermissionKeys.AUDIT_LOGS_VIEW,
   PermissionKeys.AUDIT_LOGS_EXPORT,
   PermissionKeys.ACCESS_CONTROL_MANAGE_SYSTEM_ROLE_MATRIX,
+  PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS,
+  PermissionKeys.ACCESS_CONTROL_VIEW_ACCESS_AUDIT,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE_SECURITY,
   PermissionKeys.NOTIFICATIONS_TARGET_ADMINS,
@@ -66,6 +72,15 @@ const areaManagerLifecyclePermissionKeys = [
 const ownUserPermissionKeys = [
   PermissionKeys.USERS_VIEW_SELF,
   PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+];
+
+const customRoleManagementPermissionKeys = [
+  PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES,
+  PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS,
+  PermissionKeys.ACCESS_CONTROL_VIEW_ACCESS_AUDIT
 ];
 
 function assertHasPermission(role: UserRole, permissionKey: PermissionKey) {
@@ -199,10 +214,17 @@ for (const permissionKey of [
 
 for (const permissionKey of [
   PermissionKeys.ACCESS_CONTROL_MANAGE_SYSTEM_ROLE_MATRIX,
+  ...customRoleManagementPermissionKeys,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE_SECURITY
 ]) {
   assertMissingPermission(UserRole.ADMIN, permissionKey);
+}
+
+for (const role of [UserRole.PICKER, UserRole.CHAMP, UserRole.AREA_MANAGER]) {
+  for (const permissionKey of customRoleManagementPermissionKeys) {
+    assertMissingPermission(role, permissionKey);
+  }
 }
 
 for (const permissionKey of getPermissionsForRole(UserRole.ADMIN)) {
@@ -213,6 +235,7 @@ for (const permissionKey of [
   PermissionKeys.ACCESS_CONTROL_VIEW,
   PermissionKeys.ACCESS_CONTROL_VIEW_ROLE_MATRIX,
   PermissionKeys.ACCESS_CONTROL_MANAGE_SYSTEM_ROLE_MATRIX,
+  ...customRoleManagementPermissionKeys,
   PermissionKeys.SYSTEM_SETTINGS_VIEW,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE,
   PermissionKeys.SYSTEM_SETTINGS_MANAGE_SECURITY,
