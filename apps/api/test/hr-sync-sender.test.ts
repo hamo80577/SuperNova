@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 
+import { SELF_DECLARED_DEPS_METADATA } from "@nestjs/common/constants";
+import { ConfigService } from "@nestjs/config";
+
 import { HrSyncService, type HrSyncSendResult } from "../src/hr-sync";
+import { PrismaService } from "../src/prisma/prisma.service";
 
 type FetchCall = {
   url: string;
@@ -76,6 +80,26 @@ function assertFailed(result: HrSyncSendResult, expectedMessage: RegExp) {
 }
 
 async function main() {
+  {
+    const explicitDeps =
+      Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, HrSyncService) ?? [];
+
+    assert.ok(
+      explicitDeps.some(
+        (dep: { index: number; param: unknown }) =>
+          dep.index === 0 && dep.param === PrismaService
+      ),
+      "HrSyncService must explicitly inject PrismaService"
+    );
+    assert.ok(
+      explicitDeps.some(
+        (dep: { index: number; param: unknown }) =>
+          dep.index === 1 && dep.param === ConfigService
+      ),
+      "HrSyncService must explicitly inject ConfigService"
+    );
+  }
+
   {
     const fetchMock = mockFetch(async () => {
       throw new Error("fetch should not be called when HR sync is disabled");
