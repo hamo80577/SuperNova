@@ -45,6 +45,7 @@ export const PermissionKeys = {
     "requests.resignation.area_manager.create",
   REQUESTS_CREATE_TRANSFER_PICKER: "requests.transfer.picker.create",
   REQUESTS_CANCEL: "requests.cancel",
+  APPROVALS_VIEW_PENDING: "approvals.pending.view",
   APPROVALS_DECIDE_CHAIN: "approvals.chain.decide",
   APPROVALS_DECIDE_FINAL_LIFECYCLE: "approvals.final_lifecycle.decide",
 
@@ -191,6 +192,16 @@ export const PERMISSION_DEFINITIONS = [
     key: PermissionKeys.REQUESTS_CANCEL,
     label: "Cancel requests",
     description: "Cancel draft or pending lifecycle requests where authorized.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.MEDIUM,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.APPROVALS_VIEW_PENDING,
+    label: "View pending approvals",
+    description:
+      "View approval steps pending for the authenticated actor within workflow scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
     riskLevel: PermissionRiskLevels.MEDIUM,
     assignable: true,

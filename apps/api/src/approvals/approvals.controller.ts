@@ -10,6 +10,9 @@ import {
   UseGuards
 } from "@nestjs/common";
 
+import { PermissionGuard } from "../access-control/permission.guard";
+import { PermissionKeys } from "../access-control/permissions";
+import { RequirePermission } from "../access-control/require-permission.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
@@ -29,7 +32,8 @@ export class ApprovalsController {
     return this.approvalsService.getFoundationStatus();
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermission(PermissionKeys.APPROVALS_VIEW_PENDING)
   @Get("pending")
   listPending(@CurrentUser() user: AuthenticatedUser) {
     return this.approvalsService.listPending(user);

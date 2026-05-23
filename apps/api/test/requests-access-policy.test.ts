@@ -23,6 +23,8 @@ import type { CreateTransferRequestDto } from "../src/requests/dto/create-transf
 import type { FinalizeNewHireDto } from "../src/requests/dto/finalize-new-hire.dto";
 import type { FinalizeOffboardingDto } from "../src/requests/dto/finalize-offboarding.dto";
 import type { ListRequestsQueryDto } from "../src/requests/dto/list-requests-query.dto";
+import type { LookupNewHireCandidateDto } from "../src/requests/dto/lookup-new-hire-candidate.dto";
+import type { SearchOffboardingPickersDto } from "../src/requests/dto/search-offboarding-pickers.dto";
 import { RequestsController } from "../src/requests/requests.controller";
 import type { RequestsService } from "../src/requests/requests.service";
 
@@ -47,6 +49,9 @@ const responses = {
     meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 }
   },
   detail: { id: "request-1" },
+  offboardingPickers: { items: [{ id: "picker-1" }] },
+  offboardingEligibleUsers: { items: [{ id: "eligible-user-1" }] },
+  newHireLookup: { candidate: null },
   submit: { id: "request-2", status: "PENDING_AREA_MANAGER" },
   cancel: { id: "request-3", status: "CANCELLED" },
   newHire: { id: "request-4", type: "NEW_HIRE" },
@@ -73,6 +78,33 @@ const requestsService = {
   getById: async (requestId: string, currentUser: AuthenticatedUser) => {
     serviceCalls.push(`detail:${requestId}:${currentUser.id}`);
     return responses.detail;
+  },
+  searchOffboardingPickers: async (
+    query: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) => {
+    serviceCalls.push(
+      `offboarding-pickers:${query.targetRole ?? "missing"}:${query.q ?? "none"}:${currentUser.id}`
+    );
+    return responses.offboardingPickers;
+  },
+  searchOffboardingEligibleUsers: async (
+    query: SearchOffboardingPickersDto,
+    currentUser: AuthenticatedUser
+  ) => {
+    serviceCalls.push(
+      `offboarding-eligible:${query.targetRole ?? "missing"}:${query.q ?? "none"}:${currentUser.id}`
+    );
+    return responses.offboardingEligibleUsers;
+  },
+  lookupNewHireCandidate: async (
+    dto: LookupNewHireCandidateDto,
+    currentUser: AuthenticatedUser
+  ) => {
+    serviceCalls.push(
+      `new-hire-lookup:${dto.targetRole ?? "missing"}:${dto.phoneNumber ?? "none"}:${currentUser.id}`
+    );
+    return responses.newHireLookup;
   },
   submit: async (
     requestId: string,
@@ -256,7 +288,68 @@ async function run() {
     await controller.listSubmitted(submittedQuery, champ),
     responses.submitted
   );
+  assert.equal(
+    await controller.searchOffboardingPickers({ q: "pi" }, champ),
+    responses.offboardingPickers
+  );
+  assert.equal(
+    await controller.searchOffboardingPickers(
+      { targetRole: UserRole.CHAMP, q: "ch" },
+      admin
+    ),
+    responses.offboardingPickers
+  );
+  assert.equal(
+    await controller.searchOffboardingPickers(
+      { targetRole: UserRole.AREA_MANAGER, q: "am" },
+      admin
+    ),
+    responses.offboardingPickers
+  );
+  assert.equal(
+    await controller.searchOffboardingEligibleUsers({ q: "pi" }, champ),
+    responses.offboardingEligibleUsers
+  );
+  assert.equal(
+    await controller.searchOffboardingEligibleUsers(
+      { targetRole: UserRole.CHAMP, q: "ch" },
+      admin
+    ),
+    responses.offboardingEligibleUsers
+  );
+  assert.equal(
+    await controller.searchOffboardingEligibleUsers(
+      { targetRole: UserRole.AREA_MANAGER, q: "am" },
+      admin
+    ),
+    responses.offboardingEligibleUsers
+  );
   assert.equal(await controller.getById("request-1", champ), responses.detail);
+  assert.equal(
+    await controller.lookupNewHireCandidate({ phoneNumber: "01012345678" }, champ),
+    responses.newHireLookup
+  );
+  assert.equal(
+    await controller.lookupNewHireCandidate(
+      { targetRole: UserRole.PICKER, phoneNumber: "01012345678" },
+      champ
+    ),
+    responses.newHireLookup
+  );
+  assert.equal(
+    await controller.lookupNewHireCandidate(
+      { targetRole: UserRole.CHAMP, phoneNumber: "01012345678" },
+      admin
+    ),
+    responses.newHireLookup
+  );
+  assert.equal(
+    await controller.lookupNewHireCandidate(
+      { targetRole: UserRole.AREA_MANAGER, phoneNumber: "01012345678" },
+      admin
+    ),
+    responses.newHireLookup
+  );
   assert.equal(await controller.submit("request-2", champ, request), responses.submit);
   assert.equal(
     await controller.cancel("request-3", cancelDto, champ, request),
@@ -356,7 +449,47 @@ async function run() {
   assert.deepEqual(policyCalls, [
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
+    {
+      actor: champ,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER
+    },
+    {
+      actor: champ,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER
+    },
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
+    {
+      actor: champ,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    },
+    {
+      actor: champ,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP
+    },
+    {
+      actor: admin,
+      permissionKey: PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER
+    },
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_VIEW },
     { actor: champ, permissionKey: PermissionKeys.REQUESTS_CANCEL },
     {
@@ -423,7 +556,17 @@ async function run() {
   assert.deepEqual(serviceCalls, [
     `list:2:none:${champ.id}`,
     `submitted:3:none:${champ.id}`,
+    `offboarding-pickers:missing:pi:${champ.id}`,
+    `offboarding-pickers:CHAMP:ch:${admin.id}`,
+    `offboarding-pickers:AREA_MANAGER:am:${admin.id}`,
+    `offboarding-eligible:missing:pi:${champ.id}`,
+    `offboarding-eligible:CHAMP:ch:${admin.id}`,
+    `offboarding-eligible:AREA_MANAGER:am:${admin.id}`,
     `detail:request-1:${champ.id}`,
+    `new-hire-lookup:missing:01012345678:${champ.id}`,
+    `new-hire-lookup:PICKER:01012345678:${champ.id}`,
+    `new-hire-lookup:CHAMP:01012345678:${admin.id}`,
+    `new-hire-lookup:AREA_MANAGER:01012345678:${admin.id}`,
     `submit:request-2:${champ.id}:127.0.0.1:requests-policy-test`,
     `cancel:request-3:No longer needed:${champ.id}:127.0.0.1:requests-policy-test`,
     `newHire:missing:${champ.id}:127.0.0.1:requests-policy-test`,
@@ -442,6 +585,24 @@ async function run() {
     `finalizeNewHire:request-7:SHOPPER-1:${admin.id}:127.0.0.1:requests-policy-test`,
     `finalizeOffboarding:request-8:true:Confirmed:${admin.id}:127.0.0.1:requests-policy-test`
   ]);
+  assert.deepEqual(rolesFor("searchOffboardingPickers"), [
+    UserRole.CHAMP,
+    UserRole.AREA_MANAGER,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("searchOffboardingEligibleUsers"), [
+    UserRole.CHAMP,
+    UserRole.AREA_MANAGER,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("lookupNewHireCandidate"), [
+    UserRole.CHAMP,
+    UserRole.AREA_MANAGER,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
   assert.deepEqual(rolesFor("finalizeNewHire"), [
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
@@ -454,6 +615,30 @@ async function run() {
   const realPolicyController = createController(new AccessPolicyService());
   serviceCalls.length = 0;
 
+  await assert.rejects(
+    async () =>
+      realPolicyController.searchOffboardingPickers(
+        { targetRole: UserRole.CHAMP },
+        champ
+      ),
+    /Missing required permission/
+  );
+  await assert.rejects(
+    async () =>
+      realPolicyController.searchOffboardingEligibleUsers(
+        { targetRole: UserRole.AREA_MANAGER },
+        champ
+      ),
+    /Missing required permission/
+  );
+  await assert.rejects(
+    async () =>
+      realPolicyController.lookupNewHireCandidate(
+        { targetRole: UserRole.CHAMP },
+        champ
+      ),
+    /Missing required permission/
+  );
   await assert.rejects(
     async () =>
       realPolicyController.createNewHire(

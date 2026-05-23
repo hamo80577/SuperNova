@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { GUARDS_METADATA } from "@nestjs/common/constants";
 import {
   AccountStatus,
   ApprovalStatus,
@@ -13,10 +14,14 @@ import {
 
 import {
   AccessPolicyService,
+  PermissionGuard,
   PermissionKeys,
+  REQUIRED_PERMISSION_KEY,
   type PermissionKey
 } from "../src/access-control";
+import { JwtAuthGuard } from "../src/auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
+import { ApprovalsController } from "../src/approvals/approvals.controller";
 import { ApprovalsService } from "../src/approvals/approvals.service";
 import type { ApprovalDecisionDto } from "../src/approvals/dto/approval-decision.dto";
 import type { AuditService } from "../src/audit/audit.service";
@@ -306,6 +311,20 @@ function context(actorValue: AuthenticatedUser) {
   };
 }
 
+function requiredPermissionFor(methodName: keyof ApprovalsController) {
+  return Reflect.getMetadata(
+    REQUIRED_PERMISSION_KEY,
+    ApprovalsController.prototype[methodName]
+  );
+}
+
+function guardsFor(methodName: keyof ApprovalsController) {
+  return Reflect.getMetadata(
+    GUARDS_METADATA,
+    ApprovalsController.prototype[methodName]
+  );
+}
+
 function assertPolicyBeforeOwnership(step: ApprovalStep) {
   const policyIndex = events.findIndex((event) => event.startsWith("policy:"));
   const ownershipIndex = events.findIndex((event) =>
@@ -321,6 +340,37 @@ function assertPolicyBeforeOwnership(step: ApprovalStep) {
 }
 
 async function run() {
+  const controllerCalls: string[] = [];
+  const controller = new ApprovalsController({
+    getFoundationStatus: () => ({ module: "approvals" }),
+    listPending: async (userValue: AuthenticatedUser) => {
+      controllerCalls.push(`pending:${userValue.id}`);
+      return [{ id: "approval-pending" }];
+    },
+    approve: async () => {
+      controllerCalls.push("approve");
+      return { id: "approved" };
+    },
+    reject: async () => {
+      controllerCalls.push("reject");
+      return { id: "rejected" };
+    }
+  } as unknown as ApprovalsService);
+
+  assert.equal(
+    requiredPermissionFor("listPending"),
+    PermissionKeys.APPROVALS_VIEW_PENDING
+  );
+  assert.deepEqual(guardsFor("listPending"), [JwtAuthGuard, PermissionGuard]);
+  assert.equal(requiredPermissionFor("approve"), undefined);
+  assert.equal(requiredPermissionFor("reject"), undefined);
+  assert.deepEqual(guardsFor("approve"), [JwtAuthGuard]);
+  assert.deepEqual(guardsFor("reject"), [JwtAuthGuard]);
+  assert.deepEqual(await controller.listPending(admin), [
+    { id: "approval-pending" }
+  ]);
+  assert.deepEqual(controllerCalls, [`pending:${admin.id}`]);
+
   const service = createService();
   const decisionDto = { notes: "Approved" } satisfies ApprovalDecisionDto;
   const rejectDto = { notes: "Rejected" } satisfies ApprovalDecisionDto;

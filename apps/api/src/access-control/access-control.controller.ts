@@ -10,15 +10,11 @@ import {
   Req,
   UseGuards
 } from "@nestjs/common";
-import { UserRole } from "@prisma/client";
 
-import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { AccessRoleAssignmentService } from "./access-role-assignment.service";
 import { AccessRoleService } from "./access-role.service";
-import { AccessPolicyService } from "./access-policy.service";
 import {
   CreateCustomAccessRoleDto,
   DeactivateCustomAccessRoleDto,
@@ -31,6 +27,8 @@ import {
   listPermissionsByGroup,
   PermissionKeys
 } from "./permissions";
+import { PermissionGuard } from "./permission.guard";
+import { RequirePermission } from "./require-permission.decorator";
 import { SYSTEM_ROLE_PERMISSIONS } from "./role-permission.matrix";
 
 const SYSTEM_ROLE_PERMISSIONS_SOURCE = {
@@ -41,12 +39,9 @@ const SYSTEM_ROLE_PERMISSIONS_SOURCE = {
 } as const;
 
 @Controller("access-control")
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class AccessControlController {
   constructor(
-    @Inject(AccessPolicyService)
-    private readonly accessPolicy: AccessPolicyService,
     @Inject(AccessRoleService)
     private readonly accessRoleService: AccessRoleService,
     @Inject(AccessRoleAssignmentService)
@@ -54,12 +49,8 @@ export class AccessControlController {
   ) {}
 
   @Get("overview")
-  getOverview(@Req() request: AuthenticatedRequest) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_VIEW
-    );
-
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_VIEW)
+  getOverview() {
     return {
       permissions: listPermissions(),
       permissionsByGroup: listPermissionsByGroup(),
@@ -69,28 +60,17 @@ export class AccessControlController {
   }
 
   @Get("roles")
-  listRoles(
-    @Query() query: ListAccessRolesQueryDto,
-    @Req() request: AuthenticatedRequest
-  ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
-    );
-
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES)
+  listRoles(@Query() query: ListAccessRolesQueryDto) {
     return this.accessRoleService.listRoles(query);
   }
 
   @Get("effective-permissions/users/:id")
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS)
   getUserEffectivePermissions(
     @Param("id") id: string,
     @Req() request: AuthenticatedRequest
   ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
-    );
-
     return this.accessRoleAssignmentService.getUserEffectivePermissions(id, {
       actorUserId: request.user.id,
       ipAddress: request.ip,
@@ -99,25 +79,17 @@ export class AccessControlController {
   }
 
   @Get("roles/:id")
-  getRole(@Param("id") id: string, @Req() request: AuthenticatedRequest) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
-    );
-
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES)
+  getRole(@Param("id") id: string) {
     return this.accessRoleService.getRole(id);
   }
 
   @Post("roles")
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES)
   createCustomRole(
     @Body() dto: CreateCustomAccessRoleDto,
     @Req() request: AuthenticatedRequest
   ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    );
-
     return this.accessRoleService.createCustomRole(dto, {
       actorUserId: request.user.id,
       ipAddress: request.ip,
@@ -126,16 +98,12 @@ export class AccessControlController {
   }
 
   @Patch("roles/:id")
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES)
   updateCustomRole(
     @Param("id") id: string,
     @Body() dto: UpdateCustomAccessRoleDto,
     @Req() request: AuthenticatedRequest
   ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    );
-
     return this.accessRoleService.updateCustomRoleMetadata(id, dto, {
       actorUserId: request.user.id,
       ipAddress: request.ip,
@@ -144,16 +112,12 @@ export class AccessControlController {
   }
 
   @Post("roles/:id/deactivate")
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES)
   deactivateCustomRole(
     @Param("id") id: string,
     @Body() dto: DeactivateCustomAccessRoleDto,
     @Req() request: AuthenticatedRequest
   ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    );
-
     return this.accessRoleService.deactivateCustomRole(id, dto, {
       actorUserId: request.user.id,
       ipAddress: request.ip,
@@ -162,16 +126,12 @@ export class AccessControlController {
   }
 
   @Post("roles/:id/permissions/sync")
+  @RequirePermission(PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES)
   syncCustomRolePermissions(
     @Param("id") id: string,
     @Body() dto: SyncCustomAccessRolePermissionsDto,
     @Req() request: AuthenticatedRequest
   ) {
-    this.accessPolicy.assertCan(
-      request.user,
-      PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    );
-
     return this.accessRoleService.syncCustomRolePermissions(id, dto, {
       actorUserId: request.user.id,
       ipAddress: request.ip,

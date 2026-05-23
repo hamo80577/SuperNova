@@ -76,6 +76,11 @@ export class RequestsController {
     @Query() query: SearchOffboardingPickersDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForOffboardingTargetRole(query.targetRole)
+    );
+
     return this.requestsService.searchOffboardingPickers(query, user);
   }
 
@@ -86,6 +91,11 @@ export class RequestsController {
     @Query() query: SearchOffboardingPickersDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForOffboardingTargetRole(query.targetRole)
+    );
+
     return this.requestsService.searchOffboardingEligibleUsers(query, user);
   }
 
@@ -107,6 +117,11 @@ export class RequestsController {
     @Body() dto: LookupNewHireCandidateDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForNewHireTargetRole(dto.targetRole)
+    );
+
     return this.requestsService.lookupNewHireCandidate(dto, user);
   }
 

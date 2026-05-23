@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { ServiceUnavailableException } from "@nestjs/common";
 import {
   AccessRoleAssignmentStatus,
@@ -17,10 +18,13 @@ import {
   AccessRoleAssignmentService,
   AccessRoleService,
   getPermissionsForRole,
+  PermissionGuard,
   PermissionKeys,
+  REQUIRED_PERMISSION_KEY,
   type PermissionKey
 } from "../src/access-control";
 import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
+import { JwtAuthGuard } from "../src/auth/guards/jwt-auth.guard";
 import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import { UsersController } from "../src/users/users.controller";
@@ -418,6 +422,20 @@ function usersServiceStub() {
   } as unknown as UsersService;
 }
 
+function requiredPermissionFor(methodName: keyof UsersController) {
+  return Reflect.getMetadata(
+    REQUIRED_PERMISSION_KEY,
+    UsersController.prototype[methodName]
+  );
+}
+
+function guardsFor(methodName: keyof UsersController) {
+  return Reflect.getMetadata(
+    GUARDS_METADATA,
+    UsersController.prototype[methodName]
+  );
+}
+
 async function main() {
   const superAdmin = actor(UserRole.SUPER_ADMIN);
   const admin = actor(UserRole.ADMIN);
@@ -452,35 +470,76 @@ async function main() {
     assignmentService
   );
   const accessControlController = new AccessControlController(
-    policyRecorder.policy,
     {} as AccessRoleService,
     assignmentService
   );
 
-  assert.deepEqual(
+  assert.equal(
     Reflect.getMetadata(
       ROLES_KEY,
       UsersController.prototype["listAccessRoleAssignments"]
     ),
-    [UserRole.SUPER_ADMIN]
+    undefined
   );
-  assert.deepEqual(
+  assert.equal(
     Reflect.getMetadata(
       ROLES_KEY,
       UsersController.prototype["assignCustomAccessRole"]
     ),
-    [UserRole.SUPER_ADMIN]
+    undefined
   );
-  assert.deepEqual(
+  assert.equal(
     Reflect.getMetadata(
       ROLES_KEY,
       UsersController.prototype["revokeCustomAccessRoleAssignment"]
     ),
-    [UserRole.SUPER_ADMIN]
+    undefined
   );
-  assert.deepEqual(Reflect.getMetadata(ROLES_KEY, AccessControlController), [
-    UserRole.SUPER_ADMIN
+  assert.equal(
+    requiredPermissionFor("listAccessRoleAssignments"),
+    PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+  );
+  assert.equal(
+    requiredPermissionFor("assignCustomAccessRole"),
+    PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
+  );
+  assert.equal(
+    requiredPermissionFor("revokeCustomAccessRoleAssignment"),
+    PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
+  );
+  assert.deepEqual(guardsFor("listAccessRoleAssignments"), [
+    JwtAuthGuard,
+    PermissionGuard
   ]);
+  assert.deepEqual(guardsFor("assignCustomAccessRole"), [
+    JwtAuthGuard,
+    PermissionGuard
+  ]);
+  assert.deepEqual(guardsFor("revokeCustomAccessRoleAssignment"), [
+    JwtAuthGuard,
+    PermissionGuard
+  ]);
+  assert.equal(
+    new AccessPolicyService().can(
+      admin,
+      PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
+    ),
+    false
+  );
+  assert.equal(
+    new AccessPolicyService().can(
+      admin,
+      PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
+    ),
+    false
+  );
+  assert.equal(
+    new AccessPolicyService().can(
+      admin,
+      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+    ),
+    false
+  );
 
   await usersController.listAccessRoleAssignments("target-user", superAdmin);
   await usersController.assignCustomAccessRole(
@@ -504,24 +563,7 @@ async function main() {
     request
   );
 
-  assert.deepEqual(policyRecorder.calls, [
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
-    }
-  ]);
+  assert.deepEqual(policyRecorder.calls, []);
   assert.deepEqual(serviceCalls, [
     "list:target-user",
     `assign:target-user:${JSON.stringify({
@@ -531,30 +573,6 @@ async function main() {
     `revoke:target-user:assignment-1:${JSON.stringify({ reason: "Revoke role" })}`,
     "effective:target-user"
   ]);
-
-  const realPolicyUsersController = new UsersController(
-    usersServiceStub(),
-    new AccessPolicyService(),
-    assignmentService
-  );
-  assert.throws(
-    () => realPolicyUsersController.listAccessRoleAssignments("target-user", admin),
-    /Missing required permission/
-  );
-  assert.equal(
-    new AccessPolicyService().can(
-      admin,
-      PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
-    ),
-    false
-  );
-  assert.equal(
-    new AccessPolicyService().can(
-      admin,
-      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
-    ),
-    false
-  );
 
   const activeUser = user({ id: "target-user", role: UserRole.PICKER });
   const inactiveUser = user({

@@ -7,5 +7,7 @@ export * from "./access-control.module";
 export * from "./approval-authority";
 export * from "./dto/access-role-assignment.dto";
 export * from "./dto/access-role.dto";
+export * from "./permission.guard";
 export * from "./permissions";
+export * from "./require-permission.decorator";
 export * from "./role-permission.matrix";

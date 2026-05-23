@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { GUARDS_METADATA } from "@nestjs/common/constants";
 import {
   AccountStatus,
   EmploymentStatus,
@@ -9,10 +10,11 @@ import {
 
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import {
-  AccessPolicyService,
+  PermissionGuard,
   PermissionKeys,
-  type PermissionKey
+  REQUIRED_PERMISSION_KEY
 } from "../src/access-control";
+import { JwtAuthGuard } from "../src/auth/guards/jwt-auth.guard";
 import { NotificationsController } from "../src/notifications/notifications.controller";
 import type { ListNotificationsQueryDto } from "../src/notifications/dto/list-notifications-query.dto";
 import type { NotificationsService } from "../src/notifications/notifications.service";
@@ -61,22 +63,41 @@ const notificationsService = {
   }
 } as unknown as NotificationsService;
 
-const policyCalls: Array<{
-  actor: AuthenticatedUser;
-  permissionKey: PermissionKey;
-}> = [];
+function requiredPermissionFor(methodName: keyof NotificationsController) {
+  return Reflect.getMetadata(
+    REQUIRED_PERMISSION_KEY,
+    NotificationsController.prototype[methodName]
+  );
+}
 
-const recordingPolicy = {
-  assertCan: (policyActor: AuthenticatedUser, permissionKey: PermissionKey) => {
-    policyCalls.push({ actor: policyActor, permissionKey });
-  }
-} as AccessPolicyService;
+function guardsFor(methodName: keyof NotificationsController) {
+  return Reflect.getMetadata(
+    GUARDS_METADATA,
+    NotificationsController.prototype[methodName]
+  );
+}
 
 async function run() {
-  const controller = new NotificationsController(
-    notificationsService,
-    recordingPolicy
+  assert.equal(
+    requiredPermissionFor("list"),
+    PermissionKeys.NOTIFICATIONS_VIEW
   );
+  assert.equal(
+    requiredPermissionFor("markRead"),
+    PermissionKeys.NOTIFICATIONS_MANAGE_OWN
+  );
+  assert.equal(
+    requiredPermissionFor("markAllRead"),
+    PermissionKeys.NOTIFICATIONS_MANAGE_OWN
+  );
+  assert.equal(requiredPermissionFor("getStatus"), undefined);
+
+  assert.deepEqual(guardsFor("list"), [JwtAuthGuard, PermissionGuard]);
+  assert.deepEqual(guardsFor("markRead"), [JwtAuthGuard, PermissionGuard]);
+  assert.deepEqual(guardsFor("markAllRead"), [JwtAuthGuard, PermissionGuard]);
+  assert.equal(guardsFor("getStatus"), undefined);
+
+  const controller = new NotificationsController(notificationsService);
   const champ = actor(UserRole.CHAMP);
   const query = { page: 2, unreadOnly: true } satisfies ListNotificationsQueryDto;
 
@@ -88,37 +109,12 @@ async function run() {
   );
   assert.equal(await controller.markAllRead(champ), responses.markAllRead);
 
-  assert.deepEqual(policyCalls, [
-    { actor: champ, permissionKey: PermissionKeys.NOTIFICATIONS_VIEW },
-    { actor: champ, permissionKey: PermissionKeys.NOTIFICATIONS_MANAGE_OWN },
-    { actor: champ, permissionKey: PermissionKeys.NOTIFICATIONS_MANAGE_OWN }
-  ]);
-
   assert.deepEqual(serviceCalls, [
     "status",
     `list:${champ.id}:2:true`,
     `mark-read:${champ.id}:notification-1`,
     `mark-all-read:${champ.id}`
   ]);
-
-  const realPolicyController = new NotificationsController(
-    notificationsService,
-    new AccessPolicyService()
-  );
-
-  for (const role of Object.values(UserRole)) {
-    const roleActor = actor(role);
-
-    await assert.doesNotReject(() =>
-      realPolicyController.list(roleActor, query)
-    );
-    await assert.doesNotReject(() =>
-      realPolicyController.markRead(roleActor, "notification-1")
-    );
-    await assert.doesNotReject(() =>
-      realPolicyController.markAllRead(roleActor)
-    );
-  }
 }
 
 void run();
