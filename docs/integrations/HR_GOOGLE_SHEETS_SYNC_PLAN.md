@@ -4,9 +4,11 @@
 
 This document plans a future HR Sync integration from SuperNova to Google Sheets through a Google Apps Script Web App.
 
-HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton. HR-3 added the backend sender client and Apps Script response contract handling. HR-4 wired post-finalization hooks for Picker New Hire/Rehire and Picker Resignation only. HR-5 added a read-only ticket/request detail HR Sync status indicator.
+HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton. HR-3 added the backend sender client and Apps Script response contract handling. HR-4 wired post-finalization hooks for Picker New Hire/Rehire and Picker Resignation only. HR-5 added a read-only ticket/request detail HR Sync status indicator. HR-6 added the Google Apps Script package and sample payloads.
 
-No Apps Script package exists yet. The sender performs an external call only when `HR_SYNC_ENABLED=true` and a supported Picker finalization has completed successfully.
+The Apps Script package is not automatically deployed. The product owner must copy `Code.gs` into Google Apps Script, run setup, deploy a Web App, and configure backend environment values before end-to-end sync can run.
+
+The sender performs an external call only when `HR_SYNC_ENABLED=true` and a supported Picker finalization has completed successfully.
 
 The integration is planned after Picker lifecycle workflows and before any broad UI/UX work resumes. SuperNova remains a Partner Workforce Operations System, not a generic HR ERP.
 
@@ -19,7 +21,7 @@ Included:
 - Picker Resignation.
 - Post-finalization sync to HR-owned Google Sheets.
 - Backend-to-Google Apps Script POST integration.
-- Future ticket/request detail HR Sync status indicator.
+- Read-only ticket/request detail HR Sync status indicator.
 
 Excluded:
 
@@ -159,7 +161,7 @@ Rules:
 - Used as the official system reference for the Picker start date.
 - Separate from request creation date.
 - Not required for Champ or Area Manager in this HR Sync scope.
-- Google Apps Script sync remains intentionally deferred.
+- Apps Script deployment and end-to-end verification remain deferred to HR-7.
 
 ## Resignation Payload
 
@@ -190,18 +192,18 @@ Rules:
 - It represents the Picker's last working date for HR reporting.
 - It must be part of Picker resignation request data.
 - It must not be inferred from finalization date unless a later product decision explicitly allows that fallback.
-- Google Apps Script sync remains intentionally deferred.
+- Apps Script deployment and end-to-end verification remain deferred to HR-7.
 
-## Apps Script Package Plan
+## Apps Script Package
 
-Future package location:
+Implemented package location:
 
 ```text
 scripts/google-apps-script/hr-sync/Code.gs
 scripts/google-apps-script/hr-sync/README.md
-scripts/google-apps-script/hr-sync/samples/new-hire.json
-scripts/google-apps-script/hr-sync/samples/rehire.json
-scripts/google-apps-script/hr-sync/samples/resign.json
+scripts/google-apps-script/hr-sync/sample-new-hire.payload.json
+scripts/google-apps-script/hr-sync/sample-rehire.payload.json
+scripts/google-apps-script/hr-sync/sample-resign.payload.json
 ```
 
 Apps Script responsibilities:
@@ -224,6 +226,16 @@ Apps Script responsibilities:
   - `message`
 
 Apps Script should keep deployment URL and spreadsheet ID out of committed source where possible. Use Script Properties for deployment-specific settings.
+
+Deployment is manual:
+
+1. Copy `Code.gs` into a Google Apps Script project.
+2. Run `setupHrSync(spreadsheetUrlOrId, sharedSecret)`.
+3. Deploy the project as a Web App.
+4. Configure backend env with the deployment URL and the same shared secret.
+5. Restart the API.
+
+HR-7 should perform end-to-end verification against the deployed Web App.
 
 ## Backend Service Direction
 
@@ -284,8 +296,8 @@ If HR Sync is disabled:
 4. `HR-3`: Backend Apps Script sender client and response contract handling inside `HrSyncService`, still not called by workflows. Implemented.
 5. `HR-4`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only. Implemented.
 6. `HR-5`: Ticket/request detail HR Sync status indicator. Implemented.
-7. `HR-6`: Google Apps Script package with sample payloads. Deferred until later.
-8. `HR-7`: Retry/admin visibility and regression.
+7. `HR-6`: Google Apps Script package with sample payloads. Implemented.
+8. `HR-7`: End-to-end verification against deployed Apps Script, then retry/admin visibility and regression.
 
 ## Acceptance Criteria for Future Work
 

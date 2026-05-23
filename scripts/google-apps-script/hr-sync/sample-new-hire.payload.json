@@ -1,0 +1,15 @@
+{
+  "secret": "replace-with-your-32-character-minimum-secret",
+  "eventType": "NEW_HIRE",
+  "payload": {
+    "finalizerDisplayName": "Admin User",
+    "requestType": "New Hire",
+    "fullNameEnglish": "Test Picker",
+    "nationalId": "30001011234567",
+    "phoneNumber": "01000000000",
+    "actualJoiningDate": "2026-05-23",
+    "homeAddress": "Test Address",
+    "vertical": "Local Shops",
+    "title": "Picker"
+  }
+}
