@@ -11,6 +11,7 @@ import configuration from "./config/configuration";
 import { validateEnvironment } from "./config/env.validation";
 import { ChainsModule } from "./chains/chains.module";
 import { HealthModule } from "./health/health.module";
+import { HrSyncModule } from "./hr-sync/hr-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ReportsModule } from "./reports/reports.module";
@@ -38,6 +39,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     RequestsModule,
     ApprovalsModule,
     AccessControlModule,
+    HrSyncModule,
     NotificationsModule,
     AuditModule,
     AdminModule,

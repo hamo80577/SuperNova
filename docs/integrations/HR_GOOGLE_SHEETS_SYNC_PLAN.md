@@ -4,7 +4,9 @@
 
 This document plans a future HR Sync integration from SuperNova to Google Sheets through a Google Apps Script Web App.
 
-This is documentation only. It does not add backend code, Apps Script code, schema changes, migrations, UI, environment files, or runtime behavior.
+HR-0 was documentation only. HR-1 added backend foundation only: `HrSyncLog` schema tracking, backend env validation placeholders, typed payload helpers, and an inert `HrSyncService` skeleton.
+
+No workflow finalization hook, Apps Script package, external call, or UI exists yet.
 
 The integration is planned after Picker lifecycle workflows and before any broad UI/UX work resumes. SuperNova remains a Partner Workforce Operations System, not a generic HR ERP.
 
@@ -84,7 +86,7 @@ Rules:
 - Do not log the secret.
 - Redact the deployment URL from user-facing error messages.
 
-These environment variables are planned only. They are not active until the backend integration phase implements them.
+These environment variables are backend-only. HR-1 added placeholder validation and example entries, but no workflow code calls Google Apps Script yet.
 
 ## Recommended Data Model Direction
 
@@ -106,7 +108,7 @@ Planned fields:
 | `createdAt` | Log creation timestamp. |
 | `updatedAt` | Log update timestamp. |
 
-This requires a future Prisma migration. Do not create that migration in this documentation phase.
+Implemented in HR-1 as a dedicated Prisma `HrSyncLog` model/table with enum-backed workflow type, target sheet, and status fields.
 
 ## Status and UI Direction
 
@@ -218,15 +220,20 @@ Apps Script should keep deployment URL and spreadsheet ID out of committed sourc
 
 ## Backend Service Direction
 
-Future backend implementation should introduce a small focused service, for example `HrSyncService`.
+Backend implementation should keep HR Sync behind a small focused service boundary, `HrSyncService`.
 
-Responsibilities:
+HR-1 added the initial `HrSyncService` skeleton. It can build typed payloads and create/update sync log rows, but it does not call external HTTP and is not wired into finalization workflows.
+
+Current HR-1 responsibilities:
 
 - Check `HR_SYNC_ENABLED`.
 - Build event-specific payloads.
 - Create/update `HrSyncLog`.
-- POST to Apps Script with a shared secret.
 - Mark `SENT`, `FAILED`, or `SKIPPED`.
+
+Future responsibilities after Apps Script integration:
+
+- POST to Apps Script with a shared secret.
 - Never throw in a way that rolls back completed lifecycle finalization after the system state has been applied.
 - Provide a clear retryable failure state for future admin visibility.
 
@@ -261,9 +268,9 @@ If HR Sync is disabled:
 
 ## Planned Implementation Phases
 
-1. `HR-0`: Documentation cleanup and integration plan.
-2. `HR-1`: Google Apps Script package with sample payloads.
-3. `HR-2`: Backend env/config, `HrSyncService`, and `HrSyncLog` schema design/migration.
+1. `HR-0`: Documentation cleanup and integration plan. Implemented.
+2. `HR-1`: Backend HR Sync foundation: env placeholders, `HrSyncLog` schema/migration, typed payload helpers, and inert `HrSyncService`. Implemented.
+3. `HR-2`: Google Apps Script package with sample payloads. Deferred until the backend contract is stable.
 4. `HR-3`: Picker New Hire/Rehire `actualJoiningDate` request payload and form.
 5. `HR-4`: Picker Resignation `lastWorkingDate` verification or addition if missing.
 6. `HR-5`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only.

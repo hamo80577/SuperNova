@@ -117,6 +117,24 @@ enum ApprovalStep {
   ADMIN_FINAL_APPROVAL
 }
 
+enum HrSyncWorkflowType {
+  PICKER_NEW_HIRE
+  PICKER_REHIRE
+  PICKER_RESIGNATION
+}
+
+enum HrSyncTargetSheet {
+  NEW_HIRE
+  RESIGN
+}
+
+enum HrSyncStatus {
+  NOT_SENT
+  SENT
+  FAILED
+  SKIPPED
+}
+
 model User {
   id                          String                           @id @default(uuid())
   ibsId                       String?                          @unique
@@ -319,6 +337,7 @@ model Request {
   destinationVendor    Vendor?                   @relation("RequestDestinationVendor", fields: [destinationVendorId], references: [id], onDelete: SetNull)
   approvals            RequestApproval[]
   createdAssignments   PickerBranchAssignment[]  @relation("RequestCreatedAssignments")
+  hrSyncLogs           HrSyncLog[]
 
   @@index([status])
   @@index([status, currentStep])
@@ -352,6 +371,26 @@ model RequestApproval {
   @@index([status, step])
   @@index([requestId, step])
   @@index([requestId, status])
+}
+
+model HrSyncLog {
+  id               String             @id @default(uuid())
+  requestId        String
+  workflowType     HrSyncWorkflowType
+  targetSheet      HrSyncTargetSheet
+  status           HrSyncStatus       @default(NOT_SENT)
+  payloadSnapshot  Json
+  responseSnapshot Json?
+  errorMessage     String?
+  sentAt           DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  request          Request            @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@index([requestId])
+  @@index([status])
+  @@index([workflowType])
+  @@index([createdAt])
 }
 
 model Notification {

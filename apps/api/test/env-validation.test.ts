@@ -41,6 +41,18 @@ validateEnvironment({
 
 validateEnvironment({
   ...validBaseEnv,
+  HR_SYNC_ENABLED: "false"
+});
+
+validateEnvironment({
+  ...validBaseEnv,
+  HR_SYNC_ENABLED: "true",
+  HR_SYNC_WEB_APP_URL: "https://script.google.com/macros/s/example/exec",
+  HR_SYNC_SECRET: "h".repeat(32)
+});
+
+validateEnvironment({
+  ...validBaseEnv,
   NODE_ENV: "production",
   TEMP_PASSWORD_ENCRYPTION_KEY: "t".repeat(32)
 });
@@ -71,4 +83,20 @@ expectValidationError(
     NODE_ENV: "production"
   },
   [/TEMP_PASSWORD_ENCRYPTION_KEY/]
+);
+
+expectValidationError(
+  {
+    ...validBaseEnv,
+    HR_SYNC_ENABLED: "true"
+  },
+  [/HR_SYNC_WEB_APP_URL/, /HR_SYNC_SECRET/]
+);
+
+expectValidationError(
+  {
+    ...validBaseEnv,
+    HR_SYNC_ENABLED: "maybe"
+  },
+  [/HR_SYNC_ENABLED must be true or false/]
 );

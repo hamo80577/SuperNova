@@ -20,6 +20,11 @@ export default () => {
       cookieName: process.env.AUTH_COOKIE_NAME ?? "supernova_session",
       webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
       isProduction
+    },
+    hrSync: {
+      enabled: process.env.HR_SYNC_ENABLED === "true",
+      webAppUrl: process.env.HR_SYNC_WEB_APP_URL ?? "",
+      secret: process.env.HR_SYNC_SECRET ?? ""
     }
   };
 };
