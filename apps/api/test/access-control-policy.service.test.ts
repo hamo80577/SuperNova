@@ -43,17 +43,29 @@ type MockUserAccessRoleAssignmentRow = Readonly<{
 }>;
 
 function mockPrisma(
-  rows: readonly MockAccessRoleRow[],
-  userAccessRoleAssignmentRows: readonly MockUserAccessRoleAssignmentRow[] = []
+  rows: readonly MockAccessRoleRow[] | (() => readonly MockAccessRoleRow[]),
+  userAccessRoleAssignmentRows:
+    | readonly MockUserAccessRoleAssignmentRow[]
+    | (() => readonly MockUserAccessRoleAssignmentRow[]) = [],
+  options: {
+    accessRoleFindManyGate?: Promise<void>;
+    userAccessRoleAssignmentFindManyGate?: Promise<void>;
+  } = {}
 ) {
   let findManyCalls = 0;
   let userAccessRoleAssignmentFindManyCalls = 0;
+  const getRows = typeof rows === "function" ? rows : () => rows;
+  const getUserAccessRoleAssignmentRows =
+    typeof userAccessRoleAssignmentRows === "function"
+      ? userAccessRoleAssignmentRows
+      : () => userAccessRoleAssignmentRows;
 
   return {
     accessRole: {
       findMany: async () => {
         findManyCalls += 1;
-        return rows;
+        await options.accessRoleFindManyGate;
+        return getRows();
       }
     },
     userAccessRoleAssignment: {
@@ -73,6 +85,7 @@ function mockPrisma(
         };
       }) => {
         userAccessRoleAssignmentFindManyCalls += 1;
+        await options.userAccessRoleAssignmentFindManyGate;
         const now = query?.where?.startsAt?.lte;
         const usesExpectedFilter =
           query?.where?.status === AccessRoleAssignmentStatus.ACTIVE &&
@@ -86,8 +99,9 @@ function mockPrisma(
           query.where.accessRole?.kind === AccessRoleKind.CUSTOM &&
           query.where.accessRole.status === AccessRoleStatus.ACTIVE &&
           query.where.accessRole.isSystem === false;
+        const rowsToFilter = getUserAccessRoleAssignmentRows();
         const matchingRows = usesExpectedFilter
-          ? userAccessRoleAssignmentRows.filter(
+          ? rowsToFilter.filter(
               (row) =>
                 row.status === AccessRoleAssignmentStatus.ACTIVE &&
                 row.startsAt <= now &&
@@ -96,7 +110,7 @@ function mockPrisma(
                 row.accessRole.status === AccessRoleStatus.ACTIVE &&
                 row.accessRole.isSystem === false
             )
-          : userAccessRoleAssignmentRows;
+          : rowsToFilter;
 
         return matchingRows.map((row) => ({
           userId: row.userId,
@@ -112,6 +126,18 @@ function mockPrisma(
     get userAccessRoleAssignmentFindManyCalls() {
       return userAccessRoleAssignmentFindManyCalls;
     }
+  };
+}
+
+function deferred() {
+  let resolvePromise!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise
   };
 }
 
@@ -364,6 +390,205 @@ const unassignedPicker = {
   id: "unassigned-picker",
   role: UserRole.PICKER
 } satisfies AccessPolicyActor;
+
+let refreshSystemRows = completeDbRows();
+const refreshSystemPrisma = mockPrisma(() => refreshSystemRows);
+const refreshSystemService = new AccessPolicyService(
+  refreshSystemPrisma as never
+);
+
+await refreshSystemService.onModuleInit();
+assert.equal(
+  refreshSystemService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+
+refreshSystemRows = completeDbRows({
+  [UserRole.PICKER]: [
+    ...getPermissionsForRole(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ]
+});
+
+await refreshSystemService.refreshPermissionCaches();
+assert.equal(refreshSystemPrisma.findManyCalls, 2);
+assert.equal(refreshSystemPrisma.userAccessRoleAssignmentFindManyCalls, 2);
+assert.equal(
+  refreshSystemService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+
+let refreshCustomAssignments: readonly MockUserAccessRoleAssignmentRow[] = [];
+const refreshCustomPrisma = mockPrisma(
+  completeDbRows(),
+  () => refreshCustomAssignments
+);
+const refreshCustomService = new AccessPolicyService(
+  refreshCustomPrisma as never
+);
+
+await refreshCustomService.onModuleInit();
+assert.equal(
+  refreshCustomService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+
+refreshCustomAssignments = [
+  customAssignmentRow(assignedPicker.id, [
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ])
+];
+
+await refreshCustomService.refreshPermissionCaches();
+assert.equal(refreshCustomPrisma.findManyCalls, 2);
+assert.equal(refreshCustomPrisma.userAccessRoleAssignmentFindManyCalls, 2);
+assert.equal(
+  refreshCustomService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+
+let refreshFallbackRows = completeDbRows({
+  [UserRole.PICKER]: [
+    ...getPermissionsForRole(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ]
+});
+const refreshFallbackPrisma = mockPrisma(() => refreshFallbackRows);
+const refreshFallbackService = new AccessPolicyService(
+  refreshFallbackPrisma as never
+);
+
+await refreshFallbackService.onModuleInit();
+assert.equal(
+  refreshFallbackService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+
+refreshFallbackRows = completeDbRows().filter(
+  (row) => row.systemRole !== UserRole.CHAMP
+);
+
+await assert.doesNotReject(() =>
+  refreshFallbackService.refreshPermissionCaches()
+);
+assert.equal(
+  refreshFallbackService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  refreshFallbackService.hasPermission(
+    actor(UserRole.CHAMP),
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+
+let refreshCustomFallbackAssignments: readonly MockUserAccessRoleAssignmentRow[] =
+  [
+    customAssignmentRow(assignedPicker.id, [
+      PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+    ])
+  ];
+const refreshCustomFallbackPrisma = mockPrisma(
+  completeDbRows(),
+  () => refreshCustomFallbackAssignments
+);
+const refreshCustomFallbackService = new AccessPolicyService(
+  refreshCustomFallbackPrisma as never
+);
+
+await refreshCustomFallbackService.onModuleInit();
+assert.equal(
+  refreshCustomFallbackService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  true
+);
+
+refreshCustomFallbackAssignments = [
+  customAssignmentRow(assignedPicker.id, [
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
+    "unknown.permission"
+  ])
+];
+
+await assert.doesNotReject(() =>
+  refreshCustomFallbackService.refreshPermissionCaches()
+);
+assert.equal(
+  refreshCustomFallbackService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER
+  ),
+  false
+);
+assert.equal(
+  refreshCustomFallbackService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
+
+const refreshSyncHasPermissionResult =
+  refreshCustomFallbackService.hasPermission(
+    assignedPicker,
+    PermissionKeys.REQUESTS_VIEW
+  );
+const refreshSyncCanResult = refreshCustomFallbackService.can(
+  assignedPicker,
+  PermissionKeys.REQUESTS_VIEW
+);
+const refreshSyncAssertCanResult = refreshCustomFallbackService.assertCan(
+  assignedPicker,
+  PermissionKeys.REQUESTS_VIEW
+);
+
+assert.equal(isPromiseLike(refreshSyncHasPermissionResult), false);
+assert.equal(isPromiseLike(refreshSyncCanResult), false);
+assert.equal(refreshSyncAssertCanResult, undefined);
+
+const refreshGate = deferred();
+const concurrentPrisma = mockPrisma(completeDbRows(), [], {
+  accessRoleFindManyGate: refreshGate.promise
+});
+const concurrentRefreshService = new AccessPolicyService(
+  concurrentPrisma as never
+);
+const firstRefresh = concurrentRefreshService.refreshPermissionCaches();
+const secondRefresh = concurrentRefreshService.refreshPermissionCaches();
+
+refreshGate.resolve();
+await Promise.all([firstRefresh, secondRefresh]);
+assert.equal(concurrentPrisma.findManyCalls, 1);
+assert.equal(concurrentPrisma.userAccessRoleAssignmentFindManyCalls, 1);
+assert.equal(
+  concurrentRefreshService.hasPermission(
+    actor(UserRole.PICKER),
+    PermissionKeys.REQUESTS_VIEW
+  ),
+  true
+);
+
 const customGrantPrisma = mockPrisma(completeDbRows(), [
   customAssignmentRow(assignedPicker.id, [
     PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER

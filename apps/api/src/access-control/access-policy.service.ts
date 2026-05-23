@@ -48,12 +48,31 @@ export class AccessPolicyService implements OnModuleInit {
     | null = null;
   private dbUserAccessRolePermissionCacheReady = false;
   private dbUserAccessRolePermissionCacheError: string | null = null;
+  private refreshInFlight: Promise<void> | null = null;
 
   constructor(
     @Optional() private readonly prisma: PrismaService | undefined = undefined
   ) {}
 
   async onModuleInit() {
+    await this.refreshPermissionCaches();
+  }
+
+  async refreshPermissionCaches(): Promise<void> {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.refreshPermissionCachesInternal().finally(
+      () => {
+        this.refreshInFlight = null;
+      }
+    );
+
+    return this.refreshInFlight;
+  }
+
+  private async refreshPermissionCachesInternal() {
     await this.loadDbSystemRolePermissionCache();
     await this.loadDbUserAccessRolePermissionCache();
   }
