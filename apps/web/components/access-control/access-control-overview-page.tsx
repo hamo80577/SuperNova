@@ -11,7 +11,8 @@ import {
 import {
   accessControlApi,
   type AccessControlOverview,
-  type PermissionDefinition
+  type PermissionDefinition,
+  type SystemRolePermissionsSource
 } from "@/lib/api/access-control";
 import type { UserRole } from "@/lib/auth/types";
 
@@ -113,6 +114,7 @@ function AccessControlOverviewContent({
           description="Current system roles mapped to catalog permission keys."
           title="System Role Matrix"
         />
+        <SystemRoleSourceNote source={data.systemRolePermissionsSource} />
         {roleOrder.map((role) => (
           <RolePermissionCard
             key={role}
@@ -121,6 +123,26 @@ function AccessControlOverviewContent({
           />
         ))}
       </section>
+    </div>
+  );
+}
+
+function SystemRoleSourceNote({
+  source
+}: {
+  source: SystemRolePermissionsSource;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed bg-muted/30 p-4 xl:col-span-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">
+          <span className="break-all">{source.source}</span>
+        </Badge>
+        <Badge variant="muted">{source.editable ? "Editable" : "Read-only"}</Badge>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        {source.note}
+      </p>
     </div>
   );
 }

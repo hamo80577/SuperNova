@@ -8,6 +8,15 @@ Phase 7 is functionally complete and the requested regression, build, seed, and 
 
 No critical or high security blocker was found. The branch should still take a short cleanup pass before merge to harden service-level validation, make the read-only frontend source labeling match the backend overview response, and explicitly document or handle post-transaction cache-refresh failure semantics.
 
+## Phase 7N.1 Cleanup Status
+
+Completed after this report was first written:
+
+- `AccessRoleService` now defensively validates custom-role `permissionKeys` at the service boundary.
+- The read-only Access Control overview page now displays the backend system-role matrix source note.
+- Custom role and user access-role assignment mutation services now surface explicit cache-refresh failure errors after committed mutations.
+- Custom role assignment now requires both active account status and active employment status.
+
 ## Overall Scores
 
 - Architecture: 8/10
@@ -406,10 +415,14 @@ After verification:
 
 ## Required Fixes Before Merge
 
-- Add service-level defensive validation in `AccessRoleService.validateCustomRolePermissionKeys()` so malformed direct service calls return `BadRequestException` instead of raw `TypeError`.
-- Render or otherwise expose the system-role matrix source note in the read-only frontend overview so the page does not hide the backend `systemRolePermissionsSource` metadata.
-- Decide and document or improve post-transaction cache-refresh failure behavior for custom role and user assignment mutations.
-- Clarify whether assigning a custom role requires both `accountStatus === ACTIVE` and `employmentStatus === ACTIVE`; enforce the stricter rule if intended.
+No open required fixes after the Phase 7N.1 cleanup.
+
+Closed in Phase 7N.1:
+
+- Added service-level defensive validation in `AccessRoleService.validateCustomRolePermissionKeys()` so malformed direct service calls return `BadRequestException` instead of raw `TypeError`.
+- Rendered the system-role matrix source note in the read-only frontend overview.
+- Added explicit post-transaction cache-refresh failure errors for custom role and user assignment mutations.
+- Enforced the stricter target-user eligibility rule: both `accountStatus === ACTIVE` and `employmentStatus === ACTIVE` are required for custom role assignment.
 
 ## Can Defer After Merge
 

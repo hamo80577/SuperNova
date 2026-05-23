@@ -3,7 +3,8 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  ServiceUnavailableException
 } from "@nestjs/common";
 import {
   AccessRole,
@@ -161,7 +162,7 @@ export class AccessRoleService {
       };
     });
 
-    await this.accessPolicy.refreshPermissionCaches();
+    await this.refreshPermissionCachesAfterMutation();
 
     return result;
   }
@@ -225,7 +226,7 @@ export class AccessRoleService {
       };
     });
 
-    await this.accessPolicy.refreshPermissionCaches();
+    await this.refreshPermissionCachesAfterMutation();
 
     return result;
   }
@@ -299,7 +300,7 @@ export class AccessRoleService {
       };
     });
 
-    await this.accessPolicy.refreshPermissionCaches();
+    await this.refreshPermissionCachesAfterMutation();
 
     return result;
   }
@@ -387,7 +388,7 @@ export class AccessRoleService {
       };
     });
 
-    await this.accessPolicy.refreshPermissionCaches();
+    await this.refreshPermissionCachesAfterMutation();
 
     return result;
   }
@@ -463,11 +464,23 @@ export class AccessRoleService {
   }
 
   private validateCustomRolePermissionKeys(
-    permissionKeys: readonly string[]
+    permissionKeys: unknown
   ): PermissionKey[] {
-    const normalizedPermissionKeys = permissionKeys.map((permissionKey) =>
-      permissionKey.trim()
-    );
+    if (!Array.isArray(permissionKeys)) {
+      throw new BadRequestException(
+        "permissionKeys must be an array of permission key strings."
+      );
+    }
+
+    const normalizedPermissionKeys = permissionKeys.map((permissionKey) => {
+      if (typeof permissionKey !== "string" || !permissionKey.trim()) {
+        throw new BadRequestException(
+          "permissionKeys must contain non-empty strings."
+        );
+      }
+
+      return permissionKey.trim();
+    });
 
     if (
       new Set(normalizedPermissionKeys).size !== normalizedPermissionKeys.length
@@ -642,6 +655,18 @@ export class AccessRoleService {
 
   private isReadOnlyRole(role: Pick<AccessRole, "kind" | "isSystem">) {
     return role.kind === AccessRoleKind.SYSTEM || role.isSystem;
+  }
+
+  private async refreshPermissionCachesAfterMutation() {
+    try {
+      await this.accessPolicy.refreshPermissionCaches();
+    } catch {
+      // The DB mutation has already committed; surface an explicit stale-cache
+      // failure so operators can restart the process or retry cache refresh.
+      throw new ServiceUnavailableException(
+        "Access role mutation succeeded, but permission cache refresh failed. Restart or retry refresh is required."
+      );
+    }
   }
 
   private toAuditJson(value: unknown) {

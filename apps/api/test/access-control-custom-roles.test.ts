@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 
 import {
+  BadRequestException,
+  ServiceUnavailableException
+} from "@nestjs/common";
+import {
   AccessRoleAssignmentStatus,
   AccessRoleKind,
   AccessRoleStatus,
@@ -371,6 +375,22 @@ function createRefreshRecorder() {
   };
 }
 
+function createFailingRefreshPolicy() {
+  let refreshCount = 0;
+
+  return {
+    get refreshCount() {
+      return refreshCount;
+    },
+    policy: {
+      refreshPermissionCaches: async () => {
+        refreshCount += 1;
+        throw new Error("refresh failed");
+      }
+    } as AccessPolicyService
+  };
+}
+
 async function main() {
   assert.deepEqual(Reflect.getMetadata(ROLES_KEY, AccessControlController), [
     UserRole.SUPER_ADMIN
@@ -656,6 +676,32 @@ async function main() {
       ),
     /not assignable|system-only/
   );
+  await assert.rejects(
+    () =>
+      service.createCustomRole(
+        {
+          key: "custom.malformed.permissions",
+          name: "Malformed Permissions",
+          permissionKeys: PermissionKeys.REQUESTS_VIEW as never,
+          reason: "Malformed permissions"
+        },
+        { actorUserId: superAdmin.id }
+      ),
+    (error) =>
+      error instanceof BadRequestException &&
+      /permissionKeys must be an array/.test(error.message)
+  );
+  await assert.rejects(
+    () =>
+      service.syncCustomRolePermissions(
+        customRole.id,
+        { reason: "Missing permission keys" } as never,
+        { actorUserId: superAdmin.id }
+      ),
+    (error) =>
+      error instanceof BadRequestException &&
+      /permissionKeys must be an array/.test(error.message)
+  );
 
   const updatedResponse = await service.updateCustomRoleMetadata(
     customRole.id,
@@ -747,6 +793,35 @@ async function main() {
   assert.equal(store.assignments[0].status, AccessRoleAssignmentStatus.INACTIVE);
   assert.equal(store.auditRows.at(-1)?.["action"], "ACCESS_ROLE_DEACTIVATED");
   assert.equal(refreshRecorder.refreshCount, 4);
+
+  const refreshFailureStore = createMockPrisma({ roles: [], permissions: [] });
+  const failingRefreshRecorder = createFailingRefreshPolicy();
+  const refreshFailureService = new AccessRoleService(
+    refreshFailureStore.prisma as never,
+    failingRefreshRecorder.policy
+  );
+
+  await assert.rejects(
+    () =>
+      refreshFailureService.createCustomRole(
+        {
+          key: "custom.refresh.failure",
+          name: "Refresh Failure",
+          permissionKeys: [PermissionKeys.REQUESTS_VIEW],
+          reason: "Exercise refresh failure"
+        },
+        { actorUserId: superAdmin.id }
+      ),
+    (error) =>
+      error instanceof ServiceUnavailableException &&
+      /permission cache refresh failed/i.test(error.message)
+  );
+  assert.equal(failingRefreshRecorder.refreshCount, 1);
+  assert.equal(refreshFailureStore.roles.length, 1);
+  assert.equal(
+    refreshFailureStore.auditRows.at(-1)?.["action"],
+    "ACCESS_ROLE_CREATED"
+  );
 
   await assert.rejects(
     () =>

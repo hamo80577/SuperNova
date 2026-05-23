@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { ServiceUnavailableException } from "@nestjs/common";
 import {
   AccessRoleAssignmentStatus,
   AccessRoleKind,
@@ -395,6 +396,22 @@ function createRefreshRecorder() {
   };
 }
 
+function createFailingRefreshPolicy() {
+  let refreshCount = 0;
+
+  return {
+    get refreshCount() {
+      return refreshCount;
+    },
+    policy: {
+      refreshPermissionCaches: async () => {
+        refreshCount += 1;
+        throw new Error("refresh failed");
+      }
+    } as AccessPolicyService
+  };
+}
+
 function usersServiceStub() {
   return {
     getFoundationStatus: () => ({ module: "users" })
@@ -544,6 +561,10 @@ async function main() {
     id: "inactive-user",
     accountStatus: AccountStatus.INACTIVE
   });
+  const employmentInactiveUser = user({
+    id: "employment-inactive-user",
+    employmentStatus: EmploymentStatus.RESIGNED
+  });
   const customRole = role({
     id: "custom-role-1",
     key: "custom.branch.viewer",
@@ -613,7 +634,12 @@ async function main() {
     accessRoleId: inactiveCustomRole.id
   });
   const store = createMockPrisma({
-    users: [activeUser, inactiveUser, user({ id: "other-user" })],
+    users: [
+      activeUser,
+      inactiveUser,
+      employmentInactiveUser,
+      user({ id: "other-user" })
+    ],
     roles: [
       customRole,
       assignableCustomRole,
@@ -697,6 +723,9 @@ async function main() {
       ),
     /User was not found/
   );
+  const countBeforeInactiveAccount = store.assignments.length;
+  const auditCountBeforeInactiveAccount = store.auditRows.length;
+  const refreshCountBeforeInactiveAccount = refreshRecorder.refreshCount;
   await assert.rejects(
     () =>
       service.assignCustomAccessRoleToUser(
@@ -704,8 +733,31 @@ async function main() {
         { accessRoleId: customRole.id, reason: "Inactive user" },
         { actorUserId: superAdmin.id }
       ),
-    /Target user must be active/
+    /Target user account and employment status must be active/
   );
+  assert.equal(store.assignments.length, countBeforeInactiveAccount);
+  assert.equal(store.auditRows.length, auditCountBeforeInactiveAccount);
+  assert.equal(refreshRecorder.refreshCount, refreshCountBeforeInactiveAccount);
+
+  const countBeforeInactiveEmployment = store.assignments.length;
+  const auditCountBeforeInactiveEmployment = store.auditRows.length;
+  const refreshCountBeforeInactiveEmployment = refreshRecorder.refreshCount;
+  await assert.rejects(
+    () =>
+      service.assignCustomAccessRoleToUser(
+        employmentInactiveUser.id,
+        { accessRoleId: dateValidationRole.id, reason: "Inactive employment" },
+        { actorUserId: superAdmin.id }
+      ),
+    /Target user account and employment status must be active/
+  );
+  assert.equal(store.assignments.length, countBeforeInactiveEmployment);
+  assert.equal(store.auditRows.length, auditCountBeforeInactiveEmployment);
+  assert.equal(
+    refreshRecorder.refreshCount,
+    refreshCountBeforeInactiveEmployment
+  );
+
   await assert.rejects(
     () =>
       service.assignCustomAccessRoleToUser(
@@ -755,6 +807,43 @@ async function main() {
         { actorUserId: superAdmin.id }
       ),
     /already has an active assignment/
+  );
+
+  const refreshFailureStore = createMockPrisma({
+    users: [user({ id: "refresh-user" })],
+    roles: [
+      role({
+        id: "refresh-role",
+        key: "custom.refresh.failure",
+        name: "Refresh Failure"
+      })
+    ]
+  });
+  const failingRefreshRecorder = createFailingRefreshPolicy();
+  const refreshFailureService = new AccessRoleAssignmentService(
+    refreshFailureStore.prisma as never,
+    failingRefreshRecorder.policy
+  );
+
+  await assert.rejects(
+    () =>
+      refreshFailureService.assignCustomAccessRoleToUser(
+        "refresh-user",
+        {
+          accessRoleId: "refresh-role",
+          reason: "Exercise refresh failure"
+        },
+        { actorUserId: superAdmin.id }
+      ),
+    (error) =>
+      error instanceof ServiceUnavailableException &&
+      /permission cache refresh failed/i.test(error.message)
+  );
+  assert.equal(failingRefreshRecorder.refreshCount, 1);
+  assert.equal(refreshFailureStore.assignments.length, 1);
+  assert.equal(
+    refreshFailureStore.auditRows.at(-1)?.["action"],
+    "USER_ACCESS_ROLE_ASSIGNED"
   );
 
   const revoked = await service.revokeUserAccessRoleAssignment(

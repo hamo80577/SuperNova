@@ -11,10 +11,17 @@ export interface PermissionDefinition {
   systemOnly: boolean;
 }
 
+export interface SystemRolePermissionsSource {
+  source: "CODE_SYSTEM_ROLE_MATRIX" | string;
+  editable: boolean;
+  note: string;
+}
+
 export interface AccessControlOverview {
   permissions: PermissionDefinition[];
   permissionsByGroup: Record<string, PermissionDefinition[]>;
   systemRolePermissions: Record<UserRole, string[]>;
+  systemRolePermissionsSource: SystemRolePermissionsSource;
 }
 
 export const accessControlApi = {

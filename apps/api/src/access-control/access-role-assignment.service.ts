@@ -3,7 +3,8 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  ServiceUnavailableException
 } from "@nestjs/common";
 import {
   AccessRole,
@@ -12,6 +13,7 @@ import {
   AccessRolePermission,
   AccessRoleStatus,
   AccountStatus,
+  EmploymentStatus,
   Prisma,
   User,
   UserAccessRoleAssignment,
@@ -94,8 +96,13 @@ export class AccessRoleAssignmentService {
   ) {
     const user = await this.findUserOrThrow(userId);
 
-    if (user.accountStatus !== AccountStatus.ACTIVE) {
-      throw new BadRequestException("Target user must be active.");
+    if (
+      user.accountStatus !== AccountStatus.ACTIVE ||
+      user.employmentStatus !== EmploymentStatus.ACTIVE
+    ) {
+      throw new BadRequestException(
+        "Target user account and employment status must be active."
+      );
     }
 
     const accessRole = await this.prisma.accessRole.findUnique({
@@ -179,7 +186,7 @@ export class AccessRoleAssignmentService {
         };
       });
 
-      await this.accessPolicy.refreshPermissionCaches();
+      await this.refreshPermissionCachesAfterMutation();
 
       return result;
     } catch (error) {
@@ -291,7 +298,7 @@ export class AccessRoleAssignmentService {
       };
     });
 
-    await this.accessPolicy.refreshPermissionCaches();
+    await this.refreshPermissionCachesAfterMutation();
 
     return result;
   }
@@ -563,6 +570,18 @@ export class AccessRoleAssignmentService {
       "code" in error &&
       error.code === "P2002"
     );
+  }
+
+  private async refreshPermissionCachesAfterMutation() {
+    try {
+      await this.accessPolicy.refreshPermissionCaches();
+    } catch {
+      // The DB mutation has already committed; surface an explicit stale-cache
+      // failure so operators can restart the process or retry cache refresh.
+      throw new ServiceUnavailableException(
+        "Access role mutation succeeded, but permission cache refresh failed. Restart or retry refresh is required."
+      );
+    }
   }
 
   private toAuditJson(value: unknown) {
