@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { GUARDS_METADATA } from "@nestjs/common/constants";
 import {
   AccountStatus,
   EmploymentStatus,
@@ -11,10 +12,14 @@ import {
 import {
   AccessRoleAssignmentService,
   AccessPolicyService,
+  PermissionGuard,
   PermissionKeys,
+  REQUIRED_PERMISSION_KEY,
   type PermissionKey
 } from "../src/access-control";
 import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
+import { JwtAuthGuard } from "../src/auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../src/auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import type { UpdateAdminProfileDto } from "../src/users/dto/admin-profile.dto";
@@ -49,6 +54,20 @@ function requestFor(user: AuthenticatedUser): AuthenticatedRequest {
 
 function rolesFor(methodName: keyof UsersController) {
   return Reflect.getMetadata(ROLES_KEY, UsersController.prototype[methodName]);
+}
+
+function requiredPermissionFor(methodName: keyof UsersController) {
+  return Reflect.getMetadata(
+    REQUIRED_PERMISSION_KEY,
+    UsersController.prototype[methodName]
+  );
+}
+
+function guardsFor(methodName: keyof UsersController) {
+  return Reflect.getMetadata(
+    GUARDS_METADATA,
+    UsersController.prototype[methodName]
+  );
 }
 
 const serviceCalls: string[] = [];
@@ -203,8 +222,46 @@ async function run() {
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
   ]);
+  assert.equal(rolesFor("getMe"), undefined);
+  assert.equal(rolesFor("updatePreferences"), undefined);
+  assert.equal(rolesFor("getOperationalProfile"), undefined);
+  assert.equal(
+    requiredPermissionFor("getMe"),
+    PermissionKeys.USERS_VIEW_SELF
+  );
+  assert.equal(
+    requiredPermissionFor("updatePreferences"),
+    PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+  );
+  assert.equal(
+    requiredPermissionFor("getOperationalProfile"),
+    PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
+  );
+  assert.deepEqual(guardsFor("getMe"), [JwtAuthGuard, PermissionGuard]);
+  assert.deepEqual(guardsFor("updatePreferences"), [
+    JwtAuthGuard,
+    PermissionGuard
+  ]);
+  assert.deepEqual(guardsFor("getOperationalProfile"), [
+    JwtAuthGuard,
+    PermissionGuard
+  ]);
+  assert.deepEqual(guardsFor("list"), [JwtAuthGuard, RolesGuard]);
+  assert.deepEqual(guardsFor("listOperational"), [JwtAuthGuard, RolesGuard]);
+  assert.deepEqual(guardsFor("updateAdminProfile"), [
+    JwtAuthGuard,
+    RolesGuard
+  ]);
   assert.deepEqual(rolesFor("getProfileCompletion"), [UserRole.PICKER]);
   assert.deepEqual(rolesFor("updateProfileCompletion"), [UserRole.PICKER]);
+  assert.equal(
+    requiredPermissionFor("revealTemporaryPassword"),
+    undefined
+  );
+  assert.equal(requiredPermissionFor("resetTemporaryPassword"), undefined);
+  assert.equal(requiredPermissionFor("updateAdminProfile"), undefined);
+  assert.equal(requiredPermissionFor("getProfileCompletion"), undefined);
+  assert.equal(requiredPermissionFor("updateProfileCompletion"), undefined);
 
   assert.equal(await controller.getMe(champ), responses.me);
   assert.equal(
@@ -218,14 +275,6 @@ async function run() {
   );
 
   assert.deepEqual(policyCalls, [
-    {
-      actor: champ,
-      permissionKey: PermissionKeys.USERS_VIEW_SELF
-    },
-    {
-      actor: champ,
-      permissionKey: PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
-    },
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL }
   ]);
@@ -251,12 +300,7 @@ async function run() {
     responses.preferences
   );
 
-  assert.deepEqual(policyCalls, [
-    {
-      actor: admin,
-      permissionKey: PermissionKeys.USERS_EDIT_OWN_PREFERENCES
-    }
-  ]);
+  assert.deepEqual(policyCalls, []);
   assert.deepEqual(serviceCalls, [
     `preferences:${admin.id}:TEAL:127.0.0.1:users-access-policy-test`
   ]);

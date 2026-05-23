@@ -17,6 +17,11 @@ import { PermissionGuard } from "./permission.guard";
     AccessRoleAssignmentService,
     PermissionGuard
   ],
-  exports: [AccessPolicyService, AccessRoleService, AccessRoleAssignmentService]
+  exports: [
+    AccessPolicyService,
+    AccessRoleService,
+    AccessRoleAssignmentService,
+    PermissionGuard
+  ]
 })
 export class AccessControlModule {}
