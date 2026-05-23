@@ -234,6 +234,10 @@ function newHireDto(targetRole?: UserRole): CreateNewHireRequestDto {
     dto.targetRole = targetRole;
   }
 
+  if (!targetRole || targetRole === UserRole.PICKER) {
+    dto.actualJoiningDate = "2026-06-01";
+  }
+
   return dto;
 }
 
@@ -247,6 +251,10 @@ function offboardingDto(targetRole?: UserRole): CreateOffboardingRequestDto {
 
   if (targetRole) {
     dto.targetRole = targetRole;
+  }
+
+  if (!targetRole || targetRole === UserRole.PICKER) {
+    dto.lastWorkingDate = "2026-06-15";
   }
 
   return dto;

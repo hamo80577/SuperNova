@@ -12,6 +12,7 @@ import {
   validateEgyptPhoneNumber,
   type NewHireLookupStatus
 } from "../src/requests/workflows/new-hire-workflow.policy";
+import { parseNewHirePayload } from "../src/requests/workflows/new-hire-payload";
 
 assert.equal(normalizeNewHireTargetRole(undefined), UserRole.PICKER);
 assert.equal(normalizeNewHireTargetRole(UserRole.CHAMP), UserRole.CHAMP);
@@ -121,3 +122,55 @@ assert.deepEqual(getRehireBlockNormalizationFields(), {
   blockedUntil: null,
   blockReason: null
 });
+
+const legacyPickerPayload = parseNewHirePayload({
+  targetRole: UserRole.PICKER,
+  mode: "NEW_PICKER",
+  candidate: {
+    phoneNumber: "01012345678",
+    nationalId: "12345678901234"
+  },
+  source: {
+    vendorId: "vendor-1",
+    chainId: "chain-1"
+  }
+});
+assert.equal(legacyPickerPayload.candidate.actualJoiningDate, undefined);
+
+const pickerPayload = parseNewHirePayload({
+  targetRole: UserRole.PICKER,
+  mode: "REHIRE",
+  candidate: {
+    phoneNumber: "01012345678",
+    nationalId: "12345678901234",
+    actualJoiningDate: "2026-06-01"
+  },
+  source: {
+    vendorId: "vendor-1",
+    chainId: "chain-1"
+  },
+  rehire: {
+    userId: "picker-1",
+    matchedBy: ["phoneNumber"],
+    previousAccountStatus: "ARCHIVED",
+    previousEmploymentStatus: "RESIGNED",
+    previousBlockStatus: "NO_BLOCK",
+    previousBlockedUntil: null,
+    previousProfileStatus: "COMPLETE"
+  }
+});
+assert.equal(pickerPayload.candidate.actualJoiningDate, "2026-06-01");
+
+const champPayload = parseNewHirePayload({
+  targetRole: UserRole.CHAMP,
+  mode: "NEW_CHAMP",
+  candidate: {
+    phoneNumber: "01012345678",
+    nationalId: "12345678901234"
+  },
+  source: {
+    vendorId: "vendor-1",
+    chainId: "chain-1"
+  }
+});
+assert.equal(champPayload.candidate.actualJoiningDate, undefined);

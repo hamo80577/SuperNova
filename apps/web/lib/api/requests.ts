@@ -144,6 +144,7 @@ export interface CreateNewHirePayload {
   nationalId: string;
   address?: string;
   dateOfBirth?: string;
+  actualJoiningDate?: string;
   gender?: "MALE" | "FEMALE" | "UNSPECIFIED";
   notes?: string;
   shopperId?: string;
@@ -191,6 +192,7 @@ export interface CreateOffboardingPayload {
   sourceChainId?: string;
   targetUserId: string;
   resignationDate: string;
+  lastWorkingDate?: string;
   reasonCode: OffboardingReasonCode;
   reasonDetails?: string;
   notes?: string;

@@ -36,6 +36,7 @@ import { NewHireCandidateService } from "./new-hire-candidate.service";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
 import type { BranchNewHireContext, RequestContext } from "./new-hire-workflow.types";
+import { normalizeRequiredDateOnly } from "./request-date";
 
 @Injectable()
 export class NewHireWorkflowService {
@@ -71,7 +72,7 @@ export class NewHireWorkflowService {
       );
     }
 
-    const candidate = this.normalizeNewHireCandidate(dto);
+    const candidate = this.normalizeNewHireCandidate(dto, targetRole);
     const rehireValidation =
       await this.newHireCandidateService.validateNewHireCandidateForCreate(
         candidate,
@@ -301,12 +302,25 @@ export class NewHireWorkflowService {
     }
   }
 
-  private normalizeNewHireCandidate(dto: CreateNewHireRequestDto) {
+  private normalizeNewHireCandidate(
+    dto: CreateNewHireRequestDto,
+    targetRole: NewHireTargetRole
+  ) {
     const nameEn = dto.nameEn?.trim();
     const nameAr = dto.nameAr?.trim();
     const address = dto.address?.trim();
     const notes = dto.notes?.trim();
     const isRehire = Boolean(dto.rehireUserId);
+    const actualJoiningDate =
+      targetRole === UserRole.PICKER
+        ? this.applyPolicyValidation(() =>
+            normalizeRequiredDateOnly(
+              dto.actualJoiningDate,
+              "actualJoiningDate",
+              "actualJoiningDate is required for Picker New Hire/Rehire."
+            )
+          )
+        : undefined;
 
     if (!nameEn && !nameAr && !isRehire) {
       throw new BadRequestException("Candidate English or Arabic name is required.");
@@ -322,6 +336,7 @@ export class NewHireWorkflowService {
         validateEgyptNationalId(dto.nationalId)
       ),
       ...(address ? { address } : {}),
+      ...(actualJoiningDate ? { actualJoiningDate } : {}),
       ...(dto.dateOfBirth ? { dateOfBirth: dto.dateOfBirth } : {}),
       ...(dto.gender ? { gender: dto.gender } : isRehire ? {} : { gender: Gender.UNSPECIFIED }),
       ...(notes ? { notes } : {})

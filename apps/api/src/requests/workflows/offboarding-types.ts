@@ -61,6 +61,7 @@ export type OffboardingPayload = {
     reasonDetails?: string;
     notes?: string;
     resignationDate: string;
+    lastWorkingDate?: string;
   };
   source: {
     vendorId?: string;

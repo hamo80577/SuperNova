@@ -2,6 +2,7 @@ import { RequestType, UserRole } from "@prisma/client";
 import {
   IsDateString,
   IsIn,
+  Matches,
   IsOptional,
   IsString,
   IsUUID,
@@ -38,6 +39,13 @@ export class CreateOffboardingRequestDto {
 
   @IsDateString()
   resignationDate!: string;
+
+  @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "lastWorkingDate must use YYYY-MM-DD format."
+  })
+  lastWorkingDate?: string;
 
   @IsOptional()
   @IsString()

@@ -78,7 +78,7 @@ export class OffboardingWorkflowService {
     const targetRole = this.normalizeTargetRole(dto.targetRole);
     this.assertCanUseTargetRole(context.actor, targetRole);
 
-    const offboarding = normalizeOffboardingReason(dto);
+    const offboarding = normalizeOffboardingReason(dto, targetRole);
     const target = await this.targetService.resolveScopedActiveTarget(
       dto.targetUserId,
       targetRole,

@@ -11,6 +11,7 @@ import {
 
 import type { NewHirePayload } from "./new-hire-workflow.types";
 import { normalizeNewHireTargetRole } from "./new-hire-workflow.policy";
+import { normalizeOptionalDateOnly } from "./request-date";
 
 export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
@@ -68,6 +69,15 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
     Object.values(Gender).includes(candidatePayload.gender as Gender)
       ? (candidatePayload.gender as Gender)
       : undefined;
+  const actualJoiningDate =
+    targetRole === UserRole.PICKER
+      ? normalizeOptionalDateOnly(
+          typeof candidatePayload.actualJoiningDate === "string"
+            ? candidatePayload.actualJoiningDate
+            : undefined,
+          "actualJoiningDate"
+        )
+      : undefined;
 
   if (typeof phoneNumber !== "string" || typeof nationalId !== "string") {
     throw new BadRequestException("New Hire request payload is missing identity.");
@@ -110,6 +120,7 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
         typeof candidatePayload.address === "string"
           ? candidatePayload.address
           : undefined,
+      ...(actualJoiningDate ? { actualJoiningDate } : {}),
       dateOfBirth:
         typeof candidatePayload.dateOfBirth === "string"
           ? candidatePayload.dateOfBirth

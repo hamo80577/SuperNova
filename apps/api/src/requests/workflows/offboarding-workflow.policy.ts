@@ -1,6 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
 import { BlockStatus, RequestType, UserRole } from "@prisma/client";
 
+import { normalizeRequiredDateOnly } from "./request-date";
+
 export type OffboardingReasonCode =
   | "BAD_ATTITUDE"
   | "BAD_PERFORMANCE"
@@ -97,8 +99,9 @@ export function normalizeOffboardingReason(dto: {
   reasonCode?: string;
   reasonDetails?: string;
   resignationDate?: string;
+  lastWorkingDate?: string;
   notes?: string;
-}) {
+}, targetRole?: OffboardingTargetRole) {
   if (dto.type !== RequestType.RESIGNATION) {
     throw new BadRequestException("Only RESIGNATION requests are supported.");
   }
@@ -106,6 +109,14 @@ export function normalizeOffboardingReason(dto: {
   const reasonCode = dto.reasonCode?.trim() as OffboardingReasonCode | undefined;
   const reasonDetails = dto.reasonDetails?.trim();
   const resignationDate = dto.resignationDate?.trim();
+  const lastWorkingDate =
+    targetRole === UserRole.PICKER
+      ? normalizeRequiredDateOnly(
+          dto.lastWorkingDate,
+          "lastWorkingDate",
+          "lastWorkingDate is required for Picker Resignation."
+        )
+      : undefined;
   const notes = dto.notes?.trim();
 
   if (!reasonCode || !reasonCodes.has(reasonCode)) {
@@ -128,6 +139,7 @@ export function normalizeOffboardingReason(dto: {
     reason: offboardingReasonLabels[reasonCode],
     ...(reasonDetails ? { reasonDetails } : {}),
     resignationDate,
+    ...(lastWorkingDate ? { lastWorkingDate } : {}),
     ...(notes ? { notes } : {})
   };
 }

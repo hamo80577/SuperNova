@@ -87,7 +87,10 @@ function offboardingPayload(
       type: RequestType.RESIGNATION,
       reasonCode: "POLICY_VIOLATION",
       reason: "Policy violation",
-      resignationDate: "2026-05-20"
+      resignationDate: "2026-05-20",
+      ...(targetRole === UserRole.PICKER
+        ? { lastWorkingDate: "2026-05-20" }
+        : {})
     },
     source:
       targetRole === UserRole.AREA_MANAGER

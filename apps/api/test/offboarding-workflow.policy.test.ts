@@ -14,13 +14,15 @@ import {
 const normalizedReason = normalizeOffboardingReason({
   type: RequestType.RESIGNATION,
   resignationDate: "2026-05-14",
+  lastWorkingDate: "2026-05-20",
   reasonCode: "BAD_ATTITUDE",
   reasonDetails: "  ignored details  ",
   notes: "  handover done  "
-});
+}, UserRole.PICKER);
 assert.equal(normalizedReason.reasonCode, "BAD_ATTITUDE");
 assert.equal(normalizedReason.reason, "Bad attitude");
 assert.equal(normalizedReason.reasonDetails, "ignored details");
+assert.equal(normalizedReason.lastWorkingDate, "2026-05-20");
 assert.equal(normalizedReason.notes, "handover done");
 
 assert.equal(normalizeOffboardingTargetRole(undefined), UserRole.PICKER);
@@ -62,6 +64,29 @@ assert.throws(
     }),
   /reasonDetails is required when reasonCode is OTHER/
 );
+
+assert.throws(
+  () =>
+    normalizeOffboardingReason(
+      {
+        type: RequestType.RESIGNATION,
+        resignationDate: "2026-05-14",
+        reasonCode: "BAD_PERFORMANCE"
+      },
+      UserRole.PICKER
+    ),
+  /lastWorkingDate is required for Picker Resignation/
+);
+
+const champReason = normalizeOffboardingReason(
+  {
+    type: RequestType.RESIGNATION,
+    resignationDate: "2026-05-14",
+    reasonCode: "BAD_PERFORMANCE"
+  },
+  UserRole.CHAMP
+);
+assert.equal(champReason.lastWorkingDate, undefined);
 
 assert.throws(
   () =>

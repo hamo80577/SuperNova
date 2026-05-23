@@ -67,6 +67,13 @@ export class CreateNewHireRequestDto {
   dateOfBirth?: string;
 
   @IsOptional()
+  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "actualJoiningDate must use YYYY-MM-DD format."
+  })
+  actualJoiningDate?: string;
+
+  @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
 

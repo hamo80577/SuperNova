@@ -110,6 +110,9 @@ function newHireRequest(
         nameEn: "Candidate",
         phoneNumber: "01012345678",
         nationalId: "12345678901234",
+        ...(targetRole === UserRole.PICKER
+          ? { actualJoiningDate: "2026-06-01" }
+          : {}),
         gender: Gender.UNSPECIFIED
       },
       source: {

@@ -60,6 +60,7 @@ export function applyFixedNewHireBranch(
       nameAr: string;
       phoneNumber: string;
       nationalId: string;
+      actualJoiningDate: string;
       dateOfBirth: string;
       gender: "MALE" | "FEMALE" | "UNSPECIFIED";
       address: string;

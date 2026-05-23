@@ -79,6 +79,7 @@ export function ResignationRequestForm({
     useState<OffboardingEligibleUserSearchItem | null>(null);
   const [form, setForm] = useState({
     resignationDate: "",
+    lastWorkingDate: "",
     reasonCode: "BAD_ATTITUDE" as OffboardingReasonCode,
     reasonDetails: "",
     notes: "",
@@ -189,6 +190,7 @@ export function ResignationRequestForm({
           targetRole !== (initialTargetRole ?? resolvedInitialRole ?? targetRole) ||
           (query.trim() && query.trim() !== initialQuery.trim()) ||
           form.resignationDate ||
+          form.lastWorkingDate ||
           form.reasonCode !== "BAD_ATTITUDE" ||
           form.reasonDetails.trim() ||
           form.notes.trim() ||
@@ -199,6 +201,7 @@ export function ResignationRequestForm({
   }, [
     form.blockDecision,
     form.blockReason,
+    form.lastWorkingDate,
     form.notes,
     form.reasonCode,
     form.reasonDetails,
@@ -218,6 +221,10 @@ export function ResignationRequestForm({
     setItems([]);
     setQuery("");
     setError(null);
+    setForm((current) => ({
+      ...current,
+      lastWorkingDate: nextRole === "PICKER" ? current.lastWorkingDate : ""
+    }));
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -238,7 +245,11 @@ export function ResignationRequestForm({
       return;
     }
     if (!form.resignationDate) {
-      setError("Last working day is required.");
+      setError("Resignation date is required.");
+      return;
+    }
+    if (selectedUser.targetRole === "PICKER" && !form.lastWorkingDate) {
+      setError("Last Working Date (LWD) is required for Picker Resignation.");
       return;
     }
     if (form.reasonCode === "OTHER" && !form.reasonDetails.trim()) {
@@ -264,6 +275,10 @@ export function ResignationRequestForm({
           sourceChainId: selectedUser.chainId,
           targetUserId: selectedUser.targetUserId,
           resignationDate: form.resignationDate,
+          lastWorkingDate:
+            selectedUser.targetRole === "PICKER"
+              ? form.lastWorkingDate
+              : undefined,
           reasonCode: form.reasonCode,
           ...(form.reasonDetails.trim()
             ? { reasonDetails: form.reasonDetails.trim() }
@@ -395,11 +410,11 @@ export function ResignationRequestForm({
       {selectedUser ? <ResignationUserCard item={selectedUser} /> : null}
 
       <Section
-        description="Last working day and reason are required before approval routing."
+        description="Resignation dates and reason are required before approval routing."
         title="Resignation details"
       >
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Last working day">
+          <Field label="Resignation Date">
             <DatePicker
               maxYear={new Date().getFullYear() + 1}
               minYear={new Date().getFullYear() - 1}
@@ -410,6 +425,22 @@ export function ResignationRequestForm({
               value={form.resignationDate}
             />
           </Field>
+          {targetRole === "PICKER" ? (
+            <Field label="Last Working Date (LWD)">
+              <DatePicker
+                maxYear={new Date().getFullYear() + 1}
+                minYear={new Date().getFullYear() - 1}
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, lastWorkingDate: value }))
+                }
+                placeholder="Select final working day"
+                value={form.lastWorkingDate}
+              />
+              <span className="text-xs font-normal leading-5 text-slate-500">
+                The Picker's final working day. Used later for HR sync.
+              </span>
+            </Field>
+          ) : null}
           <Field label="Reason">
             <Select
               aria-label="Reason"

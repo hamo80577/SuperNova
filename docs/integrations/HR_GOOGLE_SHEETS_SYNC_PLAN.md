@@ -138,14 +138,14 @@ Headers:
 | `New Hire Full Name (English)` | Picker English name. |
 | `New Hire National ID` | Picker national ID. |
 | `New Hire Phone Number` | Picker phone number. |
-| `New Hire Actual Joining/Hiring Date` | Planned `actualJoiningDate` request payload field. |
+| `New Hire Actual Joining/Hiring Date` | `actualJoiningDate` request payload field captured for Picker New Hire/Rehire. |
 | `New Hire Home Address` | Picker home address from request/profile data. |
 | `Vertical` | Always `Local Shops`. |
 | `New Hire Title` | Always `Picker`. |
 
-### Planned Actual Joining Date Change
+### Actual Joining Date Status
 
-Picker New Hire/Rehire must add an `actualJoiningDate` date picker.
+HR-2 added an `actualJoiningDate` date picker to Picker New Hire/Rehire request submission.
 
 Rules:
 
@@ -154,6 +154,7 @@ Rules:
 - Used as the official system reference for the Picker start date.
 - Separate from request creation date.
 - Not required for Champ or Area Manager in this HR Sync scope.
+- Google Apps Script sync remains intentionally deferred.
 
 ## Resignation Payload
 
@@ -172,18 +173,19 @@ Headers:
 | `Type` | Request/block status semantics, for example `No Block`, `Temporary Block`, or `Permanent Block`. |
 | `Resigned Employee Name` | Picker English name. |
 | `Resigned Employee National ID` | Picker national ID. |
-| `Resigned Employee Last Working Date (LWD)` | Planned or existing `lastWorkingDate` field from Picker resignation request data. |
+| `Resigned Employee Last Working Date (LWD)` | `lastWorkingDate` field captured for Picker resignation request data. |
 | `Resigned Employee Title` | Always `Picker`. |
 
-### Last Working Date Direction
+### Last Working Date Status
 
-Picker resignation request data should include `lastWorkingDate` if it does not already exist.
+HR-2 added `lastWorkingDate` to Picker resignation request submission.
 
 Rules:
 
 - It represents the Picker's last working date for HR reporting.
 - It must be part of Picker resignation request data.
 - It must not be inferred from finalization date unless a later product decision explicitly allows that fallback.
+- Google Apps Script sync remains intentionally deferred.
 
 ## Apps Script Package Plan
 
@@ -270,9 +272,9 @@ If HR Sync is disabled:
 
 1. `HR-0`: Documentation cleanup and integration plan. Implemented.
 2. `HR-1`: Backend HR Sync foundation: env placeholders, `HrSyncLog` schema/migration, typed payload helpers, and inert `HrSyncService`. Implemented.
-3. `HR-2`: Google Apps Script package with sample payloads. Deferred until the backend contract is stable.
-4. `HR-3`: Picker New Hire/Rehire `actualJoiningDate` request payload and form.
-5. `HR-4`: Picker Resignation `lastWorkingDate` verification or addition if missing.
+3. `HR-2`: Picker New Hire/Rehire `actualJoiningDate` and Picker Resignation `lastWorkingDate` request payload/form fields. Implemented.
+4. `HR-3`: Google Apps Script package with sample payloads. Deferred until the backend contract is stable.
+5. `HR-4`: Backend Apps Script client wiring inside `HrSyncService`, still not called by workflows until finalization hooks.
 6. `HR-5`: Finalization hooks for Picker New Hire/Rehire and Picker Resign only.
 7. `HR-6`: Ticket details/timeline HR Sync status indicator.
 8. `HR-7`: Retry/admin visibility and regression.

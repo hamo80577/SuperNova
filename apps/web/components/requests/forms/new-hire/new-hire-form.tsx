@@ -47,6 +47,7 @@ export function NewHireRequestForm({
     nameAr: "",
     phoneNumber: "",
     nationalId: "",
+    actualJoiningDate: "",
     dateOfBirth: "",
     gender: "UNSPECIFIED" as "MALE" | "FEMALE" | "UNSPECIFIED",
     address: "",
@@ -315,6 +316,7 @@ export function NewHireRequestForm({
           form.nameAr.trim() ||
           form.phoneNumber.trim() ||
           form.nationalId.trim() ||
+          form.actualJoiningDate ||
           form.dateOfBirth ||
           form.gender !== "UNSPECIFIED" ||
           form.address.trim() ||
@@ -324,6 +326,7 @@ export function NewHireRequestForm({
     );
   }, [
     form.address,
+    form.actualJoiningDate,
     form.dateOfBirth,
     form.gender,
     form.nameAr,
@@ -359,6 +362,8 @@ export function NewHireRequestForm({
         targetRole === "AREA_MANAGER" && !fixedSourceVendorId
           ? ""
           : current.sourceVendorId,
+      actualJoiningDate:
+        targetRole === "PICKER" ? current.actualJoiningDate : "",
       shopperId: targetRole === "PICKER" ? current.shopperId : ""
     }));
   }
@@ -407,6 +412,7 @@ export function NewHireRequestForm({
     !blockingCandidate &&
     (lookupStatus !== "CLEAR" || Boolean(form.nameEn.trim())) &&
     (lookupStatus !== "REHIRE_AVAILABLE" || Boolean(selectedRehireUserId)) &&
+    (form.targetRole !== "PICKER" || Boolean(form.actualJoiningDate)) &&
     (!requiresCreatorShopperId || Boolean(form.shopperId.trim()));
 
   useEffect(() => {
@@ -522,6 +528,10 @@ export function NewHireRequestForm({
       setError("English name is required for a new user.");
       return;
     }
+    if (form.targetRole === "PICKER" && !form.actualJoiningDate) {
+      setError("Actual Joining Date is required for Picker New Hire/Rehire.");
+      return;
+    }
     if (requiresCreatorShopperId && !form.shopperId.trim()) {
       setError("Shopper ID is required when Area Manager submits Picker New Hire.");
       return;
@@ -544,6 +554,8 @@ export function NewHireRequestForm({
           nameAr: lookupStatus === "CLEAR" ? form.nameAr || undefined : undefined,
           phoneNumber: form.phoneNumber,
           nationalId: form.nationalId,
+          actualJoiningDate:
+            form.targetRole === "PICKER" ? form.actualJoiningDate : undefined,
           dateOfBirth:
             lookupStatus === "CLEAR" ? form.dateOfBirth || undefined : undefined,
           gender: lookupStatus === "CLEAR" ? form.gender : undefined,
@@ -716,6 +728,26 @@ export function NewHireRequestForm({
           ) : null}
         </div>
       </NewHireFormSection>
+
+      {form.targetRole === "PICKER" ? (
+        <NewHireFormSection
+          description="The Picker's real first working day. Used later for HR sync."
+          title="Start date"
+        >
+          <Field label="Actual Joining Date">
+            <DatePicker
+              maxYear={new Date().getFullYear() + 1}
+              minYear={new Date().getFullYear() - 1}
+              onChange={(value) => updateField("actualJoiningDate", value)}
+              placeholder="Select actual joining date"
+              value={form.actualJoiningDate}
+            />
+            <span className="text-xs font-normal leading-5 text-slate-500">
+              The Picker's real first working day. Used later for HR sync.
+            </span>
+          </Field>
+        </NewHireFormSection>
+      ) : null}
 
       {requiresCreatorShopperId ? (
         <NewHireFormSection

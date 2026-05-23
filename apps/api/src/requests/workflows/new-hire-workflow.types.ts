@@ -61,6 +61,7 @@ export type NewHirePayload = {
     phoneNumber: string;
     nationalId: string;
     address?: string;
+    actualJoiningDate?: string;
     dateOfBirth?: string;
     gender?: Gender;
     notes?: string;
