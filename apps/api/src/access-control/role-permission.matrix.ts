@@ -12,6 +12,7 @@ export type SystemRolePermissionMatrix = Readonly<
 
 const PICKER_PERMISSIONS = [
   PermissionKeys.REQUESTS_VIEW,
+  PermissionKeys.APPROVALS_VIEW_PENDING,
   PermissionKeys.USERS_VIEW_SELF,
   PermissionKeys.USERS_EDIT_OWN_PREFERENCES,
   PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE,
@@ -24,6 +25,7 @@ const CHAMP_PERMISSIONS = [
   PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER,
   PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER,
   PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER,
+  PermissionKeys.APPROVALS_VIEW_PENDING,
   PermissionKeys.USERS_VIEW_SELF,
   PermissionKeys.USERS_EDIT_OWN_PREFERENCES,
   PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE,

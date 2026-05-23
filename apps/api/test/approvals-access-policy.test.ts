@@ -366,6 +366,19 @@ async function run() {
   assert.equal(requiredPermissionFor("reject"), undefined);
   assert.deepEqual(guardsFor("approve"), [JwtAuthGuard]);
   assert.deepEqual(guardsFor("reject"), [JwtAuthGuard]);
+
+  const pendingPolicy = new AccessPolicyService();
+  for (const role of Object.values(UserRole)) {
+    assert.doesNotThrow(
+      () =>
+        pendingPolicy.assertCan(
+          actor(role),
+          PermissionKeys.APPROVALS_VIEW_PENDING
+        ),
+      `${role} should be able to view their pending approval inbox`
+    );
+  }
+
   assert.deepEqual(await controller.listPending(admin), [
     { id: "approval-pending" }
   ]);

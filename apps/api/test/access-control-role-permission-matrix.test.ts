@@ -75,6 +75,11 @@ const ownUserPermissionKeys = [
   PermissionKeys.USERS_EDIT_OWN_PREFERENCES
 ];
 
+const approvalDecisionPermissionKeys = [
+  PermissionKeys.APPROVALS_DECIDE_CHAIN,
+  PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+];
+
 const customRoleManagementPermissionKeys = [
   PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES,
   PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES,
@@ -128,6 +133,7 @@ for (const role of Object.values(UserRole)) {
 }
 
 assertHasPermission(UserRole.PICKER, PermissionKeys.REQUESTS_VIEW);
+assertHasPermission(UserRole.PICKER, PermissionKeys.APPROVALS_VIEW_PENDING);
 assertHasPermission(
   UserRole.PICKER,
   PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
@@ -137,8 +143,14 @@ assertHasPermission(UserRole.PICKER, PermissionKeys.NOTIFICATIONS_MANAGE_OWN);
 
 for (const permissionKey of [
   ...lifecycleCreationPermissionKeys,
-  ...managementPermissionKeys
+  ...managementPermissionKeys.filter(
+    (key) => key !== PermissionKeys.APPROVALS_VIEW_PENDING
+  )
 ]) {
+  assertMissingPermission(UserRole.PICKER, permissionKey);
+}
+
+for (const permissionKey of approvalDecisionPermissionKeys) {
   assertMissingPermission(UserRole.PICKER, permissionKey);
 }
 
@@ -146,10 +158,16 @@ for (const permissionKey of pickerLifecyclePermissionKeys) {
   assertHasPermission(UserRole.CHAMP, permissionKey);
 }
 
+assertHasPermission(UserRole.CHAMP, PermissionKeys.APPROVALS_VIEW_PENDING);
+
 for (const permissionKey of [
   ...champLifecyclePermissionKeys,
   ...areaManagerLifecyclePermissionKeys
 ]) {
+  assertMissingPermission(UserRole.CHAMP, permissionKey);
+}
+
+for (const permissionKey of approvalDecisionPermissionKeys) {
   assertMissingPermission(UserRole.CHAMP, permissionKey);
 }
 
@@ -237,8 +255,9 @@ for (const permissionKey of getPermissionsForRole(UserRole.ADMIN)) {
   assertHasPermission(UserRole.SUPER_ADMIN, permissionKey);
 }
 
-assertMissingPermission(UserRole.CHAMP, PermissionKeys.APPROVALS_VIEW_PENDING);
-assertMissingPermission(UserRole.PICKER, PermissionKeys.APPROVALS_VIEW_PENDING);
+for (const role of Object.values(UserRole)) {
+  assertHasPermission(role, PermissionKeys.APPROVALS_VIEW_PENDING);
+}
 
 for (const permissionKey of [
   PermissionKeys.ACCESS_CONTROL_VIEW,
