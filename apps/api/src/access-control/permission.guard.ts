@@ -9,9 +9,7 @@ import { Reflector } from "@nestjs/core";
 
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import { AccessPolicyService } from "./access-policy.service";
-import {
-  REQUIRED_PERMISSION_KEY
-} from "./require-permission.decorator";
+import { REQUIRED_PERMISSION_KEY } from "./require-permission.decorator";
 import type { PermissionKey } from "./permissions";
 
 @Injectable()

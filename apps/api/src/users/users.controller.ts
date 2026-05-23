@@ -113,11 +113,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermission(PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS)
   @Get(":id/access-role-assignments")
-  listAccessRoleAssignments(
-    @Param("id") id: string,
-    @CurrentUser() user: AuthenticatedUser
-  ) {
-    void user;
+  listAccessRoleAssignments(@Param("id") id: string) {
     return this.accessRoleAssignmentService.listUserAccessRoleAssignments(id);
   }
 
