@@ -85,6 +85,17 @@ function createMockPrisma() {
   };
 }
 
+function createMockConfig() {
+  return {
+    get: (key: string) => {
+      if (key === "hrSync.enabled") return false;
+      if (key === "hrSync.webAppUrl") return "";
+      if (key === "hrSync.secret") return "";
+      return undefined;
+    }
+  };
+}
+
 const newHireInput: PickerNewHireHrSyncInput = {
   finalizerDisplayName: "Admin Finalizer",
   fullNameEnglish: "Picker One",
@@ -103,7 +114,7 @@ const resignationInput: PickerResignationHrSyncInput = {
 };
 
 const { prisma, rows } = createMockPrisma();
-const service = new HrSyncService(prisma as never);
+const service = new HrSyncService(prisma as never, createMockConfig() as never);
 
 async function main() {
   assert.deepEqual(service.buildPickerNewHirePayload(newHireInput), {

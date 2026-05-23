@@ -70,4 +70,54 @@ export type HrSyncMarkFailedInput = Readonly<{
   responseSnapshot?: Prisma.InputJsonValue | null;
 }>;
 
+export type HrSyncEventType = "NEW_HIRE" | "REHIRE" | "RESIGN";
+
+export type HrSyncAppsScriptRequest = Readonly<{
+  secret: string;
+  eventType: HrSyncEventType;
+  payload: object;
+}>;
+
+export type HrSyncAppsScriptResponse = Readonly<{
+  ok: boolean;
+  syncId?: string;
+  sheet?: string;
+  rowNumber?: number;
+  message?: string;
+  error?: string;
+}>;
+
+export type HrSyncSendInput = Readonly<{
+  eventType: HrSyncEventType;
+  payload: object;
+}>;
+
+export type HrSyncSendSuccess = Readonly<{
+  ok: true;
+  status: "SENT";
+  syncId?: string;
+  sheet?: string;
+  rowNumber?: number;
+  message?: string;
+  rawResponse: HrSyncAppsScriptResponse;
+}>;
+
+export type HrSyncSendSkipped = Readonly<{
+  ok: true;
+  status: "SKIPPED";
+  reason: string;
+}>;
+
+export type HrSyncSendFailure = Readonly<{
+  ok: false;
+  status: "FAILED";
+  error: string;
+  rawResponse?: HrSyncAppsScriptResponse | Record<string, unknown>;
+}>;
+
+export type HrSyncSendResult =
+  | HrSyncSendSuccess
+  | HrSyncSendSkipped
+  | HrSyncSendFailure;
+
 export { HrSyncStatus, HrSyncTargetSheet, HrSyncWorkflowType };
