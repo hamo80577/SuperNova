@@ -6,6 +6,7 @@ import { AccessControlController } from "./access-control.controller";
 import { AccessRoleAssignmentService } from "./access-role-assignment.service";
 import { AccessRoleService } from "./access-role.service";
 import { AccessPolicyService } from "./access-policy.service";
+import { PermissionGuard } from "./permission.guard";
 
 @Module({
   imports: [JwtModule.register({}), forwardRef(() => UsersModule)],
@@ -13,7 +14,8 @@ import { AccessPolicyService } from "./access-policy.service";
   providers: [
     AccessPolicyService,
     AccessRoleService,
-    AccessRoleAssignmentService
+    AccessRoleAssignmentService,
+    PermissionGuard
   ],
   exports: [AccessPolicyService, AccessRoleService, AccessRoleAssignmentService]
 })

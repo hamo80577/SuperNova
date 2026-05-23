@@ -452,7 +452,6 @@ async function main() {
     assignmentService
   );
   const accessControlController = new AccessControlController(
-    policyRecorder.policy,
     {} as AccessRoleService,
     assignmentService
   );
@@ -478,10 +477,6 @@ async function main() {
     ),
     [UserRole.SUPER_ADMIN]
   );
-  assert.deepEqual(Reflect.getMetadata(ROLES_KEY, AccessControlController), [
-    UserRole.SUPER_ADMIN
-  ]);
-
   await usersController.listAccessRoleAssignments("target-user", superAdmin);
   await usersController.assignCustomAccessRole(
     "target-user",
@@ -516,10 +511,6 @@ async function main() {
     {
       actor: superAdmin,
       permissionKey: PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
     }
   ]);
   assert.deepEqual(serviceCalls, [

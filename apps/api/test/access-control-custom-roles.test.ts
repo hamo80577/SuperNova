@@ -22,7 +22,6 @@ import {
   PermissionKeys,
   type PermissionKey
 } from "../src/access-control";
-import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
 import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 
@@ -347,19 +346,6 @@ function createMockPrisma(params: {
   };
 }
 
-function createPolicyRecorder() {
-  const calls: Array<{ actor: AuthenticatedUser; permissionKey: PermissionKey }> = [];
-
-  return {
-    calls,
-    policy: {
-      assertCan: (policyActor: AuthenticatedUser, permissionKey: PermissionKey) => {
-        calls.push({ actor: policyActor, permissionKey });
-      }
-    } as AccessPolicyService
-  };
-}
-
 function createRefreshRecorder() {
   let refreshCount = 0;
 
@@ -392,14 +378,9 @@ function createFailingRefreshPolicy() {
 }
 
 async function main() {
-  assert.deepEqual(Reflect.getMetadata(ROLES_KEY, AccessControlController), [
-    UserRole.SUPER_ADMIN
-  ]);
-
   const superAdmin = actor(UserRole.SUPER_ADMIN);
   const admin = actor(UserRole.ADMIN);
   const request = requestFor(superAdmin);
-  const policyRecorder = createPolicyRecorder();
   const serviceCalls: string[] = [];
   const roleService = {
     listRoles: async (query: unknown) => {
@@ -428,7 +409,6 @@ async function main() {
     }
   } as AccessRoleService;
   const controller = new AccessControlController(
-    policyRecorder.policy,
     roleService,
     {} as AccessRoleAssignmentService
   );
@@ -459,32 +439,6 @@ async function main() {
     request
   );
 
-  assert.deepEqual(policyRecorder.calls, [
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    },
-    {
-      actor: superAdmin,
-      permissionKey: PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
-    }
-  ]);
   assert.deepEqual(serviceCalls, [
     `list:${JSON.stringify({ kind: AccessRoleKind.CUSTOM })}`,
     "get:role-1",
@@ -504,14 +458,19 @@ async function main() {
     })}`
   ]);
 
-  const denyingController = new AccessControlController(
-    new AccessPolicyService(),
-    roleService,
-    {} as AccessRoleAssignmentService
+  assert.equal(
+    new AccessPolicyService().can(
+      admin,
+      PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
+    ),
+    false
   );
-  assert.throws(
-    () => denyingController.listRoles({}, requestFor(admin)),
-    /Missing required permission/
+  assert.equal(
+    new AccessPolicyService().can(
+      admin,
+      PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
+    ),
+    false
   );
 
   assert.equal("assignUserAccessRole" in AccessControlController.prototype, false);

@@ -1,74 +1,76 @@
 import assert from "node:assert/strict";
 
-import {
-  AccountStatus,
-  EmploymentStatus,
-  ProfileStatus,
-  UserRole
-} from "@prisma/client";
+import { GUARDS_METADATA } from "@nestjs/common/constants";
+import { UserRole } from "@prisma/client";
 
-import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
-import type { AuthenticatedRequest } from "../src/auth/types/authenticated-request";
-import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import {
   AccessControlController,
-  AccessPolicyService,
   AccessRoleAssignmentService,
+  AccessRoleService,
   listPermissions,
   listPermissionsByGroup,
+  PermissionGuard,
   PermissionKeys,
+  REQUIRED_PERMISSION_KEY,
   SYSTEM_ROLE_PERMISSIONS
 } from "../src/access-control";
-import type { AccessRoleService } from "../src/access-control";
+import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
+import { JwtAuthGuard } from "../src/auth/guards/jwt-auth.guard";
 
-function actor(role: UserRole): AuthenticatedUser {
-  return {
-    id: `actor-${role.toLowerCase()}`,
-    role,
-    nameEn: role,
-    phoneNumber: "01000000000",
-    accountStatus: AccountStatus.ACTIVE,
-    employmentStatus: EmploymentStatus.ACTIVE,
-    profileStatus: ProfileStatus.COMPLETE,
-    mustChangePassword: false
-  };
+function requiredPermissionFor(methodName: keyof AccessControlController) {
+  return Reflect.getMetadata(
+    REQUIRED_PERMISSION_KEY,
+    AccessControlController.prototype[methodName]
+  );
 }
 
-function requestFor(user: AuthenticatedUser): AuthenticatedRequest {
-  return { user } as AuthenticatedRequest;
-}
+assert.equal(Reflect.getMetadata(ROLES_KEY, AccessControlController), undefined);
 
-assert.deepEqual(
-  Reflect.getMetadata(ROLES_KEY, AccessControlController),
-  [UserRole.SUPER_ADMIN]
+const controllerGuards = Reflect.getMetadata(
+  GUARDS_METADATA,
+  AccessControlController
 );
+assert.deepEqual(controllerGuards, [JwtAuthGuard, PermissionGuard]);
 
-const policyCalls: Array<{
-  actor: AuthenticatedUser;
-  permissionKey: string;
-}> = [];
-
-const recordingPolicy = {
-  assertCan: (policyActor: AuthenticatedUser, permissionKey: string) => {
-    policyCalls.push({ actor: policyActor, permissionKey });
-  }
-};
+assert.equal(
+  requiredPermissionFor("getOverview"),
+  PermissionKeys.ACCESS_CONTROL_VIEW
+);
+assert.equal(
+  requiredPermissionFor("listRoles"),
+  PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("getRole"),
+  PermissionKeys.ACCESS_CONTROL_VIEW_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("createCustomRole"),
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("updateCustomRole"),
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("deactivateCustomRole"),
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("syncCustomRolePermissions"),
+  PermissionKeys.ACCESS_CONTROL_MANAGE_CUSTOM_ROLES
+);
+assert.equal(
+  requiredPermissionFor("getUserEffectivePermissions"),
+  PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+);
 
 const accessRoleService = {} as AccessRoleService;
 const controller = new AccessControlController(
-  recordingPolicy as AccessPolicyService,
   accessRoleService,
   {} as AccessRoleAssignmentService
 );
-const superAdminRequest = requestFor(actor(UserRole.SUPER_ADMIN));
-const overview = controller.getOverview(superAdminRequest);
-
-assert.deepEqual(policyCalls, [
-  {
-    actor: superAdminRequest.user,
-    permissionKey: PermissionKeys.ACCESS_CONTROL_VIEW
-  }
-]);
+const overview = controller.getOverview();
 
 assert.equal(overview.permissions, listPermissions());
 assert.equal(overview.permissionsByGroup, listPermissionsByGroup());
@@ -96,19 +98,4 @@ assert.equal(
     "access_control.system_role_matrix.manage"
   ),
   false
-);
-
-const realPolicyController = new AccessControlController(
-  new AccessPolicyService(),
-  accessRoleService,
-  {} as AccessRoleAssignmentService
-);
-
-assert.doesNotThrow(() =>
-  realPolicyController.getOverview(requestFor(actor(UserRole.SUPER_ADMIN)))
-);
-
-assert.throws(
-  () => realPolicyController.getOverview(requestFor(actor(UserRole.ADMIN))),
-  /Missing required permission/
 );
