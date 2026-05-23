@@ -13,6 +13,7 @@ import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import {
   AccessControlController,
   AccessPolicyService,
+  AccessRoleAssignmentService,
   listPermissions,
   listPermissionsByGroup,
   PermissionKeys,
@@ -56,7 +57,8 @@ const recordingPolicy = {
 const accessRoleService = {} as AccessRoleService;
 const controller = new AccessControlController(
   recordingPolicy as AccessPolicyService,
-  accessRoleService
+  accessRoleService,
+  {} as AccessRoleAssignmentService
 );
 const superAdminRequest = requestFor(actor(UserRole.SUPER_ADMIN));
 const overview = controller.getOverview(superAdminRequest);
@@ -98,7 +100,8 @@ assert.equal(
 
 const realPolicyController = new AccessControlController(
   new AccessPolicyService(),
-  accessRoleService
+  accessRoleService,
+  {} as AccessRoleAssignmentService
 );
 
 assert.doesNotThrow(() =>

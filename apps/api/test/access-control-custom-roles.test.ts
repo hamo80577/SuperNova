@@ -13,6 +13,7 @@ import {
 import {
   AccessControlController,
   AccessPolicyService,
+  AccessRoleAssignmentService,
   AccessRoleService,
   PermissionKeys,
   type PermissionKey
@@ -408,7 +409,8 @@ async function main() {
   } as AccessRoleService;
   const controller = new AccessControlController(
     policyRecorder.policy,
-    roleService
+    roleService,
+    {} as AccessRoleAssignmentService
   );
 
   await controller.listRoles({ kind: AccessRoleKind.CUSTOM }, request);
@@ -484,7 +486,8 @@ async function main() {
 
   const denyingController = new AccessControlController(
     new AccessPolicyService(),
-    roleService
+    roleService,
+    {} as AccessRoleAssignmentService
   );
   assert.throws(
     () => denyingController.listRoles({}, requestFor(admin)),

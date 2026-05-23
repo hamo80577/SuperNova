@@ -16,6 +16,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
+import { AccessRoleAssignmentService } from "./access-role-assignment.service";
 import { AccessRoleService } from "./access-role.service";
 import { AccessPolicyService } from "./access-policy.service";
 import {
@@ -47,7 +48,9 @@ export class AccessControlController {
     @Inject(AccessPolicyService)
     private readonly accessPolicy: AccessPolicyService,
     @Inject(AccessRoleService)
-    private readonly accessRoleService: AccessRoleService
+    private readonly accessRoleService: AccessRoleService,
+    @Inject(AccessRoleAssignmentService)
+    private readonly accessRoleAssignmentService: AccessRoleAssignmentService
   ) {}
 
   @Get("overview")
@@ -76,6 +79,23 @@ export class AccessControlController {
     );
 
     return this.accessRoleService.listRoles(query);
+  }
+
+  @Get("effective-permissions/users/:id")
+  getUserEffectivePermissions(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    this.accessPolicy.assertCan(
+      request.user,
+      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+    );
+
+    return this.accessRoleAssignmentService.getUserEffectivePermissions(id, {
+      actorUserId: request.user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
   }
 
   @Get("roles/:id")

@@ -9,6 +9,7 @@ import {
 } from "@prisma/client";
 
 import {
+  AccessRoleAssignmentService,
   AccessPolicyService,
   PermissionKeys,
   type PermissionKey
@@ -183,7 +184,11 @@ const recordingPolicy = {
 } as AccessPolicyService;
 
 async function run() {
-  const controller = new UsersController(usersService, recordingPolicy);
+  const controller = new UsersController(
+    usersService,
+    recordingPolicy,
+    {} as AccessRoleAssignmentService
+  );
   const admin = actor(UserRole.ADMIN);
   const champ = actor(UserRole.CHAMP);
   const picker = actor(UserRole.PICKER);

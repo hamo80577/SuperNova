@@ -14,7 +14,12 @@ import {
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
+import { AccessRoleAssignmentService } from "../access-control/access-role-assignment.service";
 import { AccessPolicyService } from "../access-control/access-policy.service";
+import {
+  AssignCustomAccessRoleDto,
+  RevokeCustomAccessRoleAssignmentDto
+} from "../access-control/dto/access-role-assignment.dto";
 import { PermissionKeys } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -34,7 +39,9 @@ export class UsersController {
   constructor(
     @Inject(UsersService) private readonly usersService: UsersService,
     @Inject(AccessPolicyService)
-    private readonly accessPolicy: AccessPolicyService
+    private readonly accessPolicy: AccessPolicyService,
+    @Inject(AccessRoleAssignmentService)
+    private readonly accessRoleAssignmentService: AccessRoleAssignmentService
   ) {}
 
   @Get("status")
@@ -107,6 +114,73 @@ export class UsersController {
       PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
     );
     return this.usersService.getOperationalProfile(id, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Get(":id/access-role-assignments")
+  listAccessRoleAssignments(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+    );
+
+    return this.accessRoleAssignmentService.listUserAccessRoleAssignments(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post(":id/access-role-assignments")
+  assignCustomAccessRole(
+    @Param("id") id: string,
+    @Body() dto: AssignCustomAccessRoleDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
+    );
+
+    return this.accessRoleAssignmentService.assignCustomAccessRoleToUser(
+      id,
+      dto,
+      {
+        actorUserId: user.id,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"] ?? null
+      }
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post(":id/access-role-assignments/:assignmentId/revoke")
+  revokeCustomAccessRoleAssignment(
+    @Param("id") id: string,
+    @Param("assignmentId") assignmentId: string,
+    @Body() dto: RevokeCustomAccessRoleAssignmentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
+    );
+
+    return this.accessRoleAssignmentService.revokeUserAccessRoleAssignment(
+      id,
+      assignmentId,
+      dto,
+      {
+        actorUserId: user.id,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"] ?? null
+      }
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
