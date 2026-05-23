@@ -112,6 +112,26 @@ Temporary password must not be sent in notifications.
 Temporary password is revealed/reset only through authorized user profile credential controls.
 ```
 
+## HR Sync Rules
+
+HR Sync to Google Sheets is a planned integration for Picker lifecycle reporting only.
+
+Rules:
+
+```text
+HR Sync is post-finalization only.
+HR Sync failure must not roll back workflow success.
+Google Sheets is not source of truth.
+HR Sync is Picker-only unless explicitly expanded.
+Backend sends to Google Apps Script Web App only after SuperNova applies the lifecycle change.
+Apps Script/webhook integrations must validate a shared secret.
+Apps Script deployment URL and secret are backend env only.
+Do not hardcode Apps Script deployment URLs.
+Do not expose Apps Script URL or secret in frontend or UI.
+Do not commit real Apps Script URLs or secrets.
+Do not add payroll, attendance, GPS, order integration, inventory, accounting, or ERP behavior under HR Sync.
+```
+
 ## Quality Bar
 
 Every code change must be treated as production work.

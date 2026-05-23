@@ -186,3 +186,33 @@ POST /api/requests/new-hire
 POST /api/requests/offboarding
 POST /api/requests/transfer
 ```
+
+## Planned HR Sync Integration
+
+HR Sync to Google Sheets is post-finalization only.
+
+Supported planned events:
+
+```text
+Picker New Hire
+Picker Rehire
+Picker Resignation
+```
+
+Rules:
+
+```text
+Workflow finalization applies the lifecycle change first.
+HR Sync runs only after the system change is complete.
+Google Sheets does not drive request state.
+Google Sheets does not drive user or assignment state.
+HR Sync failure must not roll back user creation, reactivation, assignment creation, assignment closure, or resignation finalization.
+Failed sync should be logged and treated as retryable later.
+```
+
+Planned request payload changes:
+
+```text
+Picker New Hire/Rehire requires actualJoiningDate.
+Picker Resignation should carry lastWorkingDate.
+```

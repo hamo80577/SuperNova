@@ -1,12 +1,12 @@
 # Access Control V1
 
-This is the lean planning pack for the SuperNova Access Control V1 workstream.
+This folder is the historical planning, audit, stabilization, and regression record for SuperNova Access Control V1 and the Phase 8 policy authorization migration.
 
-Use this folder to guide Codex/Claude before writing implementation code.
+Access Control V1 is backend-complete and merged to `main`.
 
 ## Goal
 
-Move SuperNova from hardcoded role decisions toward a scalable access model:
+The completed work moved SuperNova from hardcoded role decisions toward a scalable access model:
 
 ```text
 Role-based UX
@@ -15,24 +15,28 @@ Assignment-based scope
 Workflow-based lifecycle changes
 ```
 
-## Branch
-
-Work on a dedicated branch:
-
-```bash
-git checkout -b feature/access-control-v1
-```
-
 ## Read Order
 
-1. `ACCESS_CONTROL_V1.md`
-2. `IMPLEMENTATION_PLAN.md`
-3. `AGENT_BRIEF.md`
+For history and future audits:
+
+1. `ACCESS_CONTROL_AUDIT.md`
+2. `ACCESS_CONTROL_V1.md`
+3. `IMPLEMENTATION_PLAN.md`
+4. `AGENT_BRIEF.md`
+5. `PHASE_7N_FINAL_STABILIZATION_REPORT.md`
+6. `PHASE_8A_LEGACY_ROLE_AUTHORIZATION_INVENTORY.md`
+7. `PHASE_8E_AUTHORIZATION_MIGRATION_STABILIZATION.md`
+8. `PHASE_9_FULL_REGRESSION_REPORT.md`
 
 ## Rule
 
-These docs are direction, not implementation law.
+These docs are historical guidance and audit records, not a live implementation prompt.
 
-The agent must inspect the repo first and may refine the plan if the code proves a better safe path.
+Future changes must inspect the current code first and preserve these product rules:
 
-Do not implement database migrations, custom roles UI, or workflow refactors before the early foundation phases are complete.
+```text
+User.role remains primary persona/workspace.
+Operational scope remains assignment-table based.
+Lifecycle changes remain workflow-based.
+Custom roles are additive permission grants only.
+```

@@ -138,4 +138,21 @@ Request payload changes
 User profile response changes
 Admin controls
 Exports/downloads
+External integrations and webhooks
+```
+
+## Planned HR Sync Security Rules
+
+The HR Google Sheets Sync integration must use backend-only configuration and shared-secret validation.
+
+Rules:
+
+```text
+Do not hardcode Google Apps Script deployment URLs.
+Do not expose Apps Script URL or secret in frontend.
+Do not commit real HR_SYNC_WEB_APP_URL or HR_SYNC_SECRET values.
+Do not log shared secrets.
+Validate the shared secret in Apps Script before appending rows.
+Do not send temporary passwords, password hashes, JWT secrets, tokens, cookies, or database URLs.
+Treat Google Sheets as an external reporting destination, not source of truth.
 ```

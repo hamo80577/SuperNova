@@ -8,6 +8,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - `apps/api`: NestJS modular monolith. Auth, users, assignments, workspaces, requests, approvals, reports, notifications, audit logs.
 - `packages/shared`: Shared package placeholder/export surface for cross-app types or utilities.
 - `prisma`: Prisma schema, migrations, seed data, and data import scripts.
+- `docs/integrations`: Planned integration design docs. Current planned integration: HR Google Sheets Sync.
 
 ## Key Product Domains
 
@@ -279,6 +280,30 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - Prisma `AuditLog` model in `prisma/schema.prisma`
 - Important tests:
   - No focused audit log test file currently identified.
+
+### Planned HR Google Sheets Sync
+
+- Planning doc:
+  - `docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md`
+- Planned future files:
+  - `scripts/google-apps-script/hr-sync/Code.gs`
+  - `scripts/google-apps-script/hr-sync/README.md`
+  - `scripts/google-apps-script/hr-sync/samples/*.json`
+- Planned backend direction:
+  - `apps/api/src/hr-sync/hr-sync.service.ts`
+  - Future Prisma `HrSyncLog` model and migration.
+  - Backend-only env values in `apps/api/.env`: `HR_SYNC_ENABLED`, `HR_SYNC_WEB_APP_URL`, `HR_SYNC_SECRET`.
+- Scope:
+  - Picker New Hire/Rehire only.
+  - Picker Resignation only.
+  - Post-finalization sync only.
+  - Google Sheets is not source of truth.
+- Excluded:
+  - Champ and Area Manager sync.
+  - Payroll, attendance, GPS, order integration, inventory, accounting, and generic ERP behavior.
+- Notes:
+  - HR Sync failure must not roll back workflow finalization.
+  - Ticket/request detail should later show `Sent to HR`, `HR Sync failed`, or `Skipped`.
 
 ## Current Lifecycle Workflow Map
 

@@ -17,6 +17,8 @@ The MVP core is complete.
 Implemented:
 
 - Authentication, roles, protected workspaces.
+- Access Control V1 backend-complete foundation.
+- Policy Authorization migration for selected static and workflow-adjacent routes.
 - Chains and Vendors/Branches.
 - Picker/Champ/Area Manager assignment hierarchy.
 - Request and approval engine.
@@ -28,7 +30,12 @@ Implemented:
 - Operational reports for Admin, Area Manager, and Champ.
 - Security/hardening pass with access checks, redaction, and query indexes.
 
-The current active workstream is page-by-page UI/UX redesign.
+Current planned workstream:
+
+1. HR Google Sheets Sync planning and integration.
+2. Return to page-by-page UI/UX redesign after the integration plan is ready.
+
+HR Sync is planned only. It is not implemented yet.
 
 ## Product Model
 
@@ -207,6 +214,16 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 Never commit local `.env` files or secrets.
 
+Planned backend-only HR Sync environment variables, not active until backend integration:
+
+```text
+HR_SYNC_ENABLED=true|false
+HR_SYNC_WEB_APP_URL=https://script.google.com/macros/s/.../exec
+HR_SYNC_SECRET=<long random secret>
+```
+
+These values belong only in backend configuration such as `apps/api/.env`. Do not put the Web App URL or secret in frontend environment variables.
+
 4. Install dependencies.
 
 ```powershell
@@ -245,16 +262,18 @@ Login: http://localhost:3000/login
 ## Documentation Map
 
 - [Agent Rules](./AGENTS.md)
-- [Current Product State](./docs/CURRENT_PRODUCT_STATE.md)
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Data Model](./docs/DATA_MODEL.md)
-- [Workflows](./docs/WORKFLOWS.md)
-- [UI/UX Direction](./docs/UI_UX_DIRECTION.md)
-- [UI/UX Page Redesign Plan](./docs/UI_UX_PAGE_REDESIGN_PLAN.md)
-- [UI/UX Component Rules](./docs/UI_UX_COMPONENT_RULES.md)
-- [Technical Guardrails](./docs/TECHNICAL_GUARDRAILS.md)
-- [Deployment Runbook](./docs/DEPLOYMENT_RUNBOOK.md)
-- [MVP Release Review](./docs/MVP_RELEASE_REVIEW.md)
+- [Repo Index](./docs/REPO_INDEX.md)
+- [Project Operating System](./docs/00_PROJECT_OPERATING_SYSTEM.md)
+- [Product Rules](./docs/01_PRODUCT_RULES.md)
+- [Workflow Rules](./docs/02_WORKFLOW_RULES.md)
+- [Architecture Rules](./docs/03_ARCHITECTURE_RULES.md)
+- [Data Model Rules](./docs/04_DATA_MODEL_RULES.md)
+- [Security and Privacy Rules](./docs/05_SECURITY_AND_PRIVACY_RULES.md)
+- [UI/UX System](./docs/06_UI_UX_SYSTEM.md)
+- [Verification and Testing](./docs/07_VERIFICATION_AND_TESTING.md)
+- [Access Control History](./docs/access-control/README.md)
+- [HR Google Sheets Sync Plan](./docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md)
+- [Documentation Cleanup Report](./docs/DOCS_CLEANUP_REPORT.md)
 
 ## Current Known Technical Debt
 
@@ -263,3 +282,4 @@ Login: http://localhost:3000/login
 - Production deployment strategy is not finalized.
 - Next/PostCSS moderate audit warnings may remain until safe dependency updates are available.
 - UI/UX needs page-by-page redesign.
+- HR Google Sheets Sync is planned but not implemented.

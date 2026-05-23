@@ -142,3 +142,35 @@ REQUEST_COMPLETED
 ```
 
 Audit logs must not contain raw passwords.
+
+## Planned HR Sync Data Rules
+
+Prefer a dedicated `HrSyncLog` model/table for HR Google Sheets Sync tracking.
+
+Do not add many HR Sync status columns directly to `Request` unless a later schema design proves that simpler and safer.
+
+Planned `HrSyncLog` fields:
+
+```text
+id
+requestId
+workflowType
+targetSheet
+status: NOT_SENT | SENT | FAILED | SKIPPED
+payloadSnapshot
+responseSnapshot
+errorMessage
+sentAt
+createdAt
+updatedAt
+```
+
+Rules:
+
+```text
+Google Sheets is not source of truth.
+Payload snapshots must not contain secrets.
+HR Sync status must not control workflow state.
+Picker New Hire/Rehire should store actualJoiningDate in request payload.
+Picker Resignation should store or verify lastWorkingDate in request payload.
+```

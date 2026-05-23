@@ -137,3 +137,19 @@ Shared helpers must be stable and small.
 Do not create generic abstraction too early.
 
 Prefer clear duplication over confusing abstraction until the pattern repeats.
+
+## Integration Rule
+
+External integrations must stay inside the modular monolith.
+
+For the planned HR Google Sheets Sync:
+
+```text
+Use a small backend service boundary.
+Do not introduce microservices.
+Do not hardcode deployment URLs.
+Use backend-only environment configuration.
+Use shared-secret validation for webhook/App Script calls.
+Record sync attempts in a dedicated log table before adding UI status.
+Keep lifecycle workflow services authoritative for system state.
+```

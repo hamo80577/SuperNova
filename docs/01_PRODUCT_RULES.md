@@ -174,3 +174,38 @@ Temporary password is SN-123...
 Reports are read-only.
 
 Reports must not mutate data.
+
+## HR Google Sheets Sync
+
+HR Sync is a planned integration for Picker lifecycle reporting only.
+
+In scope:
+
+```text
+Picker New Hire
+Picker Rehire
+Picker Resignation
+```
+
+Out of scope unless explicitly expanded:
+
+```text
+Champ sync
+Area Manager sync
+Payroll
+Attendance
+GPS
+Order integration
+Inventory
+Accounting
+Generic HR ERP behavior
+```
+
+Rules:
+
+```text
+SuperNova remains the source of truth.
+Google Sheets is not source of truth.
+HR Sync happens after workflow finalization.
+HR Sync failure does not roll back workflow success.
+```
