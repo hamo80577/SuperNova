@@ -18,6 +18,7 @@ import {
   PermissionKeys,
   SYSTEM_ROLE_PERMISSIONS
 } from "../src/access-control";
+import type { AccessRoleService } from "../src/access-control";
 
 function actor(role: UserRole): AuthenticatedUser {
   return {
@@ -52,7 +53,11 @@ const recordingPolicy = {
   }
 };
 
-const controller = new AccessControlController(recordingPolicy as AccessPolicyService);
+const accessRoleService = {} as AccessRoleService;
+const controller = new AccessControlController(
+  recordingPolicy as AccessPolicyService,
+  accessRoleService
+);
 const superAdminRequest = requestFor(actor(UserRole.SUPER_ADMIN));
 const overview = controller.getOverview(superAdminRequest);
 
@@ -91,7 +96,10 @@ assert.equal(
   false
 );
 
-const realPolicyController = new AccessControlController(new AccessPolicyService());
+const realPolicyController = new AccessControlController(
+  new AccessPolicyService(),
+  accessRoleService
+);
 
 assert.doesNotThrow(() =>
   realPolicyController.getOverview(requestFor(actor(UserRole.SUPER_ADMIN)))
