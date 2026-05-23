@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,6 +13,8 @@ import {
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
+import { AccessPolicyService } from "../access-control/access-policy.service";
+import { PermissionKeys, type PermissionKey } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -34,7 +37,9 @@ import { RequestsService } from "./requests.service";
 export class RequestsController {
   constructor(
     @Inject(RequestsService)
-    private readonly requestsService: RequestsService
+    private readonly requestsService: RequestsService,
+    @Inject(AccessPolicyService)
+    private readonly accessPolicy: AccessPolicyService
   ) {}
 
   @Get("status")
@@ -48,6 +53,8 @@ export class RequestsController {
     @Query() query: ListRequestsQueryDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.list(query, user);
   }
 
@@ -57,6 +64,8 @@ export class RequestsController {
     @Query() query: ListRequestsQueryDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.listSubmitted(query, user);
   }
 
@@ -86,6 +95,8 @@ export class RequestsController {
     @Param("id", ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.getById(id, user);
   }
 
@@ -106,6 +117,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForNewHireTargetRole(dto.targetRole)
+    );
+
     return this.requestsService.createNewHire(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -120,6 +136,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      this.permissionForOffboardingTargetRole(dto.targetRole)
+    );
+
     return this.requestsService.createOffboarding(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -134,6 +155,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.REQUESTS_CREATE_TRANSFER_PICKER
+    );
+
     return this.requestsService.createTransfer(dto, {
       actor: user,
       ipAddress: request.ip,
@@ -150,6 +176,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+    );
+
     return this.requestsService.finalizeNewHire(id, dto, {
       actor: user,
       ipAddress: request.ip,
@@ -166,6 +197,11 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.APPROVALS_DECIDE_FINAL_LIFECYCLE
+    );
+
     return this.requestsService.finalizeOffboarding(id, dto, {
       actor: user,
       ipAddress: request.ip,
@@ -194,6 +230,8 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_VIEW);
+
     return this.requestsService.submit(id, {
       actor: user,
       ipAddress: request.ip,
@@ -209,10 +247,44 @@ export class RequestsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.REQUESTS_CANCEL);
+
     return this.requestsService.cancel(id, dto, {
       actor: user,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
     });
+  }
+
+  private permissionForNewHireTargetRole(targetRole?: UserRole): PermissionKey {
+    switch (targetRole ?? UserRole.PICKER) {
+      case UserRole.PICKER:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_PICKER;
+      case UserRole.CHAMP:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_CHAMP;
+      case UserRole.AREA_MANAGER:
+        return PermissionKeys.REQUESTS_CREATE_NEW_HIRE_AREA_MANAGER;
+      default:
+        throw new BadRequestException(
+          "targetRole must be PICKER, CHAMP, or AREA_MANAGER."
+        );
+    }
+  }
+
+  private permissionForOffboardingTargetRole(
+    targetRole?: UserRole
+  ): PermissionKey {
+    switch (targetRole ?? UserRole.PICKER) {
+      case UserRole.PICKER:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_PICKER;
+      case UserRole.CHAMP:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_CHAMP;
+      case UserRole.AREA_MANAGER:
+        return PermissionKeys.REQUESTS_CREATE_RESIGNATION_AREA_MANAGER;
+      default:
+        throw new BadRequestException(
+          "targetRole must be PICKER, CHAMP, or AREA_MANAGER."
+        );
+    }
   }
 }

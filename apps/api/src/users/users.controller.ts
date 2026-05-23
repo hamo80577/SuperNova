@@ -14,6 +14,13 @@ import {
 } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
+import { AccessRoleAssignmentService } from "../access-control/access-role-assignment.service";
+import { AccessPolicyService } from "../access-control/access-policy.service";
+import {
+  AssignCustomAccessRoleDto,
+  RevokeCustomAccessRoleAssignmentDto
+} from "../access-control/dto/access-role-assignment.dto";
+import { PermissionKeys } from "../access-control/permissions";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -29,7 +36,13 @@ import { UsersService } from "./users.service";
 
 @Controller("users")
 export class UsersController {
-  constructor(@Inject(UsersService) private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(UsersService) private readonly usersService: UsersService,
+    @Inject(AccessPolicyService)
+    private readonly accessPolicy: AccessPolicyService,
+    @Inject(AccessRoleAssignmentService)
+    private readonly accessRoleAssignmentService: AccessRoleAssignmentService
+  ) {}
 
   @Get("status")
   getStatus() {
@@ -39,20 +52,30 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get()
-  list(@Query() query: ListUsersQueryDto) {
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListUsersQueryDto
+  ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
     return this.usersService.list(query);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get("operational-list")
-  listOperational(@Query() query: ListUsersQueryDto) {
+  listOperational(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListUsersQueryDto
+  ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
     return this.usersService.listOperational(query);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("me")
   async getMe(@CurrentUser() user: AuthenticatedUser) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_VIEW_SELF);
+
     const currentUser = await this.usersService.getSafeCurrentUser(user.id);
 
     if (!currentUser) {
@@ -69,6 +92,11 @@ export class UsersController {
     @Body() dto: UpdateUserPreferencesDto,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_EDIT_OWN_PREFERENCES
+    );
+
     return this.usersService.updatePreferences(user.id, dto, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -81,13 +109,92 @@ export class UsersController {
     @Param("id") id: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_VIEW_OPERATIONAL_PROFILE
+    );
     return this.usersService.getOperationalProfile(id, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Get(":id/access-role-assignments")
+  listAccessRoleAssignments(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_VIEW_EFFECTIVE_PERMISSIONS
+    );
+
+    return this.accessRoleAssignmentService.listUserAccessRoleAssignments(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post(":id/access-role-assignments")
+  assignCustomAccessRole(
+    @Param("id") id: string,
+    @Body() dto: AssignCustomAccessRoleDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_ASSIGN_CUSTOM_ROLES
+    );
+
+    return this.accessRoleAssignmentService.assignCustomAccessRoleToUser(
+      id,
+      dto,
+      {
+        actorUserId: user.id,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"] ?? null
+      }
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post(":id/access-role-assignments/:assignmentId/revoke")
+  revokeCustomAccessRoleAssignment(
+    @Param("id") id: string,
+    @Param("assignmentId") assignmentId: string,
+    @Body() dto: RevokeCustomAccessRoleAssignmentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.ACCESS_CONTROL_REVOKE_CUSTOM_ROLES
+    );
+
+    return this.accessRoleAssignmentService.revokeUserAccessRoleAssignment(
+      id,
+      assignmentId,
+      dto,
+      {
+        actorUserId: user.id,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"] ?? null
+      }
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get(":id/area-manager-chain-assignments")
-  getAreaManagerChainAssignments(@Param("id") id: string) {
+  getAreaManagerChainAssignments(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.getAreaManagerChainAssignments(id);
   }
 
@@ -100,6 +207,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.addAreaManagerChainAssignments(id, dto, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -115,6 +227,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_AREA_MANAGER_CHAIN_ASSIGNMENTS
+    );
+
     return this.usersService.removeAreaManagerChainAssignment(
       id,
       assignmentId,
@@ -135,6 +252,8 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_EDIT_PROFILE);
+
     return this.usersService.updateAdminProfile(id, dto, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -148,6 +267,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_READ_TEMPORARY_PASSWORD
+    );
+
     return this.usersService.revealTemporaryPassword(id, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -161,6 +285,11 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_MANAGE_TEMPORARY_PASSWORD
+    );
+
     return this.usersService.resetTemporaryPassword(id, user, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
@@ -171,6 +300,11 @@ export class UsersController {
   @Roles(UserRole.PICKER)
   @Get("me/profile-completion")
   getProfileCompletion(@CurrentUser() user: AuthenticatedUser) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    );
+
     return this.usersService.getProfileCompletion(user.id);
   }
 
@@ -182,6 +316,11 @@ export class UsersController {
     @Body() dto: UpdateProfileCompletionDto,
     @Req() request: AuthenticatedRequest
   ) {
+    this.accessPolicy.assertCan(
+      user,
+      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
+    );
+
     return this.usersService.updateProfileCompletion(user.id, dto, {
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

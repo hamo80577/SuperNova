@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 
+import { AccessControlModule } from "../access-control/access-control.module";
 import { AuditModule } from "../audit/audit.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { RequestsModule } from "../requests/requests.module";
@@ -10,7 +11,14 @@ import { ApprovalsService } from "./approvals.service";
 
 @Module({
   controllers: [ApprovalsController],
-  imports: [AuditModule, JwtModule.register({}), NotificationsModule, RequestsModule, UsersModule],
+  imports: [
+    AccessControlModule,
+    AuditModule,
+    JwtModule.register({}),
+    NotificationsModule,
+    RequestsModule,
+    UsersModule
+  ],
   providers: [ApprovalsService],
   exports: [ApprovalsService]
 })

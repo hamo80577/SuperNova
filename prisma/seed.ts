@@ -11,6 +11,8 @@ import bcrypt from "bcryptjs";
 import { readFile } from "fs/promises";
 import path from "path";
 
+import { syncSystemAccessRoles } from "./access-role-seed";
+
 const prisma = new PrismaClient();
 const PASSWORD_HASH_ROUNDS = 12;
 const BRANCH_DATA_PATH = path.join(process.cwd(), "prisma", "data", "branches.csv");
@@ -53,6 +55,11 @@ async function main() {
 
     console.log("Seeded local development admin user from environment variables.");
   }
+
+  const accessRoleSyncResult = await syncSystemAccessRoles(prisma);
+  console.log(
+    `Synced system access roles from permission matrix: ${accessRoleSyncResult.roleCount} roles, ${accessRoleSyncResult.permissionCount} permissions.`
+  );
 
   await removeLocalDemoData();
   await seedBranchData();

@@ -6,6 +6,7 @@ import {
   FileSearch,
   GitBranch,
   Home,
+  KeyRound,
   Map,
   Settings,
   ShieldCheck,
@@ -253,6 +254,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       href: "/admin/audit-logs",
       icon: FileSearch,
       section: "Admin Controls"
+    },
+    {
+      label: "Access Control",
+      href: "/super-admin/access-control",
+      icon: KeyRound,
+      section: "System Owner"
     },
     {
       label: "Settings",

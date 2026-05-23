@@ -15,6 +15,21 @@ enum UserRole {
   SUPER_ADMIN
 }
 
+enum AccessRoleKind {
+  SYSTEM
+  CUSTOM
+}
+
+enum AccessRoleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AccessRoleAssignmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum AccountStatus {
   ACTIVE
   INACTIVE
@@ -139,6 +154,7 @@ model User {
   approvals                   RequestApproval[]                @relation("RequestApprover")
   notifications               Notification[]
   auditLogsAsActor            AuditLog[]                       @relation("AuditActor")
+  accessRoleAssignments       UserAccessRoleAssignment[]       @relation("UserAccessRoleAssignments")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -146,6 +162,53 @@ model User {
   @@index([role, profileStatus])
   @@index([accountStatus])
   @@index([employmentStatus])
+}
+
+model AccessRole {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  name        String
+  description String?
+  kind        AccessRoleKind
+  systemRole  UserRole?        @unique
+  status      AccessRoleStatus @default(ACTIVE)
+  isSystem    Boolean          @default(false)
+  permissions AccessRolePermission[] @relation("AccessRolePermissions")
+  userAssignments UserAccessRoleAssignment[] @relation("AccessRoleAssignments")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([kind, status])
+  @@index([status])
+}
+
+model AccessRolePermission {
+  id            String     @id @default(uuid())
+  accessRoleId  String
+  permissionKey String
+  accessRole    AccessRole @relation("AccessRolePermissions", fields: [accessRoleId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([accessRoleId, permissionKey])
+  @@index([permissionKey])
+}
+
+model UserAccessRoleAssignment {
+  id           String                     @id @default(uuid())
+  userId       String
+  accessRoleId String
+  status       AccessRoleAssignmentStatus @default(ACTIVE)
+  startsAt     DateTime                   @default(now())
+  endsAt       DateTime?
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+  user         User                       @relation("UserAccessRoleAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  accessRole   AccessRole                 @relation("AccessRoleAssignments", fields: [accessRoleId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([accessRoleId, status])
+  @@index([userId, accessRoleId, status])
 }
 
 model Chain {
