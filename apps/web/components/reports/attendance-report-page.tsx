@@ -29,10 +29,17 @@ import {
 
 type AsyncState = "idle" | "loading" | "ready" | "error";
 type UserRoleFilter = "ALL" | AttendanceMatchedRole;
+type AttendanceReportScope = "admin" | "area-manager" | "champ";
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
 
-export function AttendanceReportPage() {
+export function AttendanceReportPage({
+  scope = "admin"
+}: {
+  scope?: AttendanceReportScope;
+}) {
+  const reportApi = useMemo(() => getAttendanceReportApi(scope), [scope]);
+  const reportCopy = attendanceReportCopy[scope];
   const [months, setMonths] = useState<AttendanceReportMonth[]>([]);
   const [monthKey, setMonthKey] = useState(currentMonthKey);
   const [chainId, setChainId] = useState("");
@@ -57,7 +64,7 @@ export function AttendanceReportPage() {
 
     async function loadMonths() {
       try {
-        const response = await reportsApi.getAttendanceReportMonths();
+        const response = await reportApi.months();
         if (!mounted) {
           return;
         }
@@ -77,7 +84,7 @@ export function AttendanceReportPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reportApi]);
 
   useEffect(() => {
     let mounted = true;
@@ -91,10 +98,12 @@ export function AttendanceReportPage() {
           roleFilter === "ALL" ? undefined : (roleFilter as AttendanceMatchedRole);
         const [overviewData, chainData, branchData, userData] =
           await Promise.all([
-            reportsApi.getAttendanceOverview({ chainId, monthKey, vendorId }),
-            reportsApi.getAttendanceChainSummaries({ monthKey }),
-            reportsApi.getAttendanceBranchSummaries({ chainId, monthKey }),
-            reportsApi.getAttendanceUserSummaries({
+            reportApi.overview({ chainId, monthKey, vendorId }),
+            reportApi.chainSummaries
+              ? reportApi.chainSummaries({ monthKey })
+              : Promise.resolve({ items: [], monthKey }),
+            reportApi.branchSummaries({ chainId, monthKey, vendorId }),
+            reportApi.userSummaries({
               chainId,
               monthKey,
               pageSize: 100,
@@ -127,7 +136,7 @@ export function AttendanceReportPage() {
     return () => {
       mounted = false;
     };
-  }, [chainId, monthKey, roleFilter, search, vendorId]);
+  }, [chainId, monthKey, reportApi, roleFilter, search, vendorId]);
 
   const chainOptions = useMemo(
     () =>
@@ -155,10 +164,7 @@ export function AttendanceReportPage() {
     setDailyError(null);
 
     try {
-      const details = await reportsApi.getAttendanceUserDailyDetails(
-        user.userId,
-        monthKey
-      );
+      const details = await reportApi.userDailyDetails(user.userId, monthKey);
       setDailyDetails(details);
       setDailyStatus("ready");
     } catch (loadError) {
@@ -190,23 +196,25 @@ export function AttendanceReportPage() {
               )}
             </Select>
           </Field>
-          <Field label="Chain">
-            <Select
-              aria-label="Filter by Chain"
-              onChange={(event) => {
-                setChainId(event.target.value);
-                setVendorId("");
-              }}
-              value={chainId}
-            >
-              <option value="">All Chains</option>
-              {chainOptions.map((chain) => (
-                <option key={chain.value} value={chain.value}>
-                  {chain.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {reportCopy.showChainFilter ? (
+            <Field label="Chain">
+              <Select
+                aria-label="Filter by Chain"
+                onChange={(event) => {
+                  setChainId(event.target.value);
+                  setVendorId("");
+                }}
+                value={chainId}
+              >
+                <option value="">All Chains</option>
+                {chainOptions.map((chain) => (
+                  <option key={chain.value} value={chain.value}>
+                    {chain.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
           <Field label="Branch">
             <Select
               aria-label="Filter by Branch"
@@ -221,19 +229,21 @@ export function AttendanceReportPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Users">
-            <Select
-              aria-label="Filter users by role"
-              onChange={(event) =>
-                setRoleFilter(event.target.value as UserRoleFilter)
-              }
-              value={roleFilter}
-            >
-              <option value="ALL">All roles</option>
-              <option value="PICKER">Pickers</option>
-              <option value="CHAMP">Champs</option>
-            </Select>
-          </Field>
+          {reportCopy.showRoleFilter ? (
+            <Field label="Users">
+              <Select
+                aria-label="Filter users by role"
+                onChange={(event) =>
+                  setRoleFilter(event.target.value as UserRoleFilter)
+                }
+                value={roleFilter}
+              >
+                <option value="ALL">All roles</option>
+                <option value="PICKER">Pickers</option>
+                <option value="CHAMP">Champs</option>
+              </Select>
+            </Field>
+          ) : null}
           <Field label="Search">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -264,40 +274,42 @@ export function AttendanceReportPage() {
 
           <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
             <ReportSection
-              description="Branch and Chain totals include Pickers only."
-              title="Picker Operations"
+              description={reportCopy.pickerSectionDescription}
+              title={reportCopy.pickerSectionTitle}
             >
-              <SummaryTable
-                columns={[
-                  "Chain",
-                  "Branches",
-                  "Pickers",
-                  "Created",
-                  "Needed",
-                  "Missing",
-                  "Absent",
-                  "Late >15",
-                  "Under 8",
-                  "Over 15"
-                ]}
-                emptyMessage="No Chain attendance summaries for this month."
-                rows={chains.map((chain) => ({
-                  cells: [
-                    chain.chainName,
-                    chain.branchCount,
-                    chain.pickerCount,
-                    chain.totalCreatedShifts,
-                    chain.totalShiftsNeeded,
-                    chain.missingShifts,
-                    chain.absentCount,
-                    chain.lateLevel1Over15Count,
-                    chain.under8HoursCount,
-                    chain.over15HoursCount
-                  ],
-                  title: chain.chainName
-                }))}
-                title="Chain Summary"
-              />
+              {reportCopy.showChainSummary ? (
+                <SummaryTable
+                  columns={[
+                    "Chain",
+                    "Branches",
+                    "Pickers",
+                    "Created",
+                    "Needed",
+                    "Missing",
+                    "Absent",
+                    "Late >15",
+                    "Under 8",
+                    "Over 15"
+                  ]}
+                  emptyMessage="No Chain attendance summaries for this month."
+                  rows={chains.map((chain) => ({
+                    cells: [
+                      chain.chainName,
+                      chain.branchCount,
+                      chain.pickerCount,
+                      chain.totalCreatedShifts,
+                      chain.totalShiftsNeeded,
+                      chain.missingShifts,
+                      chain.absentCount,
+                      chain.lateLevel1Over15Count,
+                      chain.under8HoursCount,
+                      chain.over15HoursCount
+                    ],
+                    title: chain.chainName
+                  }))}
+                  title="Chain Summary"
+                />
+              ) : null}
               <SummaryTable
                 columns={[
                   "Branch",
@@ -339,21 +351,23 @@ export function AttendanceReportPage() {
               ) : null}
             </ReportSection>
 
-            <ReportSection
-              description="Champ attendance is user-level only."
-              title="Champ Attendance"
-            >
-              {roleFilter !== "PICKER" ? (
-                <UserSummaryList
-                  emptyMessage="No Champ summaries match these filters."
-                  onSelect={openUserDetails}
-                  title="Champ User Summaries"
-                  users={champUsers}
-                />
-              ) : (
-                <EmptyState message="User role filter is set to Pickers." />
-              )}
-            </ReportSection>
+            {reportCopy.showChampSection ? (
+              <ReportSection
+                description="Champ attendance is user-level only and is not included in Branch or Chain totals."
+                title="Champ Attendance"
+              >
+                {roleFilter !== "PICKER" ? (
+                  <UserSummaryList
+                    emptyMessage="No Champ summaries match these filters."
+                    onSelect={openUserDetails}
+                    title="Champ User Summaries"
+                    users={champUsers}
+                  />
+                ) : (
+                  <EmptyState message="User role filter is set to Pickers." />
+                )}
+              </ReportSection>
+            ) : null}
           </section>
         </>
       ) : null}
@@ -728,6 +742,86 @@ function Notice({ children }: { children: ReactNode }) {
       <span>{children}</span>
     </div>
   );
+}
+
+type AttendanceReportApi = {
+  branchSummaries: typeof reportsApi.getAttendanceBranchSummaries;
+  chainSummaries?: typeof reportsApi.getAttendanceChainSummaries;
+  months: typeof reportsApi.getAttendanceReportMonths;
+  overview: typeof reportsApi.getAttendanceOverview;
+  userDailyDetails: typeof reportsApi.getAttendanceUserDailyDetails;
+  userSummaries: typeof reportsApi.getAttendanceUserSummaries;
+};
+
+const attendanceReportCopy: Record<
+  AttendanceReportScope,
+  {
+    pickerSectionDescription: string;
+    pickerSectionTitle: string;
+    showChainFilter: boolean;
+    showChainSummary: boolean;
+    showChampSection: boolean;
+    showRoleFilter: boolean;
+  }
+> = {
+  admin: {
+    pickerSectionDescription: "Branch and Chain totals include Pickers only.",
+    pickerSectionTitle: "Picker Operations",
+    showChainFilter: true,
+    showChainSummary: true,
+    showChampSection: true,
+    showRoleFilter: true
+  },
+  "area-manager": {
+    pickerSectionDescription:
+      "Scoped to your active assigned Chains. Branch and Chain totals include Pickers only.",
+    pickerSectionTitle: "Picker Operations",
+    showChainFilter: true,
+    showChainSummary: true,
+    showChampSection: true,
+    showRoleFilter: true
+  },
+  champ: {
+    pickerSectionDescription:
+      "Scoped to your active assigned Branches. Branch totals include Pickers only.",
+    pickerSectionTitle: "Assigned Branches",
+    showChainFilter: false,
+    showChainSummary: false,
+    showChampSection: false,
+    showRoleFilter: false
+  }
+};
+
+function getAttendanceReportApi(scope: AttendanceReportScope): AttendanceReportApi {
+  if (scope === "area-manager") {
+    return {
+      branchSummaries: reportsApi.getAreaManagerAttendanceBranchSummaries,
+      chainSummaries: reportsApi.getAreaManagerAttendanceChainSummaries,
+      months: reportsApi.getAreaManagerAttendanceMonths,
+      overview: reportsApi.getAreaManagerAttendanceOverview,
+      userDailyDetails: reportsApi.getAreaManagerAttendanceUserDailyDetails,
+      userSummaries: reportsApi.getAreaManagerAttendanceUserSummaries
+    };
+  }
+
+  if (scope === "champ") {
+    return {
+      branchSummaries: reportsApi.getChampAttendanceBranchSummaries,
+      months: reportsApi.getChampAttendanceMonths,
+      overview: reportsApi.getChampAttendanceOverview,
+      userDailyDetails: reportsApi.getChampAttendanceUserDailyDetails,
+      userSummaries: reportsApi.getChampAttendanceUserSummaries
+    };
+  }
+
+  return {
+    branchSummaries: reportsApi.getAttendanceBranchSummaries,
+    chainSummaries: reportsApi.getAttendanceChainSummaries,
+    months: reportsApi.getAttendanceReportMonths,
+    overview: reportsApi.getAttendanceOverview,
+    userDailyDetails: reportsApi.getAttendanceUserDailyDetails,
+    userSummaries: reportsApi.getAttendanceUserSummaries
+  };
 }
 
 function formatMonth(monthKey: string) {

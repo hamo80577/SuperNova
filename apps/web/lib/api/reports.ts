@@ -308,6 +308,67 @@ export const reportsApi = {
     return apiGet<AttendanceUserDailyDetails>(
       `/reports/attendance/users/${userId}/daily${toQueryString({ monthKey })}`
     );
+  },
+  getAreaManagerAttendanceMonths() {
+    return apiGet<{ items: AttendanceReportMonth[] }>(
+      "/reports/attendance/area-manager/months"
+    );
+  },
+  getAreaManagerAttendanceOverview(query: AttendanceReportQuery = {}) {
+    return apiGet<AttendanceOverview>(
+      `/reports/attendance/area-manager/overview${toQueryString(query)}`
+    );
+  },
+  getAreaManagerAttendanceChainSummaries(query: AttendanceReportQuery = {}) {
+    return apiGet<{ monthKey: string; items: AttendanceChainSummary[] }>(
+      `/reports/attendance/area-manager/chains${toQueryString(query)}`
+    );
+  },
+  getAreaManagerAttendanceBranchSummaries(query: AttendanceReportQuery = {}) {
+    return apiGet<{ monthKey: string; items: AttendanceBranchSummary[] }>(
+      `/reports/attendance/area-manager/branches${toQueryString(query)}`
+    );
+  },
+  getAreaManagerAttendanceUserSummaries(query: AttendanceUsersQuery = {}) {
+    return apiGet<{
+      items: AttendanceUserSummary[];
+      meta: { page: number; pageSize: number; total: number; totalPages: number };
+    }>(`/reports/attendance/area-manager/users${toQueryString(query)}`);
+  },
+  getAreaManagerAttendanceUserDailyDetails(userId: string, monthKey: string) {
+    return apiGet<AttendanceUserDailyDetails>(
+      `/reports/attendance/area-manager/users/${userId}/daily${toQueryString({
+        monthKey
+      })}`
+    );
+  },
+  getChampAttendanceMonths() {
+    return apiGet<{ items: AttendanceReportMonth[] }>(
+      "/reports/attendance/champ/months"
+    );
+  },
+  getChampAttendanceOverview(query: AttendanceReportQuery = {}) {
+    return apiGet<AttendanceOverview>(
+      `/reports/attendance/champ/overview${toQueryString(query)}`
+    );
+  },
+  getChampAttendanceBranchSummaries(query: AttendanceReportQuery = {}) {
+    return apiGet<{ monthKey: string; items: AttendanceBranchSummary[] }>(
+      `/reports/attendance/champ/branches${toQueryString(query)}`
+    );
+  },
+  getChampAttendanceUserSummaries(query: AttendanceUsersQuery = {}) {
+    return apiGet<{
+      items: AttendanceUserSummary[];
+      meta: { page: number; pageSize: number; total: number; totalPages: number };
+    }>(`/reports/attendance/champ/users${toQueryString(query)}`);
+  },
+  getChampAttendanceUserDailyDetails(userId: string, monthKey: string) {
+    return apiGet<AttendanceUserDailyDetails>(
+      `/reports/attendance/champ/users/${userId}/daily${toQueryString({
+        monthKey
+      })}`
+    );
   }
 };
 

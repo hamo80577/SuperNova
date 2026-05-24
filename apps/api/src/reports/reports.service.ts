@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
 import {
   AccountStatus,
   AttendanceArchiveStatus,
@@ -565,6 +565,475 @@ export class ReportsService {
             }
           : null
       }))
+    };
+  }
+
+  async getAreaManagerAttendanceMonths(areaManagerId: string) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    return this.getScopedAttendanceMonths(areaManagerAttendanceScopeWhere(scope));
+  }
+
+  async getAreaManagerAttendanceOverview(
+    areaManagerId: string,
+    query: AttendanceOverviewQueryDto
+  ) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    assertAreaManagerScope(scope, query);
+    return this.getScopedAttendanceOverview({
+      branchWhere: scopedBranchWhere(scope, query),
+      chainWhere: scopedChainWhere(scope, query),
+      dailyWhere: scopedDailyWhere(scope, query),
+      query,
+      userWhere: scopedUserWhere(scope, query)
+    });
+  }
+
+  async getAreaManagerAttendanceChainSummaries(
+    areaManagerId: string,
+    query: AttendanceChainsQueryDto
+  ) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    assertAreaManagerScope(scope, query);
+    return this.getScopedAttendanceChainSummaries(scopedChainWhere(scope, query));
+  }
+
+  async getAreaManagerAttendanceBranchSummaries(
+    areaManagerId: string,
+    query: AttendanceBranchesQueryDto
+  ) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    assertAreaManagerScope(scope, query);
+    return this.getScopedAttendanceBranchSummaries(
+      scopedBranchWhere(scope, query)
+    );
+  }
+
+  async getAreaManagerAttendanceUserSummaries(
+    areaManagerId: string,
+    query: AttendanceUsersQueryDto
+  ) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    assertAreaManagerScope(scope, query);
+    return this.getScopedAttendanceUserSummaries(scopedUserWhere(scope, query), {
+      page: query.page,
+      pageSize: query.pageSize
+    });
+  }
+
+  async getAreaManagerAttendanceUserDailyDetails(
+    areaManagerId: string,
+    userId: string,
+    query: AttendanceUserDailyQueryDto
+  ) {
+    const scope = await this.getAreaManagerAttendanceScope(areaManagerId);
+    return this.getScopedAttendanceUserDailyDetails({
+      forbiddenMessage: "Requested user is outside assigned Area Manager scope.",
+      query,
+      scopeWhere: areaManagerAttendanceScopeWhere(scope),
+      userId
+    });
+  }
+
+  async getChampAttendanceMonths(champId: string) {
+    const scope = await this.getChampAttendanceScope(champId);
+    return this.getScopedAttendanceMonths(champAttendanceScopeWhere(scope));
+  }
+
+  async getChampAttendanceOverview(
+    champId: string,
+    query: AttendanceOverviewQueryDto
+  ) {
+    const scope = await this.getChampAttendanceScope(champId);
+    assertChampScope(scope, query);
+    const scopedQuery = { ...query, role: AttendanceMatchedRole.PICKER };
+
+    return this.getScopedAttendanceOverview({
+      branchWhere: scopedBranchWhere(scope, scopedQuery),
+      chainWhere: { monthKey: resolveMonthKey(query.monthKey), chainId: { in: [] } },
+      dailyWhere: scopedDailyWhere(scope, scopedQuery),
+      query: scopedQuery,
+      userWhere: scopedUserWhere(scope, scopedQuery)
+    });
+  }
+
+  async getChampAttendanceBranchSummaries(
+    champId: string,
+    query: AttendanceBranchesQueryDto
+  ) {
+    const scope = await this.getChampAttendanceScope(champId);
+    assertChampScope(scope, query);
+    return this.getScopedAttendanceBranchSummaries(
+      scopedBranchWhere(scope, query)
+    );
+  }
+
+  async getChampAttendanceUserSummaries(
+    champId: string,
+    query: AttendanceUsersQueryDto
+  ) {
+    const scope = await this.getChampAttendanceScope(champId);
+    assertChampScope(scope, query);
+    return this.getScopedAttendanceUserSummaries(
+      scopedUserWhere(scope, {
+        ...query,
+        role: AttendanceMatchedRole.PICKER
+      }),
+      {
+        page: query.page,
+        pageSize: query.pageSize
+      }
+    );
+  }
+
+  async getChampAttendanceUserDailyDetails(
+    champId: string,
+    userId: string,
+    query: AttendanceUserDailyQueryDto
+  ) {
+    const scope = await this.getChampAttendanceScope(champId);
+    return this.getScopedAttendanceUserDailyDetails({
+      forbiddenMessage: "Requested user is outside assigned Champ scope.",
+      query,
+      scopeWhere: champAttendanceScopeWhere(scope),
+      userId
+    });
+  }
+
+  private async getScopedAttendanceMonths(scope: AttendanceScopeWhere) {
+    const [userGroups, branchGroups, chainGroups, dailyGroups, archiveRows] =
+      await Promise.all([
+        this.prisma.attendanceMonthlyUserSummary.groupBy({
+          by: ["monthKey"],
+          where: scope.userWhere,
+          _count: { _all: true },
+          orderBy: { monthKey: "desc" }
+        }),
+        this.prisma.attendanceMonthlyBranchSummary.groupBy({
+          by: ["monthKey"],
+          where: scope.branchWhere,
+          _count: { _all: true },
+          orderBy: { monthKey: "desc" }
+        }),
+        this.prisma.attendanceMonthlyChainSummary.groupBy({
+          by: ["monthKey"],
+          where: scope.chainWhere,
+          _count: { _all: true },
+          orderBy: { monthKey: "desc" }
+        }),
+        this.prisma.attendanceDailyRecord.groupBy({
+          by: ["monthKey"],
+          where: scope.dailyWhere,
+          _count: { _all: true },
+          orderBy: { monthKey: "desc" }
+        }),
+        this.prisma.attendanceMonthlyUserSummary.findMany({
+          where: scope.userWhere,
+          select: { monthKey: true, archiveStatus: true },
+          orderBy: { monthKey: "desc" }
+        })
+      ]);
+
+    return buildAttendanceMonthsResponse({
+      archiveRows,
+      branchGroups,
+      chainGroups,
+      dailyGroups,
+      userGroups
+    });
+  }
+
+  private async getScopedAttendanceOverview(input: {
+    branchWhere: Prisma.AttendanceMonthlyBranchSummaryWhereInput;
+    chainWhere: Prisma.AttendanceMonthlyChainSummaryWhereInput;
+    dailyWhere: Prisma.AttendanceDailyRecordWhereInput;
+    query: AttendanceOverviewQueryDto;
+    userWhere: Prisma.AttendanceMonthlyUserSummaryWhereInput;
+  }) {
+    const monthKey = resolveMonthKey(input.query.monthKey);
+    const [userSummaries, branchSummaries, chainSummaries, dailyRecordsCount] =
+      await Promise.all([
+        this.prisma.attendanceMonthlyUserSummary.findMany({
+          where: input.userWhere
+        }),
+        this.prisma.attendanceMonthlyBranchSummary.findMany({
+          where: input.branchWhere
+        }),
+        this.prisma.attendanceMonthlyChainSummary.findMany({
+          where: input.chainWhere
+        }),
+        this.prisma.attendanceDailyRecord.count({ where: input.dailyWhere })
+      ]);
+    const totals = sumAttendanceMetrics(userSummaries);
+    const pickerSummaries = userSummaries.filter(
+      (summary) => summary.role === AttendanceMatchedRole.PICKER
+    );
+    const champSummaries = userSummaries.filter(
+      (summary) => summary.role === AttendanceMatchedRole.CHAMP
+    );
+    const chainCount = input.query.vendorId
+      ? new Set(branchSummaries.map((summary) => summary.chainId)).size
+      : chainSummaries.length;
+    const dailyRecordsAvailable =
+      dailyRecordsCount > 0 ||
+      userSummaries.some((summary) => summary.sourceDailyRecordsAvailable);
+
+    return {
+      monthKey,
+      archiveStatus: resolveMonthArchiveStatus({
+        archiveStatus: mostRestrictiveArchiveStatusFromRows(userSummaries),
+        dailyRecordsCount,
+        monthKey,
+        userSummaryCount: userSummaries.length
+      }),
+      totalPickers: pickerSummaries.length,
+      totalChamps: champSummaries.length,
+      totalCreatedShifts: totals.totalCreatedShifts,
+      totalShiftsNeeded: totals.totalShiftsNeeded,
+      totalMissingShifts: totals.missingShifts,
+      workedShiftCount: totals.workedShiftCount,
+      absentCount: totals.absentCount,
+      onLeaveCount: totals.onLeaveCount,
+      annualLeaveCount: totals.annualLeaveCount,
+      medicalLeaveCount: totals.medicalLeaveCount,
+      offDayCount: totals.offDayCount,
+      lateMinutesTotal: totals.lateMinutesTotal,
+      lateLevel1Over15Count: totals.lateLevel1Over15Count,
+      lateLevel2From31To45Count: totals.lateLevel2From31To45Count,
+      lateLevel3Over45Count: totals.lateLevel3Over45Count,
+      under8HoursCount: totals.under8HoursCount,
+      over15HoursCount: totals.over15HoursCount,
+      branchCount: branchSummaries.length,
+      chainCount,
+      summaryOnly: userSummaries.length > 0 && !dailyRecordsAvailable,
+      dailyRecordsAvailable
+    };
+  }
+
+  private async getScopedAttendanceChainSummaries(
+    where: Prisma.AttendanceMonthlyChainSummaryWhereInput
+  ) {
+    const monthKey = String(where.monthKey ?? resolveMonthKey());
+    const summaries = await this.prisma.attendanceMonthlyChainSummary.findMany({
+      where,
+      include: { chain: true },
+      orderBy: [{ missingShifts: "desc" }, { chainId: "asc" }]
+    });
+
+    return {
+      monthKey,
+      items: summaries.map((summary) => ({
+        chainId: summary.chainId,
+        chainName: summary.chain.chainName,
+        branchCount: summary.branchCount,
+        pickerCount: summary.pickerCount,
+        totalCreatedShifts: summary.totalCreatedShifts,
+        totalShiftsNeeded: summary.totalShiftsNeeded,
+        missingShifts: summary.missingShifts,
+        absentCount: summary.absentCount,
+        lateLevel1Over15Count: summary.lateLevel1Over15Count,
+        under8HoursCount: summary.under8HoursCount,
+        over15HoursCount: summary.over15HoursCount
+      }))
+    };
+  }
+
+  private async getScopedAttendanceBranchSummaries(
+    where: Prisma.AttendanceMonthlyBranchSummaryWhereInput
+  ) {
+    const monthKey = String(where.monthKey ?? resolveMonthKey());
+    const summaries = await this.prisma.attendanceMonthlyBranchSummary.findMany({
+      where,
+      include: {
+        chain: true,
+        vendor: { include: { chain: true } }
+      },
+      orderBy: [{ missingShifts: "desc" }, { vendorId: "asc" }]
+    });
+
+    return {
+      monthKey,
+      items: summaries.map((summary) => ({
+        vendorId: summary.vendorId,
+        vendorName: summary.vendor.vendorName,
+        vendorExternalId: summary.vendor.vendorExternalId,
+        chainId: summary.chainId,
+        chainName: summary.chain.chainName,
+        pickerCount: summary.pickerCount,
+        totalCreatedShifts: summary.totalCreatedShifts,
+        totalShiftsNeeded: summary.totalShiftsNeeded,
+        missingShifts: summary.missingShifts,
+        absentCount: summary.absentCount,
+        lateLevel1Over15Count: summary.lateLevel1Over15Count,
+        under8HoursCount: summary.under8HoursCount,
+        over15HoursCount: summary.over15HoursCount
+      }))
+    };
+  }
+
+  private async getScopedAttendanceUserSummaries(
+    where: Prisma.AttendanceMonthlyUserSummaryWhereInput,
+    pagination: { page?: number; pageSize?: number }
+  ) {
+    const page = Math.max(1, Number(pagination.page ?? 1));
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Number(pagination.pageSize ?? 20))
+    );
+    const [total, summaries] = await Promise.all([
+      this.prisma.attendanceMonthlyUserSummary.count({ where }),
+      this.prisma.attendanceMonthlyUserSummary.findMany({
+        where,
+        include: attendanceUserSummaryInclude,
+        orderBy: [{ role: "asc" }, { identifier: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      items: summaries.map(toAttendanceUserSummaryResponse),
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize))
+      }
+    };
+  }
+
+  private async getScopedAttendanceUserDailyDetails(input: {
+    forbiddenMessage: string;
+    query: AttendanceUserDailyQueryDto;
+    scopeWhere: AttendanceScopeWhere;
+    userId: string;
+  }) {
+    const scopedSummaryWhere = {
+      AND: [
+        input.scopeWhere.userWhere,
+        {
+          monthKey: input.query.monthKey,
+          userId: input.userId
+        }
+      ]
+    } satisfies Prisma.AttendanceMonthlyUserSummaryWhereInput;
+    const summaries = await this.prisma.attendanceMonthlyUserSummary.findMany({
+      where: scopedSummaryWhere,
+      include: attendanceUserSummaryInclude,
+      take: 1
+    });
+    const summary = summaries[0];
+
+    if (!summary) {
+      throw new ForbiddenException(input.forbiddenMessage);
+    }
+
+    const records = await this.prisma.attendanceDailyRecord.findMany({
+      where: {
+        AND: [
+          input.scopeWhere.dailyWhere,
+          {
+            matchedUserId: input.userId,
+            monthKey: input.query.monthKey
+          }
+        ]
+      },
+      include: {
+        assignmentChain: true,
+        assignmentVendor: true
+      },
+      orderBy: { attendanceDate: "asc" }
+    });
+
+    if (records.length === 0) {
+      return {
+        dailyRecordsAvailable: false,
+        message: summaryOnlyDailyMessage,
+        summary: toAttendanceUserSummaryResponse(summary),
+        records: []
+      };
+    }
+
+    return {
+      dailyRecordsAvailable: true,
+      message: null,
+      summary: toAttendanceUserSummaryResponse(summary),
+      records: records.map(toAttendanceDailyRecordResponse)
+    };
+  }
+
+  private async getAreaManagerAttendanceScope(areaManagerId: string) {
+    const assignments =
+      await this.prisma.chainAreaManagerAssignment.findMany({
+        where: { areaManagerId, status: AssignmentStatus.ACTIVE },
+        include: {
+          chain: {
+            include: {
+              vendors: {
+                include: {
+                  champAssignments: {
+                    where: { status: AssignmentStatus.ACTIVE },
+                    select: { champId: true, vendorId: true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    const chainIds = unique(assignments.map((assignment) => assignment.chainId));
+    const vendorIds = unique(
+      assignments.flatMap((assignment) =>
+        assignment.chain.vendors.map((vendor) => vendor.id)
+      )
+    );
+    const scopedVendors = new Map<string, { chainId: string }>();
+    const champVendorIds = new Map<string, Set<string>>();
+
+    assignments.forEach((assignment) => {
+      assignment.chain.vendors.forEach((vendor) => {
+        scopedVendors.set(vendor.id, { chainId: assignment.chainId });
+        vendor.champAssignments.forEach((champAssignment) => {
+          const current = champVendorIds.get(champAssignment.champId) ?? new Set();
+          current.add(vendor.id);
+          champVendorIds.set(champAssignment.champId, current);
+        });
+      });
+    });
+
+    return {
+      chainIds,
+      champVendorIds,
+      vendorIds,
+      scopedVendors,
+      type: "AREA_MANAGER" as const
+    };
+  }
+
+  private async getChampAttendanceScope(champId: string) {
+    const assignments = await this.prisma.vendorChampAssignment.findMany({
+      where: { champId, status: AssignmentStatus.ACTIVE },
+      include: { vendor: { include: { chain: true } } }
+    });
+    const vendorIds = unique(
+      assignments.map((assignment) => assignment.vendorId)
+    );
+    const chainIds = unique(
+      assignments.map((assignment) => assignment.vendor.chainId)
+    );
+    const scopedVendors = new Map<string, { chainId: string }>();
+
+    assignments.forEach((assignment) => {
+      scopedVendors.set(assignment.vendorId, {
+        chainId: assignment.vendor.chainId
+      });
+    });
+
+    return {
+      chainIds,
+      champVendorIds: new Map<string, Set<string>>(),
+      vendorIds,
+      scopedVendors,
+      type: "CHAMP" as const
     };
   }
 
@@ -1144,4 +1613,315 @@ function resolveMonthArchiveStatus(input: {
   }
 
   return "SUMMARY_ONLY";
+}
+
+type AttendanceScope = {
+  chainIds: string[];
+  champVendorIds: Map<string, Set<string>>;
+  scopedVendors: Map<string, { chainId: string }>;
+  type: "AREA_MANAGER" | "CHAMP";
+  vendorIds: string[];
+};
+
+type AttendanceScopeWhere = {
+  branchWhere: Prisma.AttendanceMonthlyBranchSummaryWhereInput;
+  chainWhere: Prisma.AttendanceMonthlyChainSummaryWhereInput;
+  dailyWhere: Prisma.AttendanceDailyRecordWhereInput;
+  userWhere: Prisma.AttendanceMonthlyUserSummaryWhereInput;
+};
+
+function areaManagerAttendanceScopeWhere(
+  scope: AttendanceScope
+): AttendanceScopeWhere {
+  return {
+    branchWhere: {
+      vendorId: { in: scope.vendorIds }
+    },
+    chainWhere: {
+      chainId: { in: scope.chainIds }
+    },
+    dailyWhere: scopedDailyWhere(scope, {}),
+    userWhere: scopedUserWhere(scope, {})
+  };
+}
+
+function champAttendanceScopeWhere(scope: AttendanceScope): AttendanceScopeWhere {
+  return {
+    branchWhere: {
+      vendorId: { in: scope.vendorIds }
+    },
+    chainWhere: {
+      chainId: { in: [] }
+    },
+    dailyWhere: scopedDailyWhere(scope, {
+      role: AttendanceMatchedRole.PICKER
+    }),
+    userWhere: scopedUserWhere(scope, {
+      role: AttendanceMatchedRole.PICKER
+    })
+  };
+}
+
+function scopedUserWhere(
+  scope: AttendanceScope,
+  query: Partial<AttendanceUsersQueryDto>
+) {
+  const monthKey = resolveMonthKey(query.monthKey);
+  const search = query.search?.trim();
+  const vendorIds = filteredVendorIds(scope, query);
+  const chainIds = query.chainId ? [query.chainId] : scope.chainIds;
+  const pickerWhere: Prisma.AttendanceMonthlyUserSummaryWhereInput = {
+    assignmentChainId: { in: chainIds },
+    assignmentVendorId: { in: vendorIds },
+    monthKey,
+    role: AttendanceMatchedRole.PICKER
+  };
+  const champIds =
+    scope.type === "AREA_MANAGER"
+      ? champIdsForVendorIds(scope, vendorIds)
+      : [];
+  const roleScopedWhere =
+    query.role === AttendanceMatchedRole.PICKER || scope.type === "CHAMP"
+      ? pickerWhere
+      : query.role === AttendanceMatchedRole.CHAMP
+      ? {
+          monthKey,
+          role: AttendanceMatchedRole.CHAMP,
+          userId: { in: champIds }
+        }
+      : {
+          OR: [
+            pickerWhere,
+            {
+              monthKey,
+              role: AttendanceMatchedRole.CHAMP,
+              userId: { in: champIds }
+            }
+          ]
+        };
+  const filters: Prisma.AttendanceMonthlyUserSummaryWhereInput[] = [
+    roleScopedWhere
+  ];
+
+  if (search) {
+    filters.push({
+      OR: [
+        { identifier: { contains: search, mode: "insensitive" } },
+        { user: { nameEn: { contains: search, mode: "insensitive" } } }
+      ]
+    });
+  }
+
+  return filters.length === 1
+    ? filters[0]
+    : ({ AND: filters } satisfies Prisma.AttendanceMonthlyUserSummaryWhereInput);
+}
+
+function scopedBranchWhere(
+  scope: AttendanceScope,
+  query: Partial<AttendanceBranchesQueryDto & AttendanceOverviewQueryDto>
+) {
+  return {
+    monthKey: resolveMonthKey(query.monthKey),
+    vendorId: { in: filteredVendorIds(scope, query) },
+    ...(query.chainId ? { chainId: query.chainId } : {})
+  } satisfies Prisma.AttendanceMonthlyBranchSummaryWhereInput;
+}
+
+function scopedChainWhere(
+  scope: AttendanceScope,
+  query: Partial<AttendanceChainsQueryDto & AttendanceOverviewQueryDto>
+) {
+  return {
+    monthKey: resolveMonthKey(query.monthKey),
+    chainId: { in: query.chainId ? [query.chainId] : scope.chainIds }
+  } satisfies Prisma.AttendanceMonthlyChainSummaryWhereInput;
+}
+
+function scopedDailyWhere(
+  scope: AttendanceScope,
+  query: Partial<AttendanceUsersQueryDto>
+) {
+  const monthKey = resolveMonthKey(query.monthKey);
+  const vendorIds = filteredVendorIds(scope, query);
+  const pickerWhere: Prisma.AttendanceDailyRecordWhereInput = {
+    assignmentVendorId: { in: vendorIds },
+    matchedUserRole: AttendanceMatchedRole.PICKER,
+    monthKey
+  };
+
+  if (scope.type === "CHAMP" || query.role === AttendanceMatchedRole.PICKER) {
+    return pickerWhere;
+  }
+
+  const champWhere: Prisma.AttendanceDailyRecordWhereInput = {
+    matchedUserId: { in: champIdsForVendorIds(scope, vendorIds) },
+    matchedUserRole: AttendanceMatchedRole.CHAMP,
+    monthKey
+  };
+
+  return query.role === AttendanceMatchedRole.CHAMP
+    ? champWhere
+    : ({ OR: [pickerWhere, champWhere] } satisfies Prisma.AttendanceDailyRecordWhereInput);
+}
+
+function filteredVendorIds(
+  scope: AttendanceScope,
+  query: Partial<{ chainId?: string; vendorId?: string }>
+) {
+  if (query.vendorId) {
+    return [query.vendorId];
+  }
+
+  if (query.chainId) {
+    return scope.vendorIds.filter(
+      (vendorId) => scope.scopedVendors.get(vendorId)?.chainId === query.chainId
+    );
+  }
+
+  return scope.vendorIds;
+}
+
+function champIdsForVendorIds(scope: AttendanceScope, vendorIds: string[]) {
+  if (scope.type !== "AREA_MANAGER") {
+    return [];
+  }
+
+  return Array.from(scope.champVendorIds.entries())
+    .filter(([, assignedVendorIds]) =>
+      vendorIds.some((vendorId) => assignedVendorIds.has(vendorId))
+    )
+    .map(([champId]) => champId);
+}
+
+function assertAreaManagerScope(
+  scope: AttendanceScope,
+  query: Partial<{ chainId?: string; monthKey?: string; vendorId?: string }>
+) {
+  if (query.chainId && !scope.chainIds.includes(query.chainId)) {
+    throw new ForbiddenException(
+      "Selected Chain is outside assigned Area Manager scope."
+    );
+  }
+
+  if (query.vendorId && !scope.vendorIds.includes(query.vendorId)) {
+    throw new ForbiddenException(
+      "Selected Branch is outside assigned Area Manager scope."
+    );
+  }
+}
+
+function assertChampScope(
+  scope: AttendanceScope,
+  query: Partial<{ chainId?: string; monthKey?: string; vendorId?: string }>
+) {
+  if (query.chainId && !scope.chainIds.includes(query.chainId)) {
+    throw new ForbiddenException(
+      "Selected Chain is outside assigned Champ scope."
+    );
+  }
+
+  if (query.vendorId && !scope.vendorIds.includes(query.vendorId)) {
+    throw new ForbiddenException(
+      "Selected Branch is outside assigned Champ scope."
+    );
+  }
+}
+
+function buildAttendanceMonthsResponse(input: {
+  archiveRows: Array<{ archiveStatus: AttendanceArchiveStatus; monthKey: string }>;
+  branchGroups: MonthCountGroup[];
+  chainGroups: MonthCountGroup[];
+  dailyGroups: MonthCountGroup[];
+  userGroups: MonthCountGroup[];
+}) {
+  const monthKeys = new Set<string>();
+  const userCounts = countGroupsByMonth(input.userGroups);
+  const branchCounts = countGroupsByMonth(input.branchGroups);
+  const chainCounts = countGroupsByMonth(input.chainGroups);
+  const dailyCounts = countGroupsByMonth(input.dailyGroups);
+  const archiveByMonth = new Map<string, AttendanceArchiveStatus>();
+
+  [userCounts, branchCounts, chainCounts, dailyCounts].forEach((counts) => {
+    counts.forEach((_, monthKey) => monthKeys.add(monthKey));
+  });
+  input.archiveRows.forEach((row) => {
+    monthKeys.add(row.monthKey);
+    archiveByMonth.set(
+      row.monthKey,
+      mostRestrictiveArchiveStatus(
+        archiveByMonth.get(row.monthKey),
+        row.archiveStatus
+      )
+    );
+  });
+
+  return {
+    items: Array.from(monthKeys)
+      .sort((left, right) => right.localeCompare(left))
+      .map((monthKey) => {
+        const dailyRecordsCount = dailyCounts.get(monthKey) ?? 0;
+        const userSummaryCount = userCounts.get(monthKey) ?? 0;
+
+        return {
+          monthKey,
+          userSummaryCount,
+          branchSummaryCount: branchCounts.get(monthKey) ?? 0,
+          chainSummaryCount: chainCounts.get(monthKey) ?? 0,
+          dailyRecordsCount,
+          archiveStatus: resolveMonthArchiveStatus({
+            archiveStatus: archiveByMonth.get(monthKey),
+            dailyRecordsCount,
+            monthKey,
+            userSummaryCount
+          }),
+          summaryOnly: userSummaryCount > 0 && dailyRecordsCount === 0
+        };
+      })
+  };
+}
+
+function toAttendanceDailyRecordResponse(
+  record: Prisma.AttendanceDailyRecordGetPayload<{
+    include: { assignmentChain: true; assignmentVendor: true };
+  }>
+) {
+  return {
+    attendanceDate: record.attendanceDate,
+    status: record.status,
+    shiftName: record.shiftName,
+    scheduledStartAt: record.scheduledStartAt,
+    scheduledEndAt: record.scheduledEndAt,
+    actualCheckInAt: record.actualCheckInAt,
+    actualCheckOutAt: record.actualCheckOutAt,
+    actualWorkDurationHours: decimalToNumber(record.actualWorkDurationHours),
+    lateMinutes: record.lateMinutes,
+    lateLevel1Over15: record.lateLevel1Over15,
+    lateLevel2From31To45: record.lateLevel2From31To45,
+    lateLevel3Over45: record.lateLevel3Over45,
+    isAbsent: record.isAbsent,
+    isOnLeave: record.isOnLeave,
+    isAnnualLeave: record.isAnnualLeave,
+    isMedicalLeave: record.isMedicalLeave,
+    isOffDay: record.isOffDay,
+    isUnder8Hours: record.isUnder8Hours,
+    isOver15Hours: record.isOver15Hours,
+    assignmentVendor: record.assignmentVendor
+      ? {
+          id: record.assignmentVendor.id,
+          vendorName: record.assignmentVendor.vendorName,
+          vendorExternalId: record.assignmentVendor.vendorExternalId
+        }
+      : null,
+    assignmentChain: record.assignmentChain
+      ? {
+          id: record.assignmentChain.id,
+          chainName: record.assignmentChain.chainName
+        }
+      : null
+  };
+}
+
+function unique(values: string[]) {
+  return Array.from(new Set(values));
 }
