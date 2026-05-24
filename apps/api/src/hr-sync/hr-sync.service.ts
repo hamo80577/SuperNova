@@ -25,6 +25,7 @@ const HR_SYNC_SEND_TIMEOUT_MS = 10_000;
 export class HrSyncService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService)
     private readonly config: ConfigService
   ) {}
 
