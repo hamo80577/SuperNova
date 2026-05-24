@@ -82,7 +82,7 @@ create users
 transfer users
 archive users
 deactivate users
-change assignments
+change active/current assignments
 change User.role
 change User.shopperId
 change User.ibsId
@@ -91,6 +91,27 @@ change accountStatus
 ```
 
 Attendance can only import source rows, match existing users, calculate metrics, store approved records/summaries, and report scoped analytics.
+
+## Historical Assignment Backfill Exception
+
+Historical Assignment Backfill is the only approved exception to the general attendance assignment mutation rule.
+
+It is allowed only when all of these are true:
+
+```text
+the mode is Historical Backfill or an explicit historical assignment backfill flow
+Super Admin receives a preview first
+Super Admin explicitly confirms the proposed records
+only closed past PickerBranchAssignment records are created
+the current active assignment is never changed, closed, deleted, or replaced
+only PICKER assignments are created
+CHAMP attendance remains user-level only
+Location is the source column for assignment history
+Location code maps to Vendor.vendorExternalId
+unmapped or conflicting Locations are reviewed and never guessed
+```
+
+Normal attendance import must not automatically create assignments.
 
 ## Attendance Forbidden Scope
 

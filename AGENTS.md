@@ -148,12 +148,25 @@ Attendance imports must never:
 create users
 transfer users
 archive/deactivate users
-change assignments
+change active/current assignments
 change User.role
 change User.shopperId
 change User.ibsId
 change employmentStatus
 change accountStatus
+```
+
+Approved narrow exception:
+
+```text
+Historical Assignment Backfill may create closed past PickerBranchAssignment records only through an explicit Super Admin preview and confirmation flow.
+It must never run automatically during normal attendance import.
+It must never close, delete, replace, or alter the current active assignment.
+It is PICKER-only.
+CHAMP attendance remains user-level only and must never create Branch assignments.
+Assignment history is derived from the attendance file Location column, using Location code -> Vendor.vendorExternalId.
+Do not use Shift Location as assignment source.
+Unmapped or conflicting Location values require review and must not be guessed.
 ```
 
 Attendance role matching must use SuperNova `User.role`, not the uploaded file `Role` or `Designation`.

@@ -27,6 +27,11 @@ import type {
   ParsedAttendanceRow
 } from "./attendance.types";
 
+const FATAL_PARSE_ISSUE_TYPES = new Set<AttendanceIssueType>([
+  AttendanceIssueType.MISSING_REQUIRED_COLUMN,
+  AttendanceIssueType.ROW_PARSE_ERROR
+]);
+
 type ImportAttendanceFromBufferInput = {
   buffer: Buffer;
   fileName: string;
@@ -90,6 +95,13 @@ export class AttendanceImportService {
       });
 
       const parseResult = await this.parser.parseAttendanceBuffer(input.buffer);
+      const fatalIssues = this.getFatalParseIssues(parseResult.issues);
+
+      if (fatalIssues.length) {
+        await this.persistFatalImportFailure(batch.id, parseResult.rows.length, fatalIssues);
+        throw new BadRequestException(buildFatalImportMessage(fatalIssues));
+      }
+
       const processed = await this.processRows({
         rows: parseResult.rows,
         parseIssues: parseResult.issues,
@@ -229,7 +241,10 @@ export class AttendanceImportService {
         row.attendanceDate &&
         row.attendanceDate >= input.periodFrom &&
         row.attendanceDate <= input.periodTo
-    );
+    ).map((row) => ({
+      ...row,
+      identifier: normalizeIdentifier(row.identifier)
+    }));
     const duplicateRows = this.detectDuplicateRows(eligibleRows, issues);
     const matchResults = await this.matcher.matchIdentifiers(
       eligibleRows.map((row) => row.identifier)
@@ -242,7 +257,8 @@ export class AttendanceImportService {
 
     for (const row of eligibleRows) {
       if (!row.attendanceDate) continue;
-      const match = matchResults.get(row.identifier);
+      const identifier = normalizeIdentifier(row.identifier);
+      const match = matchResults.get(identifier);
 
       if (!match || match.outcome === "UNMATCHED_IDENTIFIER") {
         unmatchedIdentifiers += 1;
@@ -251,9 +267,9 @@ export class AttendanceImportService {
             severity: AttendanceIssueSeverity.WARNING,
             type: AttendanceIssueType.UNMATCHED_IDENTIFIER,
             rowNumber: row.rowNumber,
-            identifier: row.identifier,
+            identifier,
             attendanceDate: row.attendanceDate,
-            message: `No SuperNova Picker or Champ matched identifier ${row.identifier}.`
+            message: `No SuperNova Picker or Champ matched identifier ${identifier}.`
           })
         );
         continue;
@@ -265,9 +281,9 @@ export class AttendanceImportService {
             severity: AttendanceIssueSeverity.ERROR,
             type: AttendanceIssueType.AMBIGUOUS_IDENTIFIER_MATCH,
             rowNumber: row.rowNumber,
-            identifier: row.identifier,
+            identifier,
             attendanceDate: row.attendanceDate,
-            message: `Identifier ${row.identifier} matched more than one supported SuperNova user.`
+            message: `Identifier ${identifier} matched more than one supported SuperNova user.`
           })
         );
         continue;
@@ -279,9 +295,9 @@ export class AttendanceImportService {
             severity: AttendanceIssueSeverity.WARNING,
             type: AttendanceIssueType.UNSUPPORTED_ROLE,
             rowNumber: row.rowNumber,
-            identifier: row.identifier,
+            identifier,
             attendanceDate: row.attendanceDate,
-            message: `Identifier ${row.identifier} belongs to a role that is not calculated for attendance.`
+            message: `Identifier ${identifier} belongs to a role that is not calculated for attendance.`
           })
         );
         continue;
@@ -304,9 +320,9 @@ export class AttendanceImportService {
             severity: AttendanceIssueSeverity.WARNING,
             type: AttendanceIssueType.MISSING_ASSIGNMENT,
             rowNumber: row.rowNumber,
-            identifier: row.identifier,
+            identifier,
             attendanceDate: row.attendanceDate,
-            message: `Picker ${row.identifier} has no active Branch assignment on the attendance date.`
+            message: `Picker ${identifier} has no Branch assignment covering the attendance date.`
           })
         );
       }
@@ -329,7 +345,7 @@ export class AttendanceImportService {
 
       summaryRecords.push({
         userId: match.user.id,
-        identifier: row.identifier,
+        identifier,
         role: match.matchedRole,
         matchKeyType: match.matchKeyType!,
         monthKey,
@@ -355,7 +371,7 @@ export class AttendanceImportService {
       if (archiveStatus === AttendanceArchiveStatus.DETAILED) {
         dailyRecords.push({
           importBatchId: "",
-          identifier: row.identifier,
+          identifier,
           matchedUserId: match.user.id,
           matchedUserRole: match.matchedRole,
           matchKeyType: match.matchKeyType!,
@@ -431,7 +447,8 @@ export class AttendanceImportService {
 
     rows.forEach((row) => {
       if (!row.attendanceDate) return;
-      const key = `${row.identifier}:${row.attendanceDate.toISOString()}`;
+      const identifier = normalizeIdentifier(row.identifier);
+      const key = `${identifier}:${row.attendanceDate.toISOString()}`;
 
       if (seen.has(key)) {
         duplicateRows += 1;
@@ -440,9 +457,9 @@ export class AttendanceImportService {
             severity: AttendanceIssueSeverity.WARNING,
             type: AttendanceIssueType.DUPLICATE_IDENTIFIER_SHIFT_DATE,
             rowNumber: row.rowNumber,
-            identifier: row.identifier,
+            identifier,
             attendanceDate: row.attendanceDate,
-            message: `Duplicate attendance row for identifier ${row.identifier} on ${row.attendanceDate.toISOString().slice(0, 10)}.`
+            message: `Duplicate attendance row for identifier ${identifier} on ${row.attendanceDate.toISOString().slice(0, 10)}.`
           })
         );
       }
@@ -451,6 +468,51 @@ export class AttendanceImportService {
     });
 
     return duplicateRows;
+  }
+
+  private getFatalParseIssues(issues: AttendanceIssueDraft[]) {
+    return issues.filter(
+      (issue) =>
+        FATAL_PARSE_ISSUE_TYPES.has(issue.type) &&
+        (issue.type !== AttendanceIssueType.ROW_PARSE_ERROR || !issue.rowNumber)
+    );
+  }
+
+  private async persistFatalImportFailure(
+    batchId: string,
+    totalRows: number,
+    issues: AttendanceIssueDraft[]
+  ) {
+    if (issues.length) {
+      await this.prisma.attendanceImportIssue.createMany({
+        data: issues.map((issue) => ({
+          importBatchId: batchId,
+          severity: issue.severity,
+          type: issue.type,
+          rowNumber: issue.rowNumber ?? null,
+          identifier: issue.identifier ?? null,
+          attendanceDate: issue.attendanceDate ?? null,
+          message: issue.message,
+          metadata: issue.metadata ?? Prisma.JsonNull
+        }))
+      });
+    }
+
+    await this.prisma.attendanceImportBatch.update({
+      where: { id: batchId },
+      data: {
+        status: AttendanceImportStatus.FAILED,
+        totalRows,
+        warningsCount: issues.filter(
+          (issue) => issue.severity === AttendanceIssueSeverity.WARNING
+        ).length,
+        errorsCount: issues.filter(
+          (issue) => issue.severity === AttendanceIssueSeverity.ERROR
+        ).length,
+        completedAt: new Date(),
+        errorMessage: buildFatalImportMessage(issues)
+      }
+    });
   }
 
   private async persistImportResult(
@@ -590,6 +652,14 @@ function isEgypt(division: string) {
   return division.trim().toLowerCase() === "egypt";
 }
 
+function normalizeIdentifier(identifier: string) {
+  return identifier.trim();
+}
+
+function buildFatalImportMessage(issues: AttendanceIssueDraft[]) {
+  return issues.map((issue) => issue.message).join(" ");
+}
+
 function fingerprintRow(row: ParsedAttendanceRow) {
   return createHash("sha256")
     .update(
@@ -604,4 +674,3 @@ function fingerprintRow(row: ParsedAttendanceRow) {
     )
     .digest("hex");
 }
-

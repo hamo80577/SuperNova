@@ -124,12 +124,40 @@ Attendance imports must never:
 create users
 transfer users
 archive/deactivate users
-change assignments
+change active/current assignments
 change User.role
 change User.shopperId
 change User.ibsId
 change employmentStatus
 change accountStatus
+```
+
+## Historical Assignment Backfill
+
+Historical Assignment Backfill is approved only as a controlled, explicit support flow for reconstructing past Picker branch assignment history from attendance files.
+
+It must not run automatically as part of normal attendance import.
+
+Rules:
+
+```text
+Allowed modes: Historical Backfill or explicit historical assignment backfill flow
+Required actor: Super Admin
+Required control: preview before confirmation
+Created records: closed past PickerBranchAssignment records only
+Forbidden records: open-ended assignments, current active assignment changes, CHAMP assignments
+Source column: Location
+Forbidden source column: Shift Location
+Mapping: numeric code before first " - " maps to Vendor.vendorExternalId
+Unmapped code: warning, no assignment
+Conflicting Location evidence: conflict, no assignment
+```
+
+Example:
+
+```text
+Location = "740921 - Carrefour, Zahraa El Maadi - El Me'arag El Ouloy"
+vendorExternalId = "740921"
 ```
 
 ## Duplicate Rows

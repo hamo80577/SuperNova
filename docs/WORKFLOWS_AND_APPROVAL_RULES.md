@@ -60,7 +60,7 @@ Attendance imports must never:
 create users
 transfer users
 archive/deactivate users
-change assignments
+change active/current assignments
 change User.role
 change User.shopperId
 change User.ibsId
@@ -69,6 +69,31 @@ change accountStatus
 ```
 
 Attendance is read, match, calculate, summarize, and report.
+
+## Historical Assignment Backfill Exception
+
+Historical Assignment Backfill is not a normal lifecycle workflow and must not alter active operations.
+
+Allowed behavior:
+
+```text
+Super Admin previews proposed closed past PickerBranchAssignment records
+Super Admin explicitly confirms before records are created
+records are PICKER-only
+records are closed historical ranges with startDate and endDate
+records are derived from Attendance Location code mapped to Vendor.vendorExternalId
+```
+
+Forbidden behavior:
+
+```text
+automatic assignment creation during normal attendance import
+current active assignment mutation
+closing, deleting, or replacing current assignments
+CHAMP branch assignment creation
+guessing from unmapped or conflicting Locations
+using Shift Location as assignment source
+```
 
 ## Dangerous Attendance Data Operations
 

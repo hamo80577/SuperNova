@@ -37,9 +37,22 @@ const OPTIONAL_COLUMNS = [
 export class AttendanceParserService {
   async parseAttendanceBuffer(buffer: Buffer): Promise<AttendanceParseResult> {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(
-      buffer as unknown as Parameters<ExcelJS.Workbook["xlsx"]["load"]>[0]
-    );
+    try {
+      await workbook.xlsx.load(
+        buffer as unknown as Parameters<ExcelJS.Workbook["xlsx"]["load"]>[0]
+      );
+    } catch {
+      return {
+        rows: [],
+        issues: [
+          {
+            severity: AttendanceIssueSeverity.ERROR,
+            type: AttendanceIssueType.ROW_PARSE_ERROR,
+            message: "Attendance workbook could not be parsed."
+          }
+        ]
+      };
+    }
     const sheet = workbook.worksheets[0];
 
     if (!sheet) {
@@ -99,7 +112,7 @@ export class AttendanceParserService {
         attendanceDate,
         this.getCell(row, headerMap, "Actual Checkout Time")
       );
-      const identifier = toCellText(this.getCell(row, headerMap, "Identifier"));
+      const identifier = toCellText(this.getCell(row, headerMap, "Identifier")).trim();
 
       if (!attendanceDate) {
         issues.push({

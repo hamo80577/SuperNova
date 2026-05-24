@@ -1,6 +1,7 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import {
   AttendanceArchiveStatus,
+  AttendanceImportMode,
   AttendanceIssueSeverity,
   AttendanceIssueType,
   AttendanceMatchKeyType,
@@ -227,3 +228,77 @@ export type AttendanceImportSummary = {
   chainSummariesRebuilt: number;
 };
 
+export type AttendanceLocationParseResult = {
+  vendorExternalId: string | null;
+  displayName: string | null;
+  outcome: "MAPPED_LOCATION_CODE" | "UNMAPPED_LOCATION_CODE";
+};
+
+export type HistoricalAssignmentBackfillNoticeReason =
+  | "UNMAPPED_LOCATION_CODE"
+  | "UNMATCHED_IDENTIFIER"
+  | "AMBIGUOUS_IDENTIFIER_MATCH"
+  | "UNSUPPORTED_ROLE"
+  | "MULTIPLE_LOCATIONS_SAME_DATE"
+  | "EXISTING_ASSIGNMENT_DIFFERENT_VENDOR"
+  | "INVALID_PROPOSAL"
+  | "OVERLAPPING_ASSIGNMENT";
+
+export type HistoricalAssignmentBackfillNotice = {
+  rowNumber?: number | null;
+  attendanceDate?: Date | null;
+  identifier?: string | null;
+  location?: string | null;
+  reason: HistoricalAssignmentBackfillNoticeReason;
+  message: string;
+};
+
+export type HistoricalAssignmentBackfillProposal = {
+  pickerId: string;
+  identifier: string;
+  vendorId: string;
+  vendorExternalId: string;
+  vendorName: string | null;
+  chainId: string;
+  proposedStartDate: Date;
+  proposedEndDate: Date;
+  source: "ATTENDANCE_BACKFILL";
+  evidenceCount: number;
+};
+
+export type PreviewHistoricalAssignmentBackfillInput = {
+  rows?: ParsedAttendanceRow[];
+  buffer?: Buffer;
+  periodFrom: Date;
+  periodTo: Date;
+  createdById: string;
+  mode: AttendanceImportMode;
+  referenceDate?: Date;
+};
+
+export type HistoricalAssignmentBackfillPreview = {
+  totalRowsAnalyzed: number;
+  matchedPickers: number;
+  ignoredChampRows: number;
+  unmappedLocationCount: number;
+  conflictCount: number;
+  proposalsCount: number;
+  proposals: HistoricalAssignmentBackfillProposal[];
+  warnings: HistoricalAssignmentBackfillNotice[];
+  conflicts: HistoricalAssignmentBackfillNotice[];
+};
+
+export type ConfirmHistoricalAssignmentBackfillInput = {
+  proposals: HistoricalAssignmentBackfillProposal[];
+  confirmedById: string;
+  importBatchId?: string | null;
+  referenceDate?: Date;
+};
+
+export type ConfirmHistoricalAssignmentBackfillResult = {
+  createdCount: number;
+  skippedCount: number;
+  conflictCount: number;
+  createdAssignmentIds: string[];
+  conflicts: HistoricalAssignmentBackfillNotice[];
+};

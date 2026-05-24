@@ -40,7 +40,7 @@ async function main() {
   const buffer = await workbookBuffer([
     [
       "Picker One",
-      "SHOP-1",
+      " SHOP-1 ",
       "Picker",
       "Ops",
       "Egypt",
@@ -90,4 +90,3 @@ async function main() {
 }
 
 void main();
-

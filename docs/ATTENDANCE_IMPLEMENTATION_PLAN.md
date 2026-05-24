@@ -133,7 +133,7 @@ Acceptance criteria:
 
 ```text
 imports never create or mutate users
-imports never mutate assignments or workflow state
+normal imports never mutate active/current assignments or workflow state
 role matching uses SuperNova User.role only
 non-Egypt rows are counted and ignored
 duplicate Identifier + Shift Date creates warnings
@@ -149,6 +149,64 @@ npm run prisma:validate
 npm run typecheck
 npm run lint
 targeted backend tests
+```
+
+## Phase 2B - Historical Assignment Backfill Foundation
+
+Goal:
+
+```text
+Add backend-only preview and confirmation support for closed historical PickerBranchAssignment records derived from Attendance Location.
+```
+
+Scope:
+
+```text
+identifier normalization stabilization
+historical assignment snapshot by date window
+fatal parser error handling
+Location code parsing
+historical backfill preview service
+historical backfill confirmation service
+focused backend tests
+docs alignment for the approved exception
+```
+
+Out of scope:
+
+```text
+public upload endpoint
+Super Admin UI
+report pages
+scheduled retention job
+current active assignment mutation
+CHAMP branch assignment creation
+payroll or deductions
+```
+
+Acceptance criteria:
+
+```text
+normal attendance import never automatically creates assignments
+preview proposes only closed past PICKER assignment ranges
+confirmation refuses overlapping or open-ended proposals
+current active assignments are never changed, closed, deleted, or replaced
+Location is used as assignment source
+Shift Location is not used as assignment source
+unmapped or conflicting Locations require review
+fatal workbook issues fail the batch instead of completing with warnings
+```
+
+Required checks:
+
+```powershell
+targeted attendance tests
+npm run prisma:generate
+npm run prisma:validate
+npm run typecheck
+npm run lint
+npm run build
+git diff --check
 ```
 
 ## Phase 3 - Super Admin Upload and Import History UI

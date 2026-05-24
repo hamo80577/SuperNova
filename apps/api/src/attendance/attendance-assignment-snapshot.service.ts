@@ -15,7 +15,7 @@ export class AttendanceAssignmentSnapshotService {
     const assignment = await this.prisma.pickerBranchAssignment.findFirst({
       where: {
         pickerId,
-        status: AssignmentStatus.ACTIVE,
+        status: { in: [AssignmentStatus.ACTIVE, AssignmentStatus.CLOSED] },
         startDate: { lte: attendanceDate },
         OR: [{ endDate: null }, { endDate: { gte: attendanceDate } }]
       },
@@ -36,4 +36,3 @@ export class AttendanceAssignmentSnapshotService {
     };
   }
 }
-
