@@ -135,44 +135,111 @@ enum HrSyncStatus {
   SKIPPED
 }
 
+enum AttendanceImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_WARNINGS
+  FAILED
+  CANCELLED
+}
+
+enum AttendanceImportMode {
+  DAILY_MTD_OVERRIDE
+  HISTORICAL_BACKFILL
+  RECALCULATE_ONLY
+  DELETE_RANGE
+  DELETE_MONTH
+  DELETE_ALL
+  COMPRESS_OLD_MONTHS
+}
+
+enum AttendanceMatchedRole {
+  PICKER
+  CHAMP
+}
+
+enum AttendanceMatchKeyType {
+  SHOPPER_ID
+  IBS_ID
+}
+
+enum AttendanceRecordStatus {
+  ON_TIME
+  LATE
+  ABSENT
+  ON_LEAVE
+  UNKNOWN
+}
+
+enum AttendanceArchiveStatus {
+  DETAILED
+  SUMMARY_ONLY
+  COMPRESSED
+}
+
+enum AttendanceIssueSeverity {
+  INFO
+  WARNING
+  ERROR
+}
+
+enum AttendanceIssueType {
+  NON_EGYPT_ROW_IGNORED
+  UNMATCHED_IDENTIFIER
+  AMBIGUOUS_IDENTIFIER_MATCH
+  UNSUPPORTED_ROLE
+  DUPLICATE_IDENTIFIER_SHIFT_DATE
+  ROW_PARSE_ERROR
+  MISSING_REQUIRED_COLUMN
+  INVALID_DATE
+  INVALID_TIME
+  MISSING_ASSIGNMENT
+  RETENTION_COMPRESSION_SKIPPED
+  MAINTENANCE_OPERATION_WARNING
+}
+
 model User {
-  id                          String                           @id @default(uuid())
-  ibsId                       String?                          @unique
-  shopperId                   String?                          @unique
+  id                          String                         @id @default(uuid())
+  ibsId                       String?                        @unique
+  shopperId                   String?                        @unique
   role                        UserRole
   nameEn                      String
   nameAr                      String?
-  phoneNumber                 String                           @unique
-  nationalId                  String?                          @unique
+  phoneNumber                 String                         @unique
+  nationalId                  String?                        @unique
   address                     String?
   dateOfBirth                 DateTime?
-  gender                      Gender                           @default(UNSPECIFIED)
-  uiTheme                     UiTheme                          @default(ORANGE)
+  gender                      Gender                         @default(UNSPECIFIED)
+  uiTheme                     UiTheme                        @default(ORANGE)
   joiningDate                 DateTime?
-  employmentStatus            EmploymentStatus                 @default(NEW_HIRE_PENDING)
+  employmentStatus            EmploymentStatus               @default(NEW_HIRE_PENDING)
   resignationDate             DateTime?
-  accountStatus               AccountStatus                    @default(INACTIVE)
-  profileStatus               ProfileStatus                    @default(INCOMPLETE)
-  blockStatus                 BlockStatus                      @default(NO_BLOCK)
+  accountStatus               AccountStatus                  @default(INACTIVE)
+  profileStatus               ProfileStatus                  @default(INCOMPLETE)
+  blockStatus                 BlockStatus                    @default(NO_BLOCK)
   blockedUntil                DateTime?
   blockReason                 String?
   passwordHash                String
-  mustChangePassword          Boolean                          @default(false)
+  mustChangePassword          Boolean                        @default(false)
   temporaryPasswordExpiresAt  DateTime?
   temporaryPasswordCiphertext String?
   temporaryPasswordCreatedAt  DateTime?
   lastLoginAt                 DateTime?
-  createdAt                   DateTime                         @default(now())
-  updatedAt                   DateTime                         @updatedAt
-  pickerBranchAssignments     PickerBranchAssignment[]         @relation("PickerAssignments")
-  vendorChampAssignments      VendorChampAssignment[]          @relation("VendorChampAssignments")
-  chainAreaManagerAssignments ChainAreaManagerAssignment[]     @relation("ChainAreaManagerAssignments")
-  createdRequests             Request[]                        @relation("RequestCreatedBy")
-  targetedRequests            Request[]                        @relation("RequestTargetUser")
-  approvals                   RequestApproval[]                @relation("RequestApprover")
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
+  pickerBranchAssignments     PickerBranchAssignment[]       @relation("PickerAssignments")
+  vendorChampAssignments      VendorChampAssignment[]        @relation("VendorChampAssignments")
+  chainAreaManagerAssignments ChainAreaManagerAssignment[]   @relation("ChainAreaManagerAssignments")
+  createdRequests             Request[]                      @relation("RequestCreatedBy")
+  targetedRequests            Request[]                      @relation("RequestTargetUser")
+  approvals                   RequestApproval[]              @relation("RequestApprover")
   notifications               Notification[]
-  auditLogsAsActor            AuditLog[]                       @relation("AuditActor")
-  accessRoleAssignments       UserAccessRoleAssignment[]       @relation("UserAccessRoleAssignments")
+  auditLogsAsActor            AuditLog[]                     @relation("AuditActor")
+  accessRoleAssignments       UserAccessRoleAssignment[]     @relation("UserAccessRoleAssignments")
+  attendanceImportBatches     AttendanceImportBatch[]        @relation("AttendanceImportBatchCreatedBy")
+  attendanceDailyRecords      AttendanceDailyRecord[]        @relation("AttendanceDailyRecordMatchedUser")
+  attendanceMonthlySummaries  AttendanceMonthlyUserSummary[] @relation("AttendanceMonthlyUserSummaryUser")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -183,18 +250,18 @@ model User {
 }
 
 model AccessRole {
-  id          String           @id @default(uuid())
-  key         String           @unique
-  name        String
-  description String?
-  kind        AccessRoleKind
-  systemRole  UserRole?        @unique
-  status      AccessRoleStatus @default(ACTIVE)
-  isSystem    Boolean          @default(false)
-  permissions AccessRolePermission[] @relation("AccessRolePermissions")
+  id              String                     @id @default(uuid())
+  key             String                     @unique
+  name            String
+  description     String?
+  kind            AccessRoleKind
+  systemRole      UserRole?                  @unique
+  status          AccessRoleStatus           @default(ACTIVE)
+  isSystem        Boolean                    @default(false)
+  permissions     AccessRolePermission[]     @relation("AccessRolePermissions")
   userAssignments UserAccessRoleAssignment[] @relation("AccessRoleAssignments")
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   @@index([kind, status])
   @@index([status])
@@ -230,35 +297,42 @@ model UserAccessRoleAssignment {
 }
 
 model Chain {
-  id                         String                        @id @default(uuid())
-  chainName                  String
-  chainCode                  String                        @unique
-  status                     ChainStatus                   @default(ACTIVE)
-  createdAt                  DateTime                      @default(now())
-  updatedAt                  DateTime                      @updatedAt
-  vendors                    Vendor[]
-  areaManagerAssignments     ChainAreaManagerAssignment[]
-  sourceRequests             Request[]                     @relation("RequestSourceChain")
-  destinationRequests        Request[]                     @relation("RequestDestinationChain")
+  id                        String                           @id @default(uuid())
+  chainName                 String
+  chainCode                 String                           @unique
+  status                    ChainStatus                      @default(ACTIVE)
+  createdAt                 DateTime                         @default(now())
+  updatedAt                 DateTime                         @updatedAt
+  vendors                   Vendor[]
+  areaManagerAssignments    ChainAreaManagerAssignment[]
+  sourceRequests            Request[]                        @relation("RequestSourceChain")
+  destinationRequests       Request[]                        @relation("RequestDestinationChain")
+  attendanceDailyRecords    AttendanceDailyRecord[]          @relation("AttendanceDailyRecordAssignmentChain")
+  attendanceUserSummaries   AttendanceMonthlyUserSummary[]   @relation("AttendanceMonthlyUserSummaryAssignmentChain")
+  attendanceBranchSummaries AttendanceMonthlyBranchSummary[] @relation("AttendanceMonthlyBranchSummaryChain")
+  attendanceChainSummaries  AttendanceMonthlyChainSummary[]  @relation("AttendanceMonthlyChainSummaryChain")
 }
 
 model Vendor {
-  id                         String                    @id @default(uuid())
-  vendorName                 String
-  vendorCode                 String                    @unique
-  vendorExternalId           String?                   @unique
-  status                     VendorStatus              @default(ACTIVE)
-  chainId                    String
-  address                    String?
-  area                       String?
-  city                       String?
-  createdAt                  DateTime                  @default(now())
-  updatedAt                  DateTime                  @updatedAt
-  chain                      Chain                     @relation(fields: [chainId], references: [id], onDelete: Restrict)
-  pickerAssignments          PickerBranchAssignment[]
-  champAssignments           VendorChampAssignment[]
-  sourceRequests             Request[]                 @relation("RequestSourceVendor")
-  destinationRequests        Request[]                 @relation("RequestDestinationVendor")
+  id                        String                           @id @default(uuid())
+  vendorName                String
+  vendorCode                String                           @unique
+  vendorExternalId          String?                          @unique
+  status                    VendorStatus                     @default(ACTIVE)
+  chainId                   String
+  address                   String?
+  area                      String?
+  city                      String?
+  createdAt                 DateTime                         @default(now())
+  updatedAt                 DateTime                         @updatedAt
+  chain                     Chain                            @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  pickerAssignments         PickerBranchAssignment[]
+  champAssignments          VendorChampAssignment[]
+  sourceRequests            Request[]                        @relation("RequestSourceVendor")
+  destinationRequests       Request[]                        @relation("RequestDestinationVendor")
+  attendanceDailyRecords    AttendanceDailyRecord[]          @relation("AttendanceDailyRecordAssignmentVendor")
+  attendanceUserSummaries   AttendanceMonthlyUserSummary[]   @relation("AttendanceMonthlyUserSummaryAssignmentVendor")
+  attendanceBranchSummaries AttendanceMonthlyBranchSummary[] @relation("AttendanceMonthlyBranchSummaryVendor")
 
   @@index([chainId])
 }
@@ -283,16 +357,16 @@ model PickerBranchAssignment {
 }
 
 model VendorChampAssignment {
-  id         String           @id @default(uuid())
-  vendorId    String
-  champId     String
-  status      AssignmentStatus @default(ACTIVE)
-  startDate   DateTime         @default(now())
-  endDate     DateTime?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  champ       User             @relation("VendorChampAssignments", fields: [champId], references: [id], onDelete: Restrict)
+  id        String           @id @default(uuid())
+  vendorId  String
+  champId   String
+  status    AssignmentStatus @default(ACTIVE)
+  startDate DateTime         @default(now())
+  endDate   DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  vendor    Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  champ     User             @relation("VendorChampAssignments", fields: [champId], references: [id], onDelete: Restrict)
 
   @@index([vendorId, status])
   @@index([champId, status])
@@ -300,44 +374,44 @@ model VendorChampAssignment {
 
 model ChainAreaManagerAssignment {
   id            String           @id @default(uuid())
-  chainId        String
-  areaManagerId  String
-  status         AssignmentStatus @default(ACTIVE)
-  startDate      DateTime         @default(now())
-  endDate        DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  chain          Chain            @relation(fields: [chainId], references: [id], onDelete: Restrict)
-  areaManager    User             @relation("ChainAreaManagerAssignments", fields: [areaManagerId], references: [id], onDelete: Restrict)
+  chainId       String
+  areaManagerId String
+  status        AssignmentStatus @default(ACTIVE)
+  startDate     DateTime         @default(now())
+  endDate       DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  chain         Chain            @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  areaManager   User             @relation("ChainAreaManagerAssignments", fields: [areaManagerId], references: [id], onDelete: Restrict)
 
   @@index([chainId, status])
   @@index([areaManagerId, status])
 }
 
 model Request {
-  id                   String                    @id @default(uuid())
-  type                 RequestType
-  status               RequestStatus             @default(DRAFT)
-  createdById          String
-  targetUserId         String?
-  sourceChainId        String?
-  sourceVendorId       String?
-  destinationChainId   String?
-  destinationVendorId  String?
-  payload              Json?
-  currentStep          ApprovalStep?
-  completedAt          DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
-  createdBy            User                      @relation("RequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  targetUser           User?                     @relation("RequestTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
-  sourceChain          Chain?                    @relation("RequestSourceChain", fields: [sourceChainId], references: [id], onDelete: SetNull)
-  sourceVendor         Vendor?                   @relation("RequestSourceVendor", fields: [sourceVendorId], references: [id], onDelete: SetNull)
-  destinationChain     Chain?                    @relation("RequestDestinationChain", fields: [destinationChainId], references: [id], onDelete: SetNull)
-  destinationVendor    Vendor?                   @relation("RequestDestinationVendor", fields: [destinationVendorId], references: [id], onDelete: SetNull)
-  approvals            RequestApproval[]
-  createdAssignments   PickerBranchAssignment[]  @relation("RequestCreatedAssignments")
-  hrSyncLogs           HrSyncLog[]
+  id                  String                   @id @default(uuid())
+  type                RequestType
+  status              RequestStatus            @default(DRAFT)
+  createdById         String
+  targetUserId        String?
+  sourceChainId       String?
+  sourceVendorId      String?
+  destinationChainId  String?
+  destinationVendorId String?
+  payload             Json?
+  currentStep         ApprovalStep?
+  completedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  createdBy           User                     @relation("RequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  targetUser          User?                    @relation("RequestTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  sourceChain         Chain?                   @relation("RequestSourceChain", fields: [sourceChainId], references: [id], onDelete: SetNull)
+  sourceVendor        Vendor?                  @relation("RequestSourceVendor", fields: [sourceVendorId], references: [id], onDelete: SetNull)
+  destinationChain    Chain?                   @relation("RequestDestinationChain", fields: [destinationChainId], references: [id], onDelete: SetNull)
+  destinationVendor   Vendor?                  @relation("RequestDestinationVendor", fields: [destinationVendorId], references: [id], onDelete: SetNull)
+  approvals           RequestApproval[]
+  createdAssignments  PickerBranchAssignment[] @relation("RequestCreatedAssignments")
+  hrSyncLogs          HrSyncLog[]
 
   @@index([status])
   @@index([status, currentStep])
@@ -353,18 +427,18 @@ model Request {
 }
 
 model RequestApproval {
-  id           String          @id @default(uuid())
-  requestId     String
-  step          ApprovalStep
-  approverRole  UserRole
-  approverId    String?
-  status        ApprovalStatus @default(PENDING)
-  decisionAt    DateTime?
-  notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  request       Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  approver      User?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  id           String         @id @default(uuid())
+  requestId    String
+  step         ApprovalStep
+  approverRole UserRole
+  approverId   String?
+  status       ApprovalStatus @default(PENDING)
+  decisionAt   DateTime?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  request      Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver     User?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
   @@index([approverId, status])
   @@index([approverId, status, step])
@@ -393,33 +467,274 @@ model HrSyncLog {
   @@index([createdAt])
 }
 
+model AttendanceImportBatch {
+  id                     String                           @id @default(uuid())
+  mode                   AttendanceImportMode
+  status                 AttendanceImportStatus           @default(PENDING)
+  periodFrom             DateTime
+  periodTo               DateTime
+  createdById            String
+  fileName               String?
+  fileHash               String?
+  totalRows              Int                              @default(0)
+  egyptRows              Int                              @default(0)
+  ignoredRows            Int                              @default(0)
+  processedRows          Int                              @default(0)
+  matchedPickers         Int                              @default(0)
+  matchedChamps          Int                              @default(0)
+  unmatchedIdentifiers   Int                              @default(0)
+  duplicateRows          Int                              @default(0)
+  warningsCount          Int                              @default(0)
+  errorsCount            Int                              @default(0)
+  dailyRecordsStored     Int                              @default(0)
+  userSummariesStored    Int                              @default(0)
+  branchSummariesRebuilt Int                              @default(0)
+  chainSummariesRebuilt  Int                              @default(0)
+  startedAt              DateTime?
+  completedAt            DateTime?
+  errorMessage           String?
+  createdAt              DateTime                         @default(now())
+  updatedAt              DateTime                         @updatedAt
+  createdBy              User                             @relation("AttendanceImportBatchCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  dailyRecords           AttendanceDailyRecord[]          @relation("AttendanceDailyRecordImportBatch")
+  issues                 AttendanceImportIssue[]          @relation("AttendanceImportIssueBatch")
+  userSummaries          AttendanceMonthlyUserSummary[]   @relation("AttendanceMonthlyUserSummaryLastImportBatch")
+  branchSummaries        AttendanceMonthlyBranchSummary[] @relation("AttendanceMonthlyBranchSummaryLastImportBatch")
+  chainSummaries         AttendanceMonthlyChainSummary[]  @relation("AttendanceMonthlyChainSummaryLastImportBatch")
+
+  @@index([status])
+  @@index([mode])
+  @@index([periodFrom, periodTo])
+  @@index([createdAt])
+  @@index([createdById])
+}
+
+model AttendanceDailyRecord {
+  id                      String                  @id @default(uuid())
+  importBatchId           String
+  identifier              String
+  matchedUserId           String
+  matchedUserRole         AttendanceMatchedRole
+  matchKeyType            AttendanceMatchKeyType
+  attendanceDate          DateTime
+  monthKey                String
+  division                String
+  rawName                 String?
+  rawDesignation          String?
+  rawLocation             String?
+  rawStatus               String?
+  status                  AttendanceRecordStatus
+  shiftName               String?
+  scheduledStartAt        DateTime?
+  scheduledEndAt          DateTime?
+  actualCheckInAt         DateTime?
+  actualCheckOutAt        DateTime?
+  actualWorkDurationHours Decimal?                @db.Decimal(6, 2)
+  lateMinutes             Int                     @default(0)
+  lateLevel1Over15        Boolean                 @default(false)
+  lateLevel2From31To45    Boolean                 @default(false)
+  lateLevel3Over45        Boolean                 @default(false)
+  isAbsent                Boolean                 @default(false)
+  isOnLeave               Boolean                 @default(false)
+  isAnnualLeave           Boolean                 @default(false)
+  isMedicalLeave          Boolean                 @default(false)
+  isOffDay                Boolean                 @default(false)
+  isUnder8Hours           Boolean                 @default(false)
+  isOver15Hours           Boolean                 @default(false)
+  isWorkedShift           Boolean                 @default(false)
+  assignmentVendorId      String?
+  assignmentChainId       String?
+  archiveStatus           AttendanceArchiveStatus @default(DETAILED)
+  rowFingerprint          String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  importBatch             AttendanceImportBatch   @relation("AttendanceDailyRecordImportBatch", fields: [importBatchId], references: [id], onDelete: Restrict)
+  matchedUser             User                    @relation("AttendanceDailyRecordMatchedUser", fields: [matchedUserId], references: [id], onDelete: Restrict)
+  assignmentVendor        Vendor?                 @relation("AttendanceDailyRecordAssignmentVendor", fields: [assignmentVendorId], references: [id], onDelete: SetNull)
+  assignmentChain         Chain?                  @relation("AttendanceDailyRecordAssignmentChain", fields: [assignmentChainId], references: [id], onDelete: SetNull)
+
+  @@index([importBatchId])
+  @@index([matchedUserId])
+  @@index([identifier])
+  @@index([identifier, attendanceDate])
+  @@index([matchedUserRole])
+  @@index([attendanceDate])
+  @@index([monthKey])
+  @@index([assignmentVendorId])
+  @@index([assignmentChainId])
+  @@index([archiveStatus])
+  @@index([status])
+  @@index([rowFingerprint])
+}
+
+model AttendanceMonthlyUserSummary {
+  id                          String                  @id @default(uuid())
+  monthKey                    String
+  periodFrom                  DateTime
+  periodTo                    DateTime
+  userId                      String
+  identifier                  String
+  role                        AttendanceMatchedRole
+  matchKeyType                AttendanceMatchKeyType
+  assignmentVendorId          String?
+  assignmentChainId           String?
+  totalShiftsNeeded           Int                     @default(0)
+  totalCreatedShifts          Int                     @default(0)
+  missingShifts               Int                     @default(0)
+  workedShiftCount            Int                     @default(0)
+  totalWorkedHours            Decimal                 @default(0) @db.Decimal(10, 2)
+  lateMinutesTotal            Int                     @default(0)
+  lateLevel1Over15Count       Int                     @default(0)
+  lateLevel2From31To45Count   Int                     @default(0)
+  lateLevel3Over45Count       Int                     @default(0)
+  absentCount                 Int                     @default(0)
+  onLeaveCount                Int                     @default(0)
+  annualLeaveCount            Int                     @default(0)
+  medicalLeaveCount           Int                     @default(0)
+  offDayCount                 Int                     @default(0)
+  under8HoursCount            Int                     @default(0)
+  over15HoursCount            Int                     @default(0)
+  sourceDailyRecordsAvailable Boolean                 @default(true)
+  archiveStatus               AttendanceArchiveStatus @default(DETAILED)
+  lastImportBatchId           String?
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  user                        User                    @relation("AttendanceMonthlyUserSummaryUser", fields: [userId], references: [id], onDelete: Restrict)
+  assignmentVendor            Vendor?                 @relation("AttendanceMonthlyUserSummaryAssignmentVendor", fields: [assignmentVendorId], references: [id], onDelete: SetNull)
+  assignmentChain             Chain?                  @relation("AttendanceMonthlyUserSummaryAssignmentChain", fields: [assignmentChainId], references: [id], onDelete: SetNull)
+  lastImportBatch             AttendanceImportBatch?  @relation("AttendanceMonthlyUserSummaryLastImportBatch", fields: [lastImportBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([monthKey, userId])
+  @@index([monthKey])
+  @@index([userId])
+  @@index([role])
+  @@index([assignmentVendorId])
+  @@index([assignmentChainId])
+  @@index([archiveStatus])
+  @@index([lastImportBatchId])
+}
+
+model AttendanceMonthlyBranchSummary {
+  id                        String                 @id @default(uuid())
+  monthKey                  String
+  periodFrom                DateTime
+  periodTo                  DateTime
+  vendorId                  String
+  chainId                   String
+  pickerCount               Int                    @default(0)
+  totalShiftsNeeded         Int                    @default(0)
+  totalCreatedShifts        Int                    @default(0)
+  missingShifts             Int                    @default(0)
+  workedShiftCount          Int                    @default(0)
+  totalWorkedHours          Decimal                @default(0) @db.Decimal(12, 2)
+  lateMinutesTotal          Int                    @default(0)
+  lateLevel1Over15Count     Int                    @default(0)
+  lateLevel2From31To45Count Int                    @default(0)
+  lateLevel3Over45Count     Int                    @default(0)
+  absentCount               Int                    @default(0)
+  onLeaveCount              Int                    @default(0)
+  annualLeaveCount          Int                    @default(0)
+  medicalLeaveCount         Int                    @default(0)
+  offDayCount               Int                    @default(0)
+  under8HoursCount          Int                    @default(0)
+  over15HoursCount          Int                    @default(0)
+  lastImportBatchId         String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  vendor                    Vendor                 @relation("AttendanceMonthlyBranchSummaryVendor", fields: [vendorId], references: [id], onDelete: Restrict)
+  chain                     Chain                  @relation("AttendanceMonthlyBranchSummaryChain", fields: [chainId], references: [id], onDelete: Restrict)
+  lastImportBatch           AttendanceImportBatch? @relation("AttendanceMonthlyBranchSummaryLastImportBatch", fields: [lastImportBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([monthKey, vendorId])
+  @@index([monthKey])
+  @@index([vendorId])
+  @@index([chainId])
+  @@index([lastImportBatchId])
+}
+
+model AttendanceMonthlyChainSummary {
+  id                        String                 @id @default(uuid())
+  monthKey                  String
+  periodFrom                DateTime
+  periodTo                  DateTime
+  chainId                   String
+  branchCount               Int                    @default(0)
+  pickerCount               Int                    @default(0)
+  totalShiftsNeeded         Int                    @default(0)
+  totalCreatedShifts        Int                    @default(0)
+  missingShifts             Int                    @default(0)
+  workedShiftCount          Int                    @default(0)
+  totalWorkedHours          Decimal                @default(0) @db.Decimal(12, 2)
+  lateMinutesTotal          Int                    @default(0)
+  lateLevel1Over15Count     Int                    @default(0)
+  lateLevel2From31To45Count Int                    @default(0)
+  lateLevel3Over45Count     Int                    @default(0)
+  absentCount               Int                    @default(0)
+  onLeaveCount              Int                    @default(0)
+  annualLeaveCount          Int                    @default(0)
+  medicalLeaveCount         Int                    @default(0)
+  offDayCount               Int                    @default(0)
+  under8HoursCount          Int                    @default(0)
+  over15HoursCount          Int                    @default(0)
+  lastImportBatchId         String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+  chain                     Chain                  @relation("AttendanceMonthlyChainSummaryChain", fields: [chainId], references: [id], onDelete: Restrict)
+  lastImportBatch           AttendanceImportBatch? @relation("AttendanceMonthlyChainSummaryLastImportBatch", fields: [lastImportBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([monthKey, chainId])
+  @@index([monthKey])
+  @@index([chainId])
+  @@index([lastImportBatchId])
+}
+
+model AttendanceImportIssue {
+  id             String                  @id @default(uuid())
+  importBatchId  String
+  severity       AttendanceIssueSeverity
+  type           AttendanceIssueType
+  rowNumber      Int?
+  identifier     String?
+  attendanceDate DateTime?
+  message        String
+  metadata       Json?
+  createdAt      DateTime                @default(now())
+  importBatch    AttendanceImportBatch   @relation("AttendanceImportIssueBatch", fields: [importBatchId], references: [id], onDelete: Restrict)
+
+  @@index([importBatchId])
+  @@index([severity])
+  @@index([type])
+  @@index([identifier])
+  @@index([attendanceDate])
+}
+
 model Notification {
-  id         String    @id @default(uuid())
-  userId      String
-  type        String
-  title       String
-  body        String
-  payload     Json?
-  readAt      DateTime?
-  createdAt   DateTime  @default(now())
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  payload   Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
 }
 
 model AuditLog {
-  id          String    @id @default(uuid())
-  actorUserId  String?
-  action       String
-  entityType   String
-  entityId     String
-  oldValue     Json?
-  newValue     Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime  @default(now())
-  actor        User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
