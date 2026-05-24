@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Bell,
   BarChart3,
+  DatabaseZap,
   FileSearch,
   GitBranch,
   Home,
@@ -259,6 +260,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Access Control",
       href: "/super-admin/access-control",
       icon: KeyRound,
+      section: "System Owner"
+    },
+    {
+      label: "Attendance Data Operations",
+      href: "/super-admin/attendance-operations",
+      icon: DatabaseZap,
       section: "System Owner"
     },
     {

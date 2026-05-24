@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "http://localhost:4000";
 
@@ -25,6 +25,31 @@ export async function apiRequest<T>(
     const message = Array.isArray(body.message)
       ? body.message.join(" ")
       : body.message ?? body.error ?? "Request failed.";
+    const error = new Error(message) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export async function apiFormRequest<T>(
+  path: string,
+  body: FormData,
+  init?: Omit<RequestInit, "body" | "headers">
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}/api${path}`, {
+    ...init,
+    method: init?.method ?? "POST",
+    body,
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => ({}))) as ApiErrorBody;
+    const message = Array.isArray(errorBody.message)
+      ? errorBody.message.join(" ")
+      : errorBody.message ?? errorBody.error ?? "Request failed.";
     const error = new Error(message) as Error & { status?: number };
     error.status = response.status;
     throw error;

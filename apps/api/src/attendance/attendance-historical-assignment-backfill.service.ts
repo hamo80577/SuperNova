@@ -209,7 +209,6 @@ export class AttendanceHistoricalAssignmentBackfillService {
     void input.confirmedById;
     void input.importBatchId;
     const referenceDate = startOfUtcDay(input.referenceDate ?? new Date());
-    const createdAssignmentIds: string[] = [];
     const conflicts: HistoricalAssignmentBackfillNotice[] = [];
 
     for (const proposal of input.proposals) {
@@ -260,24 +259,37 @@ export class AttendanceHistoricalAssignmentBackfillService {
         });
         continue;
       }
-
-      const created = await this.prisma.pickerBranchAssignment.create({
-        data: {
-          pickerId: proposal.pickerId,
-          vendorId: proposal.vendorId,
-          status: AssignmentStatus.CLOSED,
-          startDate: proposal.proposedStartDate,
-          endDate: proposal.proposedEndDate
-        }
-      });
-      createdAssignmentIds.push(created.id);
     }
 
+    if (conflicts.length) {
+      return {
+        createdCount: 0,
+        skippedCount: conflicts.length,
+        conflictCount: conflicts.length,
+        createdAssignmentIds: [],
+        conflicts
+      };
+    }
+
+    const createdAssignments = await this.prisma.$transaction(
+      input.proposals.map((proposal) =>
+        this.prisma.pickerBranchAssignment.create({
+          data: {
+            pickerId: proposal.pickerId,
+            vendorId: proposal.vendorId,
+            status: AssignmentStatus.CLOSED,
+            startDate: proposal.proposedStartDate,
+            endDate: proposal.proposedEndDate
+          }
+        })
+      )
+    );
+
     return {
-      createdCount: createdAssignmentIds.length,
-      skippedCount: conflicts.length,
-      conflictCount: conflicts.length,
-      createdAssignmentIds,
+      createdCount: createdAssignments.length,
+      skippedCount: 0,
+      conflictCount: 0,
+      createdAssignmentIds: createdAssignments.map((assignment) => assignment.id),
       conflicts
     };
   }

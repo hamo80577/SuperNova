@@ -22,18 +22,32 @@ Attendance Data Operations
 
 ## Tabs
 
+Phase 3 exposes:
+
 ```text
 Upload Attendance
 Import History
-Data Maintenance
 Calculation Rules
+```
+
+Phase 4 may add:
+
+```text
+Data Maintenance
 ```
 
 ## Upload Modes
 
+Phase 3 exposes:
+
 ```text
 Daily MTD Override
 Historical Backfill
+```
+
+Phase 4 may add:
+
+```text
 Recalculate Only
 ```
 
@@ -49,7 +63,7 @@ upload mode
 preflight summary
 processing state
 progress/stepper
-polling backend import status
+polling backend import status if imports become asynchronous
 professional final summary
 warnings/issues display
 ```
@@ -63,9 +77,16 @@ Filtering Egypt rows
 Matching users
 Calculating metrics
 Rebuilding summaries
+Rebuilding user summaries
+Rebuilding branch summaries
+Rebuilding chain summaries
 Saving import issues
 Finalizing
 ```
+
+If Phase 3 import processing remains synchronous, the UI should show the
+processing state during the request and render the result after completion. It
+must not fake polling.
 
 ## Import History
 
@@ -118,6 +139,28 @@ Approvals
 Notifications
 Audit logs
 Access-control data
+```
+
+Do not expose Data Maintenance in Phase 3.
+
+## Historical Assignment Backfill
+
+Historical Assignment Backfill is available only as an explicit Super Admin
+preview and typed confirmation flow.
+
+Rules:
+
+```text
+Use Location column only.
+Extract the branch code before the first " - ".
+Match Location code to Vendor.vendorExternalId.
+Do not use Shift Location as assignment source.
+Preview must not create assignments.
+Confirmation must revalidate server-side.
+Create CLOSED historical PickerBranchAssignment records only.
+Do not change current active assignments.
+Do not create Champ assignments.
+Do not accept raw frontend proposal objects as trusted confirmation input.
 ```
 
 ## Calculation Rules Tab

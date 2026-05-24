@@ -2,6 +2,8 @@ export * from "./attendance.module";
 export * from "./attendance-import.service";
 export * from "./attendance-historical-assignment-backfill.service";
 export * from "./attendance-location-mapper.service";
+export * from "./attendance-operations.controller";
+export * from "./attendance-operations.service";
 export * from "./attendance-parser.service";
 export * from "./attendance-matcher.service";
 export * from "./attendance-calculation.service";

@@ -48,6 +48,7 @@ async function main() {
   await testPreviewReturnsConflictForDifferentCoveredVendor();
   await testConfirmCreatesClosedAssignment();
   await testConfirmRefusesOverlappingAndOpenEndedProposals();
+  await testConfirmDoesNotPartialCreateWhenOneProposalConflicts();
 }
 
 async function testPreviewProposesClosedHistoricalAssignment() {
@@ -217,6 +218,47 @@ async function testConfirmRefusesOverlappingAndOpenEndedProposals() {
   assert.equal(updatedAssignments.length, 0);
 }
 
+async function testConfirmDoesNotPartialCreateWhenOneProposalConflicts() {
+  const { service, createdAssignments } = createService({
+    assignments: [
+      {
+        id: "current-active",
+        pickerId: "picker-2",
+        vendorId: "vendor-b",
+        status: AssignmentStatus.ACTIVE,
+        startDate: new Date("2026-01-15T00:00:00.000Z"),
+        endDate: null,
+        vendor: vendorB
+      }
+    ],
+    users: [
+      pickerUser,
+      {
+        ...pickerUser,
+        id: "picker-2",
+        shopperId: "SHOP-2"
+      }
+    ]
+  });
+
+  const result = await service.confirmHistoricalAssignmentBackfill({
+    proposals: [
+      proposal(),
+      proposal({
+        pickerId: "picker-2",
+        identifier: "SHOP-2",
+        vendorId: "vendor-b"
+      })
+    ],
+    confirmedById: "admin-1",
+    referenceDate: new Date("2026-02-01T00:00:00.000Z")
+  });
+
+  assert.equal(result.createdCount, 0);
+  assert.equal(result.conflictCount, 1);
+  assert.equal(createdAssignments.length, 0);
+}
+
 function createService(options: {
   users?: typeof pickerUser[];
   vendors?: typeof vendorA[];
@@ -229,6 +271,8 @@ function createService(options: {
   const updatedAssignments: Array<Record<string, any>> = [];
 
   const prisma = {
+    $transaction: async (operations: Array<Promise<unknown>>) =>
+      Promise.all(operations),
     user: {
       findMany: async ({ where }: { where: { OR: Array<Record<string, unknown>> } }) => {
         const identifiers = new Set<string>();
