@@ -40,6 +40,12 @@ function rolesFor(methodName: keyof ReportsController) {
 const serviceCalls: string[] = [];
 const responses = {
   admin: { scopeSummary: { scope: "SYSTEM" } },
+  attendanceBranches: { items: [] },
+  attendanceChains: { items: [] },
+  attendanceDaily: { dailyRecordsAvailable: false },
+  attendanceMonths: { items: [] },
+  attendanceOverview: { monthKey: "2026-05" },
+  attendanceUsers: { items: [], meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 } },
   areaManager: { scopeSummary: { assignedChains: 1 } },
   champ: { scopeSummary: { assignedBranches: 1 } }
 };
@@ -48,6 +54,30 @@ const reportsService = {
   getAdminOverview: async () => {
     serviceCalls.push("admin");
     return responses.admin;
+  },
+  getAttendanceOverview: async () => {
+    serviceCalls.push("attendance-overview");
+    return responses.attendanceOverview;
+  },
+  getAttendanceChainSummaries: async () => {
+    serviceCalls.push("attendance-chains");
+    return responses.attendanceChains;
+  },
+  getAttendanceBranchSummaries: async () => {
+    serviceCalls.push("attendance-branches");
+    return responses.attendanceBranches;
+  },
+  getAttendanceUserSummaries: async () => {
+    serviceCalls.push("attendance-users");
+    return responses.attendanceUsers;
+  },
+  getAttendanceUserDailyDetails: async (userId: string) => {
+    serviceCalls.push(`attendance-daily:${userId}`);
+    return responses.attendanceDaily;
+  },
+  getAttendanceMonths: async () => {
+    serviceCalls.push("attendance-months");
+    return responses.attendanceMonths;
   },
   getAreaManagerOverview: async (areaManagerId: string) => {
     serviceCalls.push(`area-manager:${areaManagerId}`);
@@ -77,6 +107,30 @@ async function run() {
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
   ]);
+  assert.deepEqual(rolesFor("getAttendanceOverview"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getAttendanceChainSummaries"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getAttendanceBranchSummaries"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getAttendanceUserSummaries"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getAttendanceUserDailyDetails"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
+  assert.deepEqual(rolesFor("getAttendanceMonths"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
   assert.deepEqual(rolesFor("getAreaManagerOverview"), [UserRole.AREA_MANAGER]);
   assert.deepEqual(rolesFor("getChampOverview"), [UserRole.CHAMP]);
 
@@ -88,6 +142,27 @@ async function run() {
   assert.equal(await controller.getAdminOverview(admin), responses.admin);
   assert.equal(await controller.getAdminOverview(superAdmin), responses.admin);
   assert.equal(
+    await controller.getAttendanceOverview({}, admin),
+    responses.attendanceOverview
+  );
+  assert.equal(
+    await controller.getAttendanceChainSummaries({}, admin),
+    responses.attendanceChains
+  );
+  assert.equal(
+    await controller.getAttendanceBranchSummaries({}, admin),
+    responses.attendanceBranches
+  );
+  assert.equal(
+    await controller.getAttendanceUserSummaries({}, admin),
+    responses.attendanceUsers
+  );
+  assert.equal(
+    await controller.getAttendanceUserDailyDetails("user-1", {}, admin),
+    responses.attendanceDaily
+  );
+  assert.equal(await controller.getAttendanceMonths(admin), responses.attendanceMonths);
+  assert.equal(
     await controller.getAreaManagerOverview(areaManager),
     responses.areaManager
   );
@@ -96,6 +171,12 @@ async function run() {
   assert.deepEqual(policyCalls, [
     { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
     { actor: superAdmin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
+    { actor: admin, permissionKey: PermissionKeys.REPORTS_VIEW_ADMIN },
     {
       actor: areaManager,
       permissionKey: PermissionKeys.REPORTS_VIEW_AREA_MANAGER
@@ -106,6 +187,12 @@ async function run() {
   assert.deepEqual(serviceCalls, [
     "admin",
     "admin",
+    "attendance-overview",
+    "attendance-chains",
+    "attendance-branches",
+    "attendance-users",
+    "attendance-daily:user-1",
+    "attendance-months",
     `area-manager:${areaManager.id}`,
     `champ:${champ.id}`
   ]);

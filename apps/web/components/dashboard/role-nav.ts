@@ -190,7 +190,19 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Reports",
       href: "/admin/reports",
       icon: BarChart3,
-      section: "Reports"
+      section: "Reports",
+      children: [
+        {
+          label: "Overview",
+          href: "/admin/reports",
+          icon: BarChart3
+        },
+        {
+          label: "Attendance",
+          href: "/admin/reports/attendance",
+          icon: BarChart3
+        }
+      ]
     },
     {
       label: "Archived Users",
@@ -246,7 +258,19 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Reports",
       href: "/admin/reports",
       icon: BarChart3,
-      section: "Reports"
+      section: "Reports",
+      children: [
+        {
+          label: "Overview",
+          href: "/admin/reports",
+          icon: BarChart3
+        },
+        {
+          label: "Attendance",
+          href: "/admin/reports/attendance",
+          icon: BarChart3
+        }
+      ]
     },
     {
       label: "Archived Users",

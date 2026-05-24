@@ -144,6 +144,18 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
         </Link>
       </InfoCard>
 
+      <InfoCard title="Attendance Analytics">
+        <Definition label="Access" value="Admin / Super Admin" />
+        <Definition label="Mode" value="Read-only monthly summaries" />
+        <Link
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+          href="/admin/reports/attendance"
+          prefetch
+        >
+          Open attendance reports
+        </Link>
+      </InfoCard>
+
       <SimpleTable
         columns={["Chain", "Code", "Active Pickers"]}
         rows={data.tables.topChainsByActivePickerCount.map((item) => [
