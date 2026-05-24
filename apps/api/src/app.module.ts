@@ -4,6 +4,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ApprovalsModule } from "./approvals/approvals.module";
 import { AssignmentsModule } from "./assignments/assignments.module";
 import { AdminModule } from "./admin/admin.module";
+import { AttendanceModule } from "./attendance/attendance.module";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import { AccessControlModule } from "./access-control/access-control.module";
@@ -40,6 +41,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     ApprovalsModule,
     AccessControlModule,
     HrSyncModule,
+    AttendanceModule,
     NotificationsModule,
     AuditModule,
     AdminModule,
