@@ -2,87 +2,77 @@
 
 ## Summary
 
-This cleanup pass was conservative. No files were deleted or moved to archive.
+This cleanup pass aligned the repository documentation with the approved Attendance Analytics workstream.
 
-The repository currently keeps important access-control planning, audit, stabilization, and regression reports under `docs/access-control/`. Those reports are historical records for Phases 7 through 9 and should stay available until the project explicitly adopts a broader documentation archive policy.
+No source code, Prisma schema, migrations, API modules, UI routes, package files, or runtime behavior were changed.
 
-## Files Kept
+## Archive Decision
 
-Kept as active project guidance:
+Existing docs were copied into:
 
-- `README.md`
-- `AGENTS.md`
-- `docs/REPO_INDEX.md`
-- `docs/00_PROJECT_OPERATING_SYSTEM.md`
-- `docs/01_PRODUCT_RULES.md`
-- `docs/02_WORKFLOW_RULES.md`
-- `docs/03_ARCHITECTURE_RULES.md`
-- `docs/04_DATA_MODEL_RULES.md`
-- `docs/05_SECURITY_AND_PRIVACY_RULES.md`
-- `docs/06_UI_UX_SYSTEM.md`
-- `docs/07_VERIFICATION_AND_TESTING.md`
-- `docs/08_CODE_QUALITY_RULES.md`
-- `docs/09_AGENT_PROMPT_RULES.md`
-- `docs/10_REVIEW_CHECKLISTS.md`
-- `docs/templates/*`
+```text
+docs/archive/pre-attendance-analytics/
+```
 
-Kept as historical access-control records:
+They were copied instead of moved because the existing numbered docs, access-control records, HR Sync plan, templates, and repo index remain useful historical references and some repository links still point to their original locations.
 
-- `docs/access-control/ACCESS_CONTROL_AUDIT.md`
-- `docs/access-control/ACCESS_CONTROL_BRANCH_DEEP_REVIEW.md`
-- `docs/access-control/ACCESS_CONTROL_V1.md`
-- `docs/access-control/AGENT_BRIEF.md`
-- `docs/access-control/IMPLEMENTATION_PLAN.md`
-- `docs/access-control/PHASE_7_STABILIZATION_REPORT.md`
-- `docs/access-control/PHASE_7A_SCHEMA_DESIGN.md`
-- `docs/access-control/PHASE_7G_USER_ACCESS_ROLE_ASSIGNMENT_RULES.md`
-- `docs/access-control/PHASE_7I_CUSTOM_ROLE_ASSIGNMENT_API_DESIGN.md`
-- `docs/access-control/PHASE_7N_FINAL_STABILIZATION_REPORT.md`
-- `docs/access-control/PHASE_8A_LEGACY_ROLE_AUTHORIZATION_INVENTORY.md`
-- `docs/access-control/PHASE_8E_AUTHORIZATION_MIGRATION_STABILIZATION.md`
-- `docs/access-control/PHASE_9_FULL_REGRESSION_REPORT.md`
-- `docs/access-control/README.md`
+## Current Docs Added
 
-## Files Moved to Archive
+The current documentation set now includes:
 
-None.
+```text
+docs/CURRENT_PRODUCT_STATE.md
+docs/PRODUCT_SCOPE_AND_GUARDRAILS.md
+docs/DOMAIN_MODEL_AND_ASSIGNMENTS.md
+docs/WORKFLOWS_AND_APPROVAL_RULES.md
+docs/ACCESS_CONTROL_AND_PERMISSIONS.md
+docs/REPORTS_AND_ROLE_WORKSPACES.md
+docs/UI_UX_DIRECTION.md
+docs/UI_UX_COMPONENT_RULES.md
+docs/ATTENDANCE_MODULE_SPEC.md
+docs/ATTENDANCE_DATA_MODEL.md
+docs/ATTENDANCE_OPERATIONS_UI.md
+docs/ATTENDANCE_CALCULATION_RULES.md
+docs/ATTENDANCE_IMPLEMENTATION_PLAN.md
+docs/CODEX_WORKFLOW_RULES.md
+```
 
-Reason:
+## Files Kept In Place
 
-- No existing `docs/archive/` convention was present.
-- Access-control phase documents are still useful audit and implementation history.
-- Moving them now would create churn without improving current HR Sync planning.
+Historical docs remain in place for compatibility and audit context:
+
+```text
+docs/00_PROJECT_OPERATING_SYSTEM.md
+docs/01_PRODUCT_RULES.md
+docs/02_WORKFLOW_RULES.md
+docs/03_ARCHITECTURE_RULES.md
+docs/04_DATA_MODEL_RULES.md
+docs/05_SECURITY_AND_PRIVACY_RULES.md
+docs/06_UI_UX_SYSTEM.md
+docs/07_VERIFICATION_AND_TESTING.md
+docs/08_CODE_QUALITY_RULES.md
+docs/09_AGENT_PROMPT_RULES.md
+docs/10_REVIEW_CHECKLISTS.md
+docs/access-control/*
+docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md
+docs/templates/*
+```
+
+## Product Decisions Captured
+
+The new docs capture:
+
+```text
+SuperNova is a Partner Workforce Operations System, not a generic HR ERP.
+The architecture remains a modular monolith.
+Operational hierarchy source of truth remains assignment tables.
+Lifecycle changes remain Request -> Approval -> System applies change.
+Attendance Analytics is approved only for import, calculations, summaries, scoped reports, and Super Admin data operations.
+Attendance imports must never mutate users, assignments, roles, identifiers, employment status, or account status.
+Uploaded attendance files must not be permanently stored.
+Older attendance months must compress daily detail into monthly summaries.
+```
 
 ## Files Deleted
 
 None.
-
-Reason:
-
-- No file was clearly safe to delete.
-- Stale but historically important docs were left in place.
-
-## Missing Requested Legacy Docs
-
-These requested files were not present:
-
-- `docs/CURRENT_PRODUCT_STATE.md`
-- `docs/ARCHITECTURE.md`
-- `docs/WORKFLOWS.md`
-- `docs/TECHNICAL_GUARDRAILS.md`
-
-The repository currently uses numbered equivalents:
-
-- `docs/01_PRODUCT_RULES.md`
-- `docs/02_WORKFLOW_RULES.md`
-- `docs/03_ARCHITECTURE_RULES.md`
-- `docs/07_VERIFICATION_AND_TESTING.md`
-
-## Cleanup Decision
-
-Cleanup is deferred beyond map and status updates. The next documentation cleanup should decide whether to:
-
-- Keep access-control phase docs in place permanently.
-- Create `docs/archive/access-control/`.
-- Replace old README doc links with numbered docs only.
-- Add a formal "historical reports" section to `docs/REPO_INDEX.md`.

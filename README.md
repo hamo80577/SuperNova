@@ -10,17 +10,16 @@ Assignments + Requests + Approvals + Role-based Workspaces
 
 It is not a generic HR ERP.
 
-## Current MVP Status
+## Current Product State
 
-The MVP core is complete.
+The core product is a modular monolith for operational workforce lifecycle management.
 
-Implemented:
+Implemented core areas include:
 
-- Authentication, roles, protected workspaces.
+- Authentication, roles, and protected workspaces.
 - Access Control V1 backend-complete foundation.
-- Policy Authorization migration for selected static and workflow-adjacent routes.
 - Chains and Vendors/Branches.
-- Picker/Champ/Area Manager assignment hierarchy.
+- Picker, Champ, and Area Manager assignment hierarchy.
 - Request and approval engine.
 - Branch-first New Hire workflow.
 - Picker Profile Completion workflow.
@@ -28,14 +27,17 @@ Implemented:
 - Branch-first Transfer workflow.
 - Admin controls for pending final actions, archived users, and audit logs.
 - Operational reports for Admin, Area Manager, and Champ.
-- Security/hardening pass with access checks, redaction, and query indexes.
+- Notifications and audit logging.
 
-Current planned workstream:
+Approved current workstream:
 
-1. HR Google Sheets Sync planning and integration.
-2. Return to page-by-page UI/UX redesign after the integration plan is ready.
+```text
+Attendance Analytics + Super Admin Attendance Data Operations
+```
 
-HR Sync is planned only. It is not implemented yet.
+This workstream starts with documentation and planning only. Attendance implementation must stay within the approved analytics/import/reporting scope and must not add payroll, GPS, live tracking, biometrics, order integration, inventory, accounting, or generic ERP behavior.
+
+HR Google Sheets Sync remains a separate scoped lifecycle reporting integration. It must not own attendance behavior.
 
 ## Product Model
 
@@ -48,7 +50,7 @@ Important rules:
 - Do not store `managerId`, `vendorId`, or `chainId` on `User` as source of truth.
 - Operational context is derived from assignment tables.
 - Lifecycle actions are workflow-based.
-- No direct manual Picker creation, transfer, archive, or active assignment change.
+- No direct manual Picker creation, transfer, archive, or active assignment change unless explicitly approved.
 
 Correct lifecycle pattern:
 
@@ -64,8 +66,11 @@ Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
 Architecture: modular monolith
+Deployment target: Docker Compose / VPS when deployment work is explicitly requested
 Current dev mode: Local PostgreSQL + npm workspaces
 ```
+
+Do not introduce microservices.
 
 ## Repository Shape
 
@@ -100,8 +105,6 @@ Champ:
   /champ/branches/:vendorId/resignation
   /champ/reports
 
-Resignation is the only offboarding lifecycle in the active MVP scope.
-
 Area Manager:
   /area-manager/dashboard
   /area-manager/reports
@@ -119,6 +122,16 @@ Admin / Super Admin:
   /admin/reports
   /admin/settings
 ```
+
+Resignation is the only offboarding lifecycle in the active product scope.
+
+Recommended future Attendance Operations route:
+
+```text
+/super-admin/attendance-operations
+```
+
+This route is not implemented in Phase 0.
 
 ## API Highlights
 
@@ -176,7 +189,7 @@ npm run dev
 Prisma migrations against local PostgreSQL
 ```
 
-Docker is not part of the current repo or daily development workflow.
+Docker Compose is the deployment target when deployment work is explicitly requested, but it is not part of the current daily local development workflow.
 
 1. Install Node.js/npm.
 
@@ -214,7 +227,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 Never commit local `.env` files or secrets.
 
-Planned backend-only HR Sync environment variables, not active until backend integration:
+Backend-only HR Sync environment variables, when that integration is enabled:
 
 ```text
 HR_SYNC_ENABLED=true|false
@@ -261,19 +274,34 @@ Login: http://localhost:3000/login
 
 ## Documentation Map
 
+Current product docs:
+
 - [Agent Rules](./AGENTS.md)
+- [Current Product State](./docs/CURRENT_PRODUCT_STATE.md)
+- [Product Scope and Guardrails](./docs/PRODUCT_SCOPE_AND_GUARDRAILS.md)
+- [Domain Model and Assignments](./docs/DOMAIN_MODEL_AND_ASSIGNMENTS.md)
+- [Workflows and Approval Rules](./docs/WORKFLOWS_AND_APPROVAL_RULES.md)
+- [Access Control and Permissions](./docs/ACCESS_CONTROL_AND_PERMISSIONS.md)
+- [Reports and Role Workspaces](./docs/REPORTS_AND_ROLE_WORKSPACES.md)
+- [UI/UX Direction](./docs/UI_UX_DIRECTION.md)
+- [UI/UX Component Rules](./docs/UI_UX_COMPONENT_RULES.md)
+- [Codex Workflow Rules](./docs/CODEX_WORKFLOW_RULES.md)
+
+Attendance Analytics docs:
+
+- [Attendance Module Spec](./docs/ATTENDANCE_MODULE_SPEC.md)
+- [Attendance Data Model](./docs/ATTENDANCE_DATA_MODEL.md)
+- [Attendance Operations UI](./docs/ATTENDANCE_OPERATIONS_UI.md)
+- [Attendance Calculation Rules](./docs/ATTENDANCE_CALCULATION_RULES.md)
+- [Attendance Implementation Plan](./docs/ATTENDANCE_IMPLEMENTATION_PLAN.md)
+
+Historical and support docs:
+
 - [Repo Index](./docs/REPO_INDEX.md)
-- [Project Operating System](./docs/00_PROJECT_OPERATING_SYSTEM.md)
-- [Product Rules](./docs/01_PRODUCT_RULES.md)
-- [Workflow Rules](./docs/02_WORKFLOW_RULES.md)
-- [Architecture Rules](./docs/03_ARCHITECTURE_RULES.md)
-- [Data Model Rules](./docs/04_DATA_MODEL_RULES.md)
-- [Security and Privacy Rules](./docs/05_SECURITY_AND_PRIVACY_RULES.md)
-- [UI/UX System](./docs/06_UI_UX_SYSTEM.md)
-- [Verification and Testing](./docs/07_VERIFICATION_AND_TESTING.md)
 - [Access Control History](./docs/access-control/README.md)
 - [HR Google Sheets Sync Plan](./docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md)
-- [Documentation Cleanup Report](./docs/DOCS_CLEANUP_REPORT.md)
+- [Pre-Attendance Analytics Archive](./docs/archive/pre-attendance-analytics/ARCHIVE_NOTE.md)
+- [Local Dev Runner](./README-Start-SuperNova.md)
 
 ## Current Known Technical Debt
 
@@ -282,4 +310,4 @@ Login: http://localhost:3000/login
 - Production deployment strategy is not finalized.
 - Next/PostCSS moderate audit warnings may remain until safe dependency updates are available.
 - UI/UX needs page-by-page redesign.
-- HR Google Sheets Sync is planned but not implemented.
+- Attendance Analytics is documented and approved, but not implemented yet.

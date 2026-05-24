@@ -1,4 +1,4 @@
-# AGENTS.md — SuperNova Engineering Operating Rules
+# AGENTS.md - SuperNova Engineering Operating Rules
 
 ## Mission
 
@@ -66,6 +66,7 @@ Direct Picker creation
 Direct Picker transfer
 Direct Picker archive/deactivation
 Direct active Picker assignment edit
+Direct role/status changes from imports
 ```
 
 ## Current Active Product Scope
@@ -112,9 +113,66 @@ Temporary password must not be sent in notifications.
 Temporary password is revealed/reset only through authorized user profile credential controls.
 ```
 
+## Attendance Analytics Scope
+
+Attendance Analytics is approved only as:
+
+```text
+data import
+metric calculation
+compressed historical summaries
+role-scoped reporting
+Super Admin data operations
+```
+
+Attendance Analytics is not:
+
+```text
+payroll
+payroll deductions
+salary calculations
+GPS
+live tracking
+biometric integration
+live punch-in/out
+order integration
+inventory
+accounting
+generic ERP
+microservices
+```
+
+Attendance imports must never:
+
+```text
+create users
+transfer users
+archive/deactivate users
+change assignments
+change User.role
+change User.shopperId
+change User.ibsId
+change employmentStatus
+change accountStatus
+```
+
+Attendance role matching must use SuperNova `User.role`, not the uploaded file `Role` or `Designation`.
+
+Picker matching:
+
+```text
+Attendance.Identifier = User.shopperId
+```
+
+Champ matching:
+
+```text
+Attendance.Identifier = User.ibsId
+```
+
 ## HR Sync Rules
 
-HR Sync to Google Sheets is a planned integration for Picker lifecycle reporting only.
+HR Sync to Google Sheets is scoped to Picker lifecycle reporting only.
 
 Rules:
 
@@ -174,19 +232,13 @@ During implementation:
 6. Run the correct checks.
 ```
 
-After implementation, the final response must include:
+For documentation-only work:
 
 ```text
-Summary
-Files Changed
-Behavior Changes
-Behavior Preserved
-Tests/Checks Run
-Manual Verification
-Security/Scope Review
-Known Risks
-Completion Status
-Next Recommendation
+Inspect current docs first.
+State a short plan before edits.
+Do not run build/typecheck/lint unless source code changed accidentally.
+Run git diff --check and git status.
 ```
 
 ## UI/UX Work Rules
@@ -219,11 +271,11 @@ For UI/UX tasks, the agent should use:
 ui-ux-pro-max
 ```
 
-If `ui-ux-pro-max` is available in the coding environment, use it for the design audit, layout planning, responsive review, and polish pass.
+If `ui-ux-pro-max` is available in the coding environment, use it for design audit, layout planning, responsive review, and polish pass.
 
-If it is not available, manually apply the same standards from `docs/UI_UX_SYSTEM.md`.
+If it is not available, manually apply the same standards from `docs/UI_UX_DIRECTION.md` and `docs/UI_UX_COMPONENT_RULES.md`.
 
-Do not use `ui-ux-pro-max` as a reason to expand scope. Page-by-page only.
+Do not use UI work as a reason to expand backend scope.
 
 ## Verification Rules
 
@@ -233,7 +285,14 @@ Do not claim a check passed unless it actually ran.
 
 If a check cannot run, state the exact reason.
 
-Common commands:
+Docs-only:
+
+```powershell
+git diff --check
+git status
+```
+
+Common code-phase commands:
 
 ```powershell
 npm run typecheck
@@ -251,20 +310,45 @@ Stop-Process -Name node -Force
 npm run prisma:generate
 ```
 
-## Forbidden
+## Final Response Format
+
+For implementation work, final response must include:
+
+```text
+Summary
+Files Changed
+Behavior Changes
+Behavior Preserved
+Tests/Checks Run
+Manual Verification
+Security/Scope Review
+Known Risks
+Completion Status
+Next Recommendation
+```
+
+If the user provides a task-specific final response format, follow that exact format.
+
+## Forbidden Unless Explicitly Approved
 
 Do not add unless explicitly requested:
 
 ```text
 Payroll
-Attendance
+Payroll deductions
+Salary calculations
 GPS
+Live tracking
+Biometric integration
+Live punch-in/out
 Order integration
 Inventory
 Accounting
 Generic ERP modules
 Microservices
 ```
+
+Attendance is explicitly approved only within the Attendance Analytics scope above.
 
 Do not commit or expose:
 

@@ -8,25 +8,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - `apps/api`: NestJS modular monolith. Auth, users, assignments, workspaces, requests, approvals, reports, notifications, audit logs.
 - `packages/shared`: Shared package placeholder/export surface for cross-app types or utilities.
 - `prisma`: Prisma schema, migrations, seed data, and data import scripts.
-- `docs`: Current product, workflow, attendance, and historical planning docs.
-- `docs/integrations`: Integration design docs. HR Google Sheets Sync remains separate from Attendance Analytics.
-- `docs/archive/pre-attendance-analytics`: Historical snapshot of docs before Attendance Analytics alignment.
-
-## Current Documentation Entry Points
-
-- `docs/CURRENT_PRODUCT_STATE.md`: Current product identity, stack, active scope, and approved Attendance Analytics workstream.
-- `docs/PRODUCT_SCOPE_AND_GUARDRAILS.md`: Product boundaries, source-of-truth rules, workflow safety, and attendance import guardrails.
-- `docs/DOMAIN_MODEL_AND_ASSIGNMENTS.md`: Operational hierarchy and assignment-table source-of-truth rules.
-- `docs/WORKFLOWS_AND_APPROVAL_RULES.md`: Lifecycle workflow rules and attendance non-mutation boundaries.
-- `docs/ACCESS_CONTROL_AND_PERMISSIONS.md`: Current permission direction and future attendance access boundaries.
-- `docs/REPORTS_AND_ROLE_WORKSPACES.md`: Reporting boundaries and role-scoped attendance reporting direction.
-- `docs/UI_UX_DIRECTION.md` and `docs/UI_UX_COMPONENT_RULES.md`: Mobile-first operational UI rules.
-- `docs/ATTENDANCE_MODULE_SPEC.md`: Attendance scope, source file, matching, aggregation, and import safety rules.
-- `docs/ATTENDANCE_DATA_MODEL.md`: Future data model concepts and retention requirements.
-- `docs/ATTENDANCE_OPERATIONS_UI.md`: Future Super Admin Attendance Data Operations route and UX requirements.
-- `docs/ATTENDANCE_CALCULATION_RULES.md`: Approved metric formulas.
-- `docs/ATTENDANCE_IMPLEMENTATION_PLAN.md`: Phased Attendance Analytics plan.
-- `docs/CODEX_WORKFLOW_RULES.md`: Agent workflow and verification rules.
+- `docs/integrations`: Planned integration design docs. Current planned integration: HR Google Sheets Sync.
 
 ## Key Product Domains
 
@@ -299,17 +281,17 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - Important tests:
   - No focused audit log test file currently identified.
 
-### HR Google Sheets Sync
+### Planned HR Google Sheets Sync
 
-- Planning/support doc:
+- Planning doc:
   - `docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md`
-- Related files:
+- Planned future files:
   - `scripts/google-apps-script/hr-sync/Code.gs`
   - `scripts/google-apps-script/hr-sync/README.md`
   - `scripts/google-apps-script/hr-sync/samples/*.json`
-- Backend direction:
+- Planned backend direction:
   - `apps/api/src/hr-sync/hr-sync.service.ts`
-  - Prisma `HrSyncLog` model and migration when present in the current codebase.
+  - Future Prisma `HrSyncLog` model and migration.
   - Backend-only env values in `apps/api/.env`: `HR_SYNC_ENABLED`, `HR_SYNC_WEB_APP_URL`, `HR_SYNC_SECRET`.
 - Scope:
   - Picker New Hire/Rehire only.
@@ -318,8 +300,7 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - Google Sheets is not source of truth.
 - Excluded:
   - Champ and Area Manager sync.
-  - Payroll, GPS, order integration, inventory, accounting, and generic ERP behavior.
-  - Attendance under HR Sync. Attendance Analytics is a separate approved workstream.
+  - Payroll, attendance, GPS, order integration, inventory, accounting, and generic ERP behavior.
 - Notes:
   - HR Sync failure must not roll back workflow finalization.
   - Ticket/request detail should later show `Sent to HR`, `HR Sync failed`, or `Skipped`.
