@@ -6,12 +6,14 @@ import {
   DatabaseZap,
   FileSearch,
   GitBranch,
+  History,
   Home,
   KeyRound,
   Map,
   Settings,
   ShieldCheck,
   Store,
+  Upload,
   UserRound,
   Users
 } from "lucide-react";
@@ -25,6 +27,7 @@ export interface NavItem {
   disabled?: boolean;
   icon: typeof Home;
   section?: string;
+  children?: NavItem[];
 }
 
 export const roleNavigation: Record<UserRole, NavItem[]> = {
@@ -266,7 +269,24 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Attendance Data Operations",
       href: "/super-admin/attendance-operations",
       icon: DatabaseZap,
-      section: "System Owner"
+      section: "System Owner",
+      children: [
+        {
+          label: "Upload Attendance",
+          href: "/super-admin/attendance-operations/upload",
+          icon: Upload
+        },
+        {
+          label: "Import History",
+          href: "/super-admin/attendance-operations/history",
+          icon: History
+        },
+        {
+          label: "Calculation Rules",
+          href: "/super-admin/attendance-operations/rules",
+          icon: ClipboardList
+        }
+      ]
     },
     {
       label: "Settings",

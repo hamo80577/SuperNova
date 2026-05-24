@@ -37,6 +37,10 @@ async function main() {
       calls.push("issues");
       return { items: [], meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 } };
     },
+    getImportSampleUsers: async () => {
+      calls.push("sample-users");
+      return { items: [] };
+    },
     previewHistoricalAssignments: async () => {
       calls.push("preview");
       return { proposalsCount: 0 };
@@ -79,6 +83,9 @@ async function main() {
     items: [],
     meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 }
   });
+  assert.deepEqual(await controller.getImportSampleUsers("batch-1"), {
+    items: []
+  });
   assert.deepEqual(
     await controller.previewHistoricalAssignments(
       file,
@@ -104,7 +111,15 @@ async function main() {
     ),
     { createdCount: 0 }
   );
-  assert.deepEqual(calls, ["upload", "list", "detail", "issues", "preview", "confirm"]);
+  assert.deepEqual(calls, [
+    "upload",
+    "list",
+    "detail",
+    "issues",
+    "sample-users",
+    "preview",
+    "confirm"
+  ]);
 }
 
 void main();

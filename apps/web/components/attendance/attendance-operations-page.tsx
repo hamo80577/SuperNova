@@ -8,7 +8,6 @@ import {
   DatabaseZap,
   FileSpreadsheet,
   History,
-  Info,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -20,6 +19,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FileSelector } from "@/components/ui/file-selector";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
@@ -30,6 +30,7 @@ import {
   type AttendanceImportIssue,
   type AttendanceImportListItem,
   type AttendanceImportMode,
+  type AttendanceImportSampleUser,
   type AttendanceImportStatus,
   type AttendanceImportSummary,
   type HistoricalAssignmentBackfillConfirmResult,
@@ -40,145 +41,73 @@ import {
 import { clearApiCache } from "@/lib/api/request";
 import { cn } from "@/lib/utils";
 
-type TabKey = "upload" | "history" | "rules";
 type AsyncState<T> =
   | { status: "idle"; data?: never; error?: never }
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
 
-const tabs: Array<{ key: TabKey; label: string; icon: typeof Upload }> = [
-  { key: "upload", label: "Upload Attendance", icon: Upload },
-  { key: "history", label: "Import History", icon: History },
-  { key: "rules", label: "Calculation Rules", icon: ClipboardCheck }
-];
-
+const confirmationText = "CREATE HISTORICAL ASSIGNMENTS";
 const processingSteps = [
   "Uploading file",
   "Reading rows",
   "Filtering Egypt rows",
   "Matching users",
   "Calculating metrics",
-  "Rebuilding user summaries",
-  "Rebuilding branch summaries",
-  "Rebuilding chain summaries",
-  "Saving import issues",
+  "Rebuilding summaries",
+  "Saving issues",
   "Finalizing"
 ];
 
-const confirmationText = "CREATE HISTORICAL ASSIGNMENTS";
-
-export function AttendanceOperationsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("upload");
-  const history = useImportHistory();
-  const lastImport = history.state.status === "ready" ? history.state.data[0] : null;
-
-  return (
-    <div className="grid gap-5">
-      <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <Badge variant="outline">Super Admin operations</Badge>
-            <h2 className="mt-3 text-lg font-semibold text-foreground">
-              Attendance Data Operations
-            </h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Upload, validate, process, and review attendance data without
-              changing active assignments or lifecycle workflows.
-            </p>
-          </div>
-          <LastImportBadge importBatch={lastImport} loading={history.state.status === "loading"} />
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-2 rounded-lg border bg-card p-2 shadow-sm sm:grid-cols-3">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const selected = activeTab === tab.key;
-
-          return (
-            <button
-              className={cn(
-                "flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                selected
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              type="button"
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {activeTab === "upload" ? (
-        <UploadAttendanceTab onImportComplete={history.reload} />
-      ) : null}
-      {activeTab === "history" ? (
-        <ImportHistoryTab history={history} />
-      ) : null}
-      {activeTab === "rules" ? <CalculationRulesTab /> : null}
-    </div>
-  );
-}
-
-function UploadAttendanceTab({
-  onImportComplete
-}: {
-  onImportComplete: () => Promise<void>;
-}) {
+export function AttendanceOperationsUploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [periodFrom, setPeriodFrom] = useState("");
-  const [periodTo, setPeriodTo] = useState("");
   const [uploadMode, setUploadMode] =
     useState<"DAILY_MTD_OVERRIDE" | "HISTORICAL_BACKFILL">("DAILY_MTD_OVERRIDE");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [importState, setImportState] =
     useState<AsyncState<AttendanceImportSummary>>({ status: "idle" });
+  const [sampleState, setSampleState] =
+    useState<AsyncState<AttendanceImportSampleUser[]>>({ status: "idle" });
   const [previewState, setPreviewState] =
     useState<AsyncState<HistoricalAssignmentBackfillPreview>>({ status: "idle" });
   const [confirmState, setConfirmState] =
     useState<AsyncState<HistoricalAssignmentBackfillConfirmResult>>({ status: "idle" });
-  const [detailsState, setDetailsState] =
-    useState<AsyncState<AttendanceImportDetail>>({ status: "idle" });
-  const [issuesState, setIssuesState] =
-    useState<AsyncState<AttendanceImportIssue[]>>({ status: "idle" });
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
-  const selectedPeriod = useMemo(
-    () => formatPeriod(periodFrom, periodTo),
-    [periodFrom, periodTo]
+  const period = useMemo(
+    () =>
+      uploadMode === "DAILY_MTD_OVERRIDE"
+        ? getCurrentMtdPeriod()
+        : getMonthPeriod(selectedMonth),
+    [selectedMonth, uploadMode]
   );
-  const isImporting = importState.status === "loading";
-  const isPreviewing = previewState.status === "loading";
-  const isConfirming = confirmState.status === "loading";
+  const busy =
+    importState.status === "loading" ||
+    previewState.status === "loading" ||
+    confirmState.status === "loading";
 
-  async function handleImportSubmit() {
-    const validationError = validateUploadInputs(file, periodFrom, periodTo);
-    if (validationError) {
-      setFormError(validationError);
+  async function submitImport() {
+    const validation = validateUpload(file, period);
+    if (validation) {
+      setFormError(validation);
       return;
     }
 
     setFormError(null);
     setImportState({ status: "loading" });
-    setDetailsState({ status: "idle" });
-    setIssuesState({ status: "idle" });
+    setSampleState({ status: "idle" });
 
     try {
       const summary = await attendanceOperationsApi.uploadAttendanceImport({
         file: file as File,
-        periodFrom,
-        periodTo,
+        periodFrom: period.from,
+        periodTo: period.to,
         uploadMode
       });
       setImportState({ status: "ready", data: summary });
       clearApiCache("/attendance-operations/imports");
-      await onImportComplete();
+      await loadSampleUsers(summary.batchId);
     } catch (error) {
       setImportState({
         status: "error",
@@ -187,10 +116,10 @@ function UploadAttendanceTab({
     }
   }
 
-  async function handlePreviewSubmit() {
-    const validationError = validateUploadInputs(file, periodFrom, periodTo);
-    if (validationError) {
-      setFormError(validationError);
+  async function previewHistoricalBackfill() {
+    const validation = validateUpload(file, period);
+    if (validation) {
+      setFormError(validation);
       return;
     }
 
@@ -202,8 +131,8 @@ function UploadAttendanceTab({
       const preview =
         await attendanceOperationsApi.previewHistoricalAssignmentBackfill({
           file: file as File,
-          periodFrom,
-          periodTo
+          periodFrom: period.from,
+          periodTo: period.to
         });
       setPreviewState({ status: "ready", data: preview });
     } catch (error) {
@@ -214,23 +143,23 @@ function UploadAttendanceTab({
     }
   }
 
-  async function handleConfirmSubmit() {
-    const validationError = validateUploadInputs(file, periodFrom, periodTo);
-    if (validationError) {
-      setFormError(validationError);
+  async function confirmHistoricalBackfill() {
+    const validation = validateUpload(file, period);
+    if (validation) {
+      setFormError(validation);
       setConfirmOpen(false);
       return;
     }
 
-    setConfirmState({ status: "loading" });
     setConfirmOpen(false);
+    setConfirmState({ status: "loading" });
 
     try {
       const result =
         await attendanceOperationsApi.confirmHistoricalAssignmentBackfill({
           file: file as File,
-          periodFrom,
-          periodTo,
+          periodFrom: period.from,
+          periodTo: period.to,
           confirmationText
         });
       setConfirmState({ status: "ready", data: result });
@@ -245,190 +174,191 @@ function UploadAttendanceTab({
     }
   }
 
-  async function loadImportDetails(batchId: string, withIssues = false) {
-    setDetailsState({ status: "loading" });
+  async function loadSampleUsers(batchId: string) {
+    setSampleState({ status: "loading" });
     try {
-      const details = await attendanceOperationsApi.getAttendanceImport(batchId);
-      setDetailsState({ status: "ready", data: details });
-      if (withIssues) {
-        await loadImportIssues(batchId);
-      }
+      const response =
+        await attendanceOperationsApi.getAttendanceImportSampleUsers(batchId);
+      setSampleState({ status: "ready", data: response.items });
     } catch (error) {
-      setDetailsState({
+      setSampleState({
         status: "error",
-        error: getErrorMessage(error, "Unable to load import details.")
+        error: getErrorMessage(error, "Unable to load calculated user sample.")
       });
     }
   }
 
-  async function loadImportIssues(batchId: string) {
-    setIssuesState({ status: "loading" });
-    try {
-      const response = await attendanceOperationsApi.getAttendanceImportIssues(
-        batchId,
-        { pageSize: 50 }
-      );
-      setIssuesState({ status: "ready", data: response.items });
-    } catch (error) {
-      setIssuesState({
-        status: "error",
-        error: getErrorMessage(error, "Unable to load import issues.")
-      });
-    }
-  }
-
-  function resetUploadResult() {
+  function resetUpload() {
+    setFile(null);
+    setFormError(null);
     setImportState({ status: "idle" });
+    setSampleState({ status: "idle" });
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
-    setDetailsState({ status: "idle" });
-    setIssuesState({ status: "idle" });
-    setFormError(null);
-    setFile(null);
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-      <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-        <SectionTitle
-          description="Upload an XLSX workbook for controlled attendance import. The workbook is processed without permanent file storage."
-          icon={FileSpreadsheet}
-          title="Upload Attendance"
-        />
+    <div className="grid gap-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold">Upload Attendance</h2>
+          </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="File">
-            <Input
-              accept=".xlsx"
-              disabled={isImporting || isPreviewing || isConfirming}
-              onChange={(event) => {
-                setFile(event.target.files?.[0] ?? null);
-                setImportState({ status: "idle" });
-                setPreviewState({ status: "idle" });
-                setConfirmState({ status: "idle" });
-              }}
-              type="file"
-            />
-          </Field>
-          <Field label="Upload Mode">
-            <Select
-              disabled={isImporting || isPreviewing || isConfirming}
-              onChange={(event) => {
-                const mode = event.target.value as typeof uploadMode;
-                setUploadMode(mode);
-                setPreviewState({ status: "idle" });
-                setConfirmState({ status: "idle" });
-              }}
-              value={uploadMode}
-            >
-              <option value="DAILY_MTD_OVERRIDE">Daily MTD Override</option>
-              <option value="HISTORICAL_BACKFILL">Historical Backfill</option>
-            </Select>
-          </Field>
-          <Field label="Period From">
-            <Input
-              disabled={isImporting || isPreviewing || isConfirming}
-              onChange={(event) => setPeriodFrom(event.target.value)}
-              type="date"
-              value={periodFrom}
-            />
-          </Field>
-          <Field label="Period To">
-            <Input
-              disabled={isImporting || isPreviewing || isConfirming}
-              onChange={(event) => setPeriodTo(event.target.value)}
-              type="date"
-              value={periodTo}
-            />
-          </Field>
-        </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Field label="Upload Mode">
+              <Select
+                disabled={busy}
+                onChange={(event) => {
+                  setUploadMode(event.target.value as typeof uploadMode);
+                  setPreviewState({ status: "idle" });
+                  setConfirmState({ status: "idle" });
+                  setFormError(null);
+                }}
+                value={uploadMode}
+              >
+                <option value="DAILY_MTD_OVERRIDE">Daily MTD Override</option>
+                <option value="HISTORICAL_BACKFILL">Historical Backfill</option>
+              </Select>
+            </Field>
 
-        {formError ? <InlineAlert tone="danger" message={formError} /> : null}
-
-        <PreflightSummary
-          fileName={file?.name ?? null}
-          period={selectedPeriod}
-          uploadMode={uploadMode}
-        />
-
-        {uploadMode === "HISTORICAL_BACKFILL" ? (
-          <HistoricalBackfillInfo />
-        ) : null}
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button
-            className="min-h-11 gap-2"
-            disabled={isImporting || isPreviewing || isConfirming}
-            onClick={() => void handleImportSubmit()}
-            type="button"
-          >
-            {isImporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+            {uploadMode === "HISTORICAL_BACKFILL" ? (
+              <Field label="Select month">
+                <Input
+                  disabled={busy}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                  type="month"
+                  value={selectedMonth}
+                />
+              </Field>
             ) : (
-              <Upload className="h-4 w-4" />
+              <ReadOnlyPeriodCard label="Current MTD" period={period} />
             )}
-            Start Attendance Import
-          </Button>
-          <Button
-            className="min-h-11 gap-2"
-            disabled={
-              uploadMode !== "HISTORICAL_BACKFILL" ||
-              isImporting ||
-              isPreviewing ||
-              isConfirming
-            }
-            onClick={() => void handlePreviewSubmit()}
-            type="button"
-            variant="outline"
-          >
-            {isPreviewing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
-            )}
-            Preview Historical Assignment Backfill
-          </Button>
-        </div>
 
-        {isImporting ? <ProcessingStepper /> : null}
-        {importState.status === "error" ? (
-          <InlineAlert tone="danger" message={importState.error} />
-        ) : null}
-        {importState.status === "ready" ? (
-          <ImportFinalSummary
-            onUploadAnother={resetUploadResult}
-            onViewDetails={() => void loadImportDetails(importState.data.batchId)}
-            onViewIssues={() =>
-              void loadImportDetails(importState.data.batchId, true)
-            }
-            summary={importState.data}
+            {uploadMode === "HISTORICAL_BACKFILL" ? (
+              <ReadOnlyPeriodCard label="Derived period" period={period} />
+            ) : null}
+
+            <div className="md:col-span-2">
+              <div className="grid gap-2 text-sm font-medium">
+                <span>File</span>
+                <FileSelector
+                  accept=".xlsx"
+                  disabled={busy}
+                  file={file}
+                  maxSizeLabel="Maximum size: 25MB"
+                  onFileChange={(selectedFile) => {
+                    setFile(selectedFile);
+                    setImportState({ status: "idle" });
+                    setSampleState({ status: "idle" });
+                    setPreviewState({ status: "idle" });
+                    setConfirmState({ status: "idle" });
+                  }}
+                  supportedFormats="XLSX"
+                  title="Drag and drop attendance file here"
+                />
+              </div>
+            </div>
+          </div>
+
+          {formError ? (
+            <div className="mt-4">
+              <InlineAlert message={formError} tone="danger" />
+            </div>
+          ) : null}
+
+          <PreflightChecklist
+            fileName={file?.name ?? null}
+            mode={uploadMode}
+            period={period}
           />
-        ) : null}
-      </section>
 
-      <aside className="grid gap-4 self-start">
-        <RetentionCard periodFrom={periodFrom} periodTo={periodTo} />
-        <OperationBoundaryCard />
-      </aside>
+          {uploadMode === "HISTORICAL_BACKFILL" ? (
+            <HistoricalBackfillCard />
+          ) : null}
 
-      <div className="xl:col-span-2">
-        <HistoricalBackfillPreviewPanel
-          confirmState={confirmState}
-          onConfirm={() => setConfirmOpen(true)}
-          previewState={previewState}
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button
+              className="min-h-11 gap-2"
+              disabled={busy}
+              onClick={() => void submitImport()}
+              type="button"
+            >
+              {importState.status === "loading" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Start Import
+            </Button>
+            {uploadMode === "HISTORICAL_BACKFILL" ? (
+              <Button
+                className="min-h-11 gap-2"
+                disabled={busy}
+                onClick={() => void previewHistoricalBackfill()}
+                type="button"
+                variant="outline"
+              >
+                {previewState.status === "loading" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" />
+                )}
+                Preview Backfill
+              </Button>
+            ) : null}
+          </div>
+
+          {importState.status === "loading" ? <ProcessingStrip /> : null}
+          {importState.status === "error" ? (
+            <div className="mt-4">
+              <InlineAlert message={importState.error} tone="danger" />
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="grid gap-4 self-start">
+          <CompactRuleCard
+            icon={CalendarDays}
+            items={[
+              "Current and previous months keep daily detail.",
+              "Older months keep summaries only.",
+              "Uploaded XLSX files are not stored."
+            ]}
+            title="Retention"
+          />
+          <CompactRuleCard
+            icon={ShieldCheck}
+            items={[
+              "No user or assignment lifecycle changes.",
+              "Branch and Chain totals are Picker-only.",
+              "Super Admin access is required."
+            ]}
+            title="Scope"
+          />
+        </aside>
+      </div>
+
+      {importState.status === "ready" ? (
+        <ImportResult
+          onReset={resetUpload}
+          sampleState={sampleState}
+          summary={importState.data}
         />
-      </div>
+      ) : null}
 
-      <div className="grid gap-4 xl:col-span-2 xl:grid-cols-2">
-        <ImportDetailPanel detailsState={detailsState} />
-        <IssuesPanel issuesState={issuesState} />
-      </div>
+      <HistoricalBackfillPreview
+        confirmState={confirmState}
+        onConfirm={() => setConfirmOpen(true)}
+        previewState={previewState}
+      />
 
       {confirmOpen && previewState.status === "ready" ? (
         <ConfirmHistoricalAssignmentsDialog
-          disabled={isConfirming}
+          disabled={confirmState.status === "loading"}
           onClose={() => setConfirmOpen(false)}
-          onConfirm={() => void handleConfirmSubmit()}
+          onConfirm={() => void confirmHistoricalBackfill()}
           preview={previewState.data}
         />
       ) : null}
@@ -436,56 +366,18 @@ function UploadAttendanceTab({
   );
 }
 
-function ImportHistoryTab({
-  history
-}: {
-  history: ReturnType<typeof useImportHistory>;
-}) {
-  const [detailsState, setDetailsState] =
-    useState<AsyncState<AttendanceImportDetail>>({ status: "idle" });
-  const [issuesState, setIssuesState] =
-    useState<AsyncState<AttendanceImportIssue[]>>({ status: "idle" });
-
-  async function loadDetails(id: string, withIssues = false) {
-    setDetailsState({ status: "loading" });
-    try {
-      const details = await attendanceOperationsApi.getAttendanceImport(id);
-      setDetailsState({ status: "ready", data: details });
-      if (withIssues) {
-        await loadIssues(id);
-      }
-    } catch (error) {
-      setDetailsState({
-        status: "error",
-        error: getErrorMessage(error, "Unable to load import details.")
-      });
-    }
-  }
-
-  async function loadIssues(id: string) {
-    setIssuesState({ status: "loading" });
-    try {
-      const response = await attendanceOperationsApi.getAttendanceImportIssues(id, {
-        pageSize: 50
-      });
-      setIssuesState({ status: "ready", data: response.items });
-    } catch (error) {
-      setIssuesState({
-        status: "error",
-        error: getErrorMessage(error, "Unable to load import issues.")
-      });
-    }
-  }
+export function AttendanceOperationsHistoryPage() {
+  const history = useImportHistory();
+  const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
 
   return (
     <div className="grid gap-5">
       <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <SectionTitle
-            description="Recent attendance import batches, counts, warnings, and completion state."
-            icon={History}
-            title="Import History"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold">Import History</h2>
+          </div>
           <Button
             className="min-h-10 gap-2"
             onClick={() => void history.reload()}
@@ -497,23 +389,18 @@ function ImportHistoryTab({
           </Button>
         </div>
 
-        {history.state.status === "loading" ? (
-          <div className="mt-5">
+        <div className="mt-5">
+          {history.state.status === "loading" ? (
             <DetailPanelSkeleton label="Loading attendance imports" />
-          </div>
-        ) : null}
-        {history.state.status === "error" ? (
-          <div className="mt-5">
-            <InlineAlert tone="danger" message={history.state.error} />
-          </div>
-        ) : null}
-        {history.state.status === "ready" ? (
-          <div className="mt-5">
-            {history.state.data.length ? (
+          ) : null}
+          {history.state.status === "error" ? (
+            <InlineAlert message={history.state.error} tone="danger" />
+          ) : null}
+          {history.state.status === "ready" ? (
+            history.state.data.length ? (
               <ImportHistoryList
                 imports={history.state.data}
-                onViewIssues={(id) => void loadDetails(id, true)}
-                onViewSummary={(id) => void loadDetails(id)}
+                onOpen={setSelectedImportId}
               />
             ) : (
               <EmptyState
@@ -521,293 +408,184 @@ function ImportHistoryTab({
                 message="No attendance imports have been processed yet."
                 title="No import history"
               />
-            )}
-          </div>
-        ) : null}
+            )
+          ) : null}
+        </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <ImportDetailPanel detailsState={detailsState} />
-        <IssuesPanel issuesState={issuesState} />
-      </div>
+      {selectedImportId ? (
+        <ImportDetailsModal
+          importId={selectedImportId}
+          onClose={() => setSelectedImportId(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CalculationRulesTab() {
+export function AttendanceOperationsRulesPage() {
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <RuleCard
-        items={[
-          "Only rows where Division = Egypt are calculated.",
-          "Rows outside Egypt are ignored and counted in the import summary.",
-          "Calculated roles are Picker and Champ only.",
-          "Role source is SuperNova User.role, not file Role or Designation."
-        ]}
-        title="Eligibility"
-      />
-      <RuleCard
-        items={[
-          "Picker match: Identifier = User.shopperId.",
-          "Champ match: Identifier = User.ibsId.",
-          "Cross-field collisions become ambiguous matches.",
-          "Unmatched or unsupported identifiers create import issues."
-        ]}
-        title="Matching"
-      />
-      <RuleCard
-        items={[
-          "Worked shift: Status is On Time or Late.",
-          "Late minutes = max(0, Actual Checkin Time - Shift Scheduled Start Time).",
-          "Absent, On Leave, and Off Day rows store late minutes as 0.",
-          "Late Level 1 is over 15 minutes and intentionally overlaps higher levels."
-        ]}
-        title="Late Metrics"
-      />
-      <RuleCard
-        items={[
-          "Late Level 2: over 30 and up to 45 minutes.",
-          "Late Level 3: over 45 minutes.",
-          "Under 8 Hours applies only to worked shifts below 8 hours.",
-          "Over 15 Hours applies only to worked shifts above 15 hours."
-        ]}
-        title="Duration Metrics"
-      />
-      <RuleCard
-        items={[
-          "Absent: Status = Absent.",
-          "On Leave: Status = On Leave.",
-          "Annual Leave: Shift Name contains Annual Leave.",
-          "Medical Leave: Shift Name contains Medical Leave.",
-          "Off Day: Shift Name contains Off Day."
-        ]}
-        title="Leave And Absence"
-      />
-      <RuleCard
-        items={[
-          "Total Created Shifts counts matched rows inside the selected period.",
-          "Total Shifts Needed is inclusive calendar days adjusted by User.joiningDate.",
-          "Missing Shifts = max(0, needed - created).",
-          "Duplicate Identifier + Shift Date rows create warnings."
-        ]}
-        title="Shift Counts"
-      />
-      <RuleCard
-        items={[
-          "Picker rows roll up to Branch and Chain summaries.",
-          "Champ rows remain user-level only.",
-          "Champ rows are never mixed into Branch, Chain, or Area Manager Picker totals.",
-          "Picker rows without historical assignment stay user-level and create warnings."
-        ]}
-        title="Aggregation"
-      />
-      <RuleCard
-        items={[
-          "Current and previous months keep daily detail plus monthly summaries.",
-          "Older months keep monthly summaries only.",
-          "Uploaded XLSX files are not permanently stored.",
-          "Historical assignment backfill is explicit preview plus typed confirmation only."
-        ]}
-        title="Retention And Backfill"
-      />
-    </div>
-  );
-}
-
-function useImportHistory() {
-  const [state, setState] = useState<AsyncState<AttendanceImportListItem[]>>({
-    status: "loading"
-  });
-
-  async function reload() {
-    setState({ status: "loading" });
-    try {
-      clearApiCache("/attendance-operations/imports");
-      const response = await attendanceOperationsApi.listAttendanceImports({
-        pageSize: 20
-      });
-      setState({ status: "ready", data: response.items });
-    } catch (error) {
-      setState({
-        status: "error",
-        error: getErrorMessage(error, "Unable to load import history.")
-      });
-    }
-  }
-
-  useEffect(() => {
-    void reload();
-  }, []);
-
-  return { reload, state };
-}
-
-function PreflightSummary({
-  fileName,
-  period,
-  uploadMode
-}: {
-  fileName: string | null;
-  period: string;
-  uploadMode: "DAILY_MTD_OVERRIDE" | "HISTORICAL_BACKFILL";
-}) {
-  const rules = [
-    ["Selected file", fileName ?? "No file selected"],
-    ["Selected period", period],
-    ["Upload mode", formatImportMode(uploadMode)],
-    ["Division filter", "Egypt only"],
-    ["Calculated roles", "Picker + Champ only"],
-    ["Picker match", "Identifier = shopperId"],
-    ["Champ match", "Identifier = ibsId"],
-    ["Branch/chain totals", "Picker only"],
-    ["Original file storage", "Disabled"]
-  ];
-
-  return (
-    <section className="rounded-lg border border-dashed bg-muted/30 p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Info className="h-4 w-4 text-primary" />
-        Preflight Summary
+    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex items-center gap-2">
+        <ClipboardCheck className="h-4 w-4 text-primary" />
+        <h2 className="text-base font-semibold">Calculation Rules</h2>
       </div>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        {rules.map(([label, value]) => (
-          <div className="min-w-0" key={label}>
-            <dt className="text-xs font-medium uppercase text-muted-foreground">
-              {label}
-            </dt>
-            <dd className="mt-1 break-words text-sm font-medium text-foreground">
-              {value}
-            </dd>
-          </div>
+      <div className="mt-5 divide-y">
+        {ruleGroups.map((group) => (
+          <section className="py-4 first:pt-0 last:pb-0" key={group.title}>
+            <h3 className="text-sm font-semibold">{group.title}</h3>
+            <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+              {group.items.map((item) => (
+                <li className="flex gap-2" key={item}>
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </dl>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        Retention behavior is based on selected month: current and previous
-        months can store daily detail; older months are summary-only.
-      </p>
-    </section>
-  );
-}
-
-function HistoricalBackfillInfo() {
-  return (
-    <section className="rounded-lg border border-primary/25 bg-brand-soft p-4">
-      <div className="flex items-start gap-3">
-        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">
-            Historical Assignment Backfill
-          </h3>
-          <ul className="mt-2 grid gap-2 text-sm leading-6 text-muted-foreground">
-            <li>Uses Location column only.</li>
-            <li>Extracts branch code before the first &quot; - &quot;.</li>
-            <li>Matches Location code to Vendor.vendorExternalId.</li>
-            <li>Creates no assignments unless preview is reviewed and confirmed.</li>
-            <li>Creates CLOSED historical Picker assignments only.</li>
-            <li>Does not change current active assignments.</li>
-            <li>Champs are ignored for assignment backfill.</li>
-          </ul>
-        </div>
       </div>
     </section>
   );
 }
 
-function ProcessingStepper() {
-  return (
-    <section
-      aria-busy="true"
-      className="rounded-lg border bg-muted/25 p-4"
-      role="status"
-    >
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        Processing import
-      </div>
-      <ol className="mt-4 grid gap-2 sm:grid-cols-2">
-        {processingSteps.map((step, index) => (
-          <li className="flex items-center gap-2 text-sm" key={step}>
-            <span
-              className={cn(
-                "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs font-semibold",
-                index === 0
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground"
-              )}
-            >
-              {index + 1}
-            </span>
-            <span className="text-muted-foreground">{step}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function ImportFinalSummary({
-  onUploadAnother,
-  onViewDetails,
-  onViewIssues,
+function ImportResult({
+  onReset,
+  sampleState,
   summary
 }: {
-  onUploadAnother: () => void;
-  onViewDetails: () => void;
-  onViewIssues: () => void;
+  onReset: () => void;
+  sampleState: AsyncState<AttendanceImportSampleUser[]>;
   summary: AttendanceImportSummary;
 }) {
-  const metrics = [
-    ["Total rows", summary.totalRows],
-    ["Egypt rows", summary.egyptRows],
-    ["Ignored rows", summary.ignoredRows],
-    ["Matched Pickers", summary.matchedPickers],
-    ["Matched Champs", summary.matchedChamps],
-    ["Unmatched identifiers", summary.unmatchedIdentifiers],
-    ["Duplicate rows", summary.duplicateRows],
-    ["Warnings", summary.warningsCount],
-    ["Errors", summary.errorsCount],
-    ["Daily records stored", summary.dailyRecordsStored],
-    ["User summaries stored", summary.userSummariesStored],
-    ["Branch summaries rebuilt", summary.branchSummariesRebuilt],
-    ["Chain summaries rebuilt", summary.chainSummariesRebuilt]
-  ];
-
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Final Summary
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Batch {summary.batchId} completed with status{" "}
-            {formatImportStatus(summary.status)}.
-          </p>
+    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <h2 className="text-base font-semibold">Import Result</h2>
         </div>
-        <StatusBadge status={summary.status} />
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map(([label, value]) => (
-          <MetricCard key={label} label={String(label)} value={value} />
-        ))}
-      </div>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button onClick={onViewDetails} type="button" variant="outline">
-          View Import Details
-        </Button>
-        <Button onClick={onViewIssues} type="button" variant="outline">
-          View Warnings
-        </Button>
-        <Button onClick={onUploadAnother} type="button" variant="ghost">
-          Upload Another File
+        <Button onClick={onReset} size="sm" type="button" variant="outline">
+          Upload another file
         </Button>
       </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <MetricCard label="Status" value={formatImportStatus(summary.status)} />
+        <MetricCard label="Total rows" value={summary.totalRows} />
+        <MetricCard label="Matched Pickers" value={summary.matchedPickers} />
+        <MetricCard label="Matched Champs" value={summary.matchedChamps} />
+        <MetricCard label="Warnings" value={summary.warningsCount} />
+        <MetricCard label="Errors" value={summary.errorsCount} />
+      </div>
+
+      <SampleUsersList sampleState={sampleState} />
     </section>
   );
 }
 
-function HistoricalBackfillPreviewPanel({
+function SampleUsersList({
+  sampleState
+}: {
+  sampleState: AsyncState<AttendanceImportSampleUser[]>;
+}) {
+  if (sampleState.status === "loading") {
+    return (
+      <div className="mt-5">
+        <DetailPanelSkeleton label="Loading calculated user sample" />
+      </div>
+    );
+  }
+
+  if (sampleState.status === "error") {
+    return (
+      <div className="mt-5">
+        <InlineAlert message={sampleState.error} tone="warning" />
+      </div>
+    );
+  }
+
+  if (sampleState.status !== "ready") {
+    return null;
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="text-sm font-semibold">Sample calculated users</h3>
+      {sampleState.data.length ? (
+        <>
+          <div className="mt-3 hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="py-3 pr-4">Identifier</th>
+                  <th className="py-3 pr-4">Role</th>
+                  <th className="py-3 pr-4">Created shifts</th>
+                  <th className="py-3 pr-4">Needed shifts</th>
+                  <th className="py-3 pr-4">Missing shifts</th>
+                  <th className="py-3 pr-4">Late &gt;15</th>
+                  <th className="py-3 pr-4">Absent</th>
+                  <th className="py-3 pr-4">Under 8h</th>
+                  <th className="py-3">Over 15h</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sampleState.data.map((item) => (
+                  <tr className="border-b last:border-0" key={item.id}>
+                    <td className="py-3 pr-4 font-medium">
+                      {item.identifier}
+                      <p className="mt-1 text-xs font-normal text-muted-foreground">
+                        {item.userDisplayName}
+                      </p>
+                    </td>
+                    <td className="py-3 pr-4">{formatEnum(item.role)}</td>
+                    <td className="py-3 pr-4">{item.totalCreatedShifts}</td>
+                    <td className="py-3 pr-4">{item.totalShiftsNeeded}</td>
+                    <td className="py-3 pr-4">{item.missingShifts}</td>
+                    <td className="py-3 pr-4">{item.lateLevel1Over15Count}</td>
+                    <td className="py-3 pr-4">{item.absentCount}</td>
+                    <td className="py-3 pr-4">{item.under8HoursCount}</td>
+                    <td className="py-3">{item.over15HoursCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 grid gap-3 md:hidden">
+            {sampleState.data.map((item) => (
+              <article className="rounded-lg border p-3" key={item.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.identifier}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.userDisplayName}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{formatEnum(item.role)}</Badge>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <Definition label="Created" value={item.totalCreatedShifts} />
+                  <Definition label="Needed" value={item.totalShiftsNeeded} />
+                  <Definition label="Missing" value={item.missingShifts} />
+                  <Definition label="Late >15" value={item.lateLevel1Over15Count} />
+                  <Definition label="Absent" value={item.absentCount} />
+                  <Definition label="Under 8h" value={item.under8HoursCount} />
+                  <Definition label="Over 15h" value={item.over15HoursCount} />
+                </dl>
+              </article>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No monthly user summaries were returned for this import.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function HistoricalBackfillPreview({
   confirmState,
   onConfirm,
   previewState
@@ -832,22 +610,20 @@ function HistoricalBackfillPreviewPanel({
   }
 
   if (previewState.status === "error") {
-    return <InlineAlert tone="danger" message={previewState.error} />;
+    return <InlineAlert message={previewState.error} tone="danger" />;
   }
 
   const preview = previewState.data;
   const confirmDisabled = preview.conflictCount > 0 || preview.proposalsCount === 0;
 
   return (
-    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <SectionTitle
-          description="Preview only. No assignment records are created until typed confirmation is submitted."
-          icon={ShieldCheck}
-          title="Historical Assignment Backfill Preview"
-        />
+    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold">Backfill Preview</h2>
+        </div>
         <Button
-          className="min-h-10"
           disabled={confirmDisabled || confirmState.status === "loading"}
           onClick={onConfirm}
           type="button"
@@ -856,130 +632,68 @@ function HistoricalBackfillPreviewPanel({
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard label="Proposals" value={preview.proposalsCount} />
-        <MetricCard label="Unmapped locations" value={preview.unmappedLocationCount} />
+        <MetricCard label="Unmapped" value={preview.unmappedLocationCount} />
         <MetricCard label="Conflicts" value={preview.conflictCount} />
         <MetricCard label="Matched Pickers" value={preview.matchedPickers} />
         <MetricCard label="Ignored Champs" value={preview.ignoredChampRows} />
       </div>
 
       {confirmDisabled ? (
-        <InlineAlert
-          message={
-            preview.conflictCount > 0
-              ? "Confirmation is disabled while conflicts are present."
-              : "There are no safe proposals to confirm."
-          }
-          tone="warning"
-        />
+        <div className="mt-4">
+          <InlineAlert
+            message={
+              preview.conflictCount > 0
+                ? "Resolve conflicts before confirmation."
+                : "There are no safe proposals to confirm."
+            }
+            tone="warning"
+          />
+        </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <ProposalList proposals={preview.proposals} />
-        <NoticeList
-          conflicts={preview.conflicts}
-          warnings={preview.warnings}
-        />
+        <NoticeList conflicts={preview.conflicts} warnings={preview.warnings} />
       </div>
 
       {confirmState.status === "loading" ? (
-        <InlineAlert
-          message="Confirming historical assignments. Current active assignments are not changed."
-          tone="info"
-        />
+        <div className="mt-4">
+          <InlineAlert
+            message="Confirming closed historical Picker assignments."
+            tone="info"
+          />
+        </div>
       ) : null}
       {confirmState.status === "error" ? (
-        <InlineAlert tone="danger" message={confirmState.error} />
+        <div className="mt-4">
+          <InlineAlert message={confirmState.error} tone="danger" />
+        </div>
       ) : null}
       {confirmState.status === "ready" ? (
-        <InlineAlert
-          message={`Created ${confirmState.data.createdCount} closed historical assignments. Skipped ${confirmState.data.skippedCount}; conflicts ${confirmState.data.conflictCount}.`}
-          tone="success"
-        />
+        <div className="mt-4">
+          <InlineAlert
+            message={`Created ${confirmState.data.createdCount} closed historical assignments. Skipped ${confirmState.data.skippedCount}; conflicts ${confirmState.data.conflictCount}.`}
+            tone="success"
+          />
+        </div>
       ) : null}
     </section>
   );
 }
 
-function ConfirmHistoricalAssignmentsDialog({
-  disabled,
-  onClose,
-  onConfirm,
-  preview
-}: {
-  disabled: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  preview: HistoricalAssignmentBackfillPreview;
-}) {
-  const [typedText, setTypedText] = useState("");
-  const canConfirm = typedText === confirmationText && !disabled;
-
-  return (
-    <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-4 sm:items-center">
-        <section className="sn-dialog-panel-in w-full max-w-lg rounded-lg border bg-card p-4 shadow-panel sm:p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <Badge variant="outline">Typed confirmation required</Badge>
-              <h3 className="mt-3 text-lg font-semibold">
-                Confirm Historical Assignments
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                This creates CLOSED historical Picker assignments only. It does
-                not change current active assignments.
-              </p>
-            </div>
-            <button
-              aria-label="Close confirmation dialog"
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={onClose}
-              type="button"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="mt-4 grid gap-3 rounded-lg border bg-muted/25 p-3 text-sm">
-            <Definition label="Safe proposals" value={preview.proposalsCount} />
-            <Definition label="Conflicts" value={preview.conflictCount} />
-            <Definition label="Required text" value={confirmationText} />
-          </div>
-          <Field className="mt-4" label="Type confirmation">
-            <Input
-              autoComplete="off"
-              onChange={(event) => setTypedText(event.target.value)}
-              placeholder={confirmationText}
-              value={typedText}
-            />
-          </Field>
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button onClick={onClose} type="button" variant="outline">
-              Cancel
-            </Button>
-            <Button disabled={!canConfirm} onClick={onConfirm} type="button">
-              Confirm Historical Assignments
-            </Button>
-          </div>
-        </section>
-      </div>
-    </ModalPortal>
-  );
-}
-
 function ImportHistoryList({
   imports,
-  onViewIssues,
-  onViewSummary
+  onOpen
 }: {
   imports: AttendanceImportListItem[];
-  onViewIssues: (id: string) => void;
-  onViewSummary: (id: string) => void;
+  onOpen: (id: string) => void;
 }) {
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[920px] text-left text-sm">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b text-xs uppercase text-muted-foreground">
             <tr>
               <th className="py-3 pr-4">Date</th>
@@ -990,17 +704,22 @@ function ImportHistoryList({
               <th className="py-3 pr-4">Rows</th>
               <th className="py-3 pr-4">Matched</th>
               <th className="py-3 pr-4">Warnings</th>
-              <th className="py-3 pr-4">Duration</th>
-              <th className="py-3 text-right">Actions</th>
+              <th className="py-3">Duration</th>
             </tr>
           </thead>
           <tbody>
             {imports.map((item) => (
-              <tr className="border-b last:border-0" key={item.id}>
+              <tr
+                className="cursor-pointer border-b transition hover:bg-muted/40 focus-within:bg-muted/40 last:border-0"
+                key={item.id}
+                onClick={() => onOpen(item.id)}
+              >
                 <td className="py-3 pr-4">{formatDateTime(item.createdAt)}</td>
                 <td className="py-3 pr-4">{item.createdBy.nameEn}</td>
                 <td className="py-3 pr-4">{formatImportMode(item.mode)}</td>
-                <td className="py-3 pr-4">{formatPeriod(item.periodFrom, item.periodTo)}</td>
+                <td className="py-3 pr-4">
+                  {formatPeriod({ from: item.periodFrom, to: item.periodTo })}
+                </td>
                 <td className="py-3 pr-4">
                   <StatusBadge status={item.status} />
                 </td>
@@ -1009,27 +728,7 @@ function ImportHistoryList({
                   {item.matchedPickers + item.matchedChamps}
                 </td>
                 <td className="py-3 pr-4">{item.warningsCount}</td>
-                <td className="py-3 pr-4">{formatDuration(item.durationMs)}</td>
-                <td className="py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      onClick={() => onViewSummary(item.id)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      View Summary
-                    </Button>
-                    <Button
-                      onClick={() => onViewIssues(item.id)}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      View Warnings
-                    </Button>
-                  </div>
-                </td>
+                <td className="py-3">{formatDuration(item.durationMs)}</td>
               </tr>
             ))}
           </tbody>
@@ -1038,19 +737,29 @@ function ImportHistoryList({
 
       <div className="grid gap-3 md:hidden">
         {imports.map((item) => (
-          <article className="rounded-lg border bg-card p-4 shadow-sm" key={item.id}>
+          <button
+            className="rounded-lg border bg-card p-4 text-left shadow-sm transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            key={item.id}
+            onClick={() => onOpen(item.id)}
+            type="button"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{formatDateTime(item.createdAt)}</p>
+                <p className="text-sm font-semibold">
+                  {formatDateTime(item.createdAt)}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {item.createdBy.nameEn}
                 </p>
               </div>
               <StatusBadge status={item.status} />
             </div>
-            <div className="mt-4 grid gap-2 text-sm">
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <Definition label="Mode" value={formatImportMode(item.mode)} />
-              <Definition label="Period" value={formatPeriod(item.periodFrom, item.periodTo)} />
+              <Definition
+                label="Period"
+                value={formatPeriod({ from: item.periodFrom, to: item.periodTo })}
+              />
               <Definition label="Rows" value={item.totalRows} />
               <Definition
                 label="Matched"
@@ -1058,148 +767,203 @@ function ImportHistoryList({
               />
               <Definition label="Warnings" value={item.warningsCount} />
               <Definition label="Duration" value={formatDuration(item.durationMs)} />
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              <Button onClick={() => onViewSummary(item.id)} type="button" variant="outline">
-                View Summary
-              </Button>
-              <Button onClick={() => onViewIssues(item.id)} type="button" variant="ghost">
-                View Warnings
-              </Button>
-            </div>
-          </article>
+            </dl>
+          </button>
         ))}
       </div>
     </>
   );
 }
 
-function ImportDetailPanel({
-  detailsState
+function ImportDetailsModal({
+  importId,
+  onClose
 }: {
-  detailsState: AsyncState<AttendanceImportDetail>;
+  importId: string;
+  onClose: () => void;
 }) {
-  if (detailsState.status === "idle") {
-    return (
-      <EmptyState
-        icon={FileSpreadsheet}
-        message="Select an import to review counts, retention, and issue totals."
-        title="Import summary"
-      />
-    );
-  }
+  const [detailState, setDetailState] =
+    useState<AsyncState<AttendanceImportDetail>>({ status: "loading" });
+  const [issuesState, setIssuesState] =
+    useState<AsyncState<AttendanceImportIssue[]>>({ status: "loading" });
+  const [sampleState, setSampleState] =
+    useState<AsyncState<AttendanceImportSampleUser[]>>({ status: "loading" });
 
-  if (detailsState.status === "loading") {
-    return <DetailPanelSkeleton label="Loading import details" />;
-  }
+  useEffect(() => {
+    let mounted = true;
 
-  if (detailsState.status === "error") {
-    return <InlineAlert tone="danger" message={detailsState.error} />;
-  }
+    async function load() {
+      setDetailState({ status: "loading" });
+      setIssuesState({ status: "loading" });
+      setSampleState({ status: "loading" });
+      try {
+        const [detail, issues, sample] = await Promise.all([
+          attendanceOperationsApi.getAttendanceImport(importId),
+          attendanceOperationsApi.getAttendanceImportIssues(importId, {
+            pageSize: 50
+          }),
+          attendanceOperationsApi.getAttendanceImportSampleUsers(importId)
+        ]);
+        if (!mounted) {
+          return;
+        }
+        setDetailState({ status: "ready", data: detail });
+        setIssuesState({ status: "ready", data: issues.items });
+        setSampleState({ status: "ready", data: sample.items });
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        const message = getErrorMessage(error, "Unable to load import details.");
+        setDetailState({ status: "error", error: message });
+        setIssuesState({ status: "error", error: message });
+        setSampleState({ status: "error", error: message });
+      }
+    }
 
-  const details = detailsState.data;
-  const rows = [
-    ["Batch", details.id],
-    ["File", details.fileName ?? "No file recorded"],
-    ["Period", formatPeriod(details.periodFrom, details.periodTo)],
-    ["Mode", formatImportMode(details.mode)],
-    ["Processed rows", details.processedRows],
-    ["Duplicate rows", details.duplicateRows],
-    ["Unmatched identifiers", details.unmatchedIdentifiers],
-    ["Daily records stored", details.retention.dailyRecordsStored],
-    ["User summaries stored", details.retention.userSummariesStored],
-    ["Branch summaries rebuilt", details.retention.branchSummariesRebuilt],
-    ["Chain summaries rebuilt", details.retention.chainSummariesRebuilt]
-  ];
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, [importId]);
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <SectionTitle
-          description="Batch summary and retention results."
-          icon={FileSpreadsheet}
-          title="Import Summary"
-        />
-        <StatusBadge status={details.status} />
+    <ModalPortal>
+      <div
+        aria-modal="true"
+        className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
+        role="dialog"
+      >
+        <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-2xl border bg-card shadow-2xl sm:max-w-5xl sm:rounded-2xl">
+          <div className="flex items-center justify-between gap-3 border-b p-4 sm:p-5">
+            <div className="min-w-0">
+              <Badge variant="outline">Import Details</Badge>
+              <h2 className="mt-2 text-lg font-semibold">Attendance Import</h2>
+            </div>
+            <Button
+              aria-label="Close import details"
+              className="h-10 w-10 p-0"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="max-h-[calc(94dvh-84px)] overflow-x-hidden overflow-y-auto p-4 sm:p-5">
+            {detailState.status === "loading" ? (
+              <DetailPanelSkeleton label="Loading import details" />
+            ) : null}
+            {detailState.status === "error" ? (
+              <InlineAlert message={detailState.error} tone="danger" />
+            ) : null}
+            {detailState.status === "ready" ? (
+              <div className="grid gap-5">
+                <ImportDetailSections detail={detailState.data} />
+                <SampleUsersList sampleState={sampleState} />
+                <IssueList issuesState={issuesState} />
+              </div>
+            ) : null}
+          </div>
+        </section>
       </div>
-      <dl className="mt-4 grid gap-3 text-sm">
-        {rows.map(([label, value]) => (
-          <Definition key={String(label)} label={String(label)} value={value} />
-        ))}
-      </dl>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Info" value={details.issueCounts.INFO} />
-        <MetricCard label="Warnings" value={details.issueCounts.WARNING} />
-        <MetricCard label="Errors" value={details.issueCounts.ERROR} />
-      </div>
-      {details.errorMessage ? (
-        <div className="mt-4">
-          <InlineAlert tone="danger" message={details.errorMessage} />
-        </div>
-      ) : null}
-    </section>
+    </ModalPortal>
   );
 }
 
-function IssuesPanel({
+function ImportDetailSections({ detail }: { detail: AttendanceImportDetail }) {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Status" value={formatImportStatus(detail.status)} />
+        <MetricCard label="Total rows" value={detail.totalRows} />
+        <MetricCard label="Matched" value={detail.matchedPickers + detail.matchedChamps} />
+        <MetricCard label="Warnings" value={detail.warningsCount} />
+      </div>
+
+      <section className="grid gap-3 rounded-lg border p-4">
+        <h3 className="text-sm font-semibold">File and period</h3>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <Definition label="File" value={detail.fileName ?? "No file recorded"} />
+          <Definition label="Mode" value={formatImportMode(detail.mode)} />
+          <Definition
+            label="Period"
+            value={formatPeriod({ from: detail.periodFrom, to: detail.periodTo })}
+          />
+          <Definition label="Uploaded by" value={detail.createdBy.nameEn} />
+        </dl>
+      </section>
+
+      <section className="grid gap-3 rounded-lg border p-4">
+        <h3 className="text-sm font-semibold">Retention result</h3>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <Definition label="Daily records" value={detail.retention.dailyRecordsStored} />
+          <Definition label="User summaries" value={detail.retention.userSummariesStored} />
+          <Definition
+            label="Branch summaries"
+            value={detail.retention.branchSummariesRebuilt}
+          />
+          <Definition
+            label="Chain summaries"
+            value={detail.retention.chainSummariesRebuilt}
+          />
+        </dl>
+      </section>
+    </div>
+  );
+}
+
+function IssueList({
   issuesState
 }: {
   issuesState: AsyncState<AttendanceImportIssue[]>;
 }) {
-  if (issuesState.status === "idle") {
-    return (
-      <EmptyState
-        icon={TriangleAlert}
-        message="Select View Warnings to inspect saved import issues."
-        title="Warnings and issues"
-      />
-    );
-  }
-
   if (issuesState.status === "loading") {
     return <DetailPanelSkeleton label="Loading import issues" />;
   }
 
   if (issuesState.status === "error") {
-    return <InlineAlert tone="danger" message={issuesState.error} />;
+    return <InlineAlert message={issuesState.error} tone="warning" />;
   }
 
-  if (!issuesState.data.length) {
-    return (
-      <EmptyState
-        icon={CheckCircle2}
-        message="No warnings or errors were returned for this import."
-        title="No issues"
-      />
-    );
+  if (issuesState.status !== "ready") {
+    return null;
   }
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-      <SectionTitle
-        description="Saved warnings and errors from import processing."
-        icon={TriangleAlert}
-        title="Warnings And Issues"
-      />
-      <div className="mt-4 grid gap-3">
-        {issuesState.data.map((issue) => (
-          <article className="rounded-lg border bg-muted/20 p-3" key={issue.id}>
-            <div className="flex flex-wrap items-center gap-2">
-              <IssueSeverityBadge severity={issue.severity} />
-              <Badge variant="outline">{formatEnum(issue.type)}</Badge>
-            </div>
-            <p className="mt-2 text-sm leading-6">{issue.message}</p>
-            <dl className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-              <Definition label="Row" value={issue.rowNumber ?? "N/A"} />
-              <Definition label="Identifier" value={issue.identifier ?? "N/A"} />
-              <Definition
-                label="Date"
-                value={issue.attendanceDate ? formatDate(issue.attendanceDate) : "N/A"}
-              />
-            </dl>
-          </article>
-        ))}
+    <section className="rounded-lg border p-4">
+      <div className="flex items-center gap-2">
+        <TriangleAlert className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold">Warnings and errors</h3>
       </div>
+      {issuesState.data.length ? (
+        <div className="mt-3 grid gap-2">
+          {issuesState.data.map((issue) => (
+            <article className="rounded-lg bg-muted/30 p-3" key={issue.id}>
+              <div className="flex flex-wrap items-center gap-2">
+                <IssueSeverityBadge severity={issue.severity} />
+                <Badge variant="outline">{formatEnum(issue.type)}</Badge>
+              </div>
+              <p className="mt-2 text-sm leading-6">{issue.message}</p>
+              <dl className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                <Definition label="Row" value={issue.rowNumber ?? "N/A"} />
+                <Definition label="Identifier" value={issue.identifier ?? "N/A"} />
+                <Definition
+                  label="Date"
+                  value={
+                    issue.attendanceDate ? formatDate(issue.attendanceDate) : "N/A"
+                  }
+                />
+              </dl>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No warnings or errors were saved for this import.
+        </p>
+      )}
     </section>
   );
 }
@@ -1210,13 +974,13 @@ function ProposalList({
   proposals: HistoricalAssignmentBackfillProposal[];
 }) {
   return (
-    <section className="rounded-lg border bg-muted/15 p-4">
+    <section className="rounded-lg border p-4">
       <h3 className="text-sm font-semibold">Safe proposals</h3>
       {proposals.length ? (
         <div className="mt-3 grid gap-3">
           {proposals.map((proposal, index) => (
             <article
-              className="rounded-lg border bg-card p-3"
+              className="rounded-lg bg-muted/25 p-3"
               key={`${proposal.pickerId}-${proposal.vendorId}-${proposal.proposedStartDate}-${index}`}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -1224,20 +988,17 @@ function ProposalList({
                 <Badge variant="muted">{proposal.evidenceCount} rows</Badge>
               </div>
               <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                <Definition label="Picker identifier" value={proposal.identifier} />
+                <Definition label="Picker" value={proposal.identifier} />
                 <Definition
-                  label="Vendor / Branch"
-                  value={proposal.vendorName ?? proposal.vendorId}
+                  label="Branch"
+                  value={proposal.vendorName ?? proposal.vendorExternalId}
                 />
-                <Definition label="Vendor external ID" value={proposal.vendorExternalId} />
-                <Definition label="Chain" value={proposal.chainId} />
+                <Definition label="Vendor code" value={proposal.vendorExternalId} />
                 <Definition
-                  label="Start date"
-                  value={formatDate(proposal.proposedStartDate)}
-                />
-                <Definition
-                  label="End date"
-                  value={formatDate(proposal.proposedEndDate)}
+                  label="Range"
+                  value={`${formatDate(proposal.proposedStartDate)} to ${formatDate(
+                    proposal.proposedEndDate
+                  )}`}
                 />
               </dl>
             </article>
@@ -1265,12 +1026,12 @@ function NoticeList({
   ];
 
   return (
-    <section className="rounded-lg border bg-muted/15 p-4">
+    <section className="rounded-lg border p-4">
       <h3 className="text-sm font-semibold">Warnings and conflicts</h3>
       {notices.length ? (
         <div className="mt-3 grid gap-3">
-          {notices.slice(0, 30).map((notice, index) => (
-            <article className="rounded-lg border bg-card p-3" key={index}>
+          {notices.slice(0, 20).map((notice, index) => (
+            <article className="rounded-lg bg-muted/25 p-3" key={index}>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={notice.tone === "danger" ? "default" : "muted"}>
                   {notice.tone === "danger" ? "Conflict" : "Warning"}
@@ -1303,104 +1064,172 @@ function NoticeList({
   );
 }
 
-function RetentionCard({
-  periodFrom,
-  periodTo
+function ConfirmHistoricalAssignmentsDialog({
+  disabled,
+  onClose,
+  onConfirm,
+  preview
 }: {
-  periodFrom: string;
-  periodTo: string;
+  disabled: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  preview: HistoricalAssignmentBackfillPreview;
+}) {
+  const [typedText, setTypedText] = useState("");
+  const canConfirm = typedText === confirmationText && !disabled;
+
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
+        <section className="w-full max-w-lg rounded-t-2xl border bg-card p-4 shadow-2xl sm:rounded-2xl sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Badge variant="outline">Typed confirmation required</Badge>
+              <h3 className="mt-3 text-lg font-semibold">
+                Confirm Historical Assignments
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                This creates CLOSED historical Picker assignments only. It does
+                not change current active assignments.
+              </p>
+            </div>
+            <Button
+              aria-label="Close confirmation dialog"
+              className="h-10 w-10 p-0"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <dl className="mt-4 grid gap-3 rounded-lg border p-3 text-sm">
+            <Definition label="Safe proposals" value={preview.proposalsCount} />
+            <Definition label="Conflicts" value={preview.conflictCount} />
+            <Definition label="Required text" value={confirmationText} />
+          </dl>
+          <Field className="mt-4" label="Type confirmation">
+            <Input
+              autoComplete="off"
+              onChange={(event) => setTypedText(event.target.value)}
+              placeholder={confirmationText}
+              value={typedText}
+            />
+          </Field>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button onClick={onClose} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={!canConfirm} onClick={onConfirm} type="button">
+              Confirm Historical Assignments
+            </Button>
+          </div>
+        </section>
+      </div>
+    </ModalPortal>
+  );
+}
+
+function PreflightChecklist({
+  fileName,
+  mode,
+  period
+}: {
+  fileName: string | null;
+  mode: AttendanceImportMode;
+  period: AttendancePeriod;
+}) {
+  const items = [
+    ["File", fileName ?? "No file selected"],
+    ["Mode", formatImportMode(mode)],
+    ["Period", period.isValid ? formatPeriod(period) : "Select a month"],
+    ["Division", "Egypt"],
+    ["Match", "Picker shopperId / Champ ibsId"],
+    ["Branch/Chain totals", "Pickers only"],
+    ["File storage", "disabled"]
+  ];
+
+  return (
+    <dl className="mt-5 grid gap-3 rounded-lg bg-muted/25 p-4 sm:grid-cols-2">
+      {items.map(([label, value]) => (
+        <Definition key={label} label={label} value={value} />
+      ))}
+    </dl>
+  );
+}
+
+function HistoricalBackfillCard() {
+  return (
+    <section className="mt-4 rounded-lg border border-primary/20 bg-brand-soft p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <ShieldCheck className="h-4 w-4 text-primary" />
+        Historical Assignment Backfill
+      </div>
+      <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+        <li>Uses Location column.</li>
+        <li>Extracts branch code before &quot; - &quot;.</li>
+        <li>Creates CLOSED historical Picker assignments only after preview and confirmation.</li>
+        <li>Does not change current active assignments.</li>
+        <li>Champs ignored.</li>
+      </ul>
+    </section>
+  );
+}
+
+function ProcessingStrip() {
+  return (
+    <section className="mt-4 rounded-lg border bg-muted/25 p-4" role="status">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        Processing import
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {processingSteps.map((step) => (
+          <Badge key={step} variant="outline">
+            {step}
+          </Badge>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CompactRuleCard({
+  icon: Icon,
+  items,
+  title
+}: {
+  icon: typeof CalendarDays;
+  items: string[];
+  title: string;
 }) {
   return (
     <section className="rounded-lg border bg-card p-4 shadow-sm">
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <CalendarDays className="h-4 w-4 text-primary" />
-        Retention Behavior
+        <Icon className="h-4 w-4 text-primary" />
+        {title}
       </div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Selected period: {formatPeriod(periodFrom, periodTo)}.
-      </p>
-      <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-        <li>Current month: daily detail and monthly summary.</li>
-        <li>Previous month: daily detail and monthly summary.</li>
-        <li>Older months: monthly summaries only.</li>
-      </ul>
-    </section>
-  );
-}
-
-function OperationBoundaryCard() {
-  return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <ShieldCheck className="h-4 w-4 text-primary" />
-        Scope Boundary
-      </div>
-      <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-        <li>No user creation or transfer.</li>
-        <li>No active assignment edits.</li>
-        <li>No role, identifier, employment, or account status changes.</li>
-        <li>No payroll, salary deductions, GPS, or live punch-in/out.</li>
-      </ul>
-    </section>
-  );
-}
-
-function RuleCard({ items, title }: { items: string[]; title: string }) {
-  return (
-    <section className="rounded-lg border bg-card p-4 shadow-sm sm:p-5">
-      <h3 className="text-base font-semibold">{title}</h3>
       <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
         {items.map((item) => (
-          <li className="flex gap-2" key={item}>
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <span>{item}</span>
-          </li>
+          <li key={item}>{item}</li>
         ))}
       </ul>
     </section>
   );
 }
 
-function LastImportBadge({
-  importBatch,
-  loading
+function ReadOnlyPeriodCard({
+  label,
+  period
 }: {
-  importBatch: AttendanceImportListItem | null;
-  loading: boolean;
-}) {
-  if (loading) {
-    return <Badge variant="muted">Loading last import</Badge>;
-  }
-
-  if (!importBatch) {
-    return <Badge variant="outline">No imports yet</Badge>;
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-muted-foreground">Last import</span>
-      <StatusBadge status={importBatch.status} />
-    </div>
-  );
-}
-
-function SectionTitle({
-  description,
-  icon: Icon,
-  title
-}: {
-  description: string;
-  icon: typeof Upload;
-  title: string;
+  label: string;
+  period: AttendancePeriod;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <h2 className="text-base font-semibold">{title}</h2>
-      </div>
-      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-        {description}
+    <div className="rounded-lg border bg-muted/25 px-3 py-2">
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold">
+        {period.isValid ? formatPeriod(period) : "Select a month"}
       </p>
     </div>
   );
@@ -1423,41 +1252,13 @@ function Field({
   );
 }
 
-function InlineAlert({
-  message,
-  tone
-}: {
-  message: string;
-  tone: "danger" | "info" | "success" | "warning";
-}) {
-  const toneClass = {
-    danger: "border-red-200 bg-red-50 text-red-900",
-    info: "border-blue-200 bg-blue-50 text-blue-900",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    warning: "border-amber-200 bg-amber-50 text-amber-900"
-  }[tone];
-  const Icon =
-    tone === "danger" || tone === "warning"
-      ? AlertCircle
-      : tone === "success"
-        ? CheckCircle2
-        : Info;
-
-  return (
-    <div className={cn("flex items-start gap-2 rounded-lg border p-3", toneClass)}>
-      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-      <p className="text-sm leading-6">{message}</p>
-    </div>
-  );
-}
-
 function MetricCard({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0 rounded-lg border bg-card p-3">
       <p className="text-xs font-medium uppercase text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 break-words text-xl font-semibold">{value}</p>
+      <p className="mt-2 break-words text-lg font-semibold">{value}</p>
     </div>
   );
 }
@@ -1491,6 +1292,34 @@ function Definition({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function InlineAlert({
+  message,
+  tone
+}: {
+  message: string;
+  tone: "danger" | "info" | "success" | "warning";
+}) {
+  const toneClass = {
+    danger: "border-red-200 bg-red-50 text-red-900",
+    info: "border-blue-200 bg-blue-50 text-blue-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warning: "border-amber-200 bg-amber-50 text-amber-900"
+  }[tone];
+  const Icon =
+    tone === "danger" || tone === "warning"
+      ? AlertCircle
+      : tone === "success"
+        ? CheckCircle2
+        : DatabaseZap;
+
+  return (
+    <div className={cn("flex items-start gap-2 rounded-lg border p-3", toneClass)}>
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+      <p className="text-sm leading-6">{message}</p>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: AttendanceImportStatus | string }) {
   const tone =
     status === "FAILED"
@@ -1508,17 +1337,86 @@ function IssueSeverityBadge({
   severity: AttendanceImportIssue["severity"];
 }) {
   return (
-    <Badge variant={severity === "ERROR" ? "default" : severity === "WARNING" ? "muted" : "outline"}>
+    <Badge
+      variant={
+        severity === "ERROR" ? "default" : severity === "WARNING" ? "muted" : "outline"
+      }
+    >
       {formatEnum(severity)}
     </Badge>
   );
 }
 
-function validateUploadInputs(
-  file: File | null,
-  periodFrom: string,
-  periodTo: string
-) {
+function useImportHistory() {
+  const [state, setState] = useState<AsyncState<AttendanceImportListItem[]>>({
+    status: "loading"
+  });
+
+  async function reload() {
+    setState({ status: "loading" });
+    try {
+      clearApiCache("/attendance-operations/imports");
+      const response = await attendanceOperationsApi.listAttendanceImports({
+        pageSize: 30
+      });
+      setState({ status: "ready", data: response.items });
+    } catch (error) {
+      setState({
+        status: "error",
+        error: getErrorMessage(error, "Unable to load import history.")
+      });
+    }
+  }
+
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  return { reload, state };
+}
+
+type AttendancePeriod = {
+  from: string;
+  isValid: boolean;
+  to: string;
+};
+
+function getCurrentMtdPeriod(): AttendancePeriod {
+  const today = new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), 1);
+  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+
+  return {
+    from: toDateInputValue(from),
+    isValid: from <= to,
+    to: toDateInputValue(to)
+  };
+}
+
+function getMonthPeriod(value: string): AttendancePeriod {
+  if (!value) {
+    return { from: "", isValid: false, to: "" };
+  }
+
+  const [yearValue, monthValue] = value.split("-");
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+
+  if (!year || !month) {
+    return { from: "", isValid: false, to: "" };
+  }
+
+  const from = new Date(year, month - 1, 1);
+  const to = new Date(year, month, 0);
+
+  return {
+    from: toDateInputValue(from),
+    isValid: true,
+    to: toDateInputValue(to)
+  };
+}
+
+function validateUpload(file: File | null, period: AttendancePeriod) {
   if (!file) {
     return "Attendance XLSX file is required.";
   }
@@ -1527,15 +1425,26 @@ function validateUploadInputs(
     return "Attendance file must be an .xlsx workbook.";
   }
 
-  if (!periodFrom || !periodTo) {
-    return "Period From and Period To are required.";
-  }
-
-  if (new Date(periodFrom) > new Date(periodTo)) {
-    return "Period From must be before or equal to Period To.";
+  if (!period.isValid || !period.from || !period.to) {
+    return "A valid attendance period is required.";
   }
 
   return null;
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatPeriod(period: AttendancePeriod | { from: string; to: string }) {
+  if (!period.from || !period.to) {
+    return "Select a period";
+  }
+
+  return `${formatDate(period.from)} -> ${formatDate(period.to)}`;
 }
 
 function formatImportMode(mode: AttendanceImportMode | string) {
@@ -1563,21 +1472,12 @@ function formatEnum(value: string) {
     .join(" ");
 }
 
-function formatPeriod(periodFrom: string, periodTo: string) {
-  if (!periodFrom && !periodTo) {
-    return "No period selected";
-  }
-  if (!periodFrom || !periodTo) {
-    return "Incomplete period";
-  }
-  return `${formatDate(periodFrom)} to ${formatDate(periodTo)}`;
-}
-
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
+
   return new Intl.DateTimeFormat("en", {
     day: "2-digit",
     month: "short",
@@ -1590,6 +1490,7 @@ function formatDateTime(value: string) {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
+
   return new Intl.DateTimeFormat("en", {
     day: "2-digit",
     hour: "2-digit",
@@ -1614,3 +1515,51 @@ function formatDuration(durationMs: number | null) {
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
+
+const ruleGroups = [
+  {
+    title: "Eligibility and Matching",
+    items: [
+      "Calculate Egypt rows only.",
+      "Picker uses Identifier = shopperId; Champ uses Identifier = ibsId.",
+      "Role comes from SuperNova User.role.",
+      "Ambiguous, unmatched, or unsupported rows create issues."
+    ]
+  },
+  {
+    title: "Late and Duration",
+    items: [
+      "Worked shifts are On Time or Late.",
+      "Late minutes = max(0, check-in minus scheduled start).",
+      "Late >15 overlaps higher late levels by design.",
+      "Under 8h and Over 15h apply only to worked shifts."
+    ]
+  },
+  {
+    title: "Absence and Leave",
+    items: [
+      "Absent uses Status = Absent.",
+      "On Leave uses Status = On Leave.",
+      "Annual, Medical, and Off Day are detected from Shift Name.",
+      "Absent, leave, and off day rows store late minutes as 0."
+    ]
+  },
+  {
+    title: "Aggregation",
+    items: [
+      "Picker attendance rolls up to Branch and Chain summaries.",
+      "Champ attendance stays user-level only.",
+      "Picker rows missing assignment snapshot stay out of Branch/Chain totals.",
+      "Duplicate Identifier + Shift Date rows create warnings."
+    ]
+  },
+  {
+    title: "Retention and Backfill",
+    items: [
+      "Current and previous months keep daily detail plus monthly summaries.",
+      "Older months keep monthly summaries only.",
+      "Uploaded XLSX files are not permanently stored.",
+      "Historical assignment creation requires preview and typed confirmation."
+    ]
+  }
+];

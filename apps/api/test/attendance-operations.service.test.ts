@@ -20,6 +20,7 @@ const file = {
 async function main() {
   await testUploadValidatesFileAndDelegates();
   await testListImportsDetailsAndIssues();
+  await testImportSampleUsers();
   await testPreviewDoesNotConfirmAssignments();
   await testConfirmRerunsPreviewAndAudits();
   await testConfirmRejectsConflictPreviewBeforeCreate();
@@ -121,6 +122,27 @@ async function testListImportsDetailsAndIssues() {
   });
   assert.equal(issues.items.length, 1);
   assert.equal(issues.items[0].type, AttendanceIssueType.UNMATCHED_IDENTIFIER);
+}
+
+async function testImportSampleUsers() {
+  const context = createServiceContext();
+
+  const sample = await context.service.getImportSampleUsers("batch-1");
+
+  assert.equal(sample.items.length, 1);
+  assert.deepEqual(sample.items[0], {
+    id: "summary-1",
+    identifier: "SHOP-1",
+    role: "PICKER",
+    userDisplayName: "Picker One",
+    totalCreatedShifts: 23,
+    totalShiftsNeeded: 24,
+    missingShifts: 1,
+    lateLevel1Over15Count: 3,
+    absentCount: 1,
+    under8HoursCount: 2,
+    over15HoursCount: 0
+  });
 }
 
 async function testPreviewDoesNotConfirmAssignments() {
@@ -291,6 +313,25 @@ function createServiceContext(options: { preview?: typeof preview } = {}) {
       groupBy: async () => [{ severity: AttendanceIssueSeverity.WARNING, _count: 1 }],
       findMany: async () => [issue],
       count: async () => 1
+    },
+    attendanceMonthlyUserSummary: {
+      findMany: async () => [
+        {
+          id: "summary-1",
+          identifier: "SHOP-1",
+          role: "PICKER",
+          totalCreatedShifts: 23,
+          totalShiftsNeeded: 24,
+          missingShifts: 1,
+          lateLevel1Over15Count: 3,
+          absentCount: 1,
+          under8HoursCount: 2,
+          over15HoursCount: 0,
+          user: {
+            nameEn: "Picker One"
+          }
+        }
+      ]
     }
   };
   const service = new AttendanceOperationsService(

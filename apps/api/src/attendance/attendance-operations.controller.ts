@@ -85,6 +85,11 @@ export class AttendanceOperationsController {
     return this.attendanceOperations.listImportIssues(id, query);
   }
 
+  @Get("imports/:id/sample-users")
+  getImportSampleUsers(@Param("id", ParseUUIDPipe) id: string) {
+    return this.attendanceOperations.getImportSampleUsers(id);
+  }
+
   @Post("historical-assignments/preview")
   @UseInterceptors(FileInterceptor("file", FILE_INTERCEPTOR_OPTIONS))
   previewHistoricalAssignments(

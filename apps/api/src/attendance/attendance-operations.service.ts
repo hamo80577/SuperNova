@@ -252,6 +252,46 @@ export class AttendanceOperationsService {
     };
   }
 
+  async getImportSampleUsers(id: string) {
+    const batch = await this.prisma.attendanceImportBatch.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!batch) {
+      throw new NotFoundException("Attendance import was not found.");
+    }
+
+    const summaries = await this.prisma.attendanceMonthlyUserSummary.findMany({
+      where: { lastImportBatchId: id },
+      include: {
+        user: {
+          select: {
+            nameEn: true
+          }
+        }
+      },
+      orderBy: [{ role: "asc" }, { identifier: "asc" }],
+      take: 10
+    });
+
+    return {
+      items: summaries.map((summary) => ({
+        id: summary.id,
+        identifier: summary.identifier,
+        role: summary.role,
+        userDisplayName: summary.user.nameEn,
+        totalCreatedShifts: summary.totalCreatedShifts,
+        totalShiftsNeeded: summary.totalShiftsNeeded,
+        missingShifts: summary.missingShifts,
+        lateLevel1Over15Count: summary.lateLevel1Over15Count,
+        absentCount: summary.absentCount,
+        under8HoursCount: summary.under8HoursCount,
+        over15HoursCount: summary.over15HoursCount
+      }))
+    };
+  }
+
   async previewHistoricalAssignments(input: PreviewHistoricalAssignmentsInput) {
     const file = this.assertXlsxFile(input.file);
     const period = parsePeriod(

@@ -92,6 +92,20 @@ export interface AttendanceImportIssue {
   createdAt: string;
 }
 
+export interface AttendanceImportSampleUser {
+  id: string;
+  identifier: string;
+  role: "PICKER" | "CHAMP";
+  userDisplayName: string;
+  totalCreatedShifts: number;
+  totalShiftsNeeded: number;
+  missingShifts: number;
+  lateLevel1Over15Count: number;
+  absentCount: number;
+  under8HoursCount: number;
+  over15HoursCount: number;
+}
+
 export interface PageMeta {
   page: number;
   pageSize: number;
@@ -227,6 +241,11 @@ export const attendanceOperationsApi = {
         pageSize: params.pageSize,
         severity: params.severity
       })}`
+    );
+  },
+  getAttendanceImportSampleUsers(id: string) {
+    return apiGet<{ items: AttendanceImportSampleUser[] }>(
+      `/attendance-operations/imports/${id}/sample-users`
     );
   },
   previewHistoricalAssignmentBackfill(input: HistoricalBackfillInput) {
