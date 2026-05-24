@@ -1,4 +1,4 @@
-import { apiFormRequest, apiGet } from "./request";
+import { apiFormRequest, apiGet, apiRequest } from "./request";
 
 export type AttendanceImportMode =
   | "DAILY_MTD_OVERRIDE"
@@ -160,6 +160,68 @@ export interface HistoricalAssignmentBackfillConfirmResult {
   conflicts: HistoricalAssignmentBackfillNotice[];
 }
 
+export type AttendanceMaintenanceOperation =
+  | "DELETE_RANGE"
+  | "DELETE_MONTH"
+  | "DELETE_ALL"
+  | "RECALCULATE_SUMMARIES"
+  | "COMPRESS_OLD_MONTHS";
+
+export type AttendanceMaintenanceArchiveStatus =
+  | "ACTIVE_MTD"
+  | "DETAILED"
+  | "SUMMARY_ONLY"
+  | "COMPRESSED"
+  | "EMPTY";
+
+export interface AttendanceMaintenanceMonth {
+  monthKey: string;
+  dailyRecordsCount: number;
+  userSummariesCount: number;
+  branchSummariesCount: number;
+  chainSummariesCount: number;
+  importBatchesCount: number;
+  issuesCount: number;
+  archiveStatus: AttendanceMaintenanceArchiveStatus;
+  lastImportAt: string | null;
+  lastImportStatus: AttendanceImportStatus | null;
+}
+
+export interface AttendanceMaintenancePreview {
+  operation: AttendanceMaintenanceOperation;
+  canProceed: boolean;
+  blockers: string[];
+  warnings: string[];
+  safetyNotice: string[];
+  attendanceDailyRecordsAffected: number;
+  monthlyUserSummariesAffected: number;
+  monthlyBranchSummariesAffected: number;
+  monthlyChainSummariesAffected: number;
+  importBatchesAffected: number;
+  importIssuesAffected: number;
+  monthKeysAffected: string[];
+  dateRangeAffected: {
+    periodFrom: string | null;
+    periodTo: string | null;
+  };
+}
+
+export interface AttendanceMaintenanceResult extends AttendanceMaintenancePreview {
+  status: AttendanceImportStatus;
+  batchId?: string;
+  userSummariesStored?: number;
+  branchSummariesRebuilt?: number;
+  chainSummariesRebuilt?: number;
+}
+
+export interface AttendanceMaintenancePreviewInput {
+  operation: AttendanceMaintenanceOperation;
+  periodFrom?: string;
+  periodTo?: string;
+  monthKey?: string;
+  beforeMonthKey?: string;
+}
+
 export interface AttendanceImportUploadInput {
   file: File;
   periodFrom: string;
@@ -262,6 +324,77 @@ export const attendanceOperationsApi = {
     return apiFormRequest<HistoricalAssignmentBackfillConfirmResult>(
       "/attendance-operations/historical-assignments/confirm",
       body
+    );
+  },
+  listAttendanceMaintenanceMonths() {
+    return apiGet<{ items: AttendanceMaintenanceMonth[] }>(
+      "/attendance-operations/maintenance/months"
+    );
+  },
+  previewAttendanceMaintenance(input: AttendanceMaintenancePreviewInput) {
+    return apiRequest<AttendanceMaintenancePreview>(
+      "/attendance-operations/maintenance/preview",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    );
+  },
+  deleteAttendanceRange(input: {
+    periodFrom: string;
+    periodTo: string;
+    confirmationText: string;
+  }) {
+    return apiRequest<AttendanceMaintenanceResult>(
+      "/attendance-operations/maintenance/delete-range",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    );
+  },
+  deleteAttendanceMonth(input: { monthKey: string; confirmationText: string }) {
+    return apiRequest<AttendanceMaintenanceResult>(
+      "/attendance-operations/maintenance/delete-month",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    );
+  },
+  deleteAllAttendanceData(input: { confirmationText: string }) {
+    return apiRequest<AttendanceMaintenanceResult>(
+      "/attendance-operations/maintenance/delete-all",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    );
+  },
+  recalculateAttendanceSummaries(input: {
+    periodFrom?: string;
+    periodTo?: string;
+    monthKey?: string;
+    confirmationText: string;
+  }) {
+    return apiRequest<AttendanceMaintenanceResult>(
+      "/attendance-operations/maintenance/recalculate",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    );
+  },
+  compressOldAttendanceMonths(input: {
+    beforeMonthKey?: string;
+    confirmationText: string;
+  }) {
+    return apiRequest<AttendanceMaintenanceResult>(
+      "/attendance-operations/maintenance/compress-old-months",
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
     );
   }
 };

@@ -15,7 +15,8 @@ import {
   Store,
   Upload,
   UserRound,
-  Users
+  Users,
+  Wrench
 } from "lucide-react";
 
 import type { UserRole } from "@/lib/auth/types";
@@ -280,6 +281,11 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
           label: "Import History",
           href: "/super-admin/attendance-operations/history",
           icon: History
+        },
+        {
+          label: "Data Maintenance",
+          href: "/super-admin/attendance-operations/maintenance",
+          icon: Wrench
         },
         {
           label: "Calculation Rules",

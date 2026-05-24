@@ -24,6 +24,14 @@ async function main() {
   await testPreviewDoesNotConfirmAssignments();
   await testConfirmRerunsPreviewAndAudits();
   await testConfirmRejectsConflictPreviewBeforeCreate();
+  await testMaintenancePreviewDeleteMonthReturnsCountsWithoutDelete();
+  await testDeleteMonthRequiresExactConfirmation();
+  await testDeleteMonthDeletesAttendanceTablesOnly();
+  await testDeleteAllRequiresExactConfirmation();
+  await testDeleteAllDeletesAttendanceTablesOnly();
+  await testRecalculateBlocksOldSummaryOnlyMonth();
+  await testCompressOldMonthsSkipsCurrentPreviousAndBlocksMissingSummaries();
+  await testCompressOldMonthsDeletesOldDailyAfterSummariesExist();
 }
 
 async function testUploadValidatesFileAndDelegates() {
@@ -230,6 +238,232 @@ async function testConfirmRejectsConflictPreviewBeforeCreate() {
   assert.equal(context.confirmCalls.length, 0);
 }
 
+async function testMaintenancePreviewDeleteMonthReturnsCountsWithoutDelete() {
+  const context = createMaintenanceServiceContext();
+
+  const preview = await (context.service as never as {
+    previewMaintenance: (input: Record<string, unknown>) => Promise<{
+      operation: string;
+      canProceed: boolean;
+      attendanceDailyRecordsAffected: number;
+      monthlyUserSummariesAffected: number;
+      monthlyBranchSummariesAffected: number;
+      monthlyChainSummariesAffected: number;
+      importBatchesAffected: number;
+      importIssuesAffected: number;
+      monthKeysAffected: string[];
+      safetyNotice: string[];
+    }>;
+  }).previewMaintenance({
+    operation: "DELETE_MONTH",
+    monthKey: "2026-01",
+    actorUserId: "super-admin-1"
+  });
+
+  assert.equal(preview.operation, "DELETE_MONTH");
+  assert.equal(preview.canProceed, true);
+  assert.equal(preview.attendanceDailyRecordsAffected, 12);
+  assert.equal(preview.monthlyUserSummariesAffected, 3);
+  assert.equal(preview.monthlyBranchSummariesAffected, 2);
+  assert.equal(preview.monthlyChainSummariesAffected, 1);
+  assert.equal(preview.importBatchesAffected, 1);
+  assert.equal(preview.importIssuesAffected, 4);
+  assert.deepEqual(preview.monthKeysAffected, ["2026-01"]);
+  assert.equal(
+    preview.safetyNotice.includes("This affects attendance data only."),
+    true
+  );
+  assert.deepEqual(context.deleteCalls, []);
+}
+
+async function testDeleteMonthRequiresExactConfirmation() {
+  const context = createMaintenanceServiceContext();
+
+  await assert.rejects(
+    () =>
+      (context.service as never as {
+        deleteAttendanceMonth: (input: Record<string, unknown>) => Promise<unknown>;
+      }).deleteAttendanceMonth({
+        monthKey: "2026-01",
+        actorUserId: "super-admin-1",
+        confirmationText: "DELETE"
+      }),
+    BadRequestException
+  );
+  assert.deepEqual(context.deleteCalls, []);
+}
+
+async function testDeleteMonthDeletesAttendanceTablesOnly() {
+  const context = createMaintenanceServiceContext();
+
+  const result = await (context.service as never as {
+    deleteAttendanceMonth: (input: Record<string, unknown>) => Promise<{
+      operation: string;
+      status: string;
+      attendanceDailyRecordsAffected: number;
+      monthlyUserSummariesAffected: number;
+    }>;
+  }).deleteAttendanceMonth({
+    monthKey: "2026-01",
+    actorUserId: "super-admin-1",
+    confirmationText: "DELETE ATTENDANCE DATA"
+  });
+
+  assert.equal(result.operation, "DELETE_MONTH");
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(result.attendanceDailyRecordsAffected, 12);
+  assert.equal(result.monthlyUserSummariesAffected, 3);
+  assert.deepEqual(context.deleteCalls.sort(), [
+    "attendanceDailyRecord.deleteMany",
+    "attendanceImportIssue.deleteMany",
+    "attendanceMonthlyBranchSummary.deleteMany",
+    "attendanceMonthlyChainSummary.deleteMany",
+    "attendanceMonthlyUserSummary.deleteMany"
+  ]);
+  assert.equal(
+    context.auditLogs.some(
+      (log) => log.action === "ATTENDANCE_MAINTENANCE_DELETE_MONTH_PERFORMED"
+    ),
+    true
+  );
+}
+
+async function testDeleteAllRequiresExactConfirmation() {
+  const context = createMaintenanceServiceContext();
+
+  await assert.rejects(
+    () =>
+      (context.service as never as {
+        deleteAllAttendanceData: (input: Record<string, unknown>) => Promise<unknown>;
+      }).deleteAllAttendanceData({
+        actorUserId: "super-admin-1",
+        confirmationText: "DELETE"
+      }),
+    BadRequestException
+  );
+
+  assert.deepEqual(context.deleteCalls, []);
+}
+
+async function testDeleteAllDeletesAttendanceTablesOnly() {
+  const context = createMaintenanceServiceContext();
+
+  const result = await (context.service as never as {
+    deleteAllAttendanceData: (input: Record<string, unknown>) => Promise<{
+      operation: string;
+      status: string;
+    }>;
+  }).deleteAllAttendanceData({
+    actorUserId: "super-admin-1",
+    confirmationText: "DELETE ATTENDANCE DATA"
+  });
+
+  assert.equal(result.operation, "DELETE_ALL");
+  assert.equal(result.status, "COMPLETED");
+  assert.deepEqual(context.deleteCalls.sort(), [
+    "attendanceDailyRecord.deleteMany",
+    "attendanceImportBatch.deleteMany",
+    "attendanceImportIssue.deleteMany",
+    "attendanceMonthlyBranchSummary.deleteMany",
+    "attendanceMonthlyChainSummary.deleteMany",
+    "attendanceMonthlyUserSummary.deleteMany"
+  ]);
+  assert.equal(
+    context.auditLogs.some(
+      (log) => log.action === "ATTENDANCE_MAINTENANCE_DELETE_ALL_PERFORMED"
+    ),
+    true
+  );
+}
+
+async function testRecalculateBlocksOldSummaryOnlyMonth() {
+  const context = createMaintenanceServiceContext({
+    dailyCountsByMonth: { "2026-01": 0 },
+    userSummaryCountsByMonth: { "2026-01": 3 }
+  });
+
+  await assert.rejects(
+    () =>
+      (context.service as never as {
+        recalculateAttendanceSummaries: (
+          input: Record<string, unknown>
+        ) => Promise<unknown>;
+      }).recalculateAttendanceSummaries({
+        monthKey: "2026-01",
+        actorUserId: "super-admin-1",
+        confirmationText: "RECALCULATE ATTENDANCE SUMMARIES"
+      }),
+    BadRequestException
+  );
+  assert.equal(context.recalculateCalls.length, 0);
+}
+
+async function testCompressOldMonthsSkipsCurrentPreviousAndBlocksMissingSummaries() {
+  const context = createMaintenanceServiceContext({
+    referenceDate: new Date("2026-05-24T00:00:00.000Z"),
+    dailyCountsByMonth: {
+      "2026-03": 5,
+      "2026-04": 8,
+      "2026-05": 10
+    },
+    userSummaryCountsByMonth: {
+      "2026-03": 0,
+      "2026-04": 4,
+      "2026-05": 5
+    }
+  });
+
+  const preview = await (context.service as never as {
+    previewMaintenance: (input: Record<string, unknown>) => Promise<{
+      canProceed: boolean;
+      blockers: string[];
+      monthKeysAffected: string[];
+    }>;
+  }).previewMaintenance({
+    operation: "COMPRESS_OLD_MONTHS",
+    actorUserId: "super-admin-1"
+  });
+
+  assert.equal(preview.canProceed, false);
+  assert.deepEqual(preview.monthKeysAffected, ["2026-03"]);
+  assert.equal(preview.blockers.some((item) => item.includes("2026-03")), true);
+}
+
+async function testCompressOldMonthsDeletesOldDailyAfterSummariesExist() {
+  const context = createMaintenanceServiceContext({
+    referenceDate: new Date("2026-05-24T00:00:00.000Z"),
+    dailyCountsByMonth: {
+      "2026-02": 7,
+      "2026-04": 8,
+      "2026-05": 10
+    },
+    userSummaryCountsByMonth: {
+      "2026-02": 3,
+      "2026-04": 4,
+      "2026-05": 5
+    }
+  });
+
+  const result = await (context.service as never as {
+    compressOldAttendanceMonths: (input: Record<string, unknown>) => Promise<{
+      operation: string;
+      status: string;
+      attendanceDailyRecordsAffected: number;
+      monthKeysAffected: string[];
+    }>;
+  }).compressOldAttendanceMonths({
+    actorUserId: "super-admin-1",
+    confirmationText: "COMPRESS ATTENDANCE MONTHS"
+  });
+
+  assert.equal(result.operation, "COMPRESS_OLD_MONTHS");
+  assert.equal(result.status, "COMPLETED");
+  assert.equal(result.attendanceDailyRecordsAffected, 7);
+  assert.deepEqual(result.monthKeysAffected, ["2026-02"]);
+  assert.deepEqual(context.deleteCalls, ["attendanceDailyRecord.deleteMany"]);
+  assert.deepEqual(context.updateCalls, ["attendanceMonthlyUserSummary.updateMany"]);
+}
+
 const proposal: HistoricalAssignmentBackfillProposal = {
   pickerId: "picker-1",
   identifier: "SHOP-1",
@@ -398,6 +632,212 @@ function createServiceContext(options: { preview?: typeof preview } = {}) {
   );
 
   return { auditLogs, confirmCalls, importCalls, previewCalls, service };
+}
+
+function createMaintenanceServiceContext(
+  options: {
+    referenceDate?: Date;
+    dailyCountsByMonth?: Record<string, number>;
+    userSummaryCountsByMonth?: Record<string, number>;
+    branchSummaryCountsByMonth?: Record<string, number>;
+    chainSummaryCountsByMonth?: Record<string, number>;
+    batchCountsByMonth?: Record<string, number>;
+    issueCountsByMonth?: Record<string, number>;
+  } = {}
+) {
+  const deleteCalls: string[] = [];
+  const updateCalls: string[] = [];
+  const auditLogs: Array<Record<string, unknown>> = [];
+  const recalculateCalls: Array<Record<string, unknown>> = [];
+  const dailyCountsByMonth = options.dailyCountsByMonth ?? { "2026-01": 12 };
+  const userSummaryCountsByMonth =
+    options.userSummaryCountsByMonth ?? { "2026-01": 3 };
+  const branchSummaryCountsByMonth =
+    options.branchSummaryCountsByMonth ?? { "2026-01": 2 };
+  const chainSummaryCountsByMonth =
+    options.chainSummaryCountsByMonth ?? { "2026-01": 1 };
+  const batchCountsByMonth = options.batchCountsByMonth ?? { "2026-01": 1 };
+  const issueCountsByMonth = options.issueCountsByMonth ?? { "2026-01": 4 };
+
+  function countByWhere(
+    counts: Record<string, number>,
+    where?: { monthKey?: string | { in?: string[] }; attendanceDate?: { gte?: Date; lte?: Date }; periodFrom?: { gte?: Date; lte?: Date } }
+  ) {
+    const keys = keysFromWhere(where);
+    return keys.reduce((total, key) => total + (counts[key] ?? 0), 0);
+  }
+
+  const prisma = {
+    attendanceDailyRecord: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(dailyCountsByMonth, where),
+      groupBy: async () =>
+        Object.entries(dailyCountsByMonth).map(([monthKey, count]) => ({
+          monthKey,
+          _count: count
+        })),
+      findMany: async () => [],
+      deleteMany: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) => {
+        deleteCalls.push("attendanceDailyRecord.deleteMany");
+        return { count: countByWhere(dailyCountsByMonth, where) };
+      }
+    },
+    attendanceMonthlyUserSummary: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(userSummaryCountsByMonth, where),
+      groupBy: async () =>
+        Object.entries(userSummaryCountsByMonth).map(([monthKey, count]) => ({
+          monthKey,
+          _count: count
+        })),
+      findMany: async () =>
+        Object.entries(userSummaryCountsByMonth).map(([monthKey]) => ({
+          monthKey,
+          archiveStatus: "DETAILED"
+        })),
+      deleteMany: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) => {
+        deleteCalls.push("attendanceMonthlyUserSummary.deleteMany");
+        return { count: countByWhere(userSummaryCountsByMonth, where) };
+      },
+      updateMany: async () => {
+        updateCalls.push("attendanceMonthlyUserSummary.updateMany");
+        return { count: Object.values(userSummaryCountsByMonth).reduce((a, b) => a + b, 0) };
+      }
+    },
+    attendanceMonthlyBranchSummary: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(branchSummaryCountsByMonth, where),
+      groupBy: async () =>
+        Object.entries(branchSummaryCountsByMonth).map(([monthKey, count]) => ({
+          monthKey,
+          _count: count
+        })),
+      deleteMany: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) => {
+        deleteCalls.push("attendanceMonthlyBranchSummary.deleteMany");
+        return { count: countByWhere(branchSummaryCountsByMonth, where) };
+      }
+    },
+    attendanceMonthlyChainSummary: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(chainSummaryCountsByMonth, where),
+      groupBy: async () =>
+        Object.entries(chainSummaryCountsByMonth).map(([monthKey, count]) => ({
+          monthKey,
+          _count: count
+        })),
+      deleteMany: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) => {
+        deleteCalls.push("attendanceMonthlyChainSummary.deleteMany");
+        return { count: countByWhere(chainSummaryCountsByMonth, where) };
+      }
+    },
+    attendanceImportBatch: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(batchCountsByMonth, where),
+      groupBy: async () => [],
+      findMany: async () =>
+        Object.entries(batchCountsByMonth).map(([monthKey, count]) => ({
+          id: `batch-${monthKey}`,
+          periodFrom: new Date(`${monthKey}-01T00:00:00.000Z`),
+          periodTo: new Date(`${monthKey}-01T00:00:00.000Z`),
+          createdAt: new Date(`${monthKey}-02T00:00:00.000Z`),
+          completedAt: new Date(`${monthKey}-02T00:00:00.000Z`),
+          status: AttendanceImportStatus.COMPLETED,
+          _count: count
+        })),
+      create: async (input: Record<string, unknown>) => ({
+        id: "maintenance-batch-1",
+        ...(input as object)
+      }),
+      deleteMany: async () => {
+        deleteCalls.push("attendanceImportBatch.deleteMany");
+        return { count: Object.values(batchCountsByMonth).reduce((a, b) => a + b, 0) };
+      }
+    },
+    attendanceImportIssue: {
+      count: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) =>
+        countByWhere(issueCountsByMonth, where),
+      groupBy: async () => [],
+      deleteMany: async ({ where }: { where?: Parameters<typeof countByWhere>[1] } = {}) => {
+        deleteCalls.push("attendanceImportIssue.deleteMany");
+        return { count: countByWhere(issueCountsByMonth, where) };
+      }
+    },
+    $transaction: async (callback: (tx: unknown) => unknown) => callback(prisma)
+  };
+
+  const service = new AttendanceOperationsService(
+    prisma as never,
+    {
+      recalculateSummariesForPeriod: async (input: Record<string, unknown>) => {
+        recalculateCalls.push(input);
+        return {
+          batchId: "recalculate-batch-1",
+          userSummariesStored: 1,
+          branchSummariesRebuilt: 1,
+          chainSummariesRebuilt: 1
+        };
+      }
+    } as never,
+    {} as never,
+    {
+      log: async (input: Record<string, unknown>) => {
+        auditLogs.push(input);
+        return input;
+      }
+    } as never
+  );
+
+  if (options.referenceDate) {
+    (service as never as { maintenanceReferenceDate: Date }).maintenanceReferenceDate =
+      options.referenceDate;
+  }
+
+  return {
+    auditLogs,
+    deleteCalls,
+    recalculateCalls,
+    service,
+    updateCalls
+  };
+}
+
+function keysFromWhere(where?: {
+  monthKey?: string | { in?: string[] };
+  attendanceDate?: { gte?: Date; lte?: Date };
+  periodFrom?: { gte?: Date; lte?: Date };
+}) {
+  if (!where) {
+    return ["2026-01"];
+  }
+
+  if (typeof where.monthKey === "string") {
+    return [where.monthKey];
+  }
+
+  if (where.monthKey?.in) {
+    return where.monthKey.in;
+  }
+
+  const range = where.attendanceDate ?? where.periodFrom;
+  if (range?.gte && range?.lte) {
+    return monthKeysBetween(range.gte, range.lte);
+  }
+
+  return ["2026-01"];
+}
+
+function monthKeysBetween(from: Date, to: Date) {
+  const keys: string[] = [];
+  let cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
+
+  while (cursor <= end) {
+    const month = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+    keys.push(`${cursor.getUTCFullYear()}-${month}`);
+    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+  }
+
+  return keys;
 }
 
 void main();

@@ -23,9 +23,15 @@ import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import {
   ConfirmHistoricalAssignmentsDto,
+  CompressOldAttendanceMonthsDto,
+  DeleteAllAttendanceDataDto,
+  DeleteAttendanceMonthDto,
+  DeleteAttendanceRangeDto,
   ListAttendanceImportIssuesQueryDto,
   ListAttendanceImportsQueryDto,
+  PreviewAttendanceMaintenanceDto,
   PreviewHistoricalAssignmentsDto,
+  RecalculateAttendanceSummariesDto,
   UploadAttendanceImportDto
 } from "./dto/attendance-operations.dto";
 import {
@@ -122,6 +128,95 @@ export class AttendanceOperationsController {
       periodTo: dto.periodTo,
       actorUserId: user.id,
       confirmationText: dto.confirmationText,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Get("maintenance/months")
+  listMaintenanceMonths() {
+    return this.attendanceOperations.listMaintenanceMonths();
+  }
+
+  @Post("maintenance/preview")
+  previewMaintenance(
+    @Body() dto: PreviewAttendanceMaintenanceDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.previewMaintenance({
+      ...dto,
+      actorUserId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post("maintenance/delete-range")
+  deleteAttendanceRange(
+    @Body() dto: DeleteAttendanceRangeDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.deleteAttendanceRange({
+      ...dto,
+      actorUserId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post("maintenance/delete-month")
+  deleteAttendanceMonth(
+    @Body() dto: DeleteAttendanceMonthDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.deleteAttendanceMonth({
+      ...dto,
+      actorUserId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post("maintenance/delete-all")
+  deleteAllAttendanceData(
+    @Body() dto: DeleteAllAttendanceDataDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.deleteAllAttendanceData({
+      ...dto,
+      actorUserId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post("maintenance/recalculate")
+  recalculateAttendanceSummaries(
+    @Body() dto: RecalculateAttendanceSummariesDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.recalculateAttendanceSummaries({
+      ...dto,
+      actorUserId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post("maintenance/compress-old-months")
+  compressOldAttendanceMonths(
+    @Body() dto: CompressOldAttendanceMonthsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.attendanceOperations.compressOldAttendanceMonths({
+      ...dto,
+      actorUserId: user.id,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
     });

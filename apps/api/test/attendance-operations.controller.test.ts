@@ -48,6 +48,34 @@ async function main() {
     confirmHistoricalAssignments: async () => {
       calls.push("confirm");
       return { createdCount: 0 };
+    },
+    listMaintenanceMonths: async () => {
+      calls.push("maintenance-months");
+      return { items: [] };
+    },
+    previewMaintenance: async () => {
+      calls.push("maintenance-preview");
+      return { canProceed: true };
+    },
+    deleteAttendanceRange: async () => {
+      calls.push("maintenance-delete-range");
+      return { status: "COMPLETED" };
+    },
+    deleteAttendanceMonth: async () => {
+      calls.push("maintenance-delete-month");
+      return { status: "COMPLETED" };
+    },
+    deleteAllAttendanceData: async () => {
+      calls.push("maintenance-delete-all");
+      return { status: "COMPLETED" };
+    },
+    recalculateAttendanceSummaries: async () => {
+      calls.push("maintenance-recalculate");
+      return { status: "COMPLETED" };
+    },
+    compressOldAttendanceMonths: async () => {
+      calls.push("maintenance-compress");
+      return { status: "COMPLETED" };
     }
   } as unknown as AttendanceOperationsService;
   const controller = new AttendanceOperationsController(service);
@@ -111,6 +139,65 @@ async function main() {
     ),
     { createdCount: 0 }
   );
+  assert.deepEqual(await controller.listMaintenanceMonths(), { items: [] });
+  assert.deepEqual(
+    await controller.previewMaintenance(
+      { operation: "DELETE_MONTH", monthKey: "2026-01" } as never,
+      user as never,
+      request as never
+    ),
+    { canProceed: true }
+  );
+  assert.deepEqual(
+    await controller.deleteAttendanceRange(
+      {
+        periodFrom: "2026-01-01",
+        periodTo: "2026-01-31",
+        confirmationText: "DELETE ATTENDANCE DATA"
+      },
+      user as never,
+      request as never
+    ),
+    { status: "COMPLETED" }
+  );
+  assert.deepEqual(
+    await controller.deleteAttendanceMonth(
+      {
+        monthKey: "2026-01",
+        confirmationText: "DELETE ATTENDANCE DATA"
+      },
+      user as never,
+      request as never
+    ),
+    { status: "COMPLETED" }
+  );
+  assert.deepEqual(
+    await controller.deleteAllAttendanceData(
+      { confirmationText: "DELETE ATTENDANCE DATA" },
+      user as never,
+      request as never
+    ),
+    { status: "COMPLETED" }
+  );
+  assert.deepEqual(
+    await controller.recalculateAttendanceSummaries(
+      {
+        monthKey: "2026-01",
+        confirmationText: "RECALCULATE ATTENDANCE SUMMARIES"
+      },
+      user as never,
+      request as never
+    ),
+    { status: "COMPLETED" }
+  );
+  assert.deepEqual(
+    await controller.compressOldAttendanceMonths(
+      { confirmationText: "COMPRESS ATTENDANCE MONTHS" },
+      user as never,
+      request as never
+    ),
+    { status: "COMPLETED" }
+  );
   assert.deepEqual(calls, [
     "upload",
     "list",
@@ -118,7 +205,14 @@ async function main() {
     "issues",
     "sample-users",
     "preview",
-    "confirm"
+    "confirm",
+    "maintenance-months",
+    "maintenance-preview",
+    "maintenance-delete-range",
+    "maintenance-delete-month",
+    "maintenance-delete-all",
+    "maintenance-recalculate",
+    "maintenance-compress"
   ]);
 }
 
