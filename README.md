@@ -35,7 +35,7 @@ Approved current workstream:
 Attendance Analytics + Super Admin Attendance Data Operations
 ```
 
-This workstream starts with documentation and planning only. Attendance implementation must stay within the approved analytics/import/reporting scope and must not add payroll, GPS, live tracking, biometrics, order integration, inventory, accounting, or generic ERP behavior.
+Attendance implementation stays within the approved analytics/import/reporting scope and must not add payroll, GPS, live tracking, biometrics, order integration, inventory, accounting, or generic ERP behavior.
 
 HR Google Sheets Sync remains a separate scoped lifecycle reporting integration. It must not own attendance behavior.
 
@@ -104,10 +104,12 @@ Champ:
   /champ/branches/:vendorId/transfer
   /champ/branches/:vendorId/resignation
   /champ/reports
+  /champ/reports/attendance
 
 Area Manager:
   /area-manager/dashboard
   /area-manager/reports
+  /area-manager/reports/attendance
   /approvals
   /requests
 
@@ -120,18 +122,16 @@ Admin / Super Admin:
   /admin/archived-users
   /admin/audit-logs
   /admin/reports
+  /admin/reports/attendance
   /admin/settings
+  /super-admin/attendance-operations
+  /super-admin/attendance-operations/upload
+  /super-admin/attendance-operations/history
+  /super-admin/attendance-operations/maintenance
+  /super-admin/attendance-operations/rules
 ```
 
 Resignation is the only offboarding lifecycle in the active product scope.
-
-Recommended future Attendance Operations route:
-
-```text
-/super-admin/attendance-operations
-```
-
-This route is not implemented in Phase 0.
 
 ## API Highlights
 
@@ -176,6 +176,39 @@ Reports:
 GET /api/reports/admin/overview
 GET /api/reports/area-manager/overview
 GET /api/reports/champ/overview
+GET /api/reports/attendance/months
+GET /api/reports/attendance/overview
+GET /api/reports/attendance/chains
+GET /api/reports/attendance/branches
+GET /api/reports/attendance/users
+GET /api/reports/attendance/users/:userId/daily
+GET /api/reports/attendance/area-manager/months
+GET /api/reports/attendance/area-manager/overview
+GET /api/reports/attendance/area-manager/chains
+GET /api/reports/attendance/area-manager/branches
+GET /api/reports/attendance/area-manager/users
+GET /api/reports/attendance/area-manager/users/:userId/daily
+GET /api/reports/attendance/champ/months
+GET /api/reports/attendance/champ/overview
+GET /api/reports/attendance/champ/branches
+GET /api/reports/attendance/champ/users
+GET /api/reports/attendance/champ/users/:userId/daily
+
+Attendance Operations:
+POST /api/attendance-operations/imports
+GET  /api/attendance-operations/imports
+GET  /api/attendance-operations/imports/:id
+GET  /api/attendance-operations/imports/:id/issues
+GET  /api/attendance-operations/imports/:id/sample-users
+POST /api/attendance-operations/historical-assignments/preview
+POST /api/attendance-operations/historical-assignments/confirm
+GET  /api/attendance-operations/maintenance/months
+POST /api/attendance-operations/maintenance/preview
+POST /api/attendance-operations/maintenance/delete-range
+POST /api/attendance-operations/maintenance/delete-month
+POST /api/attendance-operations/maintenance/delete-all
+POST /api/attendance-operations/maintenance/recalculate
+POST /api/attendance-operations/maintenance/compress-old-months
 ```
 
 ## Local Development
@@ -294,6 +327,7 @@ Attendance Analytics docs:
 - [Attendance Operations UI](./docs/ATTENDANCE_OPERATIONS_UI.md)
 - [Attendance Calculation Rules](./docs/ATTENDANCE_CALCULATION_RULES.md)
 - [Attendance Implementation Plan](./docs/ATTENDANCE_IMPLEMENTATION_PLAN.md)
+- [Attendance Release Checklist](./docs/ATTENDANCE_RELEASE_CHECKLIST.md)
 
 Historical and support docs:
 
@@ -310,4 +344,4 @@ Historical and support docs:
 - Production deployment strategy is not finalized.
 - Next/PostCSS moderate audit warnings may remain until safe dependency updates are available.
 - UI/UX needs page-by-page redesign.
-- Attendance Analytics is documented and approved, but not implemented yet.
+- `apps/api/src/attendance/attendance-operations.service.ts` and `apps/api/src/reports/reports.service.ts` are large and should be split only with dedicated regression coverage.

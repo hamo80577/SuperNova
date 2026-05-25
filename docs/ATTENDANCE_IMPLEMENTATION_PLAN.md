@@ -413,29 +413,37 @@ targeted scope/access tests
 manual Area Manager and Champ report smoke tests
 ```
 
-## Phase 7 - Retention Automation and Production Polish
+## Phase 7 - Production Polish and Hardening
 
 Goal:
 
 ```text
-Automate retention, harden large imports, and prepare the attendance workstream for production operation.
+Stabilize, harden, clean up, and prepare Attendance Analytics for merge and release.
 ```
 
 Scope:
 
 ```text
-retention job or admin-triggered scheduled path inside the monolith
-large upload performance review
-import timeout/retry behavior
-observability/logging
+access-control audit
+read/write safety audit
+database/index review
+large upload and parser hardening review
+safe refactor only where low-risk
+mobile UI polish
 production configuration docs
 operator runbook
+release checklist
 final regression pass
 ```
 
 Out of scope:
 
 ```text
+new attendance report features
+Picker self attendance
+automatic scheduled jobs unless explicitly approved
+new workflow behavior
+new assignment behavior
 microservices
 payroll
 GPS
@@ -449,11 +457,17 @@ accounting
 Acceptance criteria:
 
 ```text
-old-month compression can run safely and repeatably
-large imports report progress and failures clearly
+all attendance operation endpoints are Super Admin only
+Admin/Super Admin report endpoints remain read-only
+Area Manager and Champ scoped endpoints derive scope from CurrentUser.id
+maintenance operations touch only attendance tables and AuditLog
+normal import does not create historical assignments automatically
+historical assignment confirm creates CLOSED Picker assignments only after confirmation
+large uploads have size, extension, period, and fatal parser validation
 no permanent uploaded file storage exists
 audit coverage exists for delete, recalculate, and compress
 production runbook documents safe operations and recovery
+release checklist documents final manual QA
 ```
 
 Required checks:
@@ -466,4 +480,12 @@ npm run lint
 npm run build
 targeted backend tests
 manual production-like import and retention smoke test
+```
+
+Release hardening note:
+
+```text
+attendance-operations.service.ts and reports.service.ts are large.
+Do not split them during a release polish pass unless the extraction is mechanical, covered by focused tests, and preserves endpoint responses exactly.
+Prefer a dedicated refactor phase if broader decomposition is needed.
 ```

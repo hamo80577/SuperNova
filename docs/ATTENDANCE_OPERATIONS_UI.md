@@ -2,10 +2,16 @@
 
 ## Route
 
-Recommended route:
+Super Admin operations live under:
 
 ```text
 /super-admin/attendance-operations
+```
+
+The base route redirects to:
+
+```text
+/super-admin/attendance-operations/upload
 ```
 
 Access:
@@ -14,103 +20,72 @@ Access:
 SUPER_ADMIN only
 ```
 
-Page name:
+Backend protection is required for every `/api/attendance-operations/*` route. Frontend hiding is not security.
 
-```text
-Attendance Data Operations
-```
-
-## Tabs
-
-Phase 3 exposes:
+## Child Views
 
 ```text
 Upload Attendance
 Import History
+Data Maintenance
 Calculation Rules
 ```
 
-Phase 4 may add:
+## Upload Attendance
 
-```text
-Data Maintenance
-```
-
-## Upload Modes
-
-Phase 3 exposes:
+Supported upload modes:
 
 ```text
 Daily MTD Override
 Historical Backfill
 ```
 
-Phase 4 may add:
+Daily MTD Override derives the period automatically:
 
 ```text
-Recalculate Only
+first day of current month -> yesterday
 ```
 
-## Upload UX
-
-Upload Attendance must include:
+Historical Backfill uses a month picker and derives:
 
 ```text
-file selector
-period from
-period to
-upload mode
-preflight summary
+first day of selected month -> last day of selected month
+```
+
+The upload view includes:
+
+```text
+reusable file selector
+compact preflight checklist
 processing state
-progress/stepper
-polling backend import status if imports become asynchronous
-professional final summary
-warnings/issues display
+final summary
+sample calculated users
+historical assignment backfill preview and confirmation for Historical Backfill only
 ```
 
-## Processing Steps
-
-```text
-Uploading file
-Reading rows
-Filtering Egypt rows
-Matching users
-Calculating metrics
-Rebuilding summaries
-Rebuilding user summaries
-Rebuilding branch summaries
-Rebuilding chain summaries
-Saving import issues
-Finalizing
-```
-
-If Phase 3 import processing remains synchronous, the UI should show the
-processing state during the request and render the result after completion. It
-must not fake polling.
+Normal attendance import must not create historical assignments automatically.
 
 ## Import History
 
-Import History should show:
+Import History lists recent batches and opens a read-only detail modal on row click.
+
+Detail modal shows:
 
 ```text
 batch status
-upload mode
-period
-fileName
-fileHash
-createdBy
-startedAt
-finishedAt
-row counts
-matched counts
-ignored non-Egypt counts
-issue counts
-final summary
+file and period
+created by
+counts
+retention result
+warning/error counts
+issue list
 ```
+
+The history view does not expose delete, recalculate, or compression actions.
 
 ## Data Maintenance
 
-Data Maintenance must support later:
+Data Maintenance supports attendance-only maintenance operations:
 
 ```text
 delete by date range
@@ -120,33 +95,28 @@ recalculate summaries
 compress old months
 ```
 
-Dangerous operations must require:
+Every operation requires:
 
 ```text
 impact preview
 typed confirmation
 audit log
-final summary
+final result summary
 ```
 
-Delete must never affect:
+Typed confirmations:
 
 ```text
-Users
-Assignments
-Requests
-Approvals
-Notifications
-Audit logs
-Access-control data
+DELETE ATTENDANCE DATA
+RECALCULATE ATTENDANCE SUMMARIES
+COMPRESS ATTENDANCE MONTHS
 ```
 
-Do not expose Data Maintenance in Phase 3.
+Delete and compression operations must affect attendance tables only and must never delete users, assignments, requests, approvals, notifications, audit logs, access-control data, vendors, or chains.
 
 ## Historical Assignment Backfill
 
-Historical Assignment Backfill is available only as an explicit Super Admin
-preview and typed confirmation flow.
+Historical Assignment Backfill is available only as an explicit Super Admin preview and typed confirmation flow.
 
 Rules:
 
@@ -163,8 +133,40 @@ Do not create Champ assignments.
 Do not accept raw frontend proposal objects as trusted confirmation input.
 ```
 
-## Calculation Rules Tab
+## Calculation Rules
 
-The Calculation Rules tab should present current calculation definitions in operational language.
+The Calculation Rules view is read-only.
 
-It should not be editable unless a later product decision approves configurable rules.
+It documents:
+
+```text
+Division = Egypt
+Picker match: Identifier = shopperId
+Champ match: Identifier = ibsId
+SuperNova User.role is the role source
+Branch and Chain totals are Picker-only
+Champ attendance is user-level only
+late, absence, leave, duration, needed shift, and retention rules
+historical assignment backfill exception
+```
+
+## Mobile UI Requirements
+
+The operations UI must remain usable at:
+
+```text
+360px
+390px
+430px
+```
+
+Requirements:
+
+```text
+no horizontal page overflow
+touch-friendly buttons
+clear loading, empty, and error states
+dangerous operations visually isolated
+typed confirmations readable on mobile
+tables converted to cards or controlled horizontal scroll
+```

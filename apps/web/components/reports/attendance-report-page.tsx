@@ -29,7 +29,7 @@ import {
 
 type AsyncState = "idle" | "loading" | "ready" | "error";
 type UserRoleFilter = "ALL" | AttendanceMatchedRole;
-type AttendanceReportScope = "admin" | "area-manager" | "champ";
+export type AttendanceReportScope = "admin" | "area-manager" | "champ";
 
 const currentMonthKey = new Date().toISOString().slice(0, 7);
 
@@ -264,7 +264,7 @@ export function AttendanceReportPage({
 
       {status === "ready" && overview ? (
         <>
-          <OverviewSection overview={overview} />
+          <OverviewSection overview={overview} scope={scope} />
           {overview.summaryOnly || !overview.dailyRecordsAvailable ? (
             <Notice>
               Daily detail is no longer stored for this month. Monthly summary
@@ -388,7 +388,13 @@ export function AttendanceReportPage({
   );
 }
 
-function OverviewSection({ overview }: { overview: AttendanceOverview }) {
+function OverviewSection({
+  overview,
+  scope
+}: {
+  overview: AttendanceOverview;
+  scope: AttendanceReportScope;
+}) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <MetricCard label="Pickers" value={overview.totalPickers} />
@@ -410,11 +416,22 @@ function OverviewSection({ overview }: { overview: AttendanceOverview }) {
           </Badge>
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
-          {overview.branchCount} Branches / {overview.chainCount} Chains
+          {getAttendanceArchiveSummaryText(scope, overview)}
         </p>
       </section>
     </section>
   );
+}
+
+export function getAttendanceArchiveSummaryText(
+  scope: AttendanceReportScope,
+  overview: Pick<AttendanceOverview, "branchCount" | "chainCount">
+) {
+  if (scope === "champ") {
+    return `${overview.branchCount} Assigned Branches`;
+  }
+
+  return `${overview.branchCount} Branches / ${overview.chainCount} Chains`;
 }
 
 function Field({

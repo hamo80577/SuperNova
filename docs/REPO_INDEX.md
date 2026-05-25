@@ -22,10 +22,11 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
 - `docs/REPORTS_AND_ROLE_WORKSPACES.md`: Reporting boundaries and role-scoped attendance reporting direction.
 - `docs/UI_UX_DIRECTION.md` and `docs/UI_UX_COMPONENT_RULES.md`: Mobile-first operational UI rules.
 - `docs/ATTENDANCE_MODULE_SPEC.md`: Attendance scope, source file, matching, aggregation, and import safety rules.
-- `docs/ATTENDANCE_DATA_MODEL.md`: Future data model concepts and retention requirements.
-- `docs/ATTENDANCE_OPERATIONS_UI.md`: Future Super Admin Attendance Data Operations route and UX requirements.
+- `docs/ATTENDANCE_DATA_MODEL.md`: Implemented Attendance Analytics data model, retention, and safe reset boundaries.
+- `docs/ATTENDANCE_OPERATIONS_UI.md`: Super Admin Attendance Data Operations UI, maintenance, and backfill requirements.
 - `docs/ATTENDANCE_CALCULATION_RULES.md`: Approved metric formulas.
 - `docs/ATTENDANCE_IMPLEMENTATION_PLAN.md`: Phased Attendance Analytics plan.
+- `docs/ATTENDANCE_RELEASE_CHECKLIST.md`: Attendance release, access-control, mobile QA, and regression checklist.
 - `docs/CODEX_WORKFLOW_RULES.md`: Agent workflow and verification rules.
 
 ## Key Product Domains
@@ -298,6 +299,63 @@ Lightweight inspection map for future Codex and code review sessions. Prefer dir
   - Prisma `AuditLog` model in `prisma/schema.prisma`
 - Important tests:
   - No focused audit log test file currently identified.
+
+### Attendance Analytics
+
+- Main frontend files:
+  - `apps/web/app/super-admin/attendance-operations/page.tsx`
+  - `apps/web/app/super-admin/attendance-operations/upload/page.tsx`
+  - `apps/web/app/super-admin/attendance-operations/history/page.tsx`
+  - `apps/web/app/super-admin/attendance-operations/maintenance/page.tsx`
+  - `apps/web/app/super-admin/attendance-operations/rules/page.tsx`
+  - `apps/web/app/admin/reports/attendance/page.tsx`
+  - `apps/web/app/area-manager/reports/attendance/page.tsx`
+  - `apps/web/app/champ/reports/attendance/page.tsx`
+  - `apps/web/components/attendance/attendance-operations-page.tsx`
+  - `apps/web/components/attendance/attendance-maintenance-page.tsx`
+  - `apps/web/components/reports/attendance-report-page.tsx`
+  - `apps/web/components/ui/file-selector.tsx`
+  - `apps/web/lib/api/attendance-operations.ts`
+  - `apps/web/lib/api/reports.ts`
+- Main API files:
+  - `apps/api/src/attendance/attendance.module.ts`
+  - `apps/api/src/attendance/attendance-operations.controller.ts`
+  - `apps/api/src/attendance/attendance-operations.service.ts`
+  - `apps/api/src/attendance/attendance-import.service.ts`
+  - `apps/api/src/attendance/attendance-parser.service.ts`
+  - `apps/api/src/attendance/attendance-matcher.service.ts`
+  - `apps/api/src/attendance/attendance-calculation.service.ts`
+  - `apps/api/src/attendance/attendance-summary.service.ts`
+  - `apps/api/src/attendance/attendance-assignment-snapshot.service.ts`
+  - `apps/api/src/attendance/attendance-historical-assignment-backfill.service.ts`
+  - `apps/api/src/attendance/attendance-location-mapper.service.ts`
+  - `apps/api/src/reports/reports.controller.ts`
+  - `apps/api/src/reports/reports.service.ts`
+  - `apps/api/src/reports/dto/attendance-report-query.dto.ts`
+- Prisma:
+  - `prisma/schema.prisma` models `AttendanceImportBatch`, `AttendanceDailyRecord`, `AttendanceMonthlyUserSummary`, `AttendanceMonthlyBranchSummary`, `AttendanceMonthlyChainSummary`, and `AttendanceImportIssue`.
+  - Migration `prisma/migrations/20260524120303_add_attendance_analytics_foundation`.
+- Important tests:
+  - `apps/api/test/attendance-calculation.service.test.ts`
+  - `apps/api/test/attendance-parser.service.test.ts`
+  - `apps/api/test/attendance-matcher.service.test.ts`
+  - `apps/api/test/attendance-assignment-snapshot.service.test.ts`
+  - `apps/api/test/attendance-summary.service.test.ts`
+  - `apps/api/test/attendance-import.service.test.ts`
+  - `apps/api/test/attendance-location-mapper.service.test.ts`
+  - `apps/api/test/attendance-historical-assignment-backfill.service.test.ts`
+  - `apps/api/test/attendance-operations.service.test.ts`
+  - `apps/api/test/attendance-operations.controller.test.ts`
+  - `apps/api/test/attendance-reports.service.test.ts`
+  - `apps/api/test/attendance-scoped-reports.service.test.ts`
+  - `apps/api/test/reports-access-policy.test.ts`
+  - `apps/web/components/reports/attendance-report-page.test.ts`
+- Notes:
+  - Super Admin operations are under `/api/attendance-operations/*` and `/super-admin/attendance-operations/*`.
+  - Admin/Super Admin reports are under `/api/reports/attendance/*` and `/admin/reports/attendance`.
+  - Area Manager and Champ scoped report APIs derive scope from the authenticated user id.
+  - Branch and Chain attendance summaries are Picker-only.
+  - Champ attendance remains user-level only.
 
 ### HR Google Sheets Sync
 
