@@ -20,17 +20,32 @@ No Branch/Chain aggregated metrics are required in v1.
 
 The input is an MTD Excel sheet uploaded daily.
 
+Important cutoff rule:
+
+```text
+MTD means from the first day of the month through yesterday only.
+It does not include the upload day / today.
+```
+
 Example behavior:
 
 ```text
-May 1 - May 8 file uploaded  -> May active snapshot v1
-May 1 - May 9 file uploaded  -> May active snapshot v2 replaces v1
-May 1 - May 10 file uploaded -> May active snapshot v3 replaces v2
+Uploaded on May 9  -> file covers May 1 - May 8  -> May active snapshot v1
+Uploaded on May 10 -> file covers May 1 - May 9  -> May active snapshot v2 replaces v1
+Uploaded on May 11 -> file covers May 1 - May 10 -> May active snapshot v3 replaces v2
 ```
 
 The upload is not append-based.
 
 Every new upload for the same period replaces the active monthly snapshot after validation and confirmation.
+
+The engine must store and validate the file coverage range:
+
+```text
+coverageStartDate = first shift date in the file
+coverageEndDate = last shift date in the file
+expectedCoverageEndDate = upload date - 1 day, unless this is a historical/manual import
+```
 
 ## Hard Guardrails
 
@@ -79,6 +94,20 @@ Division = Egypt / EGYPT
 are eligible for calculation.
 
 Non-Egypt rows are excluded and counted in import preview.
+
+### MTD coverage rule
+
+Daily MTD upload coverage is from month start through yesterday.
+
+For normal daily imports:
+
+```text
+latest Shift Date in file must be yesterday relative to upload date
+```
+
+If the file contains today, future dates, or dates after the expected cutoff, the validation preview must surface this clearly before confirmation.
+
+Historical/manual imports can be handled later with stricter confirmation and audit requirements.
 
 ### Role source
 
@@ -140,8 +169,9 @@ excludedNonPickerRows
 excludedNonEgyptRows
 errorRows
 warningRows
-activeFrom
-activeTo
+coverageStartDate
+coverageEndDate
+expectedCoverageEndDate
 replaceOfBatchId
 confirmedByUserId
 confirmedAt
@@ -288,6 +318,10 @@ UNKNOWN_STATUS
 DUPLICATE_PICKER_DATE
 MULTIPLE_MONTHS_IN_FILE
 INVALID_REQUIRED_COLUMN
+MTD_COVERAGE_START_NOT_MONTH_START
+MTD_COVERAGE_END_NOT_YESTERDAY
+MTD_INCLUDES_UPLOAD_DAY
+MTD_INCLUDES_FUTURE_DATE
 ```
 
 ## Calculated Status Priority
@@ -383,6 +417,10 @@ Backend validates:
 ```text
 Required columns exist
 File contains one period month
+Coverage starts at month start
+Coverage ends at yesterday for normal daily import
+File does not include upload day/today for normal daily import
+File does not include future dates
 Division values
 Identifier values
 Date/time values
@@ -404,6 +442,8 @@ Excluded non-Egypt rows
 Warnings
 Errors
 Period covered
+Expected coverage end date
+Coverage mismatch warnings/errors
 Replacement impact for the active month
 ```
 
@@ -521,6 +561,7 @@ Attendance month replaced
 Attendance month locked/unlocked
 Rejected/failed import
 Dangerous historical replacement
+MTD coverage mismatch accepted/rejected
 ```
 
 Audit log should include:
@@ -530,6 +571,8 @@ Actor
 Operation
 Period month
 Batch id
+Coverage start/end
+Expected coverage end
 Previous active batch id when replaced
 Result
 Timestamp
@@ -573,7 +616,7 @@ Add backend service that reads the MTD Excel file and returns validation preview
 
 No final storage yet except temporary batch metadata if needed.
 
-Add unit tests for column validation and row parsing.
+Add unit tests for column validation, row parsing, and MTD coverage validation.
 
 ### Phase 3 — Calculation Engine
 
@@ -597,6 +640,9 @@ Unmatched Identifier
 Non-Picker matched user
 Non-Egypt rows
 Duplicate picker/date rows
+MTD from month start through yesterday
+Reject/warn when file includes upload day
+Reject/warn when file includes future dates
 ```
 
 ### Phase 4 — Confirm Replace + Storage
@@ -647,7 +693,7 @@ npm run lint
 npm run build
 ```
 
-Backend logic phases must include focused tests for parser, validator, calculation, replacement, and access control.
+Backend logic phases must include focused tests for parser, validator, calculation, replacement, coverage validation, and access control.
 
 ## First Codex Task Recommendation
 
