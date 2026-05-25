@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Bell,
   BarChart3,
+  CalendarDays,
   FileSearch,
   GitBranch,
   Home,
@@ -188,6 +189,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
+      label: "Attendance",
+      href: "/admin/reports/attendance",
+      icon: CalendarDays,
+      section: "Reports"
+    },
+    {
       label: "Archived Users",
       href: "/admin/archived-users",
       icon: Archive,
@@ -241,6 +248,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Reports",
       href: "/admin/reports",
       icon: BarChart3,
+      section: "Reports"
+    },
+    {
+      label: "Attendance",
+      href: "/admin/reports/attendance",
+      icon: CalendarDays,
       section: "Reports"
     },
     {

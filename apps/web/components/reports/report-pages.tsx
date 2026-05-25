@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Archive,
   BarChart3,
+  CalendarDays,
   ClipboardList,
   GitBranch,
   Inbox,
@@ -141,6 +142,19 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
           prefetch
         >
           Open pending actions
+        </Link>
+      </InfoCard>
+
+      <InfoCard title="Attendance Report">
+        <Definition label="Scope" value="Picker daily rows" />
+        <Definition label="Source" value="Active confirmed batches" />
+        <Link
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+          href="/admin/reports/attendance"
+          prefetch
+        >
+          <CalendarDays className="mr-2 h-4 w-4" />
+          Open attendance
         </Link>
       </InfoCard>
 
