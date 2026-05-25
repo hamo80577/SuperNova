@@ -6,5 +6,8 @@ export * from "./attendance-import.types";
 export * from "./attendance-imports.controller";
 export * from "./attendance-parser.service";
 export * from "./attendance-preview.types";
+export * from "./attendance-report.service";
+export * from "./attendance-report.types";
+export * from "./attendance-reports.controller";
 export * from "./attendance-user-lookup.service";
 export * from "./attendance-validator.service";
