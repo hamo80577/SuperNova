@@ -14,12 +14,14 @@ import {
   Search,
   TimerReset,
   Umbrella,
+  UploadCloud,
   Users
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
@@ -180,15 +182,28 @@ export function AttendanceDailyReportPage() {
               batch.
             </p>
           </div>
-          <Button
-            className="h-11 rounded-xl"
-            onClick={() => setAppliedFilters({ ...filters })}
-            type="button"
-            variant="outline"
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-11 rounded-xl"
+              )}
+              href="/admin/attendance/imports"
+              prefetch
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Import console
+            </Link>
+            <Button
+              className="h-11 rounded-xl"
+              onClick={() => setAppliedFilters({ ...filters })}
+              type="button"
+              variant="outline"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </section>
 

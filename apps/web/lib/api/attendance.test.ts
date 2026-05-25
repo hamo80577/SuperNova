@@ -1,4 +1,6 @@
 import {
+  buildAttendanceImportConfirmPath,
+  buildAttendanceImportPreviewFormData,
   buildAttendanceDailyReportPath,
   type AttendanceDailyReportQuery
 } from "./attendance";
@@ -42,5 +44,34 @@ const assert = {
       page: 1
     }),
     "/attendance/reports/daily?periodMonth=2026-05&page=1"
+  );
+}
+
+{
+  const file = new File(["attendance"], "mtd.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+  const formData = buildAttendanceImportPreviewFormData(file, {
+    uploadDate: "2026-05-09"
+  });
+
+  assert.equal(formData.get("file"), file);
+  assert.equal(formData.get("uploadDate"), "2026-05-09");
+}
+
+{
+  const file = new File(["attendance"], "mtd.xlsx");
+  const formData = buildAttendanceImportPreviewFormData(file, {
+    uploadDate: " "
+  });
+
+  assert.equal(formData.get("file"), file);
+  assert.equal(formData.has("uploadDate"), false);
+}
+
+{
+  assert.equal(
+    buildAttendanceImportConfirmPath("batch-123"),
+    "/attendance/imports/batch-123/confirm"
   );
 }

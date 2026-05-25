@@ -1,4 +1,4 @@
-import { apiGet } from "./request";
+import { apiGet, apiRequest } from "./request";
 
 export type AttendanceCalculatedStatus =
   | "ON_TIME"
@@ -90,6 +90,85 @@ export interface AttendanceDailyReportRow {
   issuesCount: number;
 }
 
+export type AttendanceImportBatchStatus =
+  | "UPLOADED"
+  | "VALIDATED"
+  | "CONFIRMED"
+  | "ACTIVE"
+  | "REPLACED"
+  | "FAILED"
+  | "LOCKED";
+
+export type AttendanceIssueSeverity = "ERROR" | "WARNING";
+
+export type AttendanceIssueResolutionStatus = "OPEN" | "IGNORED" | "RESOLVED";
+
+export type AttendanceMatchStatus =
+  | "MATCHED_PICKER"
+  | "UNMATCHED_IDENTIFIER"
+  | "EXCLUDED_NOT_PICKER"
+  | "EXCLUDED_NON_EGYPT"
+  | "NOT_EVALUATED";
+
+export interface AttendanceImportPreviewOptions {
+  uploadDate?: string;
+}
+
+export interface AttendanceImportPreviewResponse {
+  batchId: string;
+  status: AttendanceImportBatchStatus;
+  canConfirm: boolean;
+  preview: AttendanceValidationPreview;
+  dailyRecordCount: number;
+  monthlySummaryCount: number;
+  issueCount: number;
+}
+
+export interface AttendanceValidationPreview {
+  periodMonth: string | null;
+  coverageStartDate: string | null;
+  coverageEndDate: string | null;
+  expectedCoverageEndDate: string;
+  rowCount: number;
+  egyptRows: number;
+  nonEgyptRows: number;
+  matchedPickerRows: number;
+  unmatchedRows: number;
+  excludedNonPickerRows: number;
+  errorRows: number;
+  warningRows: number;
+  canConfirm: boolean;
+  issues: AttendancePreviewIssue[];
+  rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendancePreviewIssue {
+  rowNumber: number | null;
+  shopperId: string | null;
+  severity: AttendanceIssueSeverity;
+  issueCode: string;
+  fieldName: string | null;
+  message: string;
+  resolutionStatus: AttendanceIssueResolutionStatus;
+}
+
+export interface AttendanceRowsPreviewItem {
+  rawRowNumber: number;
+  identifier: string | null;
+  shiftDate: string | null;
+  division: string | null;
+  matchStatus: AttendanceMatchStatus;
+  issuesCount: number;
+}
+
+export interface AttendanceImportConfirmResponse {
+  batchId: string;
+  periodMonth: string;
+  status: AttendanceImportBatchStatus;
+  previousActiveBatchId: string | null;
+  confirmedAt: string;
+}
+
 export function buildAttendanceDailyReportPath(
   query: AttendanceDailyReportQuery
 ) {
@@ -111,10 +190,41 @@ export function buildAttendanceDailyReportPath(
   return `/attendance/reports/daily${serialized ? `?${serialized}` : ""}`;
 }
 
+export function buildAttendanceImportPreviewFormData(
+  file: File,
+  options: AttendanceImportPreviewOptions = {}
+) {
+  const formData = new FormData();
+  formData.set("file", file);
+  setFormString(formData, "uploadDate", options.uploadDate);
+  return formData;
+}
+
+export function buildAttendanceImportConfirmPath(batchId: string) {
+  return `/attendance/imports/${encodeURIComponent(batchId)}/confirm`;
+}
+
 export const attendanceApi = {
   dailyReport(query: AttendanceDailyReportQuery) {
     return apiGet<AttendanceDailyReportResponse>(
       buildAttendanceDailyReportPath(query)
+    );
+  },
+  previewImport(file: File, options: AttendanceImportPreviewOptions = {}) {
+    return apiRequest<AttendanceImportPreviewResponse>(
+      "/attendance/imports/preview",
+      {
+        body: buildAttendanceImportPreviewFormData(file, options),
+        method: "POST"
+      }
+    );
+  },
+  confirmImport(batchId: string) {
+    return apiRequest<AttendanceImportConfirmResponse>(
+      buildAttendanceImportConfirmPath(batchId),
+      {
+        method: "POST"
+      }
     );
   }
 };
@@ -147,5 +257,16 @@ function setNumber(
 ) {
   if (typeof value === "number" && Number.isFinite(value)) {
     params.set(key, String(value));
+  }
+}
+
+function setFormString(
+  formData: FormData,
+  key: string,
+  value: string | undefined
+) {
+  const text = value?.trim();
+  if (text) {
+    formData.set(key, text);
   }
 }

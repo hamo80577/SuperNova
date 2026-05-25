@@ -12,6 +12,7 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  UploadCloud,
   UserRound,
   Users
 } from "lucide-react";
@@ -195,6 +196,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
+      label: "Attendance Imports",
+      href: "/admin/attendance/imports",
+      icon: UploadCloud,
+      section: "Reports"
+    },
+    {
       label: "Archived Users",
       href: "/admin/archived-users",
       icon: Archive,
@@ -254,6 +261,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Attendance",
       href: "/admin/reports/attendance",
       icon: CalendarDays,
+      section: "Reports"
+    },
+    {
+      label: "Attendance Imports",
+      href: "/admin/attendance/imports",
+      icon: UploadCloud,
       section: "Reports"
     },
     {

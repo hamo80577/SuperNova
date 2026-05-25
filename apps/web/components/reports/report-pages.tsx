@@ -10,6 +10,7 @@ import {
   Inbox,
   ShieldCheck,
   Store,
+  UploadCloud,
   Users
 } from "lucide-react";
 import Link from "next/link";
@@ -148,14 +149,24 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
       <InfoCard title="Attendance Report">
         <Definition label="Scope" value="Picker daily rows" />
         <Definition label="Source" value="Active confirmed batches" />
-        <Link
-          className={buttonVariants({ size: "sm", variant: "outline" })}
-          href="/admin/reports/attendance"
-          prefetch
-        >
-          <CalendarDays className="mr-2 h-4 w-4" />
-          Open attendance
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/reports/attendance"
+            prefetch
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Daily report
+          </Link>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/attendance/imports"
+            prefetch
+          >
+            <UploadCloud className="mr-2 h-4 w-4" />
+            Import console
+          </Link>
+        </div>
       </InfoCard>
 
       <SimpleTable
