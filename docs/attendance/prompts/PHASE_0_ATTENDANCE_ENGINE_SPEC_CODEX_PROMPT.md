@@ -30,6 +30,7 @@ The engine will later support:
 
 ```text
 Daily MTD Excel upload
+MTD coverage from month start through yesterday only
 Monthly snapshot replace
 Backend validation
 Backend calculation
@@ -48,8 +49,16 @@ Division = Egypt / EGYPT only
 Role comes from SuperNova, not Excel Designation
 Only SuperNova role PICKER is calculated in v1
 Excel Designation is stored only as source/debug snapshot
+MTD upload covers first day of month through yesterday only, not today/upload day
 Grace period = 15 minutes
 Late bucket rule = Option B
+```
+
+MTD cutoff rule:
+
+```text
+For normal daily imports, latest Shift Date in the file must equal upload date - 1 day.
+The file must not include today/upload day or future dates.
 ```
 
 Late buckets:
@@ -172,30 +181,40 @@ The spec must include these sections:
 2. Scope v1
 3. Out of Scope v1
 4. Source File Contract
-5. Required Columns
-6. Optional / Snapshot Columns
-7. Upload and Monthly Replace Behavior
-8. Month Locking Behavior
-9. Matching Rules
-10. Division Filtering Rules
-11. Role Filtering Rules
-12. Status Normalization
-13. Late Calculation Rules
-14. Leave / Off Day Rules
-15. Work Duration Rules
-16. Daily Result Headers
-17. Monthly Picker Summary Headers
-18. Import Batch Fields
-19. Import Issue Fields
-20. Validation Rules
-21. Duplicate Handling
-22. Calculated Status Priority
-23. Access Control Rules
-24. Audit Requirements
-25. Report UX Requirements
-26. Future Reuse Possibilities
-27. Open Questions / Product Decisions Needed
-28. Implementation Phase Breakdown
+5. MTD Coverage Contract
+6. Required Columns
+7. Optional / Snapshot Columns
+8. Upload and Monthly Replace Behavior
+9. Month Locking Behavior
+10. Matching Rules
+11. Division Filtering Rules
+12. Role Filtering Rules
+13. Status Normalization
+14. Late Calculation Rules
+15. Leave / Off Day Rules
+16. Work Duration Rules
+17. Daily Result Headers
+18. Monthly Picker Summary Headers
+19. Import Batch Fields
+20. Import Issue Fields
+21. Validation Rules
+22. Duplicate Handling
+23. Calculated Status Priority
+24. Access Control Rules
+25. Audit Requirements
+26. Report UX Requirements
+27. Future Reuse Possibilities
+28. Open Questions / Product Decisions Needed
+29. Implementation Phase Breakdown
+```
+
+The MTD Coverage Contract must state clearly:
+
+```text
+MTD = first day of month through yesterday only.
+Normal daily uploads must not include the upload day/today.
+The engine should capture coverageStartDate, coverageEndDate, and expectedCoverageEndDate.
+Coverage mismatch must appear in validation preview before confirm.
 ```
 
 ## Daily Result Headers Required
@@ -278,6 +297,27 @@ firstShiftDate
 lastShiftDate
 lastCalculatedAt
 sourceBatchId
+```
+
+## Import Batch Fields Required
+
+The spec must include coverage fields:
+
+```text
+coverageStartDate
+coverageEndDate
+expectedCoverageEndDate
+```
+
+## Import Issues Required
+
+The spec must include coverage issue codes:
+
+```text
+MTD_COVERAGE_START_NOT_MONTH_START
+MTD_COVERAGE_END_NOT_YESTERDAY
+MTD_INCLUDES_UPLOAD_DAY
+MTD_INCLUDES_FUTURE_DATE
 ```
 
 ## Report UX v1
