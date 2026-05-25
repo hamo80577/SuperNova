@@ -441,12 +441,12 @@ Shift Break Duration (mins)
 
 Derived flags:
 
-- `isUnder8Hours = true` when the row is a working day and `actualWorkDurationHours < 8`.
-- `isOver15Hours = true` when the row is a working day and `actualWorkDurationHours > 15`.
-- Leave, off-day, non-Egypt, unmatched, and non-Picker rows are not working-day duration rows.
-- If a working-day row has missing or invalid actual work duration, create an import issue and keep duration flags false unless a later approved rule says otherwise.
-
-Open product question: whether absent rows count as working days for monthly summary `totalWorkingDays`. This spec recommends counting scheduled non-leave, non-off-day Picker rows as working days, including absences, because they represent expected attendance days.
+- `isWorkingDay = true` only when `calculatedStatus` is `ON_TIME` or `LATE`.
+- `isWorkingDay = false` for `ABSENT`, leave, off-day, non-Egypt, unmatched, non-Picker, and invalid rows.
+- `isUnder8Hours = true` only when `isWorkingDay = true` and `actualWorkDurationHours < 8`.
+- `isOver15Hours = true` only when `isWorkingDay = true` and `actualWorkDurationHours > 15`.
+- If an actual worked day has missing or invalid actual work duration, create an import issue and keep duration flags false unless a later approved rule says otherwise.
+- `ABSENT` rows remain scheduled/source rows and are counted separately in `absentCount`; they must not count as working days.
 
 ## 17. Daily Result Headers
 
@@ -478,7 +478,7 @@ Final intended daily output headers:
 | `sourceStatus` | Source `Status`. |
 | `calculatedStatus` | Result from calculated status priority. |
 | `rawLateMins` | `actualCheckin - scheduledStart` in minutes when applicable. |
-| `graceMins` | Constant `15` for v1 calculated working-day rows. |
+| `graceMins` | Constant `15` for v1 `ON_TIME` and `LATE` rows. |
 | `chargeableLateMins` | `max(0, rawLateMins - 15)` when applicable. |
 | `lateBucket` | `NONE`, `LATE_1`, `LATE_2`, or `LATE_3`. |
 | `isLate` | True when `calculatedStatus = LATE`. |
@@ -489,9 +489,9 @@ Final intended daily output headers:
 | `leaveType` | `ANNUAL_LEAVE`, `MEDICAL_LEAVE`, `OTHER_LEAVE`, or null. |
 | `isAnnualLeave` | True when `calculatedStatus = ANNUAL_LEAVE`. |
 | `isMedicalLeave` | True when `calculatedStatus = MEDICAL_LEAVE`. |
-| `isWorkingDay` | True for scheduled attendance days that are not leave/off-day/excluded rows. |
-| `isUnder8Hours` | True for working-day rows with actual duration below 8 hours. |
-| `isOver15Hours` | True for working-day rows with actual duration above 15 hours. |
+| `isWorkingDay` | True only when `calculatedStatus` is `ON_TIME` or `LATE`; false for `ABSENT`. |
+| `isUnder8Hours` | True for actual worked rows with actual duration below 8 hours. |
+| `isOver15Hours` | True for actual worked rows with actual duration above 15 hours. |
 | `matchStatus` | Match outcome such as `MATCHED_PICKER`, `UNMATCHED_IDENTIFIER`, `EXCLUDED_NOT_PICKER`, or `EXCLUDED_NON_EGYPT`. |
 | `importBatchId` | Confirmed import batch that produced the row. |
 | `rawRowNumber` | Original spreadsheet row number. |
@@ -508,8 +508,8 @@ Final intended monthly Picker summary headers:
 | `shopperId` | Picker `User.shopperId`. |
 | `userId` | Picker `User.id`. |
 | `pickerName` | SuperNova Picker name snapshot. |
-| `totalScheduledRows` | Count of calculated daily rows for the Picker in the active batch. |
-| `totalWorkingDays` | Count of scheduled non-leave, non-off-day working rows, including absences unless product decides otherwise. |
+| `totalScheduledRows` | Count of scheduled/source rows for the Picker in the active batch. |
+| `totalWorkingDays` | Count of actual worked days only: rows where `calculatedStatus` is `ON_TIME` or `LATE`. |
 | `onTimeDays` | Count of rows where `calculatedStatus = ON_TIME`. |
 | `lateDays` | Count of rows where `calculatedStatus = LATE`. |
 | `totalRawLateMins` | Sum of `rawLateMins` for rows where late minutes are calculated. |
@@ -517,14 +517,14 @@ Final intended monthly Picker summary headers:
 | `late1Count` | Count of rows where `lateBucket = LATE_1`. |
 | `late2Count` | Count of rows where `lateBucket = LATE_2`. |
 | `late3Count` | Count of rows where `lateBucket = LATE_3`. |
-| `absentCount` | Count of rows where `calculatedStatus = ABSENT`. |
+| `absentCount` | Count of rows where `calculatedStatus = ABSENT`; absences stay separate from `totalWorkingDays`. |
 | `leaveCount` | Count of annual, medical, and other leave rows. |
 | `annualLeaveCount` | Count of rows where `calculatedStatus = ANNUAL_LEAVE`. |
 | `medicalLeaveCount` | Count of rows where `calculatedStatus = MEDICAL_LEAVE`. |
 | `otherLeaveCount` | Count of rows where `calculatedStatus = OTHER_LEAVE`. |
 | `offDayCount` | Count of rows where `calculatedStatus = OFF_DAY`. |
-| `under8HoursCount` | Count of working-day rows where `isUnder8Hours = true`. |
-| `over15HoursCount` | Count of working-day rows where `isOver15Hours = true`. |
+| `under8HoursCount` | Count of actual worked rows where `isUnder8Hours = true`. |
+| `over15HoursCount` | Count of actual worked rows where `isOver15Hours = true`. |
 | `firstShiftDate` | Earliest `shiftDate` for this Picker in the active batch. |
 | `lastShiftDate` | Latest `shiftDate` for this Picker in the active batch. |
 | `lastCalculatedAt` | Timestamp when the summary was calculated. |
@@ -849,11 +849,10 @@ These are future possibilities, not v1 commitments.
 4. Confirm whether matched inactive or non-active-employment Pickers should be calculated, warned, or excluded.
 5. Confirm whether multiple shifts for the same Picker on the same date can be valid.
 6. Confirm the complete accepted source `Status` vocabulary.
-7. Confirm whether absent scheduled rows count in `totalWorkingDays`. This spec recommends yes.
-8. Confirm the timezone used for upload date and expected coverage end date. The project context uses Africa/Cairo.
-9. Confirm default month lock timing and who can unlock historical months.
-10. Confirm whether duplicate uploaded files should be blocked by `fileHash` or allowed as re-validation attempts.
-11. Confirm whether historical/manual import is part of v1 or a later controlled maintenance flow.
+7. Confirm the timezone used for upload date and expected coverage end date. The project context uses Africa/Cairo.
+8. Confirm default month lock timing and who can unlock historical months.
+9. Confirm whether duplicate uploaded files should be blocked by `fileHash` or allowed as re-validation attempts.
+10. Confirm whether historical/manual import is part of v1 or a later controlled maintenance flow.
 
 ## 29. Implementation Phase Breakdown
 
