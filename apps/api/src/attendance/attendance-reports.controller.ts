@@ -2,6 +2,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Inject,
   Query,
   UseGuards
 } from "@nestjs/common";
@@ -18,7 +19,10 @@ import { ListAttendanceDailyReportQueryDto } from "./dto/list-attendance-daily-r
 @Controller("attendance/reports")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AttendanceReportsController {
-  constructor(private readonly attendanceReportService: AttendanceReportService) {}
+  constructor(
+    @Inject(AttendanceReportService)
+    private readonly attendanceReportService: AttendanceReportService
+  ) {}
 
   @Get("daily")
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
