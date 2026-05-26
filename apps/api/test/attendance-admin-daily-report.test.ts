@@ -66,7 +66,8 @@ const activeRows = [
     rawLateMins: 5,
     chargeableLateMins: 0,
     lateBucket: AttendanceLateBucket.NONE,
-    actualWorkDurationHours: 8
+    actualWorkDurationHours: 8,
+    sourceSubDivision: "Chain Alpha"
   }),
   dailyRow({
     id: "r-2",
@@ -79,7 +80,8 @@ const activeRows = [
     chargeableLateMins: 20,
     lateBucket: AttendanceLateBucket.LATE_2,
     actualWorkDurationHours: 7.5,
-    isUnder8Hours: true
+    isUnder8Hours: true,
+    sourceSubDivision: "Chain Alpha"
   }),
   dailyRow({
     id: "r-3",
@@ -92,7 +94,9 @@ const activeRows = [
     chargeableLateMins: 35,
     lateBucket: AttendanceLateBucket.LATE_3,
     actualWorkDurationHours: 16,
-    isOver15Hours: true
+    isOver15Hours: true,
+    sourceLocation: "Branch B",
+    sourceSubDivision: "Chain Beta"
   }),
   dailyRow({
     id: "r-4",
@@ -104,7 +108,9 @@ const activeRows = [
     isAbsent: true,
     actualCheckinTime: null,
     actualCheckoutTime: null,
-    actualWorkDurationHours: null
+    actualWorkDurationHours: null,
+    sourceLocation: "Branch B",
+    sourceSubDivision: "Chain Beta"
   }),
   dailyRow({
     id: "r-5",
@@ -118,7 +124,8 @@ const activeRows = [
     leaveType: AttendanceLeaveType.ANNUAL_LEAVE,
     actualCheckinTime: null,
     actualCheckoutTime: null,
-    actualWorkDurationHours: null
+    actualWorkDurationHours: null,
+    sourceSubDivision: "Chain Alpha"
   }),
   dailyRow({
     id: "r-6",
@@ -131,7 +138,8 @@ const activeRows = [
     actualCheckinTime: null,
     actualCheckoutTime: null,
     actualWorkDurationHours: null,
-    sourceLocation: "Spinneys Tagamoa"
+    sourceLocation: "Spinneys Tagamoa",
+    sourceSubDivision: "Spinneys"
   })
 ];
 
@@ -191,7 +199,7 @@ function rolesFor(methodName: keyof AttendanceReportsController) {
   );
 }
 
-function createPrismaMock() {
+function createPrismaMock(extraActiveRows: DailyRow[] = []) {
   const calls: {
     batchFindFirst: unknown[];
     recordCount: unknown[];
@@ -203,7 +211,7 @@ function createPrismaMock() {
     recordFindMany: [],
     writes: []
   };
-  const rows = [...activeRows, ...inactiveRows];
+  const rows = [...activeRows, ...extraActiveRows, ...inactiveRows];
 
   const prisma = {
     attendanceImportBatch: {
@@ -227,12 +235,13 @@ function createPrismaMock() {
         return filterRows(rows, query.where).length;
       },
       findMany: async (query: {
+        orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc">;
         where: Record<string, unknown>;
         skip?: number;
         take?: number;
       }) => {
         calls.recordFindMany.push(query);
-        const filtered = filterRows(rows, query.where);
+        const filtered = sortRows(filterRows(rows, query.where), query.orderBy);
         const start = query.skip ?? 0;
         const end = query.take === undefined ? undefined : start + query.take;
         return filtered.slice(start, end);
@@ -322,6 +331,7 @@ async function run() {
       totalShifts: 6,
       value: 50
     });
+    assert.equal(result.analytics.pickerCount, 6);
     assert.deepEqual(result.analytics.attendanceMix, {
       absent: { count: 1, percentage: 16.67 },
       attend: { count: 3, percentage: 50 },
@@ -329,8 +339,8 @@ async function run() {
     });
     assert.deepEqual(result.analytics.lateBuckets, {
       late1: { count: 0, percentage: 0 },
-      late2: { count: 1, percentage: 16.67 },
-      late3: { count: 1, percentage: 16.67 },
+      late2: { count: 1, percentage: 50 },
+      late3: { count: 1, percentage: 50 },
       totalLateCount: 2
     });
     assert.deepEqual(result.analytics.averageLogHours, {
@@ -370,6 +380,17 @@ async function run() {
       late: { count: 2, percentage: 33.33 },
       over15: { count: 1, percentage: 16.67 },
       under8: { count: 1, percentage: 16.67 }
+    });
+    assert.deepEqual(result.filterOptions, {
+      branches: ["Branch A", "Branch B", "Spinneys Tagamoa"],
+      chains: ["Chain Alpha", "Chain Beta", "Spinneys"],
+      statuses: [
+        AttendanceCalculatedStatus.ON_TIME,
+        AttendanceCalculatedStatus.LATE,
+        AttendanceCalculatedStatus.ABSENT,
+        AttendanceCalculatedStatus.OFF_DAY,
+        AttendanceCalculatedStatus.ANNUAL_LEAVE
+      ]
     });
     assert.deepEqual(calls.writes, []);
     assertRecordReadsRequireActiveBatch(calls.recordFindMany);
@@ -428,6 +449,33 @@ async function run() {
       },
       value: 2
     });
+  }
+
+  {
+    const duplicatePickerShift = dailyRow({
+      id: "r-repeat-picker",
+      importBatchId: "active-may",
+      shiftDate: "2026-05-02",
+      shopperId: "SHOPPER-001",
+      pickerNameSnapshot: "Aya Picker",
+      calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
+      rawLateMins: 0,
+      chargeableLateMins: 0,
+      lateBucket: AttendanceLateBucket.NONE,
+      actualWorkDurationHours: 8,
+      sourceSubDivision: "Chain Alpha"
+    });
+    const { prisma } = createPrismaMock([duplicatePickerShift]);
+    const service = new AttendanceReportService(prisma as never);
+    const result = await service.getDailyReport({
+      periodMonth: "2026-05",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-02"
+    });
+
+    assert.equal(result.analytics.pickerCount, 2);
+    assert.equal(result.analytics.attendanceRate.totalShifts, 3);
+    assert.equal(result.analytics.attendanceRate.attendCount, 3);
   }
 
   {
@@ -536,6 +584,95 @@ async function run() {
       ).rows.map((row) => row.id),
       ["r-6"]
     );
+    assert.equal(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          pickerSearch: "tagamoa"
+        })
+      ).analytics.attendanceRate.totalShifts,
+      6
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          branch: "Branch B"
+        })
+      ).analytics.attendanceMix,
+      {
+        absent: { count: 1, percentage: 50 },
+        attend: { count: 1, percentage: 50 },
+        onLeave: { count: 0, percentage: 0 }
+      }
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          chain: "Chain Alpha"
+        })
+      ).analytics.lateBuckets,
+      {
+        late1: { count: 0, percentage: 0 },
+        late2: { count: 1, percentage: 100 },
+        late3: { count: 0, percentage: 0 },
+        totalLateCount: 1
+      }
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          chain: "Chain Alpha"
+        })
+      ).filterOptions,
+      {
+        branches: ["Branch A"],
+        chains: ["Chain Alpha", "Chain Beta", "Spinneys"],
+        statuses: [
+          AttendanceCalculatedStatus.ON_TIME,
+          AttendanceCalculatedStatus.LATE,
+          AttendanceCalculatedStatus.ANNUAL_LEAVE
+        ]
+      }
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          branch: "Branch B"
+        })
+      ).filterOptions,
+      {
+        branches: ["Branch A", "Branch B", "Spinneys Tagamoa"],
+        chains: ["Chain Alpha", "Chain Beta", "Spinneys"],
+        statuses: [
+          AttendanceCalculatedStatus.LATE,
+          AttendanceCalculatedStatus.ABSENT
+        ]
+      }
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          branch: "Branch B",
+          status: AttendanceCalculatedStatus.LATE
+        })
+      ).filterOptions.statuses,
+      [AttendanceCalculatedStatus.LATE, AttendanceCalculatedStatus.ABSENT]
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          sortBy: "name",
+          sortDirection: "desc"
+        })
+      ).rows.map((row) => row.id),
+      ["r-6", "r-5", "r-4", "r-3", "r-2", "r-1"]
+    );
   }
 
   {
@@ -590,12 +727,24 @@ async function run() {
       false
     );
 
-    await controller.getDailyReport(admin, { periodMonth: "2026-05" });
-    await controller.getDailyReport(superAdmin, { periodMonth: "2026-05" });
+      await controller.getDailyReport(admin, { periodMonth: "2026-05" });
+    await controller.getDailyReport(superAdmin, {
+      periodMonth: "2026-05",
+      branch: "Branch A",
+      chain: "Chain Alpha",
+      sortBy: "name",
+      sortDirection: "asc"
+    });
 
     assert.deepEqual(serviceCalls, [
       { periodMonth: "2026-05" },
-      { periodMonth: "2026-05" }
+      {
+        periodMonth: "2026-05",
+        branch: "Branch A",
+        chain: "Chain Alpha",
+        sortBy: "name",
+        sortDirection: "asc"
+      }
     ]);
 
     for (const role of [
@@ -636,6 +785,7 @@ function dailyRow(
     userId: `user-${overrides.shopperId ?? "SHOPPER-001"}`,
     pickerNameSnapshot: "Picker One",
     sourceDesignation: "Picker",
+    sourceSubDivision: "Chain Alpha",
     sourceLocation: "Branch A",
     shiftName: "Morning Shift",
     scheduledStartTime: "09:00",
@@ -667,16 +817,46 @@ function dailyRow(
 }
 
 function filterRows(rows: DailyRow[], where: Record<string, unknown>) {
+  return rows.filter((row) => matchesWhere(row, where));
+}
+
+function sortRows(
+  rows: DailyRow[],
+  orderBy?: Array<Record<string, "asc" | "desc">> | Record<string, "asc" | "desc">
+) {
+  const rules = Array.isArray(orderBy)
+    ? orderBy
+    : orderBy
+      ? [orderBy]
+      : [{ shiftDate: "asc" }, { pickerNameSnapshot: "asc" }, { shopperId: "asc" }];
+
   return rows
-    .filter((row) => matchesWhere(row, where))
     .sort((left, right) => {
-      const dateCompare = left.shiftDate.getTime() - right.shiftDate.getTime();
-      return (
-        dateCompare ||
-        left.pickerNameSnapshot.localeCompare(right.pickerNameSnapshot) ||
-        left.shopperId.localeCompare(right.shopperId)
-      );
+      for (const rule of rules) {
+        const [[field, direction]] = Object.entries(rule);
+        const comparison = compareDailyRowField(left, right, field);
+        if (comparison !== 0) {
+          return direction === "desc" ? -comparison : comparison;
+        }
+      }
+
+      return 0;
     });
+}
+
+function compareDailyRowField(left: DailyRow, right: DailyRow, field: string) {
+  const leftValue = left[field as keyof DailyRow];
+  const rightValue = right[field as keyof DailyRow];
+
+  if (leftValue instanceof Date && rightValue instanceof Date) {
+    return leftValue.getTime() - rightValue.getTime();
+  }
+
+  if (typeof leftValue === "number" && typeof rightValue === "number") {
+    return leftValue - rightValue;
+  }
+
+  return String(leftValue ?? "").localeCompare(String(rightValue ?? ""));
 }
 
 function matchesWhere(row: DailyRow, where: Record<string, unknown>): boolean {
@@ -719,6 +899,7 @@ function matchesWhere(row: DailyRow, where: Record<string, unknown>): boolean {
       key === "shopperId" ||
       key === "pickerNameSnapshot" ||
       key === "sourceLocation" ||
+      key === "sourceSubDivision" ||
       key === "sourceName"
     ) {
       const actual = String(row[key as keyof DailyRow] ?? "");
@@ -779,6 +960,7 @@ type DailyRow = {
   userId: string;
   pickerNameSnapshot: string;
   sourceDesignation: string | null;
+  sourceSubDivision: string | null;
   sourceLocation: string | null;
   shiftName: string;
   scheduledStartTime: string | null;

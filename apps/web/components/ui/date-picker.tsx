@@ -42,7 +42,9 @@ export function DatePicker({
   align = "start",
   className,
   disabled,
+  maxDate,
   maxYear = new Date().getFullYear() + 5,
+  minDate,
   minYear = 1950,
   onChange,
   placeholder = "Select date",
@@ -54,7 +56,9 @@ export function DatePicker({
   align?: "start" | "end";
   className?: string;
   disabled?: boolean;
+  maxDate?: string;
   maxYear?: number;
+  minDate?: string;
   minYear?: number;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -69,6 +73,8 @@ export function DatePicker({
     date.setHours(0, 0, 0, 0);
     return date;
   }, []);
+  const minSelectableDate = useMemo(() => parseIsoDate(minDate), [minDate]);
+  const maxSelectableDate = useMemo(() => parseIsoDate(maxDate), [maxDate]);
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(
     clamp(selectedDate?.getFullYear() ?? startYear ?? today.getFullYear(), minYear, maxYear)
@@ -184,6 +190,10 @@ export function DatePicker({
   }
 
   function selectDate(date: Date) {
+    if (isDateOutsideBounds(date, minSelectableDate, maxSelectableDate)) {
+      return;
+    }
+
     onChange(formatIsoDate(date));
     setOpen(false);
   }
@@ -267,6 +277,11 @@ export function DatePicker({
               {days.map((day) => {
                 const selected = value === formatIsoDate(day.date);
                 const inMonth = day.date.getMonth() === viewMonth;
+                const dayDisabled = isDateOutsideBounds(
+                  day.date,
+                  minSelectableDate,
+                  maxSelectableDate
+                );
                 return (
                   <button
                     className={cn(
@@ -274,8 +289,11 @@ export function DatePicker({
                       inMonth ? "text-slate-800" : "text-slate-300",
                       selected
                         ? "bg-primary font-semibold text-primary-foreground"
-                        : "hover:bg-primary/10 hover:text-primary"
+                        : "hover:bg-primary/10 hover:text-primary",
+                      dayDisabled &&
+                        "cursor-not-allowed bg-transparent text-slate-300 opacity-45 hover:bg-transparent hover:text-slate-300"
                     )}
+                    disabled={dayDisabled}
                     key={day.key}
                     onClick={() => selectDate(day.date)}
                     type="button"
@@ -385,6 +403,22 @@ function formatDisplayDate(date: Date) {
     month: "2-digit",
     year: "numeric"
   });
+}
+
+function isDateOutsideBounds(
+  date: Date,
+  minDate: Date | null,
+  maxDate: Date | null
+) {
+  if (minDate && date < minDate) {
+    return true;
+  }
+
+  if (maxDate && date > maxDate) {
+    return true;
+  }
+
+  return false;
 }
 
 function clamp(value: number, min: number, max: number) {

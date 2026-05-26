@@ -26,13 +26,26 @@ export interface AttendanceDailyReportQuery {
   dateTo?: string;
   shopperId?: string;
   pickerSearch?: string;
+  branch?: string;
+  chain?: string;
   status?: AttendanceCalculatedStatus | "";
   lateOnly?: boolean;
   absentOnly?: boolean;
   onLeaveOnly?: boolean;
+  sortBy?: AttendanceDailyReportSortBy;
+  sortDirection?: AttendanceDailyReportSortDirection;
   page?: number;
   pageSize?: number;
 }
+
+export type AttendanceDailyReportSortBy =
+  | "date"
+  | "hours"
+  | "location"
+  | "name"
+  | "status";
+
+export type AttendanceDailyReportSortDirection = "asc" | "desc";
 
 export interface AttendanceDailyReportResponse {
   periodMonth: string;
@@ -41,13 +54,21 @@ export interface AttendanceDailyReportResponse {
   coverageEndDate: string | null;
   expectedCoverageEndDate: string | null;
   analytics: AttendanceDailyReportAnalytics;
+  filterOptions: AttendanceDailyReportFilterOptions;
   pagination: AttendanceDailyReportPagination;
   summary: AttendanceDailyReportSummary;
   rows: AttendanceDailyReportRow[];
 }
 
+export interface AttendanceDailyReportFilterOptions {
+  branches: string[];
+  chains: string[];
+  statuses: AttendanceCalculatedStatus[];
+}
+
 export interface AttendanceDailyReportAnalytics {
   range: AttendanceAnalyticsRange;
+  pickerCount: number;
   attendanceRate: AttendanceRateMetric;
   attendanceMix: AttendanceAttendanceMix;
   lateBuckets: AttendanceLateBucketMetrics;
@@ -169,6 +190,7 @@ export interface AttendanceDailyReportRow {
   isUnder8Hours: boolean;
   isOver15Hours: boolean;
   sourceLocation: string | null;
+  sourceSubDivision: string | null;
   sourceDesignation: string | null;
   issuesCount: number;
 }
@@ -290,10 +312,14 @@ export function buildAttendanceDailyReportPath(
   setString(params, "dateTo", query.dateTo);
   setString(params, "shopperId", query.shopperId);
   setString(params, "pickerSearch", query.pickerSearch);
+  setString(params, "branch", query.branch);
+  setString(params, "chain", query.chain);
   setString(params, "status", query.status);
   setBoolean(params, "lateOnly", query.lateOnly);
   setBoolean(params, "absentOnly", query.absentOnly);
   setBoolean(params, "onLeaveOnly", query.onLeaveOnly);
+  setString(params, "sortBy", query.sortBy);
+  setString(params, "sortDirection", query.sortDirection);
   setNumber(params, "page", query.page);
   setNumber(params, "pageSize", query.pageSize);
 

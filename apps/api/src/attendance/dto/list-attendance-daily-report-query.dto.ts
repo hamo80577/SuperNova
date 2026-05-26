@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -36,6 +37,14 @@ export class ListAttendanceDailyReportQueryDto {
   pickerSearch?: string;
 
   @IsOptional()
+  @IsString()
+  branch?: string;
+
+  @IsOptional()
+  @IsString()
+  chain?: string;
+
+  @IsOptional()
   @IsEnum(AttendanceCalculatedStatus)
   status?: AttendanceCalculatedStatus;
 
@@ -53,6 +62,14 @@ export class ListAttendanceDailyReportQueryDto {
   @Transform(({ value }) => parseBooleanQuery(value))
   @IsBoolean()
   onLeaveOnly?: boolean;
+
+  @IsOptional()
+  @IsIn(["date", "hours", "location", "name", "status"])
+  sortBy?: "date" | "hours" | "location" | "name" | "status";
+
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  sortDirection?: "asc" | "desc";
 
   @IsOptional()
   @Type(() => Number)

@@ -10,13 +10,26 @@ export interface AttendanceDailyReportQuery {
   dateTo?: string;
   shopperId?: string;
   pickerSearch?: string;
+  branch?: string;
+  chain?: string;
   status?: AttendanceCalculatedStatus;
   lateOnly?: boolean | string;
   absentOnly?: boolean | string;
   onLeaveOnly?: boolean | string;
+  sortBy?: AttendanceDailyReportSortBy;
+  sortDirection?: AttendanceDailyReportSortDirection;
   page?: number | string;
   pageSize?: number | string;
 }
+
+export type AttendanceDailyReportSortBy =
+  | "date"
+  | "hours"
+  | "location"
+  | "name"
+  | "status";
+
+export type AttendanceDailyReportSortDirection = "asc" | "desc";
 
 export interface AttendanceDailyReportResponse {
   periodMonth: string;
@@ -25,13 +38,21 @@ export interface AttendanceDailyReportResponse {
   coverageEndDate: string | null;
   expectedCoverageEndDate: string | null;
   analytics: AttendanceDailyReportAnalytics;
+  filterOptions: AttendanceDailyReportFilterOptions;
   pagination: AttendanceDailyReportPagination;
   summary: AttendanceDailyReportSummary;
   rows: AttendanceDailyReportRow[];
 }
 
+export interface AttendanceDailyReportFilterOptions {
+  branches: string[];
+  chains: string[];
+  statuses: AttendanceCalculatedStatus[];
+}
+
 export interface AttendanceDailyReportAnalytics {
   range: AttendanceAnalyticsRange;
+  pickerCount: number;
   attendanceRate: AttendanceRateMetric;
   attendanceMix: AttendanceAttendanceMix;
   lateBuckets: AttendanceLateBucketMetrics;
@@ -153,6 +174,7 @@ export interface AttendanceDailyReportRow {
   isUnder8Hours: boolean;
   isOver15Hours: boolean;
   sourceLocation: string | null;
+  sourceSubDivision: string | null;
   sourceDesignation: string | null;
   issuesCount: number;
 }

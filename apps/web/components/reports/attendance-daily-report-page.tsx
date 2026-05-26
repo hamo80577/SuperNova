@@ -1,20 +1,27 @@
 "use client";
 
 import {
-  AlarmClock,
-  Bell,
+  ArrowUpDown,
+  BadgeCheck,
+  CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Clock3,
   Gauge,
+  GitBranch,
   ListChecks,
   LogIn,
   LogOut,
+  MapPin,
   Search,
   SlidersHorizontal,
+  Star,
+  TriangleAlert,
   UploadCloud,
+  UserRound,
   UsersRound,
   type LucideIcon
 } from "lucide-react";
@@ -33,23 +40,31 @@ import {
   type AttendanceDailyReportAnalytics,
   type AttendanceDailyReportResponse,
   type AttendanceDailyReportRow,
+  type AttendanceDailyReportSortBy,
+  type AttendanceDailyReportSortDirection,
   type AttendanceMetricDelta,
   type AttendanceSegmentMetric
 } from "@/lib/api/attendance";
 import { cn } from "@/lib/utils";
 
 type AsyncState<T> =
-  | { status: "loading"; data?: never; error?: never }
+  | { status: "loading"; data?: T; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
 
 type PerformanceView = "all" | "absent" | "late" | "under8" | "over15";
+type AttendanceStatusFilter = AttendanceCalculatedStatus | "";
 
 interface AttendanceDailyReportFilters {
+  branch: string;
+  chain: string;
   periodMonth: string;
   dateFrom: string;
   dateTo: string;
   search: string;
+  sortBy: AttendanceDailyReportSortBy;
+  sortDirection: AttendanceDailyReportSortDirection;
+  status: AttendanceStatusFilter;
   page: number;
   pageSize: number;
 }
@@ -62,6 +77,17 @@ const performanceViews: Array<{ label: string; value: PerformanceView }> = [
   { label: "Under 8", value: "under8" },
   { label: "Over 15", value: "over15" }
 ];
+const sortOptions: Array<{
+  icon: LucideIcon;
+  label: string;
+  value: AttendanceDailyReportSortBy;
+}> = [
+  { icon: CalendarDays, label: "Sort by date", value: "date" },
+  { icon: UserRound, label: "Sort by name", value: "name" },
+  { icon: MapPin, label: "Sort by location", value: "location" },
+  { icon: BadgeCheck, label: "Sort by status", value: "status" },
+  { icon: Clock3, label: "Sort by log hours", value: "hours" }
+];
 
 export function AttendanceDailyReportPage() {
   const initialFilters = useMemo(createInitialFilters, []);
@@ -70,6 +96,7 @@ export function AttendanceDailyReportPage() {
   const [searchDraft, setSearchDraft] = useState(initialFilters.search);
   const [performanceView, setPerformanceView] =
     useState<PerformanceView>("all");
+  const [dateError, setDateError] = useState<string | null>(null);
   const [state, setState] = useState<AsyncState<AttendanceDailyReportResponse>>({
     status: "loading"
   });
@@ -78,13 +105,22 @@ export function AttendanceDailyReportPage() {
     let mounted = true;
 
     async function load() {
-      setState({ status: "loading" });
+      setState((current) =>
+        current.status === "ready" || current.status === "loading"
+          ? { status: "loading", data: current.data }
+          : { status: "loading" }
+      );
       try {
         const data = await attendanceApi.dailyReport({
+          branch: filters.branch,
+          chain: filters.chain,
           periodMonth: filters.periodMonth,
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
           pickerSearch: filters.search,
+          sortBy: filters.sortBy,
+          sortDirection: filters.sortDirection,
+          status: filters.status,
           page: filters.page,
           pageSize: filters.pageSize
         });
@@ -112,6 +148,13 @@ export function AttendanceDailyReportPage() {
   }, [filters]);
 
   function applyDateRange(dateFrom: string, dateTo: string) {
+    const validationError = validateReportDateRange(dateFrom, dateTo);
+    if (validationError) {
+      setDateError(validationError);
+      return;
+    }
+
+    setDateError(null);
     const nextRange = normalizeDateRange(dateFrom, dateTo);
     setFilters((current) => ({
       ...current,
@@ -129,6 +172,18 @@ export function AttendanceDailyReportPage() {
     );
   }
 
+  function resetToYesterday() {
+    const yesterday = yesterdayIsoDate();
+    setDateError(null);
+    setFilters((current) => ({
+      ...current,
+      dateFrom: yesterday,
+      dateTo: yesterday,
+      page: 1,
+      periodMonth: yesterday.slice(0, 7)
+    }));
+  }
+
   function applySearch() {
     setFilters((current) => ({
       ...current,
@@ -142,12 +197,26 @@ export function AttendanceDailyReportPage() {
     setFilters((current) => ({ ...current, page: 1, search: "" }));
   }
 
-  function refreshReport() {
-    attendanceApi.clearDailyReportCache();
-    setFilters((current) => ({ ...current }));
+  function applyListFilters(
+    nextFilters: Partial<
+      Pick<
+        AttendanceDailyReportFilters,
+        "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+      >
+    >
+  ) {
+    setFilters((current) => ({ ...current, ...nextFilters, page: 1 }));
   }
 
-  const report = state.status === "ready" ? state.data : null;
+  const report =
+    state.status === "ready"
+      ? state.data
+      : state.status === "loading"
+        ? state.data ?? null
+        : null;
+  const canMoveForward =
+    addDaysIso(filters.dateTo, rangeLength(filters.dateFrom, filters.dateTo)) <=
+    yesterdayIsoDate();
 
   return (
     <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
@@ -164,13 +233,13 @@ export function AttendanceDailyReportPage() {
 
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button
-              aria-label="Refresh attendance"
+              aria-label="Reset to yesterday"
               className="h-11 w-11 rounded-xl border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100"
-              onClick={refreshReport}
+              onClick={resetToYesterday}
               type="button"
               variant="outline"
             >
-              <AlarmClock className="h-5 w-5" />
+              <Star className="h-5 w-5" />
             </Button>
             <Button
               aria-label="Previous date range"
@@ -184,11 +253,13 @@ export function AttendanceDailyReportPage() {
             <DateRangeControl
               dateFrom={filters.dateFrom}
               dateTo={filters.dateTo}
+              error={dateError}
               onChange={applyDateRange}
             />
             <Button
               aria-label="Next date range"
               className="h-11 w-11 rounded-xl p-0"
+              disabled={!canMoveForward}
               onClick={() => shiftRange(1)}
               type="button"
               variant="outline"
@@ -206,15 +277,6 @@ export function AttendanceDailyReportPage() {
             >
               <UploadCloud className="h-5 w-5" />
             </Link>
-            <Button
-              aria-label="Notifications"
-              className="h-11 w-11 rounded-xl p-0"
-              disabled
-              type="button"
-              variant="outline"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
           </div>
         </header>
 
@@ -236,6 +298,15 @@ export function AttendanceDailyReportPage() {
                   setFilters((current) => ({ ...current, page: 1, pageSize }))
                 }
                 onSearch={applySearch}
+                filterOptions={data.filterOptions}
+                filters={{
+                  branch: filters.branch,
+                  chain: filters.chain,
+                  sortBy: filters.sortBy,
+                  sortDirection: filters.sortDirection,
+                  status: filters.status
+                }}
+                onFilterChange={applyListFilters}
                 rows={data.rows}
                 searchDraft={searchDraft}
                 setSearchDraft={setSearchDraft}
@@ -302,8 +373,23 @@ function AttendanceRateCard({
           value={`${formatNumber(analytics.attendanceRate.value)}%`}
         />
       </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <AttendanceCountTile
+          label="Pickers"
+          value={analytics.pickerCount}
+        />
+        <AttendanceCountTile
+          label="Total Shifts"
+          value={analytics.attendanceRate.totalShifts}
+        />
+        <AttendanceCountTile
+          label="Attended Shifts"
+          tone="attend"
+          value={analytics.attendanceRate.attendCount}
+        />
+      </div>
       <SegmentedStrip
-        className="mt-10"
+        className="mt-6"
         segments={[
           { color: "bg-sky-500", percentage: mix.attend.percentage },
           { color: "bg-amber-400", percentage: mix.onLeave.percentage },
@@ -328,19 +414,26 @@ function LateBucketsCard({
 
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <CardTitle icon={UsersRound} title="Employee Attend" />
-      <div className="mt-12 flex items-end gap-1">
-        <span className="text-3xl font-semibold tabular-nums text-slate-950">
-          {buckets.totalLateCount}
-        </span>
-        <span className="pb-1 text-lg text-slate-500">
-          /{analytics.attendanceRate.totalShifts}
-        </span>
+      <CardTitle icon={UsersRound} title="Late Rate" />
+      <div className="mt-8 min-w-0">
+        <div className="flex items-end gap-1">
+          <AnimatedMetricText
+            className="text-4xl font-semibold tabular-nums text-slate-950"
+            value={buckets.totalLateCount.toLocaleString()}
+          />
+          <span className="pb-1 text-lg text-slate-500">
+            /{analytics.attendanceRate.totalShifts.toLocaleString()}
+          </span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-medium text-slate-500">
+          <span>Total late</span>
+          <span>Total shifts</span>
+        </div>
       </div>
-      <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-2">
-        <LateBucketRow color="bg-amber-400" label="Late 1" metric={buckets.late1} />
-        <LateBucketRow color="bg-orange-500" label="Late 2" metric={buckets.late2} />
-        <LateBucketRow color="bg-rose-500" label="Late 3" metric={buckets.late3} />
+      <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-3">
+        <LateBucketLegend color="bg-amber-400" label="Late 1" metric={buckets.late1} />
+        <LateBucketLegend color="bg-orange-500" label="Late 2" metric={buckets.late2} />
+        <LateBucketLegend color="bg-rose-500" label="Late 3" metric={buckets.late3} />
       </div>
     </section>
   );
@@ -353,7 +446,7 @@ function AverageHoursCard({
 }) {
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <CardTitle icon={Clock3} title="Total Log Hours" />
+      <CardTitle icon={Clock3} title="AVG Shift Duration" />
       <div className="mt-16">
         <MetricValue
           delta={analytics.averageLogHours.delta}
@@ -399,24 +492,15 @@ function PerformanceCard({
         </div>
       </div>
       <ArcGauge analytics={analytics} metric={selected} view={view} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SmallMetricTile
-          label="Attendance Performance"
-          value={`${formatNumber(analytics.performance.validShiftRate.value)}%`}
-          delta={analytics.performance.validShiftRate.delta}
-        />
-        <SmallMetricTile
-          label="Problem Shifts"
-          value={`${analytics.performance.problemShiftCount.value}`}
-          delta={analytics.performance.problemShiftCount.delta}
-        />
-      </div>
     </section>
   );
 }
 
 function AttendanceList({
+  filterOptions,
+  filters,
   onClearSearch,
+  onFilterChange,
   onPageChange,
   onPageSizeChange,
   onSearch,
@@ -425,7 +509,20 @@ function AttendanceList({
   searchDraft,
   setSearchDraft
 }: {
+  filterOptions: AttendanceDailyReportResponse["filterOptions"];
+  filters: Pick<
+    AttendanceDailyReportFilters,
+    "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+  >;
   onClearSearch: () => void;
+  onFilterChange: (
+    nextFilters: Partial<
+      Pick<
+        AttendanceDailyReportFilters,
+        "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+      >
+    >
+  ) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onSearch: () => void;
@@ -464,6 +561,64 @@ function AttendanceList({
           </Button>
         </div>
       </div>
+      <div className="mt-3 grid min-w-0 gap-2 xl:grid-cols-[minmax(10rem,0.8fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
+        <Select
+          aria-label="Filter by status"
+          className="h-10 rounded-xl"
+          leadingIcon={<BadgeCheck className="h-4 w-4" />}
+          onChange={(event) =>
+            onFilterChange({
+              status: event.target.value as AttendanceStatusFilter
+            })
+          }
+          value={filters.status}
+          wrapperClassName="min-w-0"
+        >
+          <option value="">All states</option>
+          {filterOptions.statuses.map((status) => (
+            <option key={status} value={status}>
+              {statusFilterLabel(status)}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Filter by chain"
+          className="h-10 rounded-xl"
+          leadingIcon={<GitBranch className="h-4 w-4" />}
+          onChange={(event) =>
+            onFilterChange({ branch: "", chain: event.target.value })
+          }
+          searchable
+          searchPlaceholder="Search chains"
+          value={filters.chain}
+          wrapperClassName="min-w-0"
+        >
+          <option value="">All chains</option>
+          {filterOptions.chains.map((chain) => (
+            <option key={chain} value={chain}>
+              {chain}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Filter by branch"
+          className="h-10 rounded-xl"
+          leadingIcon={<MapPin className="h-4 w-4" />}
+          onChange={(event) => onFilterChange({ branch: event.target.value })}
+          searchable
+          searchPlaceholder="Search branches"
+          value={filters.branch}
+          wrapperClassName="min-w-0"
+        >
+          <option value="">All branches</option>
+          {filterOptions.branches.map((branch) => (
+            <option key={branch} value={branch}>
+              {branch}
+            </option>
+          ))}
+        </Select>
+        <SortIconControls filters={filters} onFilterChange={onFilterChange} />
+      </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
         <table className="hidden w-full table-fixed text-left text-sm lg:table">
@@ -498,15 +653,17 @@ function AttendanceList({
                     <NameCell row={row} />
                   </TableCell>
                   <TableCell>
-                    <LocationPill value={row.sourceLocation} />
+                    {isLeaveStatus(row) ? null : <LocationPill value={row.sourceLocation} />}
                   </TableCell>
                   <TableCell>
-                    <TimeCell icon={LogIn} value={row.actualCheckinTime} />
+                    {isLeaveStatus(row) ? null : <CheckInCell row={row} />}
                   </TableCell>
                   <TableCell>
-                    <TimeCell icon={LogOut} value={row.actualCheckoutTime} />
+                    {isLeaveStatus(row) ? null : <TimeCell icon={LogOut} value={row.actualCheckoutTime} />}
                   </TableCell>
-                  <TableCell>{formatHours(row.actualWorkDurationHours)}</TableCell>
+                  <TableCell>
+                    {isLeaveStatus(row) ? null : <LogHoursCell row={row} />}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge row={row} />
                   </TableCell>
@@ -534,10 +691,22 @@ function AttendanceList({
                   <StatusBadge row={row} />
                 </div>
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
-                  <Definition label="Location" value={<LocationPill value={row.sourceLocation} />} />
-                  <Definition label="Check-in" value={formatText(row.actualCheckinTime)} />
-                  <Definition label="Check-out" value={formatText(row.actualCheckoutTime)} />
-                  <Definition label="Log Hours" value={formatHours(row.actualWorkDurationHours)} />
+                  <Definition
+                    label="Location"
+                    value={isLeaveStatus(row) ? null : <LocationPill value={row.sourceLocation} />}
+                  />
+                  <Definition
+                    label="Check-in"
+                    value={isLeaveStatus(row) ? null : <CheckInCell row={row} />}
+                  />
+                  <Definition
+                    label="Check-out"
+                    value={isLeaveStatus(row) ? null : formatText(row.actualCheckoutTime)}
+                  />
+                  <Definition
+                    label="Log Hours"
+                    value={isLeaveStatus(row) ? null : <LogHoursCell row={row} />}
+                  />
                 </div>
               </article>
             ))
@@ -581,29 +750,112 @@ function AttendanceList({
 function DateRangeControl({
   dateFrom,
   dateTo,
+  error,
   onChange
 }: {
   dateFrom: string;
   dateTo: string;
+  error: string | null;
   onChange: (dateFrom: string, dateTo: string) => void;
 }) {
+  const maxDate = yesterdayIsoDate();
+
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:grid-cols-[minmax(8.5rem,1fr)_minmax(8.5rem,1fr)]">
-      <DatePicker
-        className="h-9 border-0 shadow-none"
-        onChange={(value) => onChange(value, dateTo)}
-        placeholder="Start"
-        quickActions={["yesterday", "today"]}
-        value={dateFrom}
-      />
-      <DatePicker
-        align="end"
-        className="h-9 border-0 shadow-none"
-        onChange={(value) => onChange(dateFrom, value)}
-        placeholder="End"
-        quickActions={["yesterday", "today"]}
-        value={dateTo}
-      />
+    <div className="min-w-0 sm:min-w-[22rem]">
+      <div
+        className={cn(
+          "grid min-w-0 grid-cols-1 gap-1 rounded-xl border bg-white p-1 shadow-sm sm:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)]",
+          error ? "border-rose-200" : "border-slate-200"
+        )}
+      >
+        <DatePicker
+          className="h-9 border-0 px-2 shadow-none"
+          maxDate={maxDate}
+          maxYear={Number(maxDate.slice(0, 4))}
+          onChange={(value) => onChange(value, dateTo)}
+          placeholder="Start"
+          quickActions={["yesterday"]}
+          value={dateFrom}
+        />
+        <DatePicker
+          align="end"
+          className="h-9 border-0 px-2 shadow-none"
+          maxDate={maxDate}
+          maxYear={Number(maxDate.slice(0, 4))}
+          onChange={(value) => onChange(dateFrom, value)}
+          placeholder="End"
+          quickActions={["yesterday"]}
+          value={dateTo}
+        />
+      </div>
+      {error ? (
+        <p className="mt-1 text-xs font-medium text-rose-600">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SortIconControls({
+  filters,
+  onFilterChange
+}: {
+  filters: Pick<
+    AttendanceDailyReportFilters,
+    "sortBy" | "sortDirection"
+  >;
+  onFilterChange: (
+    nextFilters: Partial<
+      Pick<
+        AttendanceDailyReportFilters,
+        "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+      >
+    >
+  ) => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+      {sortOptions.map((option) => {
+        const Icon = option.icon;
+        const selected = filters.sortBy === option.value;
+
+        return (
+          <Button
+            aria-label={option.label}
+            className={cn(
+              "h-9 w-9 rounded-lg p-0",
+              selected
+                ? "border-sky-200 bg-white text-sky-700 shadow-sm"
+                : "border-transparent bg-transparent text-slate-500 hover:bg-white"
+            )}
+            key={option.value}
+            onClick={() => onFilterChange({ sortBy: option.value })}
+            title={option.label}
+            type="button"
+            variant="outline"
+          >
+            <Icon className="h-4 w-4" />
+          </Button>
+        );
+      })}
+      <Button
+        aria-label={`Sort ${filters.sortDirection === "asc" ? "ascending" : "descending"}`}
+        className="h-9 w-9 rounded-lg border-transparent bg-transparent p-0 text-slate-600 hover:bg-white"
+        onClick={() =>
+          onFilterChange({
+            sortDirection: filters.sortDirection === "asc" ? "desc" : "asc"
+          })
+        }
+        title={filters.sortDirection === "asc" ? "Ascending" : "Descending"}
+        type="button"
+        variant="outline"
+      >
+        <ArrowUpDown
+          className={cn(
+            "h-4 w-4 transition-transform",
+            filters.sortDirection === "desc" && "rotate-180"
+          )}
+        />
+      </Button>
     </div>
   );
 }
@@ -616,6 +868,18 @@ function ReportStateView({
   state: AsyncState<AttendanceDailyReportResponse>;
 }) {
   if (state.status === "loading") {
+    if (state.data) {
+      return (
+        <div
+          aria-busy="true"
+          className="grid gap-4 opacity-80 transition-opacity duration-200"
+          role="status"
+        >
+          {children(state.data)}
+        </div>
+      );
+    }
+
     return (
       <div className="grid gap-4" role="status" aria-busy="true">
         <DetailPanelSkeleton label="Loading attendance analytics" />
@@ -660,13 +924,45 @@ function MetricValue({
   return (
     <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-2">
-        <p className="truncate text-4xl font-semibold tabular-nums tracking-normal text-slate-950">
-          {value}
-        </p>
+        <AnimatedMetricText
+          className="truncate text-4xl font-semibold tabular-nums tracking-normal text-slate-950"
+          value={value}
+        />
         <DeltaBadge delta={delta} />
       </div>
       <p className="mt-2 truncate text-base text-slate-500">{label}</p>
     </div>
+  );
+}
+
+function AnimatedMetricText({
+  className,
+  value
+}: {
+  className?: string;
+  value: string;
+}) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const [isChanging, setIsChanging] = useState(false);
+
+  useEffect(() => {
+    setDisplayValue(value);
+    setIsChanging(true);
+    const timeout = window.setTimeout(() => setIsChanging(false), 220);
+
+    return () => window.clearTimeout(timeout);
+  }, [value]);
+
+  return (
+    <span
+      className={cn(
+        "inline-block min-w-0 transition duration-200 ease-out",
+        isChanging && "scale-[1.02] opacity-80",
+        className
+      )}
+    >
+      {displayValue}
+    </span>
   );
 }
 
@@ -694,20 +990,25 @@ function SegmentedStrip({
   className?: string;
   segments: Array<{ color: string; percentage: number }>;
 }) {
-  const bars = Array.from({ length: 44 }, (_, index) => {
-    const midpoint = ((index + 0.5) / 44) * 100;
-    let total = 0;
-    const segment = segments.find((item) => {
-      total += item.percentage;
-      return midpoint <= total;
-    });
-    return segment?.color ?? "bg-slate-200";
-  });
-
   return (
-    <div className={cn("flex h-24 items-end gap-1", className)} aria-hidden="true">
-      {bars.map((color, index) => (
-        <span className={cn("h-full min-w-1 flex-1 rounded-full", color)} key={index} />
+    <div
+      className={cn(
+        "flex h-20 min-w-0 overflow-hidden rounded-2xl bg-slate-100",
+        className
+      )}
+      aria-hidden="true"
+    >
+      {segments.map((segment, index) => (
+        <span
+          className={cn(
+            "min-w-0 transition-[flex-basis,opacity,transform] duration-300 ease-out",
+            segment.percentage > 0 ? segment.color : "bg-transparent"
+          )}
+          key={`${segment.color}-${index}`}
+          style={{
+            flexBasis: `${Math.max(segment.percentage, segment.percentage > 0 ? 1.5 : 0)}%`
+          }}
+        />
       ))}
     </div>
   );
@@ -733,7 +1034,36 @@ function MixTile({
   );
 }
 
-function LateBucketRow({
+function AttendanceCountTile({
+  label,
+  tone = "total",
+  value
+}: {
+  label: string;
+  tone?: "absent" | "attend" | "total";
+  value: number;
+}) {
+  const toneClass = {
+    absent: "bg-rose-50 text-rose-700",
+    attend: "bg-sky-50 text-sky-700",
+    total: "bg-slate-100 text-slate-700"
+  }[tone];
+
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+      <p className="truncate text-xs font-medium text-slate-500">{label}</p>
+      <AnimatedMetricText
+        className={cn(
+          "mt-2 rounded-lg px-2 py-1 text-2xl font-semibold tabular-nums",
+          toneClass
+        )}
+        value={value.toLocaleString()}
+      />
+    </div>
+  );
+}
+
+function LateBucketLegend({
   color,
   label,
   metric
@@ -743,13 +1073,10 @@ function LateBucketRow({
   metric: AttendanceSegmentMetric;
 }) {
   return (
-    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)_4.5rem] items-center gap-2 text-sm">
-      <span className="font-medium text-slate-700">{label}</span>
-      <span className="h-2 overflow-hidden rounded-full bg-slate-200">
-        <span
-          className={cn("block h-full rounded-full", color)}
-          style={{ width: `${Math.min(metric.percentage, 100)}%` }}
-        />
+    <div className="grid grid-cols-[minmax(4.25rem,1fr)_auto] items-center gap-2 text-sm">
+      <span className="flex min-w-0 items-center gap-2 font-medium text-slate-700">
+        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", color)} />
+        <span className="truncate">{label}</span>
       </span>
       <span className="text-right tabular-nums text-slate-600">
         {metric.count} / {formatNumber(metric.percentage)}%
@@ -777,7 +1104,7 @@ function ArcGauge({
   const totalLate = Math.max(analytics.lateBuckets.totalLateCount, 1);
 
   return (
-    <div className="relative mx-auto mt-7 h-56 w-full max-w-sm overflow-hidden">
+    <div className="relative mx-auto mt-6 h-[19.5rem] w-full max-w-sm overflow-visible">
       {Array.from({ length: barCount }).map((_, index) => {
         const angle = -86 + index * (172 / (barCount - 1));
         const active = index < filledBars;
@@ -795,18 +1122,36 @@ function ArcGauge({
 
         return (
           <span
-            className={cn("absolute bottom-8 left-1/2 h-12 w-4 rounded-full", color)}
+            className={cn(
+              "absolute bottom-[7.25rem] left-1/2 h-12 w-4 rounded-full transition-[background-color,transform,opacity] duration-300 ease-out",
+              color
+            )}
             key={index}
             style={style}
           />
         );
       })}
-      <div className="absolute inset-x-0 bottom-4 grid place-items-center text-center">
-        <p className="text-4xl font-semibold tabular-nums text-slate-950">
-          {formatNumber(metric.percentage)}%
+      <div className="absolute inset-x-0 bottom-[7.6rem] grid place-items-center text-center">
+        <AnimatedMetricText
+          className="text-4xl font-semibold tabular-nums text-slate-950"
+          value={`${formatNumber(metric.percentage)}%`}
+        />
+        <p className="mt-2 px-3 text-sm font-medium leading-5 text-slate-600">
+          {metric.label}
         </p>
-        <p className="mt-2 max-w-48 text-sm text-slate-500">{metric.label}</p>
         {metric.delta ? <div className="mt-2"><DeltaBadge delta={metric.delta} /></div> : null}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 grid grid-cols-2 gap-2">
+        <ChordMetricTile
+          delta={analytics.performance.validShiftRate.delta}
+          label="Attendance Performance"
+          value={`${formatNumber(analytics.performance.validShiftRate.value)}%`}
+        />
+        <ChordMetricTile
+          delta={analytics.performance.problemShiftCount.delta}
+          label="Problem Shifts"
+          value={`${analytics.performance.problemShiftCount.value}`}
+        />
       </div>
     </div>
   );
@@ -834,7 +1179,7 @@ function colorForLateGauge(
   return "bg-rose-500";
 }
 
-function SmallMetricTile({
+function ChordMetricTile({
   delta,
   label,
   value
@@ -844,12 +1189,15 @@ function SmallMetricTile({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3">
-      <p className="truncate text-sm text-slate-500">{label}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="truncate text-2xl font-semibold tabular-nums text-slate-950">
-          {value}
-        </p>
+    <div className="min-w-0 rounded-xl bg-slate-50/95 p-3 shadow-sm backdrop-blur">
+      <p className="text-xs leading-4 text-slate-500 sm:text-sm sm:leading-5">
+        {label}
+      </p>
+      <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+        <AnimatedMetricText
+          className="min-w-0 text-2xl font-semibold tabular-nums text-slate-950"
+          value={value}
+        />
         <DeltaBadge delta={delta} />
       </div>
     </div>
@@ -958,6 +1306,65 @@ function TimeCell({ icon: Icon, value }: { icon: LucideIcon; value?: string | nu
   );
 }
 
+function CheckInCell({ row }: { row: AttendanceDailyReportRow }) {
+  const offset = checkInOffsetMinutes(row);
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <LogIn className="h-4 w-4 shrink-0 text-slate-400" />
+      <TruncatedText value={row.actualCheckinTime} />
+      {offset !== null ? <CheckInOffsetBadge minutes={offset} /> : null}
+    </span>
+  );
+}
+
+function CheckInOffsetBadge({ minutes }: { minutes: number }) {
+  if (minutes <= 0) {
+    return (
+      <span
+        aria-label="On time or early"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"
+        title="On time or early"
+      >
+        <Check className="h-3.5 w-3.5" />
+      </span>
+    );
+  }
+
+  const lateTone =
+    minutes > 15
+      ? "bg-rose-50 text-rose-700"
+      : "bg-amber-50 text-amber-700";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center rounded-lg px-2 text-xs font-semibold tabular-nums",
+        lateTone
+      )}
+      title={`${minutes} minutes after scheduled start`}
+    >
+      - {minutes} Mins
+    </span>
+  );
+}
+
+function LogHoursCell({ row }: { row: AttendanceDailyReportRow }) {
+  const hasHoursIssue = row.isUnder8Hours || row.isOver15Hours;
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <TruncatedText value={formatHours(row.actualWorkDurationHours)} />
+      {hasHoursIssue ? (
+        <TriangleAlert
+          aria-label={row.isUnder8Hours ? "Under 8 hours" : "Over 15 hours"}
+          className="h-4 w-4 shrink-0 text-amber-500"
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function StatusBadge({ row }: { row: AttendanceDailyReportRow }) {
   const status = rowStatus(row);
 
@@ -1041,6 +1448,24 @@ function performanceMetricForView(
   return map[view];
 }
 
+function statusFilterLabel(status: AttendanceCalculatedStatus) {
+  const labels: Record<AttendanceCalculatedStatus, string> = {
+    ABSENT: "Absent",
+    ANNUAL_LEAVE: "Annual Leave",
+    EXCLUDED_NON_EGYPT: "Excluded",
+    EXCLUDED_NOT_PICKER: "Not picker",
+    INVALID_OR_MISSING_ATTENDANCE_DATA: "Invalid",
+    LATE: "Late",
+    MEDICAL_LEAVE: "Sick Leave",
+    OFF_DAY: "Off Day",
+    ON_TIME: "Attend",
+    OTHER_LEAVE: "Other Leave",
+    UNMATCHED_IDENTIFIER: "Unmatched"
+  };
+
+  return labels[status];
+}
+
 function rowStatus(row: AttendanceDailyReportRow) {
   if (row.calculatedStatus === "LATE") {
     const labels = {
@@ -1065,7 +1490,7 @@ function rowStatus(row: AttendanceDailyReportRow) {
       tone: "border-rose-300 bg-rose-50 text-rose-800"
     },
     ANNUAL_LEAVE: {
-      label: "On Leave",
+      label: "Annual Leave",
       tone: "border-sky-200 bg-sky-50 text-sky-700"
     },
     EXCLUDED_NON_EGYPT: {
@@ -1085,11 +1510,11 @@ function rowStatus(row: AttendanceDailyReportRow) {
       tone: "border-orange-300 bg-orange-50 text-orange-800"
     },
     MEDICAL_LEAVE: {
-      label: "On Leave",
+      label: "Sick Leave",
       tone: "border-sky-200 bg-sky-50 text-sky-700"
     },
     OFF_DAY: {
-      label: "On Leave",
+      label: "Off Day",
       tone: "border-sky-200 bg-sky-50 text-sky-700"
     },
     ON_TIME: {
@@ -1097,7 +1522,7 @@ function rowStatus(row: AttendanceDailyReportRow) {
       tone: "border-emerald-200 bg-emerald-50 text-emerald-700"
     },
     OTHER_LEAVE: {
-      label: "On Leave",
+      label: "Other Leave",
       tone: "border-sky-200 bg-sky-50 text-sky-700"
     },
     UNMATCHED_IDENTIFIER: {
@@ -1126,25 +1551,43 @@ function paginationPages(page: number, totalPages: number) {
 function createInitialFilters(): AttendanceDailyReportFilters {
   const yesterday = yesterdayIsoDate();
   return {
+    branch: "",
+    chain: "",
     dateFrom: yesterday,
     dateTo: yesterday,
     page: 1,
     pageSize: 10,
     periodMonth: yesterday.slice(0, 7),
-    search: ""
+    search: "",
+    sortBy: "date",
+    sortDirection: "asc",
+    status: ""
   };
 }
 
 function normalizeDateRange(dateFrom: string, dateTo: string) {
   const fallback = yesterdayIsoDate();
-  let start = isIsoDate(dateFrom) ? dateFrom : isIsoDate(dateTo) ? dateTo : fallback;
-  let end = isIsoDate(dateTo) ? dateTo : start;
-
-  if (start > end) {
-    [start, end] = [end, start];
-  }
+  const start = isIsoDate(dateFrom) ? dateFrom : isIsoDate(dateTo) ? dateTo : fallback;
+  const end = isIsoDate(dateTo) ? dateTo : start;
 
   return { dateFrom: start, dateTo: end };
+}
+
+function validateReportDateRange(dateFrom: string, dateTo: string) {
+  if (!isIsoDate(dateFrom) || !isIsoDate(dateTo)) {
+    return "Select a valid start and end date.";
+  }
+
+  if (dateFrom > dateTo) {
+    return "Start date must be before end date.";
+  }
+
+  const today = todayIsoDate();
+  if (dateFrom >= today || dateTo >= today) {
+    return "Today and future dates are not available.";
+  }
+
+  return null;
 }
 
 function rangeLength(dateFrom: string, dateTo: string) {
@@ -1174,7 +1617,11 @@ function formatRangeLabel(dateFrom: string, dateTo: string) {
 }
 
 function yesterdayIsoDate() {
-  return addDaysIso(formatIsoDate(new Date()), -1);
+  return addDaysIso(todayIsoDate(), -1);
+}
+
+function todayIsoDate() {
+  return formatIsoDate(new Date());
 }
 
 function addDaysIso(value: string, days: number) {
@@ -1214,7 +1661,64 @@ function formatHours(value: number | null) {
     return "-";
   }
 
-  return `${formatNumber(value)}h`;
+  const totalSeconds = Math.max(0, Math.round(value * 60 * 60));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${padClock(hours)}:${padClock(minutes)}:${padClock(seconds)}`;
+}
+
+function checkInOffsetMinutes(row: AttendanceDailyReportRow) {
+  const scheduled = minutesFromClock(row.scheduledStartTime);
+  const actual = minutesFromClock(row.actualCheckinTime);
+
+  if (scheduled === null || actual === null) {
+    return null;
+  }
+
+  let diff = actual - scheduled;
+
+  if (diff < -720) {
+    diff += 1440;
+  }
+  if (diff > 720) {
+    diff -= 1440;
+  }
+
+  return diff;
+}
+
+function minutesFromClock(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function isLeaveStatus(row: AttendanceDailyReportRow) {
+  return (
+    row.calculatedStatus === "ANNUAL_LEAVE" ||
+    row.calculatedStatus === "MEDICAL_LEAVE" ||
+    row.calculatedStatus === "OFF_DAY" ||
+    row.calculatedStatus === "OTHER_LEAVE"
+  );
+}
+
+function padClock(value: number) {
+  return String(value).padStart(2, "0");
 }
 
 function formatNumber(value: number) {

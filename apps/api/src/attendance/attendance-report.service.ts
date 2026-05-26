@@ -8,6 +8,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   AttendanceDailyReportAnalytics,
+  AttendanceDailyReportFilterOptions,
   AttendanceDailyReportQuery,
   AttendanceDailyReportResponse,
   AttendanceDailyReportRow,
@@ -27,6 +28,7 @@ const dailyReportSelect = {
   pickerNameSnapshot: true,
   sourceDesignation: true,
   sourceLocation: true,
+  sourceSubDivision: true,
   shiftName: true,
   scheduledStartTime: true,
   scheduledEndTime: true,
@@ -44,7 +46,14 @@ const dailyReportSelect = {
   issuesCount: true
 } satisfies Prisma.AttendanceDailyRecordSelect;
 
+const dailyFilterOptionSelect = {
+  calculatedStatus: true,
+  sourceLocation: true,
+  sourceSubDivision: true
+} satisfies Prisma.AttendanceDailyRecordSelect;
+
 const dailySummarySelect = {
+  userId: true,
   calculatedStatus: true,
   rawLateMins: true,
   chargeableLateMins: true,
@@ -63,6 +72,11 @@ type AttendanceDailyReportRecord = Prisma.AttendanceDailyRecordGetPayload<{
 type AttendanceDailySummaryRecord = Prisma.AttendanceDailyRecordGetPayload<{
   select: typeof dailySummarySelect;
 }>;
+
+type AttendanceDailyFilterOptionRecord =
+  Prisma.AttendanceDailyRecordGetPayload<{
+    select: typeof dailyFilterOptionSelect;
+  }>;
 
 @Injectable()
 export class AttendanceReportService {
@@ -93,6 +107,7 @@ export class AttendanceReportService {
         coverageEndDate: null,
         expectedCoverageEndDate: null,
         analytics: emptyAnalytics(fallbackRange),
+        filterOptions: emptyFilterOptions(),
         pagination: {
           page: pagination.page,
           pageSize: pagination.pageSize,
@@ -112,22 +127,46 @@ export class AttendanceReportService {
     const currentAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.dateFrom,
-      analyticsRange.dateTo
+      analyticsRange.dateTo,
+      query
     );
     const previousAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.comparisonDateFrom,
-      analyticsRange.comparisonDateTo
+      analyticsRange.comparisonDateTo,
+      query
     );
+    const chainOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
+      includeBranch: false,
+      includeChain: false,
+      includeStatus: false
+    });
+    const branchOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
+      includeBranch: false,
+      includeChain: true,
+      includeStatus: false
+    });
+    const statusOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
+      includeBranch: true,
+      includeChain: true,
+      includeStatus: false
+    });
     const totalRows = await this.prisma.attendanceDailyRecord.count({
       where: listWhere
     });
-    const [rows, currentAnalyticsRecords, previousAnalyticsRecords] =
+    const [
+      rows,
+      currentAnalyticsRecords,
+      previousAnalyticsRecords,
+      chainOptionRecords,
+      branchOptionRecords,
+      statusOptionRecords
+    ] =
       await Promise.all([
       this.prisma.attendanceDailyRecord.findMany({
         where: listWhere,
         select: dailyReportSelect,
-        orderBy: [{ shiftDate: "asc" }, { pickerNameSnapshot: "asc" }],
+        orderBy: buildDailyOrderBy(query),
         skip: (pagination.page - 1) * pagination.pageSize,
         take: pagination.pageSize
       }),
@@ -138,6 +177,18 @@ export class AttendanceReportService {
       this.prisma.attendanceDailyRecord.findMany({
         where: previousAnalyticsWhere,
         select: dailySummarySelect
+      }),
+      this.prisma.attendanceDailyRecord.findMany({
+        where: chainOptionsWhere,
+        select: dailyFilterOptionSelect
+      }),
+      this.prisma.attendanceDailyRecord.findMany({
+        where: branchOptionsWhere,
+        select: dailyFilterOptionSelect
+      }),
+      this.prisma.attendanceDailyRecord.findMany({
+        where: statusOptionsWhere,
+        select: dailyFilterOptionSelect
       })
     ]);
 
@@ -154,6 +205,11 @@ export class AttendanceReportService {
         currentAnalyticsRecords,
         previousAnalyticsRecords
       ),
+      filterOptions: buildFilterOptions({
+        branchRecords: branchOptionRecords,
+        chainRecords: chainOptionRecords,
+        statusRecords: statusOptionRecords
+      }),
       pagination: {
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -226,6 +282,50 @@ function buildDailyReportWhere(
     ];
   }
 
+  applyDailyFacetFilters(where, query);
+
+  return where;
+}
+
+function buildFilterOptionWhere(
+  importBatchId: string,
+  query: AttendanceDailyReportQuery,
+  options: {
+    includeBranch: boolean;
+    includeChain: boolean;
+    includeStatus: boolean;
+  }
+) {
+  return buildDailyReportWhere(importBatchId, {
+    ...query,
+    branch: options.includeBranch ? query.branch : undefined,
+    chain: options.includeChain ? query.chain : undefined,
+    status: options.includeStatus ? query.status : undefined
+  });
+}
+
+function applyDailyFacetFilters(
+  where: Prisma.AttendanceDailyRecordWhereInput,
+  query?: AttendanceDailyReportQuery
+) {
+  if (!query) {
+    return;
+  }
+
+  if (query.branch?.trim()) {
+    where.sourceLocation = {
+      contains: query.branch.trim(),
+      mode: "insensitive"
+    };
+  }
+
+  if (query.chain?.trim()) {
+    where.sourceSubDivision = {
+      contains: query.chain.trim(),
+      mode: "insensitive"
+    };
+  }
+
   if (query.status) {
     where.calculatedStatus = query.status;
   }
@@ -241,16 +341,15 @@ function buildDailyReportWhere(
   if (query.onLeaveOnly === true) {
     where.isOnLeave = true;
   }
-
-  return where;
 }
 
 function buildDailyAnalyticsWhere(
   importBatchId: string,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  query?: AttendanceDailyReportQuery
 ): Prisma.AttendanceDailyRecordWhereInput {
-  return {
+  const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
     importBatch: {
       is: {
@@ -262,6 +361,42 @@ function buildDailyAnalyticsWhere(
       lte: parseDateOnly(dateTo, "dateTo")
     }
   };
+
+  applyDailyFacetFilters(where, query);
+
+  return where;
+}
+
+function buildDailyOrderBy(
+  query: AttendanceDailyReportQuery
+): Prisma.AttendanceDailyRecordOrderByWithRelationInput[] {
+  const direction = query.sortDirection === "desc" ? "desc" : "asc";
+  const sortFieldByKey = {
+    date: "shiftDate",
+    hours: "actualWorkDurationHours",
+    location: "sourceLocation",
+    name: "pickerNameSnapshot",
+    status: "calculatedStatus"
+  } satisfies Record<
+    NonNullable<AttendanceDailyReportQuery["sortBy"]>,
+    keyof Prisma.AttendanceDailyRecordOrderByWithRelationInput
+  >;
+  const field = query.sortBy ? sortFieldByKey[query.sortBy] : null;
+  const order: Prisma.AttendanceDailyRecordOrderByWithRelationInput[] = [];
+
+  if (field) {
+    order.push({
+      [field]: direction
+    } as Prisma.AttendanceDailyRecordOrderByWithRelationInput);
+  }
+
+  order.push(
+    { shiftDate: "asc" },
+    { pickerNameSnapshot: "asc" },
+    { shopperId: "asc" }
+  );
+
+  return order;
 }
 
 function buildAnalyticsRange(
@@ -313,6 +448,7 @@ function buildAnalytics(
 
   return {
     range,
+    pickerCount: current.pickerCount,
     attendanceRate: {
       attendCount: current.attendCount,
       delta: buildRateDelta(
@@ -329,9 +465,9 @@ function buildAnalytics(
       onLeave: segment(current.onLeaveCount, current.totalShifts)
     },
     lateBuckets: {
-      late1: segment(current.late1Count, current.totalShifts),
-      late2: segment(current.late2Count, current.totalShifts),
-      late3: segment(current.late3Count, current.totalShifts),
+      late1: segment(current.late1Count, current.totalLateCount),
+      late2: segment(current.late2Count, current.totalLateCount),
+      late3: segment(current.late3Count, current.totalLateCount),
       totalLateCount: current.totalLateCount
     },
     averageLogHours: {
@@ -375,6 +511,57 @@ function emptyAnalytics(
   return buildAnalytics(range, [], []);
 }
 
+function buildFilterOptions({
+  branchRecords,
+  chainRecords,
+  statusRecords
+}: {
+  branchRecords: AttendanceDailyFilterOptionRecord[];
+  chainRecords: AttendanceDailyFilterOptionRecord[];
+  statusRecords: AttendanceDailyFilterOptionRecord[];
+}): AttendanceDailyReportFilterOptions {
+  const statusSet = new Set<AttendanceCalculatedStatus>();
+  const branchSet = new Set<string>();
+  const chainSet = new Set<string>();
+
+  for (const record of statusRecords) {
+    statusSet.add(record.calculatedStatus);
+  }
+  for (const record of branchRecords) {
+    addCleanOption(branchSet, record.sourceLocation);
+  }
+  for (const record of chainRecords) {
+    addCleanOption(chainSet, record.sourceSubDivision);
+  }
+
+  return {
+    branches: Array.from(branchSet).sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    chains: Array.from(chainSet).sort((left, right) =>
+      left.localeCompare(right)
+    ),
+    statuses: Object.values(AttendanceCalculatedStatus).filter((status) =>
+      statusSet.has(status)
+    )
+  };
+}
+
+function emptyFilterOptions(): AttendanceDailyReportFilterOptions {
+  return {
+    branches: [],
+    chains: [],
+    statuses: []
+  };
+}
+
+function addCleanOption(target: Set<string>, value: string | null) {
+  const normalized = value?.trim();
+  if (normalized) {
+    target.add(normalized);
+  }
+}
+
 function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
   const summary = records.reduce(
     (state, record) => {
@@ -396,6 +583,7 @@ function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
         isAbsent || isProblemLate || record.isUnder8Hours || record.isOver15Hours;
 
       state.totalShifts += 1;
+      state.pickerIds.add(record.userId);
 
       if (isAttend) {
         state.attendCount += 1;
@@ -446,6 +634,7 @@ function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
       late2Count: 0,
       late3Count: 0,
       onLeaveCount: 0,
+      pickerIds: new Set<string>(),
       problemAbsentCount: 0,
       problemLateCount: 0,
       problemOver15Count: 0,
@@ -464,6 +653,7 @@ function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
         ? roundMetric(summary.attendedHoursTotal / summary.attendedShiftCount)
         : null,
     totalLateCount: summary.late1Count + summary.late2Count + summary.late3Count,
+    pickerCount: summary.pickerIds.size,
     validShiftCount,
     validShiftRate: percentage(validShiftCount, summary.totalShifts)
   };
@@ -686,6 +876,7 @@ function toDailyReportRow(
     pickerName: record.pickerNameSnapshot,
     sourceDesignation: record.sourceDesignation,
     sourceLocation: record.sourceLocation,
+    sourceSubDivision: record.sourceSubDivision,
     shiftName: record.shiftName,
     scheduledStartTime: record.scheduledStartTime,
     scheduledEndTime: record.scheduledEndTime,

@@ -29,17 +29,21 @@ const assert = {
     dateTo: "2026-05-06",
     pickerSearch: "Aya Picker",
     shopperId: "SHOPPER-001",
+    branch: "Branch A",
+    chain: "Chain Alpha",
     status: "LATE",
     lateOnly: true,
     absentOnly: false,
     onLeaveOnly: true,
+    sortBy: "name",
+    sortDirection: "desc",
     page: 2,
     pageSize: 50
   };
 
   assert.equal(
     buildAttendanceDailyReportPath(query),
-    "/attendance/reports/daily?periodMonth=2026-05&dateFrom=2026-05-01&dateTo=2026-05-06&shopperId=SHOPPER-001&pickerSearch=Aya+Picker&status=LATE&lateOnly=true&onLeaveOnly=true&page=2&pageSize=50"
+    "/attendance/reports/daily?periodMonth=2026-05&dateFrom=2026-05-01&dateTo=2026-05-06&shopperId=SHOPPER-001&pickerSearch=Aya+Picker&branch=Branch+A&chain=Chain+Alpha&status=LATE&lateOnly=true&onLeaveOnly=true&sortBy=name&sortDirection=desc&page=2&pageSize=50"
   );
 }
 
@@ -128,11 +132,17 @@ const assert = {
         dateFrom: "2026-05-02",
         dateTo: "2026-05-02",
         days: 1
-      }
+      },
+      pickerCount: 8
     },
     coverageEndDate: "2026-05-02",
     coverageStartDate: "2026-05-01",
     expectedCoverageEndDate: "2026-05-02",
+    filterOptions: {
+      branches: ["Branch A"],
+      chains: ["Chain Alpha"],
+      statuses: ["ON_TIME", "LATE"]
+    },
     pagination: {
       page: 1,
       pageSize: 25,
