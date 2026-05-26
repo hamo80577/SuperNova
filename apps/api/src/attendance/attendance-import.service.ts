@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -44,10 +45,15 @@ type AttendancePrismaTransaction = Prisma.TransactionClient;
 @Injectable()
 export class AttendanceImportService {
   constructor(
+    @Inject(PrismaService)
     private readonly prisma: PrismaService,
+    @Inject(AttendanceParserService)
     private readonly parser: AttendanceParserService,
+    @Inject(AttendanceValidatorService)
     private readonly validator: AttendanceValidatorService,
+    @Inject(AttendanceCalculationService)
     private readonly calculator: AttendanceCalculationService,
+    @Inject(AttendanceUserLookupService)
     private readonly userLookup: AttendanceUserLookupService
   ) {}
 

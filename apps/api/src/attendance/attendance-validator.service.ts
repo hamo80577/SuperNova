@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import {
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
@@ -42,7 +42,10 @@ const recognizedStatuses = new Set([
 
 @Injectable()
 export class AttendanceValidatorService {
-  constructor(private readonly parser: AttendanceParserService) {}
+  constructor(
+    @Inject(AttendanceParserService)
+    private readonly parser: AttendanceParserService
+  ) {}
 
   async validateWorkbook(
     buffer: Buffer,

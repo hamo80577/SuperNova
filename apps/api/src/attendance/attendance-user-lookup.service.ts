@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
 import type {
@@ -8,7 +8,7 @@ import type {
 
 @Injectable()
 export class AttendanceUserLookupService implements AttendanceUserLookup {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findByShopperIds(shopperIds: string[]): Promise<AttendanceMatchedUser[]> {
     const normalizedShopperIds = Array.from(
