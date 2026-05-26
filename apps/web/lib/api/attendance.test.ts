@@ -3,6 +3,7 @@ import {
   buildAttendanceImportConfirmPath,
   buildAttendanceImportPreviewFormData,
   buildAttendanceDailyReportPath,
+  type AttendanceDailyReportResponse,
   type AttendanceDailyReportQuery
 } from "./attendance";
 
@@ -53,6 +54,108 @@ const assert = {
     }),
     "/attendance/reports/daily?periodMonth=2026-05&page=1"
   );
+}
+
+{
+  const response: AttendanceDailyReportResponse = {
+    activeBatchId: "batch-1",
+    analytics: {
+      attendanceMix: {
+        absent: { count: 1, percentage: 10 },
+        attend: { count: 8, percentage: 80 },
+        onLeave: { count: 1, percentage: 10 }
+      },
+      attendanceRate: {
+        attendCount: 8,
+        delta: {
+          direction: "up",
+          label: "+2%",
+          unit: "percentage_point",
+          value: 2
+        },
+        totalShifts: 10,
+        value: 80
+      },
+      averageLogHours: {
+        attendedShiftCount: 8,
+        delta: {
+          direction: "flat",
+          label: "0%",
+          unit: "percent",
+          value: 0
+        },
+        formattedValue: "8h",
+        value: 8
+      },
+      lateBuckets: {
+        late1: { count: 1, percentage: 10 },
+        late2: { count: 1, percentage: 10 },
+        late3: { count: 0, percentage: 0 },
+        totalLateCount: 2
+      },
+      performance: {
+        problemMix: {
+          absent: { count: 1, percentage: 10 },
+          all: { count: 2, percentage: 20 },
+          late: { count: 1, percentage: 10 },
+          over15: { count: 0, percentage: 0 },
+          under8: { count: 0, percentage: 0 }
+        },
+        problemShiftCount: {
+          delta: {
+            direction: "down",
+            label: "-5%",
+            unit: "percent",
+            value: -5
+          },
+          value: 2
+        },
+        validShiftRate: {
+          delta: {
+            direction: "up",
+            label: "+5%",
+            unit: "percentage_point",
+            value: 5
+          },
+          totalShifts: 10,
+          validShiftCount: 8,
+          value: 80
+        }
+      },
+      range: {
+        comparisonDateFrom: "2026-05-01",
+        comparisonDateTo: "2026-05-01",
+        dateFrom: "2026-05-02",
+        dateTo: "2026-05-02",
+        days: 1
+      }
+    },
+    coverageEndDate: "2026-05-02",
+    coverageStartDate: "2026-05-01",
+    expectedCoverageEndDate: "2026-05-02",
+    pagination: {
+      page: 1,
+      pageSize: 25,
+      totalPages: 1,
+      totalRows: 0
+    },
+    periodMonth: "2026-05",
+    rows: [],
+    summary: {
+      absentCount: 1,
+      leaveCount: 1,
+      lateCount: 2,
+      offDayCount: 0,
+      onTimeCount: 6,
+      over15HoursCount: 0,
+      totalChargeableLateMins: 0,
+      totalRawLateMins: 0,
+      totalRows: 10,
+      under8HoursCount: 0
+    }
+  };
+
+  assert.equal(response.analytics.performance.validShiftRate.value, 80);
 }
 
 {

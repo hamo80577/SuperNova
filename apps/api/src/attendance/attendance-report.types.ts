@@ -24,9 +24,92 @@ export interface AttendanceDailyReportResponse {
   coverageStartDate: string | null;
   coverageEndDate: string | null;
   expectedCoverageEndDate: string | null;
+  analytics: AttendanceDailyReportAnalytics;
   pagination: AttendanceDailyReportPagination;
   summary: AttendanceDailyReportSummary;
   rows: AttendanceDailyReportRow[];
+}
+
+export interface AttendanceDailyReportAnalytics {
+  range: AttendanceAnalyticsRange;
+  attendanceRate: AttendanceRateMetric;
+  attendanceMix: AttendanceAttendanceMix;
+  lateBuckets: AttendanceLateBucketMetrics;
+  averageLogHours: AttendanceAverageLogHoursMetric;
+  performance: AttendancePerformanceMetrics;
+}
+
+export interface AttendanceAnalyticsRange {
+  dateFrom: string;
+  dateTo: string;
+  days: number;
+  comparisonDateFrom: string;
+  comparisonDateTo: string;
+}
+
+export interface AttendanceMetricDelta {
+  value: number | null;
+  direction: "up" | "down" | "flat" | "neutral";
+  unit: "percentage_point" | "percent";
+  label: string;
+}
+
+export interface AttendanceSegmentMetric {
+  count: number;
+  percentage: number;
+}
+
+export interface AttendanceRateMetric {
+  value: number;
+  attendCount: number;
+  totalShifts: number;
+  delta: AttendanceMetricDelta;
+}
+
+export interface AttendanceAttendanceMix {
+  attend: AttendanceSegmentMetric;
+  onLeave: AttendanceSegmentMetric;
+  absent: AttendanceSegmentMetric;
+}
+
+export interface AttendanceLateBucketMetrics {
+  late1: AttendanceSegmentMetric;
+  late2: AttendanceSegmentMetric;
+  late3: AttendanceSegmentMetric;
+  totalLateCount: number;
+}
+
+export interface AttendanceAverageLogHoursMetric {
+  value: number | null;
+  formattedValue: string;
+  attendedShiftCount: number;
+  delta: AttendanceMetricDelta;
+}
+
+export interface AttendancePerformanceMetrics {
+  validShiftRate: AttendanceValidShiftRateMetric;
+  problemShiftCount: AttendanceProblemShiftCountMetric;
+  problemMix: AttendanceProblemMix;
+}
+
+export interface AttendanceValidShiftRateMetric {
+  value: number;
+  validShiftCount: number;
+  totalShifts: number;
+  delta: AttendanceMetricDelta;
+}
+
+export interface AttendanceProblemShiftCountMetric {
+  value: number;
+  delta: AttendanceMetricDelta;
+}
+
+export interface AttendanceProblemMix {
+  all: AttendanceSegmentMetric;
+  absent: AttendanceSegmentMetric;
+  late: AttendanceSegmentMetric;
+  under8: AttendanceSegmentMetric;
+  over15: AttendanceSegmentMetric;
 }
 
 export interface AttendanceDailyReportPagination {

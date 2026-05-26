@@ -130,7 +130,8 @@ const activeRows = [
     isOffDay: true,
     actualCheckinTime: null,
     actualCheckoutTime: null,
-    actualWorkDurationHours: null
+    actualWorkDurationHours: null,
+    sourceLocation: "Spinneys Tagamoa"
   })
 ];
 
@@ -310,8 +311,123 @@ async function run() {
     assert.equal(result.rows[0]?.shiftDate, "2026-05-01");
     assert.equal(result.rows[0]?.actualCheckinTime, "09:05");
     assert.equal(result.rows[0]?.actualWorkDurationHours, 8);
+    assert.deepEqual(result.analytics.attendanceRate, {
+      attendCount: 3,
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percentage_point",
+        value: null
+      },
+      totalShifts: 6,
+      value: 50
+    });
+    assert.deepEqual(result.analytics.attendanceMix, {
+      absent: { count: 1, percentage: 16.67 },
+      attend: { count: 3, percentage: 50 },
+      onLeave: { count: 2, percentage: 33.33 }
+    });
+    assert.deepEqual(result.analytics.lateBuckets, {
+      late1: { count: 0, percentage: 0 },
+      late2: { count: 1, percentage: 16.67 },
+      late3: { count: 1, percentage: 16.67 },
+      totalLateCount: 2
+    });
+    assert.deepEqual(result.analytics.averageLogHours, {
+      attendedShiftCount: 3,
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percent",
+        value: null
+      },
+      formattedValue: "10.5h",
+      value: 10.5
+    });
+    assert.deepEqual(result.analytics.performance.validShiftRate, {
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percentage_point",
+        value: null
+      },
+      totalShifts: 6,
+      validShiftCount: 3,
+      value: 50
+    });
+    assert.deepEqual(result.analytics.performance.problemShiftCount, {
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percent",
+        value: null
+      },
+      value: 3
+    });
+    assert.deepEqual(result.analytics.performance.problemMix, {
+      absent: { count: 1, percentage: 16.67 },
+      all: { count: 3, percentage: 50 },
+      late: { count: 2, percentage: 33.33 },
+      over15: { count: 1, percentage: 16.67 },
+      under8: { count: 1, percentage: 16.67 }
+    });
     assert.deepEqual(calls.writes, []);
     assertRecordReadsRequireActiveBatch(calls.recordFindMany);
+  }
+
+  {
+    const { prisma } = createPrismaMock();
+    const service = new AttendanceReportService(prisma as never);
+    const result = await service.getDailyReport({
+      periodMonth: "2026-05",
+      dateFrom: "2026-05-02",
+      dateTo: "2026-05-03"
+    });
+
+    assert.deepEqual(result.analytics.range, {
+      comparisonDateFrom: "2026-04-30",
+      comparisonDateTo: "2026-05-01",
+      dateFrom: "2026-05-02",
+      dateTo: "2026-05-03",
+      days: 2
+    });
+    assert.deepEqual(result.analytics.attendanceRate.delta, {
+      direction: "flat",
+      label: "0%",
+      unit: "percentage_point",
+      value: 0
+    });
+    assert.deepEqual(result.analytics.averageLogHours, {
+      attendedShiftCount: 2,
+      delta: {
+        direction: "up",
+        label: "+46.88%",
+        unit: "percent",
+        value: 46.88
+      },
+      formattedValue: "11.75h",
+      value: 11.75
+    });
+    assert.deepEqual(result.analytics.performance.validShiftRate, {
+      delta: {
+        direction: "down",
+        label: "-100%",
+        unit: "percentage_point",
+        value: -100
+      },
+      totalShifts: 2,
+      validShiftCount: 0,
+      value: 0
+    });
+    assert.deepEqual(result.analytics.performance.problemShiftCount, {
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percent",
+        value: null
+      },
+      value: 2
+    });
   }
 
   {
@@ -410,6 +526,15 @@ async function run() {
         })
       ).rows.map((row) => row.id),
       ["r-3"]
+    );
+    assert.deepEqual(
+      (
+        await service.getDailyReport({
+          periodMonth: "2026-05",
+          pickerSearch: "tagamoa"
+        })
+      ).rows.map((row) => row.id),
+      ["r-6"]
     );
   }
 
@@ -590,7 +715,12 @@ function matchesWhere(row: DailyRow, where: Record<string, unknown>): boolean {
       continue;
     }
 
-    if (key === "shopperId" || key === "pickerNameSnapshot") {
+    if (
+      key === "shopperId" ||
+      key === "pickerNameSnapshot" ||
+      key === "sourceLocation" ||
+      key === "sourceName"
+    ) {
       const actual = String(row[key as keyof DailyRow] ?? "");
       if (typeof value === "object" && value !== null && "contains" in value) {
         const contains = String(
