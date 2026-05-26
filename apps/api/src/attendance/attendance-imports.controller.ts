@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Inject,
   Param,
   ParseUUIDPipe,
   Post,
@@ -31,6 +32,7 @@ type UploadedAttendanceFile = Readonly<{
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class AttendanceImportsController {
   constructor(
+    @Inject(AttendanceImportService)
     private readonly attendanceImportService: AttendanceImportService
   ) {}
 
