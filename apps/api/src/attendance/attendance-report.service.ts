@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import {
   AttendanceCalculatedStatus,
   AttendanceImportBatchStatus,
@@ -62,7 +62,10 @@ type AttendanceDailySummaryRecord = Prisma.AttendanceDailyRecordGetPayload<{
 
 @Injectable()
 export class AttendanceReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService
+  ) {}
 
   async getDailyReport(
     query: AttendanceDailyReportQuery
@@ -78,213 +81,128 @@ export class AttendanceReportService {
     });
 
     if (!activeBatch) {
-      return emptyReportResponse(periodMonth, pagination.page, pagination.pageSize);
+      return {
+        periodMonth,
+        activeBatchId: null,
+        coverageStartDate: null,
+        coverageEndDate: null,
+        pagination: {
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          totalRows: 0,
+          totalPages: 0
+        },
+        summary: emptySummary(),
+        rows: []
+      };
     }
 
-    const where = buildDailyRecordWhere(query, periodMonth, activeBatch.id);
-    const [totalRows, summaryRows, rows] = await Promise.all([
-      this.prisma.attendanceDailyRecord.count({ where }),
-      this.prisma.attendanceDailyRecord.findMany({
-        where,
-        select: dailySummarySelect
-      }),
+    const where = buildDailyReportWhere(activeBatch.id, query);
+    const totalRows = await this.prisma.attendanceDailyRecord.count({ where });
+    const [rows, summaryRecords] = await Promise.all([
       this.prisma.attendanceDailyRecord.findMany({
         where,
         select: dailyReportSelect,
-        orderBy: [
-          { shiftDate: "asc" },
-          { pickerNameSnapshot: "asc" },
-          { shopperId: "asc" }
-        ],
+        orderBy: [{ shiftDate: "asc" }, { pickerNameSnapshot: "asc" }],
         skip: (pagination.page - 1) * pagination.pageSize,
         take: pagination.pageSize
+      }),
+      this.prisma.attendanceDailyRecord.findMany({
+        where,
+        select: dailySummarySelect
       })
     ]);
 
     return {
       periodMonth,
       activeBatchId: activeBatch.id,
-      coverageStartDate: formatDateOnlyOrNull(activeBatch.coverageStartDate),
-      coverageEndDate: formatDateOnlyOrNull(activeBatch.coverageEndDate),
-      expectedCoverageEndDate: formatDateOnlyOrNull(
-        activeBatch.expectedCoverageEndDate
-      ),
+      coverageStartDate: activeBatch.coverageStartDate,
+      coverageEndDate: activeBatch.coverageEndDate,
       pagination: {
         page: pagination.page,
         pageSize: pagination.pageSize,
         totalRows,
-        totalPages: Math.max(1, Math.ceil(totalRows / pagination.pageSize))
+        totalPages: Math.ceil(totalRows / pagination.pageSize)
       },
-      summary: summarizeRows(summaryRows, totalRows),
-      rows: rows.map(mapDailyReportRow)
+      summary: summarizeDailyRecords(summaryRecords),
+      rows: rows.map(toDailyReportRow)
     };
   }
 }
 
-function buildDailyRecordWhere(
-  query: AttendanceDailyReportQuery,
-  periodMonth: string,
-  activeBatchId: string
+function buildDailyReportWhere(
+  importBatchId: string,
+  query: AttendanceDailyReportQuery
 ): Prisma.AttendanceDailyRecordWhereInput {
-  const and: Prisma.AttendanceDailyRecordWhereInput[] = [];
-  const dateFrom = query.dateFrom
-    ? dateOnlyToUtcDate(query.dateFrom, "dateFrom")
-    : null;
-  const dateTo = query.dateTo ? dateOnlyToUtcDate(query.dateTo, "dateTo") : null;
+  const where: Prisma.AttendanceDailyRecordWhereInput = {
+    importBatchId,
+    importBatch: {
+      status: AttendanceImportBatchStatus.ACTIVE
+    }
+  };
 
-  if (dateFrom && dateTo && dateFrom > dateTo) {
-    throw new BadRequestException("dateFrom cannot be after dateTo.");
+  if (query.dateFrom || query.dateTo) {
+    where.shiftDate = {};
+    if (query.dateFrom) {
+      where.shiftDate.gte = parseDateOnly(query.dateFrom, "dateFrom");
+    }
+    if (query.dateTo) {
+      where.shiftDate.lte = parseDateOnly(query.dateTo, "dateTo");
+    }
   }
 
-  if (dateFrom || dateTo) {
-    and.push({
-      shiftDate: {
-        ...(dateFrom ? { gte: dateFrom } : {}),
-        ...(dateTo ? { lte: dateTo } : {})
-      }
-    });
+  if (query.shopperId?.trim()) {
+    where.shopperId = {
+      contains: query.shopperId.trim(),
+      mode: "insensitive"
+    };
   }
 
-  const shopperId = cleanText(query.shopperId);
-  if (shopperId) {
-    and.push({
-      shopperId: {
-        contains: shopperId,
-        mode: "insensitive"
-      }
-    });
-  }
-
-  const pickerSearch = cleanText(query.pickerSearch);
-  if (pickerSearch) {
-    and.push({
-      OR: [
-        {
-          pickerNameSnapshot: {
-            contains: pickerSearch,
-            mode: "insensitive"
-          }
-        },
-        {
-          shopperId: {
-            contains: pickerSearch,
-            mode: "insensitive"
-          }
+  if (query.pickerSearch?.trim()) {
+    const search = query.pickerSearch.trim();
+    where.OR = [
+      {
+        pickerNameSnapshot: {
+          contains: search,
+          mode: "insensitive"
         }
-      ]
-    });
+      },
+      {
+        sourceName: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
+      {
+        shopperId: {
+          contains: search,
+          mode: "insensitive"
+        }
+      }
+    ];
   }
 
   if (query.status) {
-    and.push({ calculatedStatus: query.status });
+    where.calculatedStatus = query.status;
   }
 
-  if (isTruthyBoolean(query.lateOnly)) {
-    and.push({ calculatedStatus: AttendanceCalculatedStatus.LATE });
+  if (query.lateOnly === true) {
+    where.isLate = true;
   }
 
-  if (isTruthyBoolean(query.absentOnly)) {
-    and.push({ calculatedStatus: AttendanceCalculatedStatus.ABSENT });
+  if (query.absentOnly === true) {
+    where.isAbsent = true;
   }
 
-  if (isTruthyBoolean(query.onLeaveOnly)) {
-    and.push({ isOnLeave: true });
+  if (query.onLeaveOnly === true) {
+    where.isOnLeave = true;
   }
 
-  return {
-    importBatchId: activeBatchId,
-    periodMonth,
-    importBatch: {
-      is: {
-        status: AttendanceImportBatchStatus.ACTIVE
-      }
-    },
-    ...(and.length ? { AND: and } : {})
-  };
+  return where;
 }
 
-function summarizeRows(
-  rows: AttendanceDailySummaryRecord[],
-  totalRows: number
-): AttendanceDailyReportSummary {
-  return rows.reduce(
-    (summary, row) => {
-      if (row.calculatedStatus === AttendanceCalculatedStatus.ON_TIME) {
-        summary.onTimeCount += 1;
-      }
-
-      if (row.calculatedStatus === AttendanceCalculatedStatus.LATE) {
-        summary.lateCount += 1;
-      }
-
-      if (row.calculatedStatus === AttendanceCalculatedStatus.ABSENT) {
-        summary.absentCount += 1;
-      }
-
-      if (row.isOnLeave) {
-        summary.leaveCount += 1;
-      }
-
-      if (row.isOffDay) {
-        summary.offDayCount += 1;
-      }
-
-      if (row.isUnder8Hours) {
-        summary.under8HoursCount += 1;
-      }
-
-      if (row.isOver15Hours) {
-        summary.over15HoursCount += 1;
-      }
-
-      summary.totalRawLateMins += row.rawLateMins ?? 0;
-      summary.totalChargeableLateMins += row.chargeableLateMins ?? 0;
-
-      return summary;
-    },
-    emptySummary(totalRows)
-  );
-}
-
-function mapDailyReportRow(
-  row: AttendanceDailyReportRecord
-): AttendanceDailyReportRow {
-  return {
-    id: row.id,
-    pickerName: row.pickerNameSnapshot,
-    shopperId: row.shopperId,
-    userId: row.userId,
-    shiftDate: formatDateOnly(row.shiftDate),
-    shiftName: row.shiftName,
-    scheduledStartTime: row.scheduledStartTime,
-    scheduledEndTime: row.scheduledEndTime,
-    actualCheckinTime: formatTimeOnlyOrNull(row.actualCheckinTime),
-    actualCheckoutTime: formatTimeOnlyOrNull(row.actualCheckoutTime),
-    actualWorkDurationHours: decimalToNumberOrNull(row.actualWorkDurationHours),
-    calculatedStatus: row.calculatedStatus,
-    rawLateMins: row.rawLateMins,
-    chargeableLateMins: row.chargeableLateMins,
-    lateBucket: row.lateBucket,
-    leaveType: row.leaveType,
-    isWorkingDay: row.isWorkingDay,
-    isUnder8Hours: row.isUnder8Hours,
-    isOver15Hours: row.isOver15Hours,
-    sourceLocation: row.sourceLocation,
-    sourceDesignation: row.sourceDesignation,
-    issuesCount: row.issuesCount
-  };
-}
-
-function normalizePeriodMonth(value: string | undefined) {
-  const periodMonth = cleanText(value);
-
-  if (!periodMonth) {
-    throw new BadRequestException(
-      "periodMonth is required for attendance daily reports."
-    );
-  }
-
-  if (!/^\d{4}-\d{2}$/.test(periodMonth)) {
+function normalizePeriodMonth(periodMonth: string | undefined): string {
+  if (!periodMonth || !/^\d{4}-\d{2}$/.test(periodMonth)) {
     throw new BadRequestException("periodMonth must use YYYY-MM format.");
   }
 
@@ -292,126 +210,117 @@ function normalizePeriodMonth(value: string | undefined) {
 }
 
 function normalizePagination(query: AttendanceDailyReportQuery) {
-  const page = clampPositiveInt(query.page, DEFAULT_PAGE);
-  const pageSize = Math.min(
-    MAX_PAGE_SIZE,
-    clampPositiveInt(query.pageSize, DEFAULT_PAGE_SIZE)
+  const page = clampInteger(query.page, DEFAULT_PAGE, 1, 1_000_000);
+  const pageSize = clampInteger(
+    query.pageSize,
+    DEFAULT_PAGE_SIZE,
+    1,
+    MAX_PAGE_SIZE
   );
 
   return { page, pageSize };
 }
 
-function clampPositiveInt(value: number | string | undefined, fallback: number) {
-  const parsed = typeof value === "number" ? value : Number(value);
-
-  if (!Number.isInteger(parsed) || parsed < 1) {
+function clampInteger(
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (!Number.isInteger(value)) {
     return fallback;
+  }
+
+  return Math.min(Math.max(value, min), max);
+}
+
+function parseDateOnly(value: string, fieldName: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException(`${fieldName} must use YYYY-MM-DD format.`);
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`${fieldName} is invalid.`);
   }
 
   return parsed;
 }
 
-function emptyReportResponse(
-  periodMonth: string,
-  page: number,
-  pageSize: number
-): AttendanceDailyReportResponse {
-  return {
-    periodMonth,
-    activeBatchId: null,
-    coverageStartDate: null,
-    coverageEndDate: null,
-    expectedCoverageEndDate: null,
-    pagination: {
-      page,
-      pageSize,
-      totalRows: 0,
-      totalPages: 1
-    },
-    summary: emptySummary(0),
-    rows: []
-  };
+function summarizeDailyRecords(
+  records: AttendanceDailySummaryRecord[]
+): AttendanceDailyReportSummary {
+  return records.reduce<AttendanceDailyReportSummary>((summary, record) => {
+    summary.totalRows += 1;
+    summary.totalRawLateMins += record.rawLateMins;
+    summary.totalChargeableLateMins += record.chargeableLateMins;
+
+    if (record.calculatedStatus === AttendanceCalculatedStatus.ON_TIME) {
+      summary.onTimeDays += 1;
+    }
+    if (record.calculatedStatus === AttendanceCalculatedStatus.LATE) {
+      summary.lateDays += 1;
+    }
+    if (record.calculatedStatus === AttendanceCalculatedStatus.ABSENT) {
+      summary.absentDays += 1;
+    }
+    if (record.isOnLeave) {
+      summary.leaveDays += 1;
+    }
+    if (record.isOffDay) {
+      summary.offDays += 1;
+    }
+    if (record.isUnder8Hours) {
+      summary.under8HoursCount += 1;
+    }
+    if (record.isOver15Hours) {
+      summary.over15HoursCount += 1;
+    }
+
+    return summary;
+  }, emptySummary());
 }
 
-function emptySummary(totalRows: number): AttendanceDailyReportSummary {
+function emptySummary(): AttendanceDailyReportSummary {
   return {
-    totalRows,
-    onTimeCount: 0,
-    lateCount: 0,
-    absentCount: 0,
-    leaveCount: 0,
-    offDayCount: 0,
-    under8HoursCount: 0,
-    over15HoursCount: 0,
+    totalRows: 0,
+    onTimeDays: 0,
+    lateDays: 0,
+    absentDays: 0,
+    leaveDays: 0,
+    offDays: 0,
     totalRawLateMins: 0,
-    totalChargeableLateMins: 0
+    totalChargeableLateMins: 0,
+    under8HoursCount: 0,
+    over15HoursCount: 0
   };
 }
 
-function dateOnlyToUtcDate(value: string, fieldName: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-
-  if (!match) {
-    throw new BadRequestException(`${fieldName} must use YYYY-MM-DD format.`);
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw new BadRequestException(`${fieldName} must be a valid date.`);
-  }
-
-  return date;
-}
-
-function formatDateOnlyOrNull(value: Date | null) {
-  return value ? formatDateOnly(value) : null;
-}
-
-function formatDateOnly(value: Date) {
-  return value.toISOString().slice(0, 10);
-}
-
-function formatTimeOnlyOrNull(value: Date | null) {
-  return value ? value.toISOString().slice(11, 16) : null;
-}
-
-function decimalToNumberOrNull(value: unknown) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value === "number") {
-    return value;
-  }
-
-  if (
-    typeof value === "object" &&
-    "toNumber" in value &&
-    typeof value.toNumber === "function"
-  ) {
-    return value.toNumber();
-  }
-
-  return Number(value);
-}
-
-function cleanText(value: string | undefined) {
-  const text = value?.trim();
-  return text ? text : null;
-}
-
-function isTruthyBoolean(value: boolean | string | undefined) {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  return value?.trim().toLowerCase() === "true";
+function toDailyReportRow(
+  record: AttendanceDailyReportRecord
+): AttendanceDailyReportRow {
+  return {
+    id: record.id,
+    shopperId: record.shopperId,
+    userId: record.userId,
+    shiftDate: record.shiftDate,
+    pickerName: record.pickerNameSnapshot,
+    sourceDesignation: record.sourceDesignation,
+    sourceLocation: record.sourceLocation,
+    shiftName: record.shiftName,
+    scheduledStartTime: record.scheduledStartTime,
+    scheduledEndTime: record.scheduledEndTime,
+    actualCheckinTime: record.actualCheckinTime,
+    actualCheckoutTime: record.actualCheckoutTime,
+    actualWorkDurationHours: record.actualWorkDurationHours,
+    calculatedStatus: record.calculatedStatus,
+    rawLateMins: record.rawLateMins,
+    chargeableLateMins: record.chargeableLateMins,
+    lateBucket: record.lateBucket,
+    leaveType: record.leaveType,
+    isWorkingDay: record.isWorkingDay,
+    isUnder8Hours: record.isUnder8Hours,
+    isOver15Hours: record.isOver15Hours,
+    issuesCount: record.issuesCount
+  };
 }
