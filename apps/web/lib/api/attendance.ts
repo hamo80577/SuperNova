@@ -1,4 +1,4 @@
-import { apiGet, apiRequest } from "./request";
+import { apiGet, apiRequest, clearApiCache } from "./request";
 
 export type AttendanceCalculatedStatus =
   | "ON_TIME"
@@ -169,6 +169,8 @@ export interface AttendanceImportConfirmResponse {
   confirmedAt: string;
 }
 
+const attendanceDailyReportPathPrefix = "/attendance/reports/daily";
+
 export function buildAttendanceDailyReportPath(
   query: AttendanceDailyReportQuery
 ) {
@@ -187,7 +189,7 @@ export function buildAttendanceDailyReportPath(
   setNumber(params, "pageSize", query.pageSize);
 
   const serialized = params.toString();
-  return `/attendance/reports/daily${serialized ? `?${serialized}` : ""}`;
+  return `${attendanceDailyReportPathPrefix}${serialized ? `?${serialized}` : ""}`;
 }
 
 export function buildAttendanceImportPreviewFormData(
@@ -204,11 +206,18 @@ export function buildAttendanceImportConfirmPath(batchId: string) {
   return `/attendance/imports/${encodeURIComponent(batchId)}/confirm`;
 }
 
+export function clearAttendanceDailyReportCache() {
+  clearApiCache(attendanceDailyReportPathPrefix);
+}
+
 export const attendanceApi = {
   dailyReport(query: AttendanceDailyReportQuery) {
     return apiGet<AttendanceDailyReportResponse>(
       buildAttendanceDailyReportPath(query)
     );
+  },
+  clearDailyReportCache() {
+    clearAttendanceDailyReportCache();
   },
   previewImport(file: File, options: AttendanceImportPreviewOptions = {}) {
     return apiRequest<AttendanceImportPreviewResponse>(
@@ -219,13 +228,15 @@ export const attendanceApi = {
       }
     );
   },
-  confirmImport(batchId: string) {
-    return apiRequest<AttendanceImportConfirmResponse>(
+  async confirmImport(batchId: string) {
+    const result = await apiRequest<AttendanceImportConfirmResponse>(
       buildAttendanceImportConfirmPath(batchId),
       {
         method: "POST"
       }
     );
+    clearAttendanceDailyReportCache();
+    return result;
   }
 };
 

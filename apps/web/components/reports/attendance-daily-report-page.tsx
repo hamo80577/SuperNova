@@ -161,6 +161,11 @@ export function AttendanceDailyReportPage() {
     setAppliedFilters((current) => ({ ...current, page }));
   }
 
+  function refreshReport() {
+    attendanceApi.clearDailyReportCache();
+    setAppliedFilters({ ...filters });
+  }
+
   const data = state.status === "ready" ? state.data : null;
 
   return (
@@ -196,7 +201,7 @@ export function AttendanceDailyReportPage() {
             </Link>
             <Button
               className="h-11 rounded-xl"
-              onClick={() => setAppliedFilters({ ...filters })}
+              onClick={refreshReport}
               type="button"
               variant="outline"
             >
