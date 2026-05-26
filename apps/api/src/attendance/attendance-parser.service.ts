@@ -243,6 +243,16 @@ function parseDateOnly(value: unknown): { value: string | null; valid: boolean }
     return fromDateParts(isoMatch[1], isoMatch[2], isoMatch[3]);
   }
 
+  const dashDayMonthYearMatch = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(text);
+
+  if (dashDayMonthYearMatch) {
+    return fromDateParts(
+      dashDayMonthYearMatch[3],
+      dashDayMonthYearMatch[2],
+      dashDayMonthYearMatch[1]
+    );
+  }
+
   const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
 
   if (slashMatch) {
