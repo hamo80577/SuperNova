@@ -126,6 +126,74 @@ const assert = {
           value: 80
         }
       },
+      shiftQuality: {
+        cleanShiftRate: {
+          delta: {
+            direction: "up",
+            label: "+5%",
+            unit: "percentage_point",
+            value: 5
+          },
+          totalShifts: 10,
+          value: 80
+        },
+        counts: {
+          cleanShifts: {
+            delta: {
+              direction: "up",
+              label: "+12.5%",
+              unit: "percent",
+              value: 12.5
+            },
+            value: 8
+          },
+          errorShifts: {
+            delta: {
+              direction: "down",
+              label: "-5%",
+              unit: "percent",
+              value: -5
+            },
+            value: 2
+          },
+          totalShifts: {
+            delta: {
+              direction: "flat",
+              label: "0%",
+              unit: "percent",
+              value: 0
+            },
+            value: 10
+          }
+        }
+      },
+      workStatusRates: {
+        absent: {
+          count: 1,
+          delta: { direction: "up", label: "+10%", unit: "percentage_point", value: 10 },
+          percentage: 10
+        },
+        all: {
+          count: 8,
+          delta: { direction: "up", label: "+2%", unit: "percentage_point", value: 2 },
+          percentage: 80
+        },
+        lateOver15: {
+          count: 1,
+          delta: { direction: "flat", label: "0%", unit: "percentage_point", value: 0 },
+          percentage: 10
+        },
+        onLeave: {
+          count: 1,
+          delta: { direction: "down", label: "-5%", unit: "percentage_point", value: -5 },
+          percentage: 10
+        },
+        onTime: {
+          count: 7,
+          delta: { direction: "up", label: "+7%", unit: "percentage_point", value: 7 },
+          percentage: 70
+        }
+      },
       range: {
         comparisonDateFrom: "2026-05-01",
         comparisonDateTo: "2026-05-01",

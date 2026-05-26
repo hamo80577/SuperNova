@@ -74,6 +74,8 @@ export interface AttendanceDailyReportAnalytics {
   lateBuckets: AttendanceLateBucketMetrics;
   averageLogHours: AttendanceAverageLogHoursMetric;
   performance: AttendancePerformanceMetrics;
+  shiftQuality: AttendanceShiftQualityMetrics;
+  workStatusRates: AttendanceWorkStatusRates;
 }
 
 export interface AttendanceAnalyticsRange {
@@ -94,6 +96,11 @@ export interface AttendanceMetricDelta {
 export interface AttendanceSegmentMetric {
   count: number;
   percentage: number;
+}
+
+export interface AttendanceCountMetric {
+  value: number;
+  delta: AttendanceMetricDelta;
 }
 
 export interface AttendanceRateMetric {
@@ -127,6 +134,31 @@ export interface AttendancePerformanceMetrics {
   validShiftRate: AttendanceValidShiftRateMetric;
   problemShiftCount: AttendanceProblemShiftCountMetric;
   problemMix: AttendanceProblemMix;
+}
+
+export interface AttendanceShiftQualityMetrics {
+  cleanShiftRate: {
+    value: number;
+    totalShifts: number;
+    delta: AttendanceMetricDelta;
+  };
+  counts: {
+    totalShifts: AttendanceCountMetric;
+    cleanShifts: AttendanceCountMetric;
+    errorShifts: AttendanceCountMetric;
+  };
+}
+
+export interface AttendanceWorkStatusRates {
+  all: AttendanceWorkStatusMetric;
+  onTime: AttendanceWorkStatusMetric;
+  lateOver15: AttendanceWorkStatusMetric;
+  absent: AttendanceWorkStatusMetric;
+  onLeave: AttendanceWorkStatusMetric;
+}
+
+export interface AttendanceWorkStatusMetric extends AttendanceSegmentMetric {
+  delta: AttendanceMetricDelta;
 }
 
 export interface AttendanceValidShiftRateMetric {

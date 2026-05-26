@@ -3,11 +3,14 @@
 import {
   AlertCircle,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
   FileSpreadsheet,
   Inbox,
+  ListChecks,
   MapPin,
   Loader2,
   RefreshCcw,
@@ -23,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { Select } from "@/components/ui/select";
 import {
   attendanceApi,
   type AttendanceImportConfirmResponse,
@@ -45,6 +49,8 @@ type ConfirmState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "confirmed"; data: AttendanceImportConfirmResponse; error?: never };
+
+const issuePageSizes = [10, 25];
 
 export function AttendanceImportConsolePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -205,24 +211,18 @@ export function AttendanceImportConsolePage() {
   }
 
   return (
-    <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
+      <div className="grid min-w-0 gap-4 rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <header className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
-            <Badge
-              className="border-orange-200 bg-orange-50 text-orange-700"
-              variant="outline"
-            >
-              Attendance import
-            </Badge>
-            <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
-              Attendance Import Console
+            <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
+              Attendance Imports
             </h1>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-              Upload MTD Excel from month start through yesterday.
+            <p className="mt-1 text-sm text-slate-500">
+              Upload, preview, resolve, and confirm monthly picker attendance.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Link
               className={cn(
                 buttonVariants({ variant: "outline" }),
@@ -244,57 +244,57 @@ export function AttendanceImportConsolePage() {
               Clear
             </Button>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <UploadCard
-          fileLabel={selectedFileLabel}
-          fileInputKey={fileInputKey}
-          isPreviewing={isPreviewing}
-          onFileChange={handleFileChange}
-          onPreview={handlePreview}
-          onUploadDateChange={setUploadDate}
-          previewError={previewState.status === "error" ? previewState.error : null}
-          uploadDate={uploadDate}
-        />
-        <PreviewStatusCard preview={preview} />
-      </section>
-
-      {preview ? (
-        <>
-          <CoverageCard preview={preview} />
-          <CountsSection preview={preview} />
-          <IssuesSection issues={preview.preview.issues} />
-          <ConfirmSection
-            canConfirm={canConfirm}
-            checked={confirmChecked}
-            confirmState={confirmState}
-            onCheckedChange={setConfirmChecked}
-            onConfirm={handleConfirm}
-            preview={preview}
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <UploadCard
+            fileLabel={selectedFileLabel}
+            fileInputKey={fileInputKey}
+            isPreviewing={isPreviewing}
+            onFileChange={handleFileChange}
+            onPreview={handlePreview}
+            onUploadDateChange={setUploadDate}
+            previewError={previewState.status === "error" ? previewState.error : null}
+            uploadDate={uploadDate}
           />
-          {duplicateResolverOpen && preview.preview.duplicateGroups.length > 0 ? (
-            <DuplicateResolutionModal
-              currentIndex={duplicateResolverIndex}
-              groups={preview.preview.duplicateGroups}
-              onClose={() => setDuplicateResolverOpen(false)}
-              onIndexChange={setDuplicateResolverIndex}
-              onSave={handleSaveDuplicateChoices}
-              onSelect={(group, rawRowNumber) =>
-                setDuplicateSelections((current) => ({
-                  ...current,
-                  [duplicateGroupKey(group)]: rawRowNumber
-                }))
-              }
-              saveState={duplicateSaveState}
-              selections={duplicateSelections}
+          <PreviewStatusCard preview={preview} />
+        </section>
+
+        {preview ? (
+          <>
+            <CoverageCard preview={preview} />
+            <CountsSection preview={preview} />
+            <IssuesSection issues={preview.preview.issues} />
+            <ConfirmSection
+              canConfirm={canConfirm}
+              checked={confirmChecked}
+              confirmState={confirmState}
+              onCheckedChange={setConfirmChecked}
+              onConfirm={handleConfirm}
+              preview={preview}
             />
-          ) : null}
-        </>
-      ) : (
-        <EmptyConsoleState />
-      )}
+            {duplicateResolverOpen && preview.preview.duplicateGroups.length > 0 ? (
+              <DuplicateResolutionModal
+                currentIndex={duplicateResolverIndex}
+                groups={preview.preview.duplicateGroups}
+                onClose={() => setDuplicateResolverOpen(false)}
+                onIndexChange={setDuplicateResolverIndex}
+                onSave={handleSaveDuplicateChoices}
+                onSelect={(group, rawRowNumber) =>
+                  setDuplicateSelections((current) => ({
+                    ...current,
+                    [duplicateGroupKey(group)]: rawRowNumber
+                  }))
+                }
+                saveState={duplicateSaveState}
+                selections={duplicateSelections}
+              />
+            ) : null}
+          </>
+        ) : (
+          <EmptyConsoleState />
+        )}
+      </div>
     </div>
   );
 }
@@ -333,10 +333,10 @@ function DuplicateResolutionModal({
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6 backdrop-blur-sm">
-        <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4">
+        <section className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold text-slate-950">
+              <h2 className="text-lg font-semibold tracking-normal text-slate-950">
                 Resolve duplicate shift
               </h2>
               <p className="mt-1 text-xs font-medium text-slate-500">
@@ -353,33 +353,35 @@ function DuplicateResolutionModal({
             </button>
           </div>
 
-          <div className="grid gap-4 p-4">
-            <DuplicatePickerCard group={group} />
+          <div className="max-h-[calc(92vh-9.5rem)] overflow-y-auto bg-slate-50/70 p-4 sm:p-5">
+            <div className="grid gap-4">
+              <DuplicatePickerCard group={group} />
 
-            <div className="grid gap-3">
-              {group.options.map((option) => (
-                <DuplicateShiftOptionCard
-                  isSelected={selectedRawRowNumber === option.rawRowNumber}
-                  key={option.rawRowNumber}
-                  onSelect={() => onSelect(group, option.rawRowNumber)}
-                  option={option}
+              <div className="grid gap-3">
+                {group.options.map((option) => (
+                  <DuplicateShiftOptionCard
+                    isSelected={selectedRawRowNumber === option.rawRowNumber}
+                    key={option.rawRowNumber}
+                    onSelect={() => onSelect(group, option.rawRowNumber)}
+                    option={option}
+                  />
+                ))}
+              </div>
+
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                  style={{ width: `${Math.max((resolvedCount / groups.length) * 100, 8)}%` }}
                 />
-              ))}
-            </div>
+              </div>
 
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-orange-500"
-                style={{ width: `${Math.max((resolvedCount / groups.length) * 100, 8)}%` }}
-              />
+              {saveState.status === "error" ? (
+                <InlineError message={saveState.error} />
+              ) : null}
             </div>
-
-            {saveState.status === "error" ? (
-              <InlineError message={saveState.error} />
-            ) : null}
           </div>
 
-          <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:justify-between">
+          <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-between">
             <Button
               className="h-11 rounded-xl"
               disabled={currentIndex === 0}
@@ -431,7 +433,7 @@ function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
   const initials = initialsFromName(group.pickerName ?? group.shopperId);
 
   return (
-    <section className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+    <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
           {initials}
@@ -470,10 +472,10 @@ function DuplicateShiftOptionCard({
   return (
     <button
       className={cn(
-        "grid gap-3 rounded-2xl border p-4 text-left transition",
+        "grid gap-3 rounded-2xl border p-4 text-left shadow-sm transition",
         isSelected
           ? "border-emerald-400 bg-emerald-50 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
-          : "border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40"
+          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/50"
       )}
       onClick={onSelect}
       type="button"
@@ -719,14 +721,28 @@ function CountsSection({
 }
 
 function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(issues.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visibleIssues = issues.slice(startIndex, startIndex + pageSize);
+  const firstVisible = issues.length === 0 ? 0 : startIndex + 1;
+  const lastVisible = Math.min(startIndex + visibleIssues.length, issues.length);
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-950">Issues</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {issues.length} validation and calculation issues
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+            <ListChecks className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-950">Import issues</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {issues.length} validation and calculation issues
+            </p>
+          </div>
         </div>
         <Badge variant={issues.length > 0 ? "outline" : "muted"}>
           {issues.length > 0 ? "Review required" : "No issues"}
@@ -737,39 +753,106 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
         <EmptyState message="No validation issues returned by the backend." />
       ) : (
         <>
-          <div className="mt-4 hidden overflow-x-auto xl:block">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="border-b text-xs uppercase text-slate-500">
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+            <table className="hidden w-full table-fixed text-left text-sm lg:table">
+              <colgroup>
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+                <col className="w-[15%]" />
+                <col className="w-[18%]" />
+                <col className="w-[13%]" />
+                <col className="w-[30%]" />
+              </colgroup>
+              <thead className="bg-slate-50 text-xs font-medium text-slate-500">
                 <tr>
                   <TableHeader>Severity</TableHeader>
-                  <TableHeader>Issue code</TableHeader>
                   <TableHeader>Row</TableHeader>
                   <TableHeader>Shopper ID</TableHeader>
+                  <TableHeader>Issue code</TableHeader>
                   <TableHeader>Field</TableHeader>
                   <TableHeader>Message</TableHeader>
                 </tr>
               </thead>
               <tbody>
-                {issues.map((issue, index) => (
-                  <tr className="border-b last:border-0" key={`${issue.issueCode}-${index}`}>
+                {visibleIssues.map((issue, index) => (
+                  <tr className="border-b last:border-0" key={`${issue.issueCode}-${startIndex + index}`}>
                     <TableCell>
                       <SeverityBadge severity={issue.severity} />
                     </TableCell>
-                    <TableCell>{formatEnum(issue.issueCode)}</TableCell>
                     <TableCell>{formatNullable(issue.rowNumber)}</TableCell>
-                    <TableCell>{formatText(issue.shopperId)}</TableCell>
-                    <TableCell>{formatText(issue.fieldName)}</TableCell>
-                    <TableCell>{issue.message}</TableCell>
+                    <TableCell>
+                      <TruncatedText value={issue.shopperId} />
+                    </TableCell>
+                    <TableCell>
+                      <TruncatedText value={formatEnum(issue.issueCode)} />
+                    </TableCell>
+                    <TableCell>
+                      <TruncatedText value={issue.fieldName} />
+                    </TableCell>
+                    <TableCell>
+                      <TruncatedText value={issue.message} />
+                    </TableCell>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            <div className="grid gap-3 p-3 lg:hidden">
+              {visibleIssues.map((issue, index) => (
+                <IssueCard issue={issue} key={`${issue.issueCode}-${startIndex + index}`} />
+              ))}
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-3 xl:hidden">
-            {issues.map((issue, index) => (
-              <IssueCard issue={issue} key={`${issue.issueCode}-${index}`} />
-            ))}
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-sm font-medium text-slate-700">
+              Showing {firstVisible}-{lastVisible} of {issues.length}
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                aria-label="Previous issue page"
+                className="h-10 w-10 rounded-xl p-0"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((value) => Math.max(value - 1, 1))}
+                type="button"
+                variant="ghost"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="grid h-10 min-w-14 place-items-center rounded-xl border border-slate-200 px-3 text-sm font-semibold tabular-nums text-slate-700">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                aria-label="Next issue page"
+                className="h-10 w-10 rounded-xl p-0"
+                disabled={currentPage >= totalPages}
+                onClick={() =>
+                  setPage((value) => Math.min(value + 1, totalPages))
+                }
+                type="button"
+                variant="ghost"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              Show per Page
+              <Select
+                aria-label="Issues per page"
+                className="h-10 w-20 rounded-xl"
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                value={pageSize}
+              >
+                {issuePageSizes.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </Select>
+            </label>
           </div>
         </>
       )}
@@ -1077,12 +1160,27 @@ function Definition({
   );
 }
 
+function TruncatedText({
+  className,
+  value
+}: {
+  className?: string;
+  value?: string | null;
+}) {
+  const text = formatText(value);
+  return (
+    <span className={cn("block min-w-0 truncate", className)} title={text}>
+      {text}
+    </span>
+  );
+}
+
 function TableHeader({ children }: { children: ReactNode }) {
-  return <th className="py-3 pr-4">{children}</th>;
+  return <th className="px-4 py-3">{children}</th>;
 }
 
 function TableCell({ children }: { children: ReactNode }) {
-  return <td className="py-3 pr-4 align-top text-slate-700">{children}</td>;
+  return <td className="min-w-0 px-4 py-3 align-middle text-slate-700">{children}</td>;
 }
 
 function statusTone(status: AttendanceImportBatchStatus) {

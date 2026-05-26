@@ -501,6 +501,69 @@ function buildAnalytics(
         validShiftCount: current.validShiftCount,
         value: current.validShiftRate
       }
+    },
+    shiftQuality: {
+      cleanShiftRate: {
+        delta: buildRateDelta(
+          current.validShiftRate,
+          previous.validShiftRate,
+          previous.totalShifts
+        ),
+        totalShifts: current.totalShifts,
+        value: current.validShiftRate
+      },
+      counts: {
+        cleanShifts: {
+          delta: buildPercentDelta(
+            current.validShiftCount,
+            previous.validShiftCount
+          ),
+          value: current.validShiftCount
+        },
+        errorShifts: {
+          delta: buildPercentDelta(
+            current.problemShiftCount,
+            previous.problemShiftCount
+          ),
+          value: current.problemShiftCount
+        },
+        totalShifts: {
+          delta: buildPercentDelta(current.totalShifts, previous.totalShifts),
+          value: current.totalShifts
+        }
+      }
+    },
+    workStatusRates: {
+      absent: statusRateSegment(
+        current.absentCount,
+        current.totalShifts,
+        previous.absentCount,
+        previous.totalShifts
+      ),
+      all: statusRateSegment(
+        current.attendCount,
+        current.totalShifts,
+        previous.attendCount,
+        previous.totalShifts
+      ),
+      lateOver15: statusRateSegment(
+        current.problemLateCount,
+        current.totalShifts,
+        previous.problemLateCount,
+        previous.totalShifts
+      ),
+      onLeave: statusRateSegment(
+        current.onLeaveCount,
+        current.totalShifts,
+        previous.onLeaveCount,
+        previous.totalShifts
+      ),
+      onTime: statusRateSegment(
+        current.onTimeCount,
+        current.totalShifts,
+        previous.onTimeCount,
+        previous.totalShifts
+      )
     }
   };
 }
@@ -588,6 +651,9 @@ function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
       if (isAttend) {
         state.attendCount += 1;
       }
+      if (record.calculatedStatus === AttendanceCalculatedStatus.ON_TIME) {
+        state.onTimeCount += 1;
+      }
       if (isAbsent) {
         state.absentCount += 1;
       }
@@ -634,6 +700,7 @@ function summarizeAnalyticsRecords(records: AttendanceDailySummaryRecord[]) {
       late2Count: 0,
       late3Count: 0,
       onLeaveCount: 0,
+      onTimeCount: 0,
       pickerIds: new Set<string>(),
       problemAbsentCount: 0,
       problemLateCount: 0,
@@ -663,6 +730,22 @@ function segment(count: number, total: number) {
   return {
     count,
     percentage: percentage(count, total)
+  };
+}
+
+function statusRateSegment(
+  currentCount: number,
+  currentTotal: number,
+  previousCount: number,
+  previousTotal: number
+) {
+  const currentPercentage = percentage(currentCount, currentTotal);
+  const previousPercentage = percentage(previousCount, previousTotal);
+
+  return {
+    count: currentCount,
+    delta: buildRateDelta(currentPercentage, previousPercentage, previousTotal),
+    percentage: currentPercentage
   };
 }
 

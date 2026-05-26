@@ -52,8 +52,23 @@ type AsyncState<T> =
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
 
-type PerformanceView = "all" | "absent" | "late" | "under8" | "over15";
+type PerformanceView = "all" | "onTime" | "lateOver15" | "absent" | "onLeave";
 type AttendanceStatusFilter = AttendanceCalculatedStatus | "";
+type ChartTone =
+  | "clean"
+  | "error"
+  | "late1"
+  | "late2"
+  | "late3"
+  | "leave"
+  | "neutral";
+
+interface ChartHoverInfo {
+  count: number;
+  label: string;
+  percentage: number;
+  tone: ChartTone;
+}
 
 interface AttendanceDailyReportFilters {
   branch: string;
@@ -71,11 +86,11 @@ interface AttendanceDailyReportFilters {
 
 const pageSizes = [10, 25, 50, 100];
 const performanceViews: Array<{ label: string; value: PerformanceView }> = [
-  { label: "All", value: "all" },
+  { label: "Attend rate", value: "all" },
+  { label: "On time", value: "onTime" },
+  { label: "Late >15", value: "lateOver15" },
   { label: "Absent", value: "absent" },
-  { label: "Late", value: "late" },
-  { label: "Under 8", value: "under8" },
-  { label: "Over 15", value: "over15" }
+  { label: "On leave", value: "onLeave" }
 ];
 const sortOptions: Array<{
   icon: LucideIcon;
@@ -283,6 +298,19 @@ export function AttendanceDailyReportPage() {
         <ReportStateView state={state}>
           {(data) => (
             <>
+              <ReportFilterBar
+                filterOptions={data.filterOptions}
+                filters={{
+                  branch: filters.branch,
+                  chain: filters.chain,
+                  status: filters.status
+                }}
+                onClearSearch={clearSearch}
+                onFilterChange={applyListFilters}
+                onSearch={applySearch}
+                searchDraft={searchDraft}
+                setSearchDraft={setSearchDraft}
+              />
               <DashboardGrid
                 analytics={data.analytics}
                 performanceView={performanceView}
@@ -290,26 +318,18 @@ export function AttendanceDailyReportPage() {
                 onPerformanceViewChange={setPerformanceView}
               />
               <AttendanceList
-                onClearSearch={clearSearch}
                 onPageChange={(page) =>
                   setFilters((current) => ({ ...current, page }))
                 }
                 onPageSizeChange={(pageSize) =>
                   setFilters((current) => ({ ...current, page: 1, pageSize }))
                 }
-                onSearch={applySearch}
-                filterOptions={data.filterOptions}
                 filters={{
-                  branch: filters.branch,
-                  chain: filters.chain,
                   sortBy: filters.sortBy,
-                  sortDirection: filters.sortDirection,
-                  status: filters.status
+                  sortDirection: filters.sortDirection
                 }}
                 onFilterChange={applyListFilters}
                 rows={data.rows}
-                searchDraft={searchDraft}
-                setSearchDraft={setSearchDraft}
                 pagination={data.pagination}
               />
             </>
@@ -361,45 +381,50 @@ function AttendanceRateCard({
   analytics: AttendanceDailyReportAnalytics;
   title: string;
 }) {
-  const mix = analytics.attendanceMix;
+  const quality = analytics.shiftQuality;
+  const problemMix = analytics.performance.problemMix;
+  const durationError = combineSegments(
+    problemMix.under8,
+    problemMix.over15,
+    quality.counts.totalShifts.value
+  );
 
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <CardTitle icon={ListChecks} title={title} />
-      <div className="mt-12">
+      <div className="mt-8">
         <MetricValue
-          delta={analytics.attendanceRate.delta}
+          delta={quality.cleanShiftRate.delta}
           label="Attendance Rate"
-          value={`${formatNumber(analytics.attendanceRate.value)}%`}
+          value={`${formatNumber(quality.cleanShiftRate.value)}%`}
         />
       </div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <AttendanceCountTile
-          label="Pickers"
-          value={analytics.pickerCount}
-        />
-        <AttendanceCountTile
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <ShiftQualityStat
           label="Total Shifts"
-          value={analytics.attendanceRate.totalShifts}
+          metric={quality.counts.totalShifts}
+          tone="total"
         />
-        <AttendanceCountTile
-          label="Attended Shifts"
-          tone="attend"
-          value={analytics.attendanceRate.attendCount}
+        <ShiftQualityStat
+          label="Total Clean Shift"
+          metric={quality.counts.cleanShifts}
+          tone="clean"
+        />
+        <ShiftQualityStat
+          label="Total Error Shift"
+          metric={quality.counts.errorShifts}
+          tone="error"
         />
       </div>
-      <SegmentedStrip
-        className="mt-6"
-        segments={[
-          { color: "bg-sky-500", percentage: mix.attend.percentage },
-          { color: "bg-amber-400", percentage: mix.onLeave.percentage },
-          { color: "bg-slate-200", percentage: mix.absent.percentage }
-        ]}
+      <QualityStrip
+        clean={quality.counts.cleanShifts.value}
+        error={quality.counts.errorShifts.value}
+        total={quality.counts.totalShifts.value}
       />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <MixTile color="bg-sky-500" label="Attend" metric={mix.attend} />
-        <MixTile color="bg-amber-400" label="On Leave" metric={mix.onLeave} />
-        <MixTile color="bg-slate-300" label="Absent" metric={mix.absent} />
+        <MixTile color="bg-orange-400" label="Late" metric={problemMix.late} />
+        <MixTile color="bg-rose-500" label="Absent" metric={problemMix.absent} />
+        <MixTile color="bg-amber-500" label="Duration Error" metric={durationError} />
       </div>
     </section>
   );
@@ -415,26 +440,22 @@ function LateBucketsCard({
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <CardTitle icon={UsersRound} title="Late Rate" />
-      <div className="mt-8 min-w-0">
-        <div className="flex items-end gap-1">
+      <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-normal text-slate-400">
+          Total late shifts
+        </p>
+        <div className="mt-2 flex items-end justify-center gap-1">
           <AnimatedMetricText
             className="text-4xl font-semibold tabular-nums text-slate-950"
             value={buckets.totalLateCount.toLocaleString()}
           />
-          <span className="pb-1 text-lg text-slate-500">
-            /{analytics.attendanceRate.totalShifts.toLocaleString()}
+          <span className="pb-1 text-sm font-medium text-slate-500">
+            of {analytics.attendanceRate.totalShifts.toLocaleString()}
           </span>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-medium text-slate-500">
-          <span>Total late</span>
-          <span>Total shifts</span>
-        </div>
+        <p className="mt-1 text-xs text-slate-500">created shifts</p>
       </div>
-      <div className="mt-4 grid gap-2 rounded-xl bg-slate-50 p-3">
-        <LateBucketLegend color="bg-amber-400" label="Late 1" metric={buckets.late1} />
-        <LateBucketLegend color="bg-orange-500" label="Late 2" metric={buckets.late2} />
-        <LateBucketLegend color="bg-rose-500" label="Late 3" metric={buckets.late3} />
-      </div>
+      <LateBucketMiniTable buckets={buckets} />
     </section>
   );
 }
@@ -451,7 +472,7 @@ function AverageHoursCard({
         <MetricValue
           delta={analytics.averageLogHours.delta}
           label="Average attended shift"
-          value={analytics.averageLogHours.formattedValue}
+          value={formatHours(analytics.averageLogHours.value)}
         />
       </div>
     </section>
@@ -470,8 +491,8 @@ function PerformanceCard({
   const selected = performanceMetricForView(analytics, view);
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <CardTitle icon={Gauge} title="Working Hour Performance" />
+    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <CardTitle icon={Gauge} title="Attendance rate" />
       <div className="mt-6 overflow-hidden rounded-xl bg-slate-100 p-1">
         <div className="flex gap-1 overflow-x-auto">
           {performanceViews.map((item) => (
@@ -491,133 +512,60 @@ function PerformanceCard({
           ))}
         </div>
       </div>
-      <ArcGauge analytics={analytics} metric={selected} view={view} />
+      <div className="flex min-h-[20rem] flex-1 items-center justify-center">
+        <ArcGauge metric={selected} view={view} />
+      </div>
     </section>
   );
 }
 
 function AttendanceList({
-  filterOptions,
   filters,
-  onClearSearch,
   onFilterChange,
   onPageChange,
   onPageSizeChange,
-  onSearch,
   pagination,
-  rows,
-  searchDraft,
-  setSearchDraft
+  rows
 }: {
-  filterOptions: AttendanceDailyReportResponse["filterOptions"];
   filters: Pick<
     AttendanceDailyReportFilters,
-    "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+    "sortBy" | "sortDirection"
   >;
-  onClearSearch: () => void;
   onFilterChange: (
     nextFilters: Partial<
       Pick<
         AttendanceDailyReportFilters,
-        "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+        "sortBy" | "sortDirection"
       >
     >
   ) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onSearch: () => void;
   pagination: AttendanceDailyReportResponse["pagination"];
   rows: AttendanceDailyReportRow[];
-  searchDraft: string;
-  setSearchDraft: (value: string) => void;
 }) {
   const lastPage = Math.max(pagination.totalPages, 1);
+  const [sortOpen, setSortOpen] = useState(false);
 
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <CardTitle icon={ListChecks} title="Attendance List" />
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(14rem,1fr)_auto_auto]">
-          <label className="relative min-w-0">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-            <Input
-              className="h-10 rounded-xl pl-9"
-              onChange={(event) => setSearchDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  onSearch();
-                }
-              }}
-              placeholder="Search name, ID, location"
-              value={searchDraft}
-            />
-          </label>
-          <Button className="h-10 rounded-xl" onClick={onSearch} type="button" variant="outline">
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            Search
+        <div className="relative">
+          <Button
+            aria-expanded={sortOpen}
+            aria-label="Sort attendance rows"
+            className="h-10 w-10 rounded-xl p-0"
+            onClick={() => setSortOpen((current) => !current)}
+            type="button"
+            variant="outline"
+          >
+            <ArrowUpDown className="h-4 w-4" />
           </Button>
-          <Button className="h-10 rounded-xl" onClick={onClearSearch} type="button" variant="ghost">
-            Clear
-          </Button>
+          {sortOpen ? (
+            <SortMenu filters={filters} onFilterChange={onFilterChange} />
+          ) : null}
         </div>
-      </div>
-      <div className="mt-3 grid min-w-0 gap-2 xl:grid-cols-[minmax(10rem,0.8fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
-        <Select
-          aria-label="Filter by status"
-          className="h-10 rounded-xl"
-          leadingIcon={<BadgeCheck className="h-4 w-4" />}
-          onChange={(event) =>
-            onFilterChange({
-              status: event.target.value as AttendanceStatusFilter
-            })
-          }
-          value={filters.status}
-          wrapperClassName="min-w-0"
-        >
-          <option value="">All states</option>
-          {filterOptions.statuses.map((status) => (
-            <option key={status} value={status}>
-              {statusFilterLabel(status)}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Filter by chain"
-          className="h-10 rounded-xl"
-          leadingIcon={<GitBranch className="h-4 w-4" />}
-          onChange={(event) =>
-            onFilterChange({ branch: "", chain: event.target.value })
-          }
-          searchable
-          searchPlaceholder="Search chains"
-          value={filters.chain}
-          wrapperClassName="min-w-0"
-        >
-          <option value="">All chains</option>
-          {filterOptions.chains.map((chain) => (
-            <option key={chain} value={chain}>
-              {chain}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Filter by branch"
-          className="h-10 rounded-xl"
-          leadingIcon={<MapPin className="h-4 w-4" />}
-          onChange={(event) => onFilterChange({ branch: event.target.value })}
-          searchable
-          searchPlaceholder="Search branches"
-          value={filters.branch}
-          wrapperClassName="min-w-0"
-        >
-          <option value="">All branches</option>
-          {filterOptions.branches.map((branch) => (
-            <option key={branch} value={branch}>
-              {branch}
-            </option>
-          ))}
-        </Select>
-        <SortIconControls filters={filters} onFilterChange={onFilterChange} />
       </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
@@ -653,7 +601,7 @@ function AttendanceList({
                     <NameCell row={row} />
                   </TableCell>
                   <TableCell>
-                    {isLeaveStatus(row) ? null : <LocationPill value={row.sourceLocation} />}
+                    <LocationPill value={row.sourceLocation} />
                   </TableCell>
                   <TableCell>
                     {isLeaveStatus(row) ? null : <CheckInCell row={row} />}
@@ -693,7 +641,7 @@ function AttendanceList({
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
                   <Definition
                     label="Location"
-                    value={isLeaveStatus(row) ? null : <LocationPill value={row.sourceLocation} />}
+                    value={<LocationPill value={row.sourceLocation} />}
                   />
                   <Definition
                     label="Check-in"
@@ -795,7 +743,140 @@ function DateRangeControl({
   );
 }
 
-function SortIconControls({
+function ReportFilterBar({
+  filterOptions,
+  filters,
+  onClearSearch,
+  onFilterChange,
+  onSearch,
+  searchDraft,
+  setSearchDraft
+}: {
+  filterOptions: AttendanceDailyReportResponse["filterOptions"];
+  filters: Pick<AttendanceDailyReportFilters, "branch" | "chain" | "status">;
+  onClearSearch: () => void;
+  onFilterChange: (
+    nextFilters: Partial<
+      Pick<AttendanceDailyReportFilters, "branch" | "chain" | "status">
+    >
+  ) => void;
+  onSearch: () => void;
+  searchDraft: string;
+  setSearchDraft: (value: string) => void;
+}) {
+  return (
+    <section className="grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm xl:grid-cols-[minmax(18rem,1.1fr)_minmax(0,2fr)_auto]">
+      <label className="relative min-w-0">
+        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+        <Input
+          className="h-11 rounded-xl border-slate-200 bg-white pl-9 shadow-sm"
+          onChange={(event) => setSearchDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              onSearch();
+            }
+          }}
+          placeholder="Search name, ID, location"
+          value={searchDraft}
+        />
+      </label>
+      <div className="grid min-w-0 gap-2 md:grid-cols-3">
+        <FilterSelectShell tone="rose">
+          <Select
+            aria-label="Filter by status"
+            className="h-11 rounded-xl border-0 bg-transparent shadow-none"
+            leadingIcon={<BadgeCheck className="h-4 w-4" />}
+            onChange={(event) =>
+              onFilterChange({
+                status: event.target.value as AttendanceStatusFilter
+              })
+            }
+            value={filters.status}
+            wrapperClassName="min-w-0"
+          >
+            <option value="">All states</option>
+            {filterOptions.statuses.map((status) => (
+              <option key={status} value={status}>
+                {statusFilterLabel(status)}
+              </option>
+            ))}
+          </Select>
+        </FilterSelectShell>
+        <FilterSelectShell tone="amber">
+          <Select
+            aria-label="Filter by chain"
+            className="h-11 rounded-xl border-0 bg-transparent shadow-none"
+            leadingIcon={<GitBranch className="h-4 w-4" />}
+            onChange={(event) =>
+              onFilterChange({ branch: "", chain: event.target.value })
+            }
+            searchable
+            searchPlaceholder="Search chains"
+            value={filters.chain}
+            wrapperClassName="min-w-0"
+          >
+            <option value="">All chains</option>
+            {filterOptions.chains.map((chain) => (
+              <option key={chain} value={chain}>
+                {chain}
+              </option>
+            ))}
+          </Select>
+        </FilterSelectShell>
+        <FilterSelectShell tone="sky">
+          <Select
+            aria-label="Filter by branch"
+            className="h-11 rounded-xl border-0 bg-transparent shadow-none"
+            leadingIcon={<MapPin className="h-4 w-4" />}
+            onChange={(event) => onFilterChange({ branch: event.target.value })}
+            searchable
+            searchPlaceholder="Search branches"
+            value={filters.branch}
+            wrapperClassName="min-w-0"
+          >
+            <option value="">All branches</option>
+            {filterOptions.branches.map((branch) => (
+              <option key={branch} value={branch}>
+                {branch}
+              </option>
+            ))}
+          </Select>
+        </FilterSelectShell>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button className="h-11 rounded-xl" onClick={onSearch} type="button">
+          <SlidersHorizontal className="mr-2 h-4 w-4" />
+          Search
+        </Button>
+        <Button className="h-11 rounded-xl" onClick={onClearSearch} type="button" variant="ghost">
+          Clear
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function FilterSelectShell({
+  children,
+  tone
+}: {
+  children: ReactNode;
+  tone: "amber" | "rose" | "sky";
+}) {
+  const toneClass = {
+    amber: "border-amber-100 bg-amber-50/60",
+    rose: "border-rose-100 bg-rose-50/60",
+    sky: "border-sky-100 bg-sky-50/60"
+  }[tone];
+
+  return (
+    <div className={cn("min-w-0 rounded-2xl border p-1 shadow-sm", toneClass)}>
+      {children}
+    </div>
+  );
+}
+
+function SortMenu({
   filters,
   onFilterChange
 }: {
@@ -813,49 +894,43 @@ function SortIconControls({
   ) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-      {sortOptions.map((option) => {
-        const Icon = option.icon;
-        const selected = filters.sortBy === option.value;
+    <div className="absolute right-0 top-12 z-30 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
+      <p className="text-xs font-semibold uppercase text-slate-400">Sort rows</p>
+      <div className="mt-3 grid gap-2">
+        {sortOptions.map((option) => {
+          const Icon = option.icon;
+          const selected = filters.sortBy === option.value;
 
-        return (
+          return (
+            <button
+              className={cn(
+                "flex h-10 items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition",
+                selected
+                  ? "bg-sky-50 text-sky-700"
+                  : "text-slate-600 hover:bg-slate-50"
+              )}
+              key={option.value}
+              onClick={() => onFilterChange({ sortBy: option.value })}
+              type="button"
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{option.label.replace("Sort by ", "")}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+        {(["asc", "desc"] as const).map((direction) => (
           <Button
-            aria-label={option.label}
-            className={cn(
-              "h-9 w-9 rounded-lg p-0",
-              selected
-                ? "border-sky-200 bg-white text-sky-700 shadow-sm"
-                : "border-transparent bg-transparent text-slate-500 hover:bg-white"
-            )}
-            key={option.value}
-            onClick={() => onFilterChange({ sortBy: option.value })}
-            title={option.label}
+            key={direction}
+            onClick={() => onFilterChange({ sortDirection: direction })}
             type="button"
-            variant="outline"
+            variant={filters.sortDirection === direction ? "default" : "outline"}
           >
-            <Icon className="h-4 w-4" />
+            {direction === "asc" ? "Ascending" : "Descending"}
           </Button>
-        );
-      })}
-      <Button
-        aria-label={`Sort ${filters.sortDirection === "asc" ? "ascending" : "descending"}`}
-        className="h-9 w-9 rounded-lg border-transparent bg-transparent p-0 text-slate-600 hover:bg-white"
-        onClick={() =>
-          onFilterChange({
-            sortDirection: filters.sortDirection === "asc" ? "desc" : "asc"
-          })
-        }
-        title={filters.sortDirection === "asc" ? "Ascending" : "Descending"}
-        type="button"
-        variant="outline"
-      >
-        <ArrowUpDown
-          className={cn(
-            "h-4 w-4 transition-transform",
-            filters.sortDirection === "desc" && "rotate-180"
-          )}
-        />
-      </Button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -983,35 +1058,65 @@ function DeltaBadge({ delta }: { delta: AttendanceMetricDelta }) {
   );
 }
 
-function SegmentedStrip({
+function ChartHoverCard({
   className,
-  segments
+  info
 }: {
   className?: string;
-  segments: Array<{ color: string; percentage: number }>;
+  info: ChartHoverInfo | null;
 }) {
+  if (!info) {
+    return null;
+  }
+
   return (
     <div
       className={cn(
-        "flex h-20 min-w-0 overflow-hidden rounded-2xl bg-slate-100",
-        className
+        "pointer-events-none absolute left-1/2 z-30 w-max min-w-44 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-xl backdrop-blur transition duration-150",
+        className ?? "top-2"
       )}
-      aria-hidden="true"
     >
-      {segments.map((segment, index) => (
-        <span
-          className={cn(
-            "min-w-0 transition-[flex-basis,opacity,transform] duration-300 ease-out",
-            segment.percentage > 0 ? segment.color : "bg-transparent"
-          )}
-          key={`${segment.color}-${index}`}
-          style={{
-            flexBasis: `${Math.max(segment.percentage, segment.percentage > 0 ? 1.5 : 0)}%`
-          }}
-        />
-      ))}
+      <div className="flex items-center gap-2">
+        <span className={cn("h-2.5 w-2.5 rounded-full", chartToneColor(info.tone))} />
+        <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+          {info.label}
+        </p>
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-4">
+        <p className="text-lg font-semibold tabular-nums text-slate-950">
+          {info.count.toLocaleString()}
+        </p>
+        <p className="rounded-lg bg-slate-50 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">
+          {formatNumber(info.percentage)}%
+        </p>
+      </div>
     </div>
   );
+}
+
+function chartToneColor(tone: ChartTone) {
+  const colors: Record<ChartTone, string> = {
+    clean: "bg-emerald-500",
+    error: "bg-rose-500",
+    late1: "bg-amber-400",
+    late2: "bg-orange-500",
+    late3: "bg-rose-500",
+    leave: "bg-sky-400",
+    neutral: "bg-slate-200"
+  };
+
+  return colors[tone];
+}
+
+function lateToneForLabel(label: string): ChartTone {
+  if (label === "Late 1") {
+    return "late1";
+  }
+  if (label === "Late 2") {
+    return "late2";
+  }
+
+  return "late3";
 }
 
 function MixTile({
@@ -1024,184 +1129,287 @@ function MixTile({
   metric: AttendanceSegmentMetric;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-center">
-      <span className={cn("mx-auto block h-2 w-8 rounded-full", color)} />
-      <p className="mt-3 truncate text-sm text-slate-600">{label}</p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">
-        {formatNumber(metric.percentage)}%
+    <div className="min-w-0 rounded-xl bg-slate-50 p-3">
+      <span className={cn("block h-2 w-10 rounded-full", color)} />
+      <div className="mt-3 flex min-w-0 items-end justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-medium text-slate-600">{label}</p>
+        <AnimatedMetricText
+          className="text-xl font-semibold tabular-nums text-slate-950"
+          value={metric.count.toLocaleString()}
+        />
+      </div>
+      <p className="mt-1 text-xs font-medium tabular-nums text-slate-500">
+        {formatNumber(metric.percentage)}% of shifts
       </p>
     </div>
   );
 }
 
-function AttendanceCountTile({
+function ShiftQualityStat({
   label,
-  tone = "total",
-  value
+  metric,
+  tone
 }: {
   label: string;
-  tone?: "absent" | "attend" | "total";
-  value: number;
+  metric: { delta: AttendanceMetricDelta; value: number };
+  tone: "clean" | "error" | "total";
 }) {
   const toneClass = {
-    absent: "bg-rose-50 text-rose-700",
-    attend: "bg-sky-50 text-sky-700",
-    total: "bg-slate-100 text-slate-700"
+    clean: "border-emerald-100 bg-emerald-50/70 text-emerald-700",
+    error: "border-rose-100 bg-rose-50/70 text-rose-700",
+    total: "border-slate-200 bg-white text-slate-800"
   }[tone];
 
   return (
-    <div className="min-w-0 rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-      <p className="truncate text-xs font-medium text-slate-500">{label}</p>
-      <AnimatedMetricText
-        className={cn(
-          "mt-2 rounded-lg px-2 py-1 text-2xl font-semibold tabular-nums",
-          toneClass
-        )}
-        value={value.toLocaleString()}
-      />
+    <div className={cn("min-w-0 rounded-2xl border p-3 shadow-sm", toneClass)}>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-semibold text-slate-600">{label}</p>
+        <AnimatedMetricText
+          className="shrink-0 text-2xl font-semibold tabular-nums text-slate-950"
+          value={metric.value.toLocaleString()}
+        />
+      </div>
+      <div className="mt-2 flex justify-end">
+        <DeltaBadge delta={metric.delta} />
+      </div>
     </div>
   );
 }
 
-function LateBucketLegend({
-  color,
-  label,
-  metric
+function QualityStrip({
+  clean,
+  error,
+  total
 }: {
-  color: string;
-  label: string;
-  metric: AttendanceSegmentMetric;
+  clean: number;
+  error: number;
+  total: number;
 }) {
+  const barCount = 44;
+  const safeTotal = Math.max(total, 0);
+  const cleanShare = safeTotal > 0 ? clean / safeTotal : 0;
+  const cleanBars = Math.round(cleanShare * barCount);
+  const cleanInfo = {
+    count: clean,
+    label: "Clean shifts",
+    percentage: percentageOf(clean, safeTotal),
+    tone: "clean" as const
+  };
+  const errorInfo = {
+    count: error,
+    label: "Error shifts",
+    percentage: percentageOf(error, safeTotal),
+    tone: "error" as const
+  };
+  const emptyInfo = {
+    count: 0,
+    label: "No shifts",
+    percentage: 0,
+    tone: "neutral" as const
+  };
+  const [hovered, setHovered] = useState<ChartHoverInfo | null>(null);
+
   return (
-    <div className="grid grid-cols-[minmax(4.25rem,1fr)_auto] items-center gap-2 text-sm">
-      <span className="flex min-w-0 items-center gap-2 font-medium text-slate-700">
-        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", color)} />
-        <span className="truncate">{label}</span>
-      </span>
-      <span className="text-right tabular-nums text-slate-600">
-        {metric.count} / {formatNumber(metric.percentage)}%
-      </span>
+    <div
+      className="relative mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-3"
+      onMouseLeave={() => setHovered(null)}
+    >
+      <ChartHoverCard info={hovered} />
+      <div
+        aria-label={`${clean} clean shifts and ${error} error shifts`}
+        className="flex h-16 min-w-0 items-stretch gap-1 overflow-hidden rounded-2xl"
+      >
+        {Array.from({ length: barCount }).map((_, index) => {
+          const info =
+            safeTotal === 0 ? emptyInfo : index < cleanBars ? cleanInfo : errorInfo;
+          const color = chartToneColor(info.tone);
+
+          return (
+            <span
+              aria-label={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
+              className={cn(
+                "min-w-0 flex-1 rounded-full transition-[background-color,opacity] duration-300 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-slate-300",
+                color
+              )}
+              key={index}
+              onFocus={() => setHovered(info)}
+              onMouseEnter={() => setHovered(info)}
+              tabIndex={0}
+              title={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
+            />
+          );
+        })}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Clean {clean.toLocaleString()}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+          Error {error.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function LateBucketMiniTable({
+  buckets
+}: {
+  buckets: AttendanceDailyReportAnalytics["lateBuckets"];
+}) {
+  const items = [
+    { color: "bg-amber-400", label: "Late 1", metric: buckets.late1 },
+    { color: "bg-orange-500", label: "Late 2", metric: buckets.late2 },
+    { color: "bg-rose-500", label: "Late 3", metric: buckets.late3 }
+  ];
+  const [hovered, setHovered] = useState<ChartHoverInfo | null>(null);
+
+  return (
+    <div
+      className="relative mt-4 rounded-2xl border border-slate-200"
+      onMouseLeave={() => setHovered(null)}
+    >
+      <ChartHoverCard className="-top-4" info={hovered} />
+      <div className="grid grid-cols-3 overflow-hidden rounded-t-2xl bg-slate-50 text-center text-xs font-semibold uppercase tracking-normal text-slate-500">
+        {items.map((item) => (
+          <div className="border-r border-slate-200 px-3 py-2 last:border-r-0" key={item.label}>
+            {item.label}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 overflow-hidden rounded-b-2xl text-center">
+        {items.map((item) => (
+          <div
+            aria-label={`${item.label}: ${item.metric.count.toLocaleString()} shifts, ${formatNumber(item.metric.percentage)}% of late shifts`}
+            className="min-w-0 border-r border-slate-100 p-3 transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none last:border-r-0"
+            key={item.label}
+            onFocus={() =>
+              setHovered({
+                count: item.metric.count,
+                label: item.label,
+                percentage: item.metric.percentage,
+                tone: lateToneForLabel(item.label)
+              })
+            }
+            onMouseEnter={() =>
+              setHovered({
+                count: item.metric.count,
+                label: item.label,
+                percentage: item.metric.percentage,
+                tone: lateToneForLabel(item.label)
+              })
+            }
+            tabIndex={0}
+            title={`${item.label}: ${item.metric.count.toLocaleString()} shifts, ${formatNumber(item.metric.percentage)}% of late shifts`}
+          >
+            <span className={cn("mx-auto block h-2 w-8 rounded-full", item.color)} />
+            <AnimatedMetricText
+              className="mt-2 block text-xl font-semibold tabular-nums text-slate-950"
+              value={item.metric.count.toLocaleString()}
+            />
+            <p className="mt-1 text-xs font-medium tabular-nums text-slate-500">
+              {formatNumber(item.metric.percentage)}%
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 function ArcGauge({
-  analytics,
   metric,
   view
 }: {
-  analytics: AttendanceDailyReportAnalytics;
   metric: ReturnType<typeof performanceMetricForView>;
   view: PerformanceView;
 }) {
-  const barCount = 28;
+  const barCount = 48;
   const filledBars = Math.round((Math.min(metric.percentage, 100) / 100) * barCount);
-  const lateSegments = [
-    { color: "bg-amber-400", count: analytics.lateBuckets.late1.count },
-    { color: "bg-orange-500", count: analytics.lateBuckets.late2.count },
-    { color: "bg-rose-500", count: analytics.lateBuckets.late3.count }
-  ];
-  const totalLate = Math.max(analytics.lateBuckets.totalLateCount, 1);
+  const activeColor = performanceGaugeColor(view);
+  const activeInfo: ChartHoverInfo = {
+    count: metric.count,
+    label: metric.label,
+    percentage: metric.percentage,
+    tone: performanceChartTone(view)
+  };
+  const remainingInfo: ChartHoverInfo = {
+    count: Math.max(metric.total - metric.count, 0),
+    label: "Remaining shifts",
+    percentage: percentageOf(Math.max(metric.total - metric.count, 0), metric.total),
+    tone: "neutral" as const
+  };
+  const [hovered, setHovered] = useState<ChartHoverInfo | null>(null);
 
   return (
-    <div className="relative mx-auto mt-6 h-[19.5rem] w-full max-w-sm overflow-visible">
+    <div
+      className="relative mx-auto grid h-72 w-full max-w-sm place-items-center overflow-visible"
+      onMouseLeave={() => setHovered(null)}
+    >
+      <ChartHoverCard className="top-1" info={hovered} />
       {Array.from({ length: barCount }).map((_, index) => {
-        const angle = -86 + index * (172 / (barCount - 1));
+        const angle = index * (360 / barCount);
         const active = index < filledBars;
-        const lateColor = colorForLateGauge(index, filledBars, lateSegments, totalLate);
-        const color =
-          view === "late" && active
-            ? lateColor
-            : active
-              ? "bg-rose-500"
-              : "bg-slate-200";
+        const info = active ? activeInfo : remainingInfo;
+        const color = active ? activeColor : chartToneColor("neutral");
         const style = {
-          transform: `translateX(-50%) rotate(${angle}deg) translateY(-6.6rem)`,
-          transformOrigin: "50% 7.5rem"
+          transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-7.35rem)`
         } satisfies CSSProperties;
 
         return (
           <span
+            aria-label={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
             className={cn(
-              "absolute bottom-[7.25rem] left-1/2 h-12 w-4 rounded-full transition-[background-color,transform,opacity] duration-300 ease-out",
+              "absolute left-1/2 top-1/2 h-9 w-3 rounded-full transition-[background-color,opacity] duration-300 ease-out hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-slate-300",
               color
             )}
             key={index}
+            onFocus={() => setHovered(info)}
+            onMouseEnter={() => setHovered(info)}
             style={style}
+            tabIndex={0}
+            title={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
           />
         );
       })}
-      <div className="absolute inset-x-0 bottom-[7.6rem] grid place-items-center text-center">
+      <div className="relative z-10 grid place-items-center text-center">
         <AnimatedMetricText
           className="text-4xl font-semibold tabular-nums text-slate-950"
           value={`${formatNumber(metric.percentage)}%`}
         />
-        <p className="mt-2 px-3 text-sm font-medium leading-5 text-slate-600">
-          {metric.label}
+        <p className="mt-2 text-xs font-semibold tabular-nums text-slate-400">
+          {metric.count.toLocaleString()} shifts
         </p>
-        {metric.delta ? <div className="mt-2"><DeltaBadge delta={metric.delta} /></div> : null}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 grid grid-cols-2 gap-2">
-        <ChordMetricTile
-          delta={analytics.performance.validShiftRate.delta}
-          label="Attendance Performance"
-          value={`${formatNumber(analytics.performance.validShiftRate.value)}%`}
-        />
-        <ChordMetricTile
-          delta={analytics.performance.problemShiftCount.delta}
-          label="Problem Shifts"
-          value={`${analytics.performance.problemShiftCount.value}`}
-        />
+        <div className="mt-2"><DeltaBadge delta={metric.delta} /></div>
       </div>
     </div>
   );
 }
 
-function colorForLateGauge(
-  index: number,
-  filledBars: number,
-  lateSegments: Array<{ color: string; count: number }>,
-  totalLate: number
-) {
-  if (filledBars === 0) {
-    return "bg-slate-200";
-  }
+function performanceGaugeColor(view: PerformanceView) {
+  const colors: Record<PerformanceView, string> = {
+    absent: "bg-rose-500",
+    all: "bg-emerald-500",
+    lateOver15: "bg-orange-500",
+    onLeave: "bg-sky-400",
+    onTime: "bg-emerald-500"
+  };
 
-  const progress = (index + 1) / filledBars;
-  let cumulative = 0;
-  for (const segment of lateSegments) {
-    cumulative += segment.count / totalLate;
-    if (progress <= cumulative) {
-      return segment.color;
-    }
-  }
-
-  return "bg-rose-500";
+  return colors[view];
 }
 
-function ChordMetricTile({
-  delta,
-  label,
-  value
-}: {
-  delta: AttendanceMetricDelta;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-xl bg-slate-50/95 p-3 shadow-sm backdrop-blur">
-      <p className="text-xs leading-4 text-slate-500 sm:text-sm sm:leading-5">
-        {label}
-      </p>
-      <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-        <AnimatedMetricText
-          className="min-w-0 text-2xl font-semibold tabular-nums text-slate-950"
-          value={value}
-        />
-        <DeltaBadge delta={delta} />
-      </div>
-    </div>
-  );
+function performanceChartTone(view: PerformanceView): ChartTone {
+  const tones: Record<PerformanceView, ChartTone> = {
+    absent: "error",
+    all: "clean",
+    lateOver15: "late2",
+    onLeave: "leave",
+    onTime: "clean"
+  };
+
+  return tones[view];
 }
 
 function PaginationControls({
@@ -1409,39 +1617,77 @@ function TruncatedText({
   );
 }
 
+function combineSegments(
+  left: AttendanceSegmentMetric,
+  right: AttendanceSegmentMetric,
+  total: number
+): AttendanceSegmentMetric {
+  const count = left.count + right.count;
+
+  return {
+    count,
+    percentage: percentageOf(count, total)
+  };
+}
+
+function percentageOf(count: number, total: number) {
+  if (total <= 0) {
+    return 0;
+  }
+
+  return Math.round((count / total) * 10_000) / 100;
+}
+
 function performanceMetricForView(
   analytics: AttendanceDailyReportAnalytics,
   view: PerformanceView
 ) {
-  const mix = analytics.performance.problemMix;
+  const rates = analytics.workStatusRates;
+  const total = analytics.shiftQuality.counts.totalShifts.value;
   const map: Record<
     PerformanceView,
-    { delta: AttendanceMetricDelta | null; label: string; percentage: number }
+    {
+      count: number;
+      delta: AttendanceMetricDelta;
+      label: string;
+      percentage: number;
+      total: number;
+    }
   > = {
     absent: {
-      delta: null,
-      label: "Absent problem shifts",
-      percentage: mix.absent.percentage
+      count: rates.absent.count,
+      delta: rates.absent.delta,
+      label: "Absent shifts",
+      percentage: rates.absent.percentage,
+      total
     },
     all: {
-      delta: analytics.performance.problemShiftCount.delta,
-      label: "All problem shifts",
-      percentage: mix.all.percentage
+      count: rates.all.count,
+      delta: rates.all.delta,
+      label: "Attend rate",
+      percentage: rates.all.percentage,
+      total
     },
-    late: {
-      delta: null,
-      label: "Late problem shifts",
-      percentage: mix.late.percentage
+    lateOver15: {
+      count: rates.lateOver15.count,
+      delta: rates.lateOver15.delta,
+      label: "Late >15 shifts",
+      percentage: rates.lateOver15.percentage,
+      total
     },
-    over15: {
-      delta: null,
-      label: "Over 15 hour shifts",
-      percentage: mix.over15.percentage
+    onLeave: {
+      count: rates.onLeave.count,
+      delta: rates.onLeave.delta,
+      label: "On leave shifts",
+      percentage: rates.onLeave.percentage,
+      total
     },
-    under8: {
-      delta: null,
-      label: "Under 8 hour shifts",
-      percentage: mix.under8.percentage
+    onTime: {
+      count: rates.onTime.count,
+      delta: rates.onTime.delta,
+      label: "On time shifts",
+      percentage: rates.onTime.percentage,
+      total
     }
   };
 

@@ -288,6 +288,12 @@ async function run() {
     const { prisma, calls } = createPrismaMock();
     const service = new AttendanceReportService(prisma as never);
     const result = await service.getDailyReport({ periodMonth: "2026-05" });
+    const neutralPercentageDelta = {
+      direction: "neutral" as const,
+      label: "--",
+      unit: "percentage_point" as const,
+      value: null
+    };
 
     assert.equal(result.periodMonth, "2026-05");
     assert.equal(result.activeBatchId, "active-may");
@@ -330,6 +336,52 @@ async function run() {
       },
       totalShifts: 6,
       value: 50
+    });
+    assert.deepEqual(result.analytics.shiftQuality.cleanShiftRate, {
+      delta: {
+        direction: "neutral",
+        label: "--",
+        unit: "percentage_point",
+        value: null
+      },
+      totalShifts: 6,
+      value: 50
+    });
+    assert.deepEqual(result.analytics.shiftQuality.counts, {
+      cleanShifts: {
+        delta: {
+          direction: "neutral",
+          label: "--",
+          unit: "percent",
+          value: null
+        },
+        value: 3
+      },
+      errorShifts: {
+        delta: {
+          direction: "neutral",
+          label: "--",
+          unit: "percent",
+          value: null
+        },
+        value: 3
+      },
+      totalShifts: {
+        delta: {
+          direction: "neutral",
+          label: "--",
+          unit: "percent",
+          value: null
+        },
+        value: 6
+      }
+    });
+    assert.deepEqual(result.analytics.workStatusRates, {
+      absent: { count: 1, delta: neutralPercentageDelta, percentage: 16.67 },
+      all: { count: 3, delta: neutralPercentageDelta, percentage: 50 },
+      lateOver15: { count: 2, delta: neutralPercentageDelta, percentage: 33.33 },
+      onLeave: { count: 2, delta: neutralPercentageDelta, percentage: 33.33 },
+      onTime: { count: 1, delta: neutralPercentageDelta, percentage: 16.67 }
     });
     assert.equal(result.analytics.pickerCount, 6);
     assert.deepEqual(result.analytics.attendanceMix, {
