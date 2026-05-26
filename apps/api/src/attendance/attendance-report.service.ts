@@ -86,6 +86,7 @@ export class AttendanceReportService {
         activeBatchId: null,
         coverageStartDate: null,
         coverageEndDate: null,
+        expectedCoverageEndDate: null,
         pagination: {
           page: pagination.page,
           pageSize: pagination.pageSize,
@@ -116,8 +117,11 @@ export class AttendanceReportService {
     return {
       periodMonth,
       activeBatchId: activeBatch.id,
-      coverageStartDate: activeBatch.coverageStartDate,
-      coverageEndDate: activeBatch.coverageEndDate,
+      coverageStartDate: formatDateOnlyOrNull(activeBatch.coverageStartDate),
+      coverageEndDate: formatDateOnlyOrNull(activeBatch.coverageEndDate),
+      expectedCoverageEndDate: formatDateOnlyOrNull(
+        activeBatch.expectedCoverageEndDate
+      ),
       pagination: {
         page: pagination.page,
         pageSize: pagination.pageSize,
@@ -137,7 +141,9 @@ function buildDailyReportWhere(
   const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
     importBatch: {
-      status: AttendanceImportBatchStatus.ACTIVE
+      is: {
+        status: AttendanceImportBatchStatus.ACTIVE
+      }
     }
   };
 
@@ -202,7 +208,11 @@ function buildDailyReportWhere(
 }
 
 function normalizePeriodMonth(periodMonth: string | undefined): string {
-  if (!periodMonth || !/^\d{4}-\d{2}$/.test(periodMonth)) {
+  if (!periodMonth) {
+    throw new BadRequestException("periodMonth is required.");
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(periodMonth)) {
     throw new BadRequestException("periodMonth must use YYYY-MM format.");
   }
 
@@ -222,16 +232,19 @@ function normalizePagination(query: AttendanceDailyReportQuery) {
 }
 
 function clampInteger(
-  value: number | undefined,
+  value: number | string | undefined,
   fallback: number,
   min: number,
   max: number
 ): number {
-  if (!Number.isInteger(value)) {
+  const normalized =
+    typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+
+  if (!Number.isInteger(normalized)) {
     return fallback;
   }
 
-  return Math.min(Math.max(value, min), max);
+  return Math.min(Math.max(normalized as number, min), max);
 }
 
 function parseDateOnly(value: string, fieldName: string): Date {
@@ -252,23 +265,23 @@ function summarizeDailyRecords(
 ): AttendanceDailyReportSummary {
   return records.reduce<AttendanceDailyReportSummary>((summary, record) => {
     summary.totalRows += 1;
-    summary.totalRawLateMins += record.rawLateMins;
-    summary.totalChargeableLateMins += record.chargeableLateMins;
+    summary.totalRawLateMins += record.rawLateMins ?? 0;
+    summary.totalChargeableLateMins += record.chargeableLateMins ?? 0;
 
     if (record.calculatedStatus === AttendanceCalculatedStatus.ON_TIME) {
-      summary.onTimeDays += 1;
+      summary.onTimeCount += 1;
     }
     if (record.calculatedStatus === AttendanceCalculatedStatus.LATE) {
-      summary.lateDays += 1;
+      summary.lateCount += 1;
     }
     if (record.calculatedStatus === AttendanceCalculatedStatus.ABSENT) {
-      summary.absentDays += 1;
+      summary.absentCount += 1;
     }
     if (record.isOnLeave) {
-      summary.leaveDays += 1;
+      summary.leaveCount += 1;
     }
     if (record.isOffDay) {
-      summary.offDays += 1;
+      summary.offDayCount += 1;
     }
     if (record.isUnder8Hours) {
       summary.under8HoursCount += 1;
@@ -284,11 +297,11 @@ function summarizeDailyRecords(
 function emptySummary(): AttendanceDailyReportSummary {
   return {
     totalRows: 0,
-    onTimeDays: 0,
-    lateDays: 0,
-    absentDays: 0,
-    leaveDays: 0,
-    offDays: 0,
+    onTimeCount: 0,
+    lateCount: 0,
+    absentCount: 0,
+    leaveCount: 0,
+    offDayCount: 0,
     totalRawLateMins: 0,
     totalChargeableLateMins: 0,
     under8HoursCount: 0,
@@ -303,16 +316,16 @@ function toDailyReportRow(
     id: record.id,
     shopperId: record.shopperId,
     userId: record.userId,
-    shiftDate: record.shiftDate,
+    shiftDate: formatDateOnly(record.shiftDate),
     pickerName: record.pickerNameSnapshot,
     sourceDesignation: record.sourceDesignation,
     sourceLocation: record.sourceLocation,
     shiftName: record.shiftName,
     scheduledStartTime: record.scheduledStartTime,
     scheduledEndTime: record.scheduledEndTime,
-    actualCheckinTime: record.actualCheckinTime,
-    actualCheckoutTime: record.actualCheckoutTime,
-    actualWorkDurationHours: record.actualWorkDurationHours,
+    actualCheckinTime: formatTimeOnlyOrNull(record.actualCheckinTime),
+    actualCheckoutTime: formatTimeOnlyOrNull(record.actualCheckoutTime),
+    actualWorkDurationHours: decimalToNumberOrNull(record.actualWorkDurationHours),
     calculatedStatus: record.calculatedStatus,
     rawLateMins: record.rawLateMins,
     chargeableLateMins: record.chargeableLateMins,
@@ -323,4 +336,32 @@ function toDailyReportRow(
     isOver15Hours: record.isOver15Hours,
     issuesCount: record.issuesCount
   };
+}
+
+function formatDateOnlyOrNull(value: Date | null) {
+  return value ? formatDateOnly(value) : null;
+}
+
+function formatDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function formatTimeOnlyOrNull(value: Date | null) {
+  if (!value) {
+    return null;
+  }
+
+  return `${pad(value.getUTCHours())}:${pad(value.getUTCMinutes())}`;
+}
+
+function decimalToNumberOrNull(value: Prisma.Decimal | number | null) {
+  if (value === null) {
+    return null;
+  }
+
+  return typeof value === "number" ? value : value.toNumber();
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
 }

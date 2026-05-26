@@ -9,6 +9,8 @@ import {
 import { AttendanceParserService } from "./attendance-parser.service";
 import type {
   AttendanceMatchedUser,
+  AttendanceDuplicateGroup,
+  AttendanceDuplicateOption,
   AttendanceParsedRow,
   AttendancePreviewIssue,
   AttendanceRowsPreviewItem,
@@ -126,8 +128,7 @@ export class AttendanceValidatorService {
     let matchedPickerRows = 0;
     let unmatchedRows = 0;
     let excludedNonPickerRows = 0;
-    const matchedDuplicateKeys = new Map<string, number>();
-    const unmatchedDuplicateKeys = new Map<string, number>();
+    const duplicateTrackers = new Map<string, DuplicateTracker>();
 
     for (const row of workbook.rows) {
       matchStatuses.set(row.rawRowNumber, "NOT_EVALUATED");
@@ -170,7 +171,7 @@ export class AttendanceValidatorService {
           fieldName: "Identifier",
           message: "Identifier does not match a SuperNova User.shopperId."
         }));
-        trackDuplicate(unmatchedDuplicateKeys, unmatchedKey(row), row, issues, rowIssueCounts);
+        trackDuplicate(duplicateTrackers, unmatchedDuplicateInput(row, matchedUser));
         continue;
       }
 
@@ -188,14 +189,15 @@ export class AttendanceValidatorService {
 
       matchedPickerRows += 1;
       matchStatuses.set(row.rawRowNumber, "MATCHED_PICKER");
-      trackDuplicate(
-        matchedDuplicateKeys,
-        matchedKey(row, matchedUser),
-        row,
-        issues,
-        rowIssueCounts
-      );
+      trackDuplicate(duplicateTrackers, matchedDuplicateInput(row, matchedUser));
     }
+
+    const duplicateGroups = buildDuplicateGroups(
+      duplicateTrackers,
+      new Set(options.duplicateResolutionRowNumbers ?? []),
+      issues,
+      rowIssueCounts
+    );
 
     const errorRows = countIssueRows(issues, AttendanceIssueSeverity.ERROR);
     const warningRows = countIssueRows(issues, AttendanceIssueSeverity.WARNING);
@@ -214,6 +216,7 @@ export class AttendanceValidatorService {
       errorRows,
       warningRows,
       canConfirm: errorRows === 0,
+      duplicateGroups,
       issues,
       rowsPreview: workbook.rows
         .slice(0, options.rowsPreviewLimit ?? 20)
@@ -244,6 +247,21 @@ export class AttendanceValidatorService {
     return new Map(users.map((user) => [user.shopperId, user]));
   }
 }
+
+type DuplicateTracker = {
+  key: string;
+  shopperId: string;
+  userId: string | null;
+  pickerName: string | null;
+  branchName: string | null;
+  vendorName: string | null;
+  shiftDate: string;
+  rows: AttendanceParsedRow[];
+};
+
+type DuplicateInput = Omit<DuplicateTracker, "rows"> & {
+  row: AttendanceParsedRow;
+};
 
 function validateParsedFields(
   row: AttendanceParsedRow,
@@ -396,37 +414,138 @@ function rowIssue(
 }
 
 function trackDuplicate(
-  seen: Map<string, number>,
-  key: string | null,
-  row: AttendanceParsedRow,
+  trackers: Map<string, DuplicateTracker>,
+  input: DuplicateInput | null
+) {
+  if (!input) {
+    return;
+  }
+
+  const tracker = trackers.get(input.key);
+
+  if (tracker) {
+    tracker.rows.push(input.row);
+    return;
+  }
+
+  trackers.set(input.key, {
+    key: input.key,
+    shopperId: input.shopperId,
+    userId: input.userId,
+    pickerName: input.pickerName,
+    branchName: input.branchName,
+    vendorName: input.vendorName,
+    shiftDate: input.shiftDate,
+    rows: [input.row]
+  });
+}
+
+function buildDuplicateGroups(
+  trackers: Map<string, DuplicateTracker>,
+  selectedRows: Set<number>,
   issues: AttendancePreviewIssue[],
   rowIssueCounts: Map<number, number>
-) {
-  if (!key) {
-    return;
+): AttendanceDuplicateGroup[] {
+  const groups: AttendanceDuplicateGroup[] = [];
+
+  for (const tracker of trackers.values()) {
+    if (tracker.rows.length < 2) {
+      continue;
+    }
+
+    const selectedRawRowNumbers = tracker.rows
+      .map((row) => row.rawRowNumber)
+      .filter((rowNumber) => selectedRows.has(rowNumber));
+    const selectedRawRowNumber =
+      selectedRawRowNumbers.length === 1 ? selectedRawRowNumbers[0] ?? null : null;
+
+    if (!selectedRawRowNumber) {
+      for (const row of tracker.rows.slice(1)) {
+        addIssue(issues, rowIssueCounts, rowIssue(row, {
+          severity: AttendanceIssueSeverity.ERROR,
+          issueCode: AttendanceIssueCode.DUPLICATE_PICKER_DATE,
+          fieldName: "Shift Date",
+          message: "Duplicate Picker/date rows are not allowed in v1."
+        }));
+      }
+    }
+
+    groups.push({
+      shopperId: tracker.shopperId,
+      userId: tracker.userId,
+      pickerName: tracker.pickerName,
+      branchName: tracker.branchName,
+      vendorName: tracker.vendorName,
+      shiftDate: tracker.shiftDate,
+      selectedRawRowNumber,
+      options: tracker.rows.map(mapDuplicateOption)
+    });
   }
 
-  if (seen.has(key)) {
-    addIssue(issues, rowIssueCounts, rowIssue(row, {
-      severity: AttendanceIssueSeverity.ERROR,
-      issueCode: AttendanceIssueCode.DUPLICATE_PICKER_DATE,
-      fieldName: "Shift Date",
-      message: "Duplicate Picker/date rows are not allowed in v1."
-    }));
-    return;
+  return groups;
+}
+
+function mapDuplicateOption(row: AttendanceParsedRow): AttendanceDuplicateOption {
+  return {
+    rawRowNumber: row.rawRowNumber,
+    shiftName: row.shiftName,
+    sourceStatus: row.sourceStatus,
+    scheduledStartTime: row.scheduledStartTime,
+    scheduledEndTime: row.scheduledEndTime,
+    actualCheckinTime: row.actualCheckinTime,
+    actualCheckoutTime: row.actualCheckoutTime,
+    actualWorkDurationHours: row.actualWorkDurationHours,
+    sourceLocation: row.sourceLocation,
+    sourceDesignation: row.sourceDesignation
+  };
+}
+
+function matchedDuplicateInput(
+  row: AttendanceParsedRow,
+  user: AttendanceMatchedUser
+): DuplicateInput | null {
+  if (!row.shiftDate) {
+    return null;
   }
 
-  seen.set(key, row.rawRowNumber);
+  return {
+    key: matchedKey(row, user),
+    shopperId: user.shopperId,
+    userId: user.id,
+    pickerName: user.nameEn,
+    branchName: user.branchName,
+    vendorName: user.vendorName,
+    shiftDate: row.shiftDate,
+    row
+  };
+}
+
+function unmatchedDuplicateInput(
+  row: AttendanceParsedRow,
+  user: AttendanceMatchedUser | undefined
+): DuplicateInput | null {
+  if (!row.shiftDate || !row.identifier || user) {
+    return null;
+  }
+
+  return {
+    key: unmatchedKey(row),
+    shopperId: row.identifier,
+    userId: null,
+    pickerName: null,
+    branchName: null,
+    vendorName: null,
+    shiftDate: row.shiftDate,
+    row
+  };
 }
 
 function matchedKey(row: AttendanceParsedRow, user: AttendanceMatchedUser) {
-  return row.shiftDate ? `${row.shiftDate}:${user.id}` : null;
+  return `matched:${row.shiftDate}:${user.id}`;
 }
 
 function unmatchedKey(row: AttendanceParsedRow) {
-  return row.shiftDate && row.identifier
-    ? `${row.shiftDate}:${row.identifier}`
-    : null;
+  return `unmatched:${row.shiftDate}:${row.identifier}`;
 }
 
 function isEgypt(division: string | null) {

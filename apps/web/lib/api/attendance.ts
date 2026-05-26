@@ -111,6 +111,7 @@ export type AttendanceMatchStatus =
   | "NOT_EVALUATED";
 
 export interface AttendanceImportPreviewOptions {
+  duplicateResolutionRowNumbers?: number[];
   uploadDate?: string;
 }
 
@@ -138,8 +139,33 @@ export interface AttendanceValidationPreview {
   errorRows: number;
   warningRows: number;
   canConfirm: boolean;
+  duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendanceDuplicateGroup {
+  shopperId: string;
+  userId: string | null;
+  pickerName: string | null;
+  branchName: string | null;
+  vendorName: string | null;
+  shiftDate: string;
+  selectedRawRowNumber: number | null;
+  options: AttendanceDuplicateOption[];
+}
+
+export interface AttendanceDuplicateOption {
+  rawRowNumber: number;
+  shiftName: string | null;
+  sourceStatus: string | null;
+  scheduledStartTime: string | null;
+  scheduledEndTime: string | null;
+  actualCheckinTime: string | null;
+  actualCheckoutTime: string | null;
+  actualWorkDurationHours: number | null;
+  sourceLocation: string | null;
+  sourceDesignation: string | null;
 }
 
 export interface AttendancePreviewIssue {
@@ -199,6 +225,12 @@ export function buildAttendanceImportPreviewFormData(
   const formData = new FormData();
   formData.set("file", file);
   setFormString(formData, "uploadDate", options.uploadDate);
+  if (options.duplicateResolutionRowNumbers?.length) {
+    formData.set(
+      "duplicateResolutionRowNumbers",
+      JSON.stringify(options.duplicateResolutionRowNumbers)
+    );
+  }
   return formData;
 }
 

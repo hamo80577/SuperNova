@@ -18,6 +18,7 @@ export interface AttendanceImportRequestContext {
 
 export interface AttendanceImportPreviewOptions
   extends AttendanceImportRequestContext {
+  duplicateResolutionRowNumbers?: number[];
   fileName: string;
   uploadDate?: Date | string;
   rowsPreviewLimit?: number;

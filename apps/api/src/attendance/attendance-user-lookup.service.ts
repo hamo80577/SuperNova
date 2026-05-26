@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { AssignmentStatus } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 import type {
@@ -33,17 +34,39 @@ export class AttendanceUserLookupService implements AttendanceUserLookup {
         id: true,
         shopperId: true,
         role: true,
-        nameEn: true
+        nameEn: true,
+        pickerBranchAssignments: {
+          where: {
+            status: AssignmentStatus.ACTIVE
+          },
+          orderBy: {
+            startDate: "desc"
+          },
+          take: 1,
+          select: {
+            vendor: {
+              select: {
+                vendorName: true
+              }
+            }
+          }
+        }
       }
     });
 
-    return users
-      .filter((user): user is AttendanceMatchedUser => user.shopperId !== null)
-      .map((user) => ({
+    return users.flatMap((user) => {
+      if (!user.shopperId) {
+        return [];
+      }
+
+      return [{
         id: user.id,
         shopperId: user.shopperId,
         role: user.role,
-        nameEn: user.nameEn
-      }));
+        nameEn: user.nameEn,
+        branchName: user.pickerBranchAssignments[0]?.vendor.vendorName ?? null,
+        vendorName: user.pickerBranchAssignments[0]?.vendor.vendorName ?? null
+      }];
+    });
   }
 }

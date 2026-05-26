@@ -125,26 +125,42 @@ function createStore() {
         id: "user-picker-1",
         shopperId: "SHOPPER-1",
         role: UserRole.PICKER,
-        nameEn: "Picker One"
+        nameEn: "Picker One",
+        pickerBranchAssignments: [
+          {
+            vendor: {
+              vendorName: "Branch A"
+            }
+          }
+        ]
       },
       {
         id: "user-picker-2",
         shopperId: "SHOPPER-2",
         role: UserRole.PICKER,
-        nameEn: "Picker Two"
+        nameEn: "Picker Two",
+        pickerBranchAssignments: [
+          {
+            vendor: {
+              vendorName: "Branch B"
+            }
+          }
+        ]
       },
       {
         id: "user-champ-1",
         shopperId: "CHAMP-1",
         role: UserRole.CHAMP,
-        nameEn: "Champ One"
+        nameEn: "Champ One",
+        pickerBranchAssignments: []
       }
     ],
     batches: [] as StoredBatch[],
     issues: [] as Record<string, unknown>[],
     dailyRecords: [] as Record<string, unknown>[],
     monthlySummaries: [] as Record<string, unknown>[],
-    auditRows: [] as Record<string, unknown>[]
+    auditRows: [] as Record<string, unknown>[],
+    transactionOptions: [] as Array<Record<string, unknown> | undefined>
   };
 
   const prisma = {
@@ -239,7 +255,11 @@ function createStore() {
         return { id: `audit-${store.auditRows.length}`, ...data };
       }
     },
-    $transaction: async <T>(callback: (tx: typeof prisma) => Promise<T>) => {
+    $transaction: async <T>(
+      callback: (tx: typeof prisma) => Promise<T>,
+      options?: Record<string, unknown>
+    ) => {
+      store.transactionOptions.push(options);
       const snapshot = {
         batches: store.batches.map((batch) => ({ ...batch })),
         issues: store.issues.map((issue) => ({ ...issue })),
@@ -279,8 +299,10 @@ async function previewRows(
   rows: WorkbookRow[],
   options: {
     actor?: AttendanceImportActor;
+    duplicateResolutionRowNumbers?: number[];
     fileName?: string;
     prisma?: unknown;
+    uploadDate?: string;
   } = {}
 ) {
   const service = createService(options.prisma ?? createStore().prisma);
@@ -289,7 +311,8 @@ async function previewRows(
   return service.previewImport(buffer, {
     actor: options.actor ?? adminActor,
     fileName: options.fileName ?? "attendance.xlsx",
-    uploadDate: "2026-05-02",
+    uploadDate: options.uploadDate ?? "2026-05-02",
+    duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
     now: "2026-05-09T10:00:00.000Z"
   });
 }
@@ -341,6 +364,14 @@ async function main() {
 
   {
     const { prisma, store } = createStore();
+    await previewRows([baseRow()], { prisma });
+
+    assert.equal(store.transactionOptions.length, 1);
+    assert.equal(store.transactionOptions[0]?.["timeout"], 60_000);
+  }
+
+  {
+    const { prisma, store } = createStore();
     const result = await previewRows([
       baseRow({
         "Actual Checkin Time": "-"
@@ -353,6 +384,71 @@ async function main() {
     assert.equal(store.dailyRecords.length, 0);
     assert.equal(store.monthlySummaries.length, 0);
     assert.equal(store.auditRows[0]?.["action"], "ATTENDANCE_IMPORT_FAILED_VALIDATION");
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const failedPreview = await previewRows([
+      baseRow({
+        "Shift Name": "Morning Shift",
+        "Actual Checkin Time": "09:05"
+      }),
+      baseRow({
+        "Shift Name": "Late Coverage",
+        "Actual Checkin Time": "10:31",
+        Status: "Late"
+      }),
+      baseRow({
+        Identifier: "SHOPPER-2",
+        "Shift Date": "2026-05-08"
+      })
+    ], { prisma, uploadDate: "2026-05-09" });
+
+    assert.equal(failedPreview.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(failedPreview.preview.duplicateGroups.length, 1);
+    assert.equal(failedPreview.preview.duplicateGroups[0]?.pickerName, "Picker One");
+    assert.equal(failedPreview.preview.duplicateGroups[0]?.branchName, "Branch A");
+
+    const resolvedPreview = await previewRows([
+      baseRow({
+        "Shift Name": "Morning Shift",
+        "Actual Checkin Time": "09:05"
+      }),
+      baseRow({
+        "Shift Name": "Late Coverage",
+        "Actual Checkin Time": "10:31",
+        Status: "Late"
+      }),
+      baseRow({
+        Identifier: "SHOPPER-2",
+        "Shift Date": "2026-05-08"
+      })
+    ], {
+      duplicateResolutionRowNumbers: [3],
+      prisma,
+      uploadDate: "2026-05-09"
+    });
+
+    assert.equal(resolvedPreview.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(resolvedPreview.canConfirm, true);
+    assert.equal(resolvedPreview.dailyRecordCount, 2);
+    assert.equal(
+      store.dailyRecords.some(
+        (record) =>
+          record["shopperId"] === "SHOPPER-1" &&
+          record["rawRowNumber"] === 3 &&
+          record["shiftName"] === "Late Coverage"
+      ),
+      true
+    );
+    assert.equal(
+      store.dailyRecords.some(
+        (record) =>
+          record["shopperId"] === "SHOPPER-1" &&
+          record["rawRowNumber"] === 2
+      ),
+      false
+    );
   }
 
   {

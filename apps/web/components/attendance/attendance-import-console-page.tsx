@@ -5,12 +5,16 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  Clock3,
   FileSpreadsheet,
   Inbox,
+  MapPin,
   Loader2,
   RefreshCcw,
   ShieldAlert,
-  UploadCloud
+  UploadCloud,
+  UserRound,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
@@ -18,11 +22,14 @@ import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import {
   attendanceApi,
   type AttendanceImportConfirmResponse,
   type AttendanceImportPreviewResponse,
   type AttendanceImportBatchStatus,
+  type AttendanceDuplicateGroup,
+  type AttendanceDuplicateOption,
   type AttendancePreviewIssue,
   type AttendanceIssueSeverity
 } from "@/lib/api/attendance";
@@ -51,6 +58,15 @@ export function AttendanceImportConsolePage() {
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     status: "idle"
   });
+  const [duplicateResolverOpen, setDuplicateResolverOpen] = useState(false);
+  const [duplicateResolverIndex, setDuplicateResolverIndex] = useState(0);
+  const [duplicateSelections, setDuplicateSelections] = useState<
+    Record<string, number>
+  >({});
+  const [duplicateSaveState, setDuplicateSaveState] =
+    useState<AsyncActionState>({
+      status: "idle"
+    });
   const [fileInputKey, setFileInputKey] = useState(0);
 
   const selectedFileLabel = file
@@ -79,15 +95,63 @@ export function AttendanceImportConsolePage() {
         uploadDate
       });
       setPreview(nextPreview);
+      setDuplicateSelections(defaultDuplicateSelections(nextPreview));
+      setDuplicateResolverIndex(0);
+      setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
+      setDuplicateSaveState({ status: "idle" });
       setPreviewState({ status: "idle" });
     } catch (error) {
       setPreview(null);
+      setDuplicateResolverOpen(false);
       setPreviewState({
         status: "error",
         error:
           error instanceof Error
             ? error.message
             : "Unable to preview attendance import."
+      });
+    }
+  }
+
+  async function handleSaveDuplicateChoices() {
+    if (!file || !preview) {
+      return;
+    }
+
+    const duplicateGroups = preview.preview.duplicateGroups;
+    const selectedRows = duplicateGroups
+      .map((group) => duplicateSelections[duplicateGroupKey(group)])
+      .filter((rowNumber): rowNumber is number => typeof rowNumber === "number");
+
+    if (selectedRows.length !== duplicateGroups.length) {
+      setDuplicateSaveState({
+        status: "error",
+        error: "Choose one shift for each duplicate Picker."
+      });
+      return;
+    }
+
+    setDuplicateSaveState({ status: "loading" });
+    setConfirmState({ status: "idle" });
+    setConfirmChecked(false);
+
+    try {
+      const nextPreview = await attendanceApi.previewImport(file, {
+        duplicateResolutionRowNumbers: selectedRows,
+        uploadDate
+      });
+      setPreview(nextPreview);
+      setDuplicateSelections(defaultDuplicateSelections(nextPreview));
+      setDuplicateResolverIndex(0);
+      setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
+      setDuplicateSaveState({ status: "idle" });
+    } catch (error) {
+      setDuplicateSaveState({
+        status: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to save duplicate choices."
       });
     }
   }
@@ -120,6 +184,10 @@ export function AttendanceImportConsolePage() {
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setDuplicateResolverOpen(false);
+    setDuplicateResolverIndex(0);
+    setDuplicateSelections({});
+    setDuplicateSaveState({ status: "idle" });
     setFileInputKey((current) => current + 1);
   }
 
@@ -130,6 +198,10 @@ export function AttendanceImportConsolePage() {
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setDuplicateResolverOpen(false);
+    setDuplicateResolverIndex(0);
+    setDuplicateSelections({});
+    setDuplicateSaveState({ status: "idle" });
   }
 
   return (
@@ -202,10 +274,258 @@ export function AttendanceImportConsolePage() {
             onConfirm={handleConfirm}
             preview={preview}
           />
+          {duplicateResolverOpen && preview.preview.duplicateGroups.length > 0 ? (
+            <DuplicateResolutionModal
+              currentIndex={duplicateResolverIndex}
+              groups={preview.preview.duplicateGroups}
+              onClose={() => setDuplicateResolverOpen(false)}
+              onIndexChange={setDuplicateResolverIndex}
+              onSave={handleSaveDuplicateChoices}
+              onSelect={(group, rawRowNumber) =>
+                setDuplicateSelections((current) => ({
+                  ...current,
+                  [duplicateGroupKey(group)]: rawRowNumber
+                }))
+              }
+              saveState={duplicateSaveState}
+              selections={duplicateSelections}
+            />
+          ) : null}
         </>
       ) : (
         <EmptyConsoleState />
       )}
+    </div>
+  );
+}
+
+function DuplicateResolutionModal({
+  currentIndex,
+  groups,
+  onClose,
+  onIndexChange,
+  onSave,
+  onSelect,
+  saveState,
+  selections
+}: {
+  currentIndex: number;
+  groups: AttendanceDuplicateGroup[];
+  onClose: () => void;
+  onIndexChange: (index: number) => void;
+  onSave: () => void;
+  onSelect: (group: AttendanceDuplicateGroup, rawRowNumber: number) => void;
+  saveState: AsyncActionState;
+  selections: Record<string, number>;
+}) {
+  const group = groups[Math.min(currentIndex, groups.length - 1)] ?? groups[0];
+
+  if (!group) {
+    return null;
+  }
+
+  const selectedRawRowNumber = selections[duplicateGroupKey(group)];
+  const isLast = currentIndex >= groups.length - 1;
+  const resolvedCount = groups.filter(
+    (item) => selections[duplicateGroupKey(item)]
+  ).length;
+
+  return (
+    <ModalPortal>
+      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6 backdrop-blur-sm">
+        <section className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-950">
+                Resolve duplicate shift
+              </h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                {currentIndex + 1} of {groups.length} Pickers
+              </p>
+            </div>
+            <button
+              aria-label="Close duplicate resolver"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+              onClick={onClose}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-4 p-4">
+            <DuplicatePickerCard group={group} />
+
+            <div className="grid gap-3">
+              {group.options.map((option) => (
+                <DuplicateShiftOptionCard
+                  isSelected={selectedRawRowNumber === option.rawRowNumber}
+                  key={option.rawRowNumber}
+                  onSelect={() => onSelect(group, option.rawRowNumber)}
+                  option={option}
+                />
+              ))}
+            </div>
+
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-orange-500"
+                style={{ width: `${Math.max((resolvedCount / groups.length) * 100, 8)}%` }}
+              />
+            </div>
+
+            {saveState.status === "error" ? (
+              <InlineError message={saveState.error} />
+            ) : null}
+          </div>
+
+          <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:justify-between">
+            <Button
+              className="h-11 rounded-xl"
+              disabled={currentIndex === 0}
+              onClick={() => onIndexChange(Math.max(currentIndex - 1, 0))}
+              type="button"
+              variant="outline"
+            >
+              Back
+            </Button>
+            {isLast ? (
+              <Button
+                className="h-11 rounded-xl"
+                disabled={
+                  !selectedRawRowNumber || saveState.status === "loading"
+                }
+                onClick={onSave}
+                type="button"
+              >
+                {saveState.status === "loading" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                Save choices
+              </Button>
+            ) : (
+              <Button
+                className="h-11 rounded-xl"
+                disabled={!selectedRawRowNumber}
+                onClick={() =>
+                  onIndexChange(Math.min(currentIndex + 1, groups.length - 1))
+                }
+                type="button"
+              >
+                Next Picker
+              </Button>
+            )}
+          </div>
+        </section>
+      </div>
+    </ModalPortal>
+  );
+}
+
+function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
+  const branchName = group.branchName ?? firstOptionText(group, "sourceLocation");
+  const vendorName =
+    group.vendorName && group.vendorName !== branchName ? group.vendorName : null;
+  const initials = initialsFromName(group.pickerName ?? group.shopperId);
+
+  return (
+    <section className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+      <div className="flex items-start gap-3">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-lg font-semibold text-slate-950">
+            {group.pickerName ?? "Unmatched Picker"}
+          </h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <MetaPill icon={<UserRound className="h-3.5 w-3.5" />}>
+              {group.shopperId}
+            </MetaPill>
+            <MetaPill icon={<MapPin className="h-3.5 w-3.5" />}>
+              {branchName ?? "No branch"}
+            </MetaPill>
+            {vendorName ? <MetaPill>{vendorName}</MetaPill> : null}
+            <MetaPill icon={<Clock3 className="h-3.5 w-3.5" />}>
+              {formatDate(group.shiftDate)}
+            </MetaPill>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DuplicateShiftOptionCard({
+  isSelected,
+  onSelect,
+  option
+}: {
+  isSelected: boolean;
+  onSelect: () => void;
+  option: AttendanceDuplicateOption;
+}) {
+  return (
+    <button
+      className={cn(
+        "grid gap-3 rounded-2xl border p-4 text-left transition",
+        isSelected
+          ? "border-emerald-400 bg-emerald-50 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
+          : "border-slate-200 bg-white hover:border-orange-300 hover:bg-orange-50/40"
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="break-words text-sm font-semibold text-slate-950">
+            {option.shiftName ?? "Unnamed shift"}
+          </h4>
+          <p className="mt-1 text-xs font-medium text-slate-500">
+            Row {option.rawRowNumber}
+          </p>
+        </div>
+        <Badge className={sourceStatusTone(option.sourceStatus)} variant="outline">
+          {formatSourceStatus(option.sourceStatus)}
+        </Badge>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-4">
+        <MiniFact
+          label="Shift"
+          value={`${formatText(option.scheduledStartTime)}-${formatText(
+            option.scheduledEndTime
+          )}`}
+        />
+        <MiniFact label="In" value={formatText(option.actualCheckinTime)} />
+        <MiniFact label="Out" value={formatText(option.actualCheckoutTime)} />
+        <MiniFact label="Work" value={formatHours(option.actualWorkDurationHours)} />
+      </div>
+    </button>
+  );
+}
+
+function MetaPill({
+  children,
+  icon
+}: {
+  children: ReactNode;
+  icon?: ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+      {icon}
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+function MiniFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-slate-800">{value}</p>
     </div>
   );
 }
@@ -628,6 +948,91 @@ function SeverityBadge({ severity }: { severity: AttendanceIssueSeverity }) {
       {formatEnum(severity)}
     </Badge>
   );
+}
+
+function defaultDuplicateSelections(preview: AttendanceImportPreviewResponse) {
+  return Object.fromEntries(
+    preview.preview.duplicateGroups
+      .filter((group) => group.selectedRawRowNumber)
+      .map((group) => [
+        duplicateGroupKey(group),
+        group.selectedRawRowNumber as number
+      ])
+  );
+}
+
+function hasUnresolvedDuplicateGroups(preview: AttendanceImportPreviewResponse) {
+  return preview.preview.duplicateGroups.some(
+    (group) => !group.selectedRawRowNumber
+  );
+}
+
+function duplicateGroupKey(group: AttendanceDuplicateGroup) {
+  return `${group.shopperId}:${group.shiftDate}:${group.options
+    .map((option) => option.rawRowNumber)
+    .join(",")}`;
+}
+
+function firstOptionText(
+  group: AttendanceDuplicateGroup,
+  field: keyof AttendanceDuplicateOption
+) {
+  const value = group.options.find((option) => option[field])?.[field];
+  return typeof value === "string" ? value : null;
+}
+
+function initialsFromName(value: string) {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "P";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
+function sourceStatusTone(value: string | null) {
+  const status = value?.trim().toUpperCase() ?? "";
+
+  if (status.includes("ABSENT")) {
+    return "border-destructive/40 bg-destructive/10 text-destructive";
+  }
+
+  if (status.includes("LATE")) {
+    return "border-amber-300 bg-amber-50 text-amber-800";
+  }
+
+  if (status.includes("PRESENT") || status.includes("ON TIME")) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border-slate-200 bg-slate-100 text-slate-600";
+}
+
+function formatSourceStatus(value: string | null) {
+  if (!value) {
+    return "Not set";
+  }
+
+  return value
+    .toLowerCase()
+    .split(/[\s_]+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatHours(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
+  return `${value.toFixed(1)}h`;
 }
 
 function InlineError({ message }: { message: string }) {

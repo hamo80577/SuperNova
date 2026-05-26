@@ -41,6 +41,8 @@ export class AttendanceImportsController {
   previewImport(
     @UploadedFile() file: UploadedAttendanceFile | undefined,
     @Body("uploadDate") uploadDate: string | undefined,
+    @Body("duplicateResolutionRowNumbers")
+    duplicateResolutionRowNumbers: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
@@ -50,6 +52,9 @@ export class AttendanceImportsController {
 
     return this.attendanceImportService.previewImport(file.buffer, {
       actor: user,
+      duplicateResolutionRowNumbers: parseDuplicateResolutionRowNumbers(
+        duplicateResolutionRowNumbers
+      ),
       fileName: file.originalname ?? "attendance-import.xlsx",
       uploadDate,
       ipAddress: request.ip,
@@ -69,4 +74,31 @@ export class AttendanceImportsController {
       userAgent: request.headers["user-agent"] ?? null
     });
   }
+}
+
+function parseDuplicateResolutionRowNumbers(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new BadRequestException(
+      "duplicateResolutionRowNumbers must be a JSON array of row numbers."
+    );
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.every((item) => Number.isInteger(item) && item > 0)
+  ) {
+    throw new BadRequestException(
+      "duplicateResolutionRowNumbers must be a JSON array of row numbers."
+    );
+  }
+
+  return Array.from(new Set(parsed));
 }

@@ -10,6 +10,8 @@ export interface AttendanceMatchedUser {
   shopperId: string;
   role: UserRole;
   nameEn: string;
+  branchName: string | null;
+  vendorName: string | null;
 }
 
 export interface AttendanceUserLookup {
@@ -17,6 +19,7 @@ export interface AttendanceUserLookup {
 }
 
 export interface AttendanceValidationOptions {
+  duplicateResolutionRowNumbers?: number[];
   uploadDate: Date | string;
   rowsPreviewLimit?: number;
   userLookup?: AttendanceUserLookup;
@@ -66,6 +69,30 @@ export interface AttendancePreviewIssue {
   resolutionStatus: AttendanceIssueResolutionStatus;
 }
 
+export interface AttendanceDuplicateGroup {
+  shopperId: string;
+  userId: string | null;
+  pickerName: string | null;
+  branchName: string | null;
+  vendorName: string | null;
+  shiftDate: string;
+  selectedRawRowNumber: number | null;
+  options: AttendanceDuplicateOption[];
+}
+
+export interface AttendanceDuplicateOption {
+  rawRowNumber: number;
+  shiftName: string | null;
+  sourceStatus: string | null;
+  scheduledStartTime: string | null;
+  scheduledEndTime: string | null;
+  actualCheckinTime: string | null;
+  actualCheckoutTime: string | null;
+  actualWorkDurationHours: number | null;
+  sourceLocation: string | null;
+  sourceDesignation: string | null;
+}
+
 export interface AttendanceRowsPreviewItem {
   rawRowNumber: number;
   identifier: string | null;
@@ -89,6 +116,7 @@ export interface AttendanceValidationPreview {
   errorRows: number;
   warningRows: number;
   canConfirm: boolean;
+  duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
 }

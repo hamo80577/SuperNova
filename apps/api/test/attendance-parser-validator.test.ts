@@ -35,21 +35,27 @@ const pickerUser: AttendanceMatchedUser = {
   id: "user-picker-1",
   shopperId: "SHOPPER-1",
   role: UserRole.PICKER,
-  nameEn: "Picker Test"
+  nameEn: "Picker Test",
+  branchName: "Branch A",
+  vendorName: "Vendor A"
 };
 
 const secondPickerUser: AttendanceMatchedUser = {
   id: "user-picker-2",
   shopperId: "SHOPPER-2",
   role: UserRole.PICKER,
-  nameEn: "Picker Two"
+  nameEn: "Picker Two",
+  branchName: "Branch B",
+  vendorName: "Vendor B"
 };
 
 const champUser: AttendanceMatchedUser = {
   id: "user-champ-1",
   shopperId: "CHAMP-1",
   role: UserRole.CHAMP,
-  nameEn: "Champ Test"
+  nameEn: "Champ Test",
+  branchName: null,
+  vendorName: null
 };
 
 function baseRow(overrides: WorkbookRow = {}): WorkbookRow {
@@ -104,6 +110,7 @@ function createValidator(users: AttendanceMatchedUser[]) {
 async function validateRows(
   rows: WorkbookRow[],
   options: {
+    duplicateResolutionRowNumbers?: number[];
     headers?: string[];
     uploadDate?: string;
     users?: AttendanceMatchedUser[];
@@ -114,6 +121,7 @@ async function validateRows(
 
   return validator.validateWorkbook(buffer, {
     uploadDate: options.uploadDate ?? "2026-05-09",
+    duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
     rowsPreviewLimit: 5,
     userLookup
   });
@@ -271,6 +279,46 @@ async function main() {
 
     assert.equal(preview.canConfirm, false);
     assertIssue(preview, AttendanceIssueCode.DUPLICATE_PICKER_DATE);
+    assert.equal(preview.duplicateGroups.length, 1);
+    assert.equal(preview.duplicateGroups[0]?.pickerName, "Picker Test");
+    assert.equal(preview.duplicateGroups[0]?.branchName, "Branch A");
+    assert.equal(preview.duplicateGroups[0]?.shiftDate, "2026-05-01");
+    assert.deepEqual(
+      preview.duplicateGroups[0]?.options.map((option) => option.rawRowNumber),
+      [2, 3]
+    );
+  }
+
+  {
+    const preview = await validateRows([
+      baseRow({
+        Identifier: "SHOPPER-1",
+        "Shift Date": "2026-05-01",
+        "Shift Name": "Morning Shift"
+      }),
+      baseRow({
+        Identifier: "SHOPPER-1",
+        "Shift Date": "2026-05-01",
+        "Shift Name": "Late Coverage",
+        "Actual Checkin Time": "10:31",
+        Status: "Late"
+      }),
+      baseRow({ Identifier: "SHOPPER-2", "Shift Date": "2026-05-08" })
+    ], {
+      duplicateResolutionRowNumbers: [3],
+      users: [pickerUser, secondPickerUser]
+    });
+
+    assert.equal(preview.canConfirm, true);
+    assert.equal(
+      preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.DUPLICATE_PICKER_DATE
+      ),
+      false
+    );
+    assert.equal(preview.duplicateGroups[0]?.selectedRawRowNumber, 3);
+    assert.equal(preview.duplicateGroups[0]?.options[1]?.shiftName, "Late Coverage");
+    assert.equal(preview.duplicateGroups[0]?.options[1]?.sourceStatus, "Late");
   }
 
   {

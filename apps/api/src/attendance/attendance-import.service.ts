@@ -42,6 +42,8 @@ type AttendancePersistedIssue =
 
 type AttendancePrismaTransaction = Prisma.TransactionClient;
 
+const ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS = 60_000;
+
 @Injectable()
 export class AttendanceImportService {
   constructor(
@@ -71,6 +73,7 @@ export class AttendanceImportService {
     const uploadDate = options.uploadDate ?? now;
     const workbook = await this.parser.parseWorkbook(buffer);
     const preview = await this.validator.validateWorkbook(buffer, {
+      duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
       uploadDate,
       rowsPreviewLimit: options.rowsPreviewLimit,
       userLookup: this.userLookup
@@ -84,7 +87,12 @@ export class AttendanceImportService {
             preview.periodMonth,
             workbook.rows,
             usersByShopperId,
-            validationIssueCounts
+            validationIssueCounts,
+            selectedDuplicateRowsByMatchedKey(
+              workbook.rows,
+              usersByShopperId,
+              new Set(options.duplicateResolutionRowNumbers ?? [])
+            )
           )
         : [];
     const calculationResult =
@@ -111,95 +119,98 @@ export class AttendanceImportService {
         ? AttendanceImportBatchStatus.VALIDATED
         : AttendanceImportBatchStatus.FAILED;
 
-    const batch = await this.prisma.$transaction(async (tx) => {
-      const createdBatch = await tx.attendanceImportBatch.create({
-        data: {
-          periodMonth: preview.periodMonth ?? periodMonthFromUploadDate(uploadDate),
-          fileName: normalizeFileName(options.fileName),
-          fileHash: hashBuffer(buffer),
-          uploadedByUserId: options.actor.id,
-          uploadedAt: now,
-          status,
-          rowCount: preview.rowCount,
-          egyptRows: preview.egyptRows,
-          matchedPickerRows: preview.matchedPickerRows,
-          unmatchedRows: preview.unmatchedRows,
-          excludedNonPickerRows: preview.excludedNonPickerRows,
-          excludedNonEgyptRows: preview.nonEgyptRows,
-          errorRows: preview.errorRows,
-          warningRows: preview.warningRows,
-          coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
-          coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
-          expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
-            preview.expectedCoverageEndDate
-          ),
-          replaceOfBatchId: null,
-          confirmedByUserId: null,
-          confirmedAt: null
-        }
-      });
-
-      if (combinedIssues.length > 0) {
-        await tx.attendanceImportIssue.createMany({
-          data: combinedIssues.map((issue) => ({
-            batchId: createdBatch.id,
-            rowNumber: issue.rowNumber,
-            shopperId: issue.shopperId,
-            severity: issue.severity,
-            issueCode: issue.issueCode,
-            fieldName: issue.fieldName,
-            message: issue.message,
-            resolutionStatus: issue.resolutionStatus
-          }))
-        });
-      }
-
-      if (status === AttendanceImportBatchStatus.VALIDATED) {
-        if (calculationResult.dailyRecords.length > 0) {
-          await tx.attendanceDailyRecord.createMany({
-            data: calculationResult.dailyRecords.map((record) =>
-              mapDailyRecordForCreate(createdBatch.id, record)
-            )
-          });
-        }
-
-        if (calculationResult.monthlySummaries.length > 0) {
-          await tx.attendancePickerMonthlySummary.createMany({
-            data: calculationResult.monthlySummaries.map((summary) =>
-              mapMonthlySummaryForCreate(createdBatch.id, summary)
-            )
-          });
-        }
-      }
-
-      await tx.auditLog.create({
-        data: {
-          actorUserId: options.actor.id,
-          action:
-            status === AttendanceImportBatchStatus.VALIDATED
-              ? "ATTENDANCE_IMPORT_PREVIEW_CREATED"
-              : "ATTENDANCE_IMPORT_FAILED_VALIDATION",
-          entityType: "AttendanceImportBatch",
-          entityId: createdBatch.id,
-          oldValue: Prisma.JsonNull,
-          newValue: toAuditJson({
-            periodMonth: createdBatch.periodMonth,
-            batchId: createdBatch.id,
-            coverageStartDate: preview.coverageStartDate,
-            coverageEndDate: preview.coverageEndDate,
-            expectedCoverageEndDate: preview.expectedCoverageEndDate,
+    const batch = await this.prisma.$transaction(
+      async (tx) => {
+        const createdBatch = await tx.attendanceImportBatch.create({
+          data: {
+            periodMonth: preview.periodMonth ?? periodMonthFromUploadDate(uploadDate),
+            fileName: normalizeFileName(options.fileName),
+            fileHash: hashBuffer(buffer),
+            uploadedByUserId: options.actor.id,
+            uploadedAt: now,
+            status,
             rowCount: preview.rowCount,
+            egyptRows: preview.egyptRows,
+            matchedPickerRows: preview.matchedPickerRows,
+            unmatchedRows: preview.unmatchedRows,
+            excludedNonPickerRows: preview.excludedNonPickerRows,
+            excludedNonEgyptRows: preview.nonEgyptRows,
             errorRows: preview.errorRows,
             warningRows: preview.warningRows,
-            status
-          }),
-          ipAddress: options.ipAddress ?? null,
-          userAgent: options.userAgent ?? null
-        }
-      });
+            coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
+            coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
+            expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
+              preview.expectedCoverageEndDate
+            ),
+            replaceOfBatchId: null,
+            confirmedByUserId: null,
+            confirmedAt: null
+          }
+        });
 
-      return createdBatch;
-    });
+        if (combinedIssues.length > 0) {
+          await tx.attendanceImportIssue.createMany({
+            data: combinedIssues.map((issue) => ({
+              batchId: createdBatch.id,
+              rowNumber: issue.rowNumber,
+              shopperId: issue.shopperId,
+              severity: issue.severity,
+              issueCode: issue.issueCode,
+              fieldName: issue.fieldName,
+              message: issue.message,
+              resolutionStatus: issue.resolutionStatus
+            }))
+          });
+        }
+
+        if (status === AttendanceImportBatchStatus.VALIDATED) {
+          if (calculationResult.dailyRecords.length > 0) {
+            await tx.attendanceDailyRecord.createMany({
+              data: calculationResult.dailyRecords.map((record) =>
+                mapDailyRecordForCreate(createdBatch.id, record)
+              )
+            });
+          }
+
+          if (calculationResult.monthlySummaries.length > 0) {
+            await tx.attendancePickerMonthlySummary.createMany({
+              data: calculationResult.monthlySummaries.map((summary) =>
+                mapMonthlySummaryForCreate(createdBatch.id, summary)
+              )
+            });
+          }
+        }
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: options.actor.id,
+            action:
+              status === AttendanceImportBatchStatus.VALIDATED
+                ? "ATTENDANCE_IMPORT_PREVIEW_CREATED"
+                : "ATTENDANCE_IMPORT_FAILED_VALIDATION",
+            entityType: "AttendanceImportBatch",
+            entityId: createdBatch.id,
+            oldValue: Prisma.JsonNull,
+            newValue: toAuditJson({
+              periodMonth: createdBatch.periodMonth,
+              batchId: createdBatch.id,
+              coverageStartDate: preview.coverageStartDate,
+              coverageEndDate: preview.coverageEndDate,
+              expectedCoverageEndDate: preview.expectedCoverageEndDate,
+              rowCount: preview.rowCount,
+              errorRows: preview.errorRows,
+              warningRows: preview.warningRows,
+              status
+            }),
+            ipAddress: options.ipAddress ?? null,
+            userAgent: options.userAgent ?? null
+          }
+        });
+
+        return createdBatch;
+      },
+      { timeout: ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS }
+    );
 
     return {
       batchId: batch.id,
@@ -330,7 +341,8 @@ function buildCalculationRows(
   periodMonth: string,
   parsedRows: AttendanceParsedRow[],
   usersByShopperId: Map<string, AttendanceMatchedUser>,
-  validationIssueCounts: Map<number, number>
+  validationIssueCounts: Map<number, number>,
+  duplicateSelections: Map<string, number> = new Map()
 ): AttendanceCalculationInputRow[] {
   return parsedRows
     .map((row): AttendanceCalculationInputRow | null => {
@@ -341,6 +353,11 @@ function buildCalculationRows(
       const user = usersByShopperId.get(row.identifier);
 
       if (!user || user.role !== UserRole.PICKER) {
+        return null;
+      }
+
+      const duplicateSelection = duplicateSelections.get(matchedKey(row, user));
+      if (duplicateSelection && duplicateSelection !== row.rawRowNumber) {
         return null;
       }
 
@@ -371,6 +388,49 @@ function buildCalculationRows(
       };
     })
     .filter((row): row is AttendanceCalculationInputRow => row !== null);
+}
+
+function selectedDuplicateRowsByMatchedKey(
+  parsedRows: AttendanceParsedRow[],
+  usersByShopperId: Map<string, AttendanceMatchedUser>,
+  selectedRows: Set<number>
+) {
+  const rowsByKey = new Map<string, AttendanceParsedRow[]>();
+
+  for (const row of parsedRows) {
+    if (!row.identifier || !row.shiftDate) {
+      continue;
+    }
+
+    const user = usersByShopperId.get(row.identifier);
+    if (!user || user.role !== UserRole.PICKER || !isEgypt(row.division)) {
+      continue;
+    }
+
+    const key = matchedKey(row, user);
+    rowsByKey.set(key, [...(rowsByKey.get(key) ?? []), row]);
+  }
+
+  const selections = new Map<string, number>();
+  for (const [key, rows] of rowsByKey) {
+    if (rows.length < 2) {
+      continue;
+    }
+
+    const selected = rows
+      .map((row) => row.rawRowNumber)
+      .filter((rowNumber) => selectedRows.has(rowNumber));
+
+    if (selected.length === 1 && selected[0] !== undefined) {
+      selections.set(key, selected[0]);
+    }
+  }
+
+  return selections;
+}
+
+function matchedKey(row: AttendanceParsedRow, user: AttendanceMatchedUser) {
+  return `matched:${row.shiftDate}:${user.id}`;
 }
 
 function countIssuesByRow(issues: AttendancePersistedIssue[]) {

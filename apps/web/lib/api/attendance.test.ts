@@ -60,11 +60,13 @@ const assert = {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   });
   const formData = buildAttendanceImportPreviewFormData(file, {
+    duplicateResolutionRowNumbers: [3, 9],
     uploadDate: "2026-05-09"
   });
 
   assert.equal(formData.get("file"), file);
   assert.equal(formData.get("uploadDate"), "2026-05-09");
+  assert.equal(formData.get("duplicateResolutionRowNumbers"), "[3,9]");
 }
 
 {
