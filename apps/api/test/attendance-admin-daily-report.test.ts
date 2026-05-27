@@ -12,10 +12,11 @@ import {
   ProfileStatus,
   UserRole
 } from "@prisma/client";
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 
 import { ROLES_KEY } from "../src/auth/decorators/roles.decorator";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
+import { AttendanceImportsController } from "../src/attendance/attendance-imports.controller";
 import { AttendanceReportsController } from "../src/attendance/attendance-reports.controller";
 import { AttendanceReportService } from "../src/attendance/attendance-report.service";
 import type { AttendanceDailyReportQuery } from "../src/attendance/attendance-report.types";
@@ -283,10 +284,19 @@ function createPrismaMock(extraActiveRows: DailyRow[] = []) {
   return { prisma, calls };
 }
 
+function createAdminReportService(prisma: unknown) {
+  const service = new AttendanceReportService(prisma as never);
+
+  return {
+    getDailyReport: (query: AttendanceDailyReportQuery) =>
+      service.getDailyReport(query, actor(UserRole.ADMIN))
+  };
+}
+
 async function run() {
   {
     const { prisma, calls } = createPrismaMock();
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
     const result = await service.getDailyReport({ periodMonth: "2026-05" });
     const neutralPercentageDelta = {
       direction: "neutral" as const,
@@ -450,7 +460,7 @@ async function run() {
 
   {
     const { prisma } = createPrismaMock();
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
     const result = await service.getDailyReport({
       periodMonth: "2026-05",
       dateFrom: "2026-05-02",
@@ -518,7 +528,7 @@ async function run() {
       sourceSubDivision: "Chain Alpha"
     });
     const { prisma } = createPrismaMock([duplicatePickerShift]);
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
     const result = await service.getDailyReport({
       periodMonth: "2026-05",
       dateFrom: "2026-05-01",
@@ -531,7 +541,7 @@ async function run() {
   }
 
   {
-    const service = new AttendanceReportService(createPrismaMock().prisma as never);
+    const service = createAdminReportService(createPrismaMock().prisma);
 
     await assert.rejects(
       () => service.getDailyReport({}),
@@ -550,7 +560,7 @@ async function run() {
 
   {
     const { prisma } = createPrismaMock();
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
     const result = await service.getDailyReport({ periodMonth: "2026-06" });
 
     assert.equal(result.periodMonth, "2026-06");
@@ -561,7 +571,7 @@ async function run() {
 
   {
     const { prisma } = createPrismaMock();
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
 
     assert.deepEqual(
       (
@@ -729,7 +739,7 @@ async function run() {
 
   {
     const { prisma } = createPrismaMock();
-    const service = new AttendanceReportService(prisma as never);
+    const service = createAdminReportService(prisma);
     const result = await service.getDailyReport({
       periodMonth: "2026-05",
       page: 2,
@@ -755,13 +765,17 @@ async function run() {
   }
 
   {
-    const { prisma } = createPrismaMock();
-    const reportService = new AttendanceReportService(prisma as never);
-    const serviceCalls: AttendanceDailyReportQuery[] = [];
+    const serviceCalls: Array<{
+      query: AttendanceDailyReportQuery;
+      user: AuthenticatedUser;
+    }> = [];
     const service = {
-      getDailyReport: async (query: AttendanceDailyReportQuery) => {
-        serviceCalls.push(query);
-        return reportService.getDailyReport(query);
+      getDailyReport: async (
+        query: AttendanceDailyReportQuery,
+        user: AuthenticatedUser
+      ) => {
+        serviceCalls.push({ query, user });
+        return {} as never;
       }
     } as AttendanceReportService;
     const controller = new AttendanceReportsController(service);
@@ -770,16 +784,17 @@ async function run() {
 
     assert.deepEqual(rolesFor("getDailyReport"), [
       UserRole.ADMIN,
+      UserRole.SUPER_ADMIN,
+      UserRole.AREA_MANAGER,
+      UserRole.CHAMP,
+      UserRole.PICKER
+    ]);
+    assert.deepEqual(Reflect.getMetadata(ROLES_KEY, AttendanceImportsController), [
+      UserRole.ADMIN,
       UserRole.SUPER_ADMIN
     ]);
-    assert.equal(rolesFor("getDailyReport").includes(UserRole.PICKER), false);
-    assert.equal(rolesFor("getDailyReport").includes(UserRole.CHAMP), false);
-    assert.equal(
-      rolesFor("getDailyReport").includes(UserRole.AREA_MANAGER),
-      false
-    );
 
-      await controller.getDailyReport(admin, { periodMonth: "2026-05" });
+    await controller.getDailyReport(admin, { periodMonth: "2026-05" });
     await controller.getDailyReport(superAdmin, {
       periodMonth: "2026-05",
       branch: "Branch A",
@@ -788,30 +803,42 @@ async function run() {
       sortDirection: "asc"
     });
 
-    assert.deepEqual(serviceCalls, [
-      { periodMonth: "2026-05" },
-      {
-        periodMonth: "2026-05",
-        branch: "Branch A",
-        chain: "Chain Alpha",
-        sortBy: "name",
-        sortDirection: "asc"
-      }
-    ]);
-
     for (const role of [
       UserRole.PICKER,
       UserRole.CHAMP,
       UserRole.AREA_MANAGER
     ]) {
-      assert.throws(
-        () =>
-          controller.getDailyReport(actor(role), {
-            periodMonth: "2026-05"
-          }),
-        ForbiddenException
-      );
+      await controller.getDailyReport(actor(role), {
+        periodMonth: "2026-05"
+      });
     }
+
+    assert.deepEqual(
+      serviceCalls.map((call) => call.query),
+      [
+        { periodMonth: "2026-05" },
+        {
+          periodMonth: "2026-05",
+          branch: "Branch A",
+          chain: "Chain Alpha",
+          sortBy: "name",
+          sortDirection: "asc"
+        },
+        { periodMonth: "2026-05" },
+        { periodMonth: "2026-05" },
+        { periodMonth: "2026-05" }
+      ]
+    );
+    assert.deepEqual(
+      serviceCalls.map((call) => call.user.role),
+      [
+        UserRole.ADMIN,
+        UserRole.SUPER_ADMIN,
+        UserRole.PICKER,
+        UserRole.CHAMP,
+        UserRole.AREA_MANAGER
+      ]
+    );
   }
 }
 

@@ -1,10 +1,18 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable
+} from "@nestjs/common";
+import {
+  AssignmentStatus,
   AttendanceCalculatedStatus,
   AttendanceImportBatchStatus,
-  Prisma
+  Prisma,
+  UserRole
 } from "@prisma/client";
 
+import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   AttendanceDailyReportAnalytics,
@@ -78,6 +86,13 @@ type AttendanceDailyFilterOptionRecord =
     select: typeof dailyFilterOptionSelect;
   }>;
 
+type AttendanceReportActor = Pick<AuthenticatedUser, "id" | "role">;
+
+type AttendanceDailyUserScope = Pick<
+  Prisma.AttendanceDailyRecordWhereInput,
+  "userId"
+>;
+
 @Injectable()
 export class AttendanceReportService {
   constructor(
@@ -86,11 +101,13 @@ export class AttendanceReportService {
   ) {}
 
   async getDailyReport(
-    query: AttendanceDailyReportQuery
+    query: AttendanceDailyReportQuery,
+    actor: AttendanceReportActor
   ): Promise<AttendanceDailyReportResponse> {
     const periodMonth = normalizePeriodMonth(query.periodMonth);
     const pagination = normalizePagination(query);
     const fallbackRange = buildAnalyticsRange(periodMonth, query);
+    const userScope = await this.resolveDailyReportUserScope(actor);
     const activeBatch = await this.prisma.attendanceImportBatch.findFirst({
       where: {
         periodMonth,
@@ -123,34 +140,51 @@ export class AttendanceReportService {
       coverageEndDate: activeBatch.coverageEndDate,
       coverageStartDate: activeBatch.coverageStartDate
     });
-    const listWhere = buildDailyReportWhere(activeBatch.id, query);
+    const listWhere = buildDailyReportWhere(activeBatch.id, query, userScope);
     const currentAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.dateFrom,
       analyticsRange.dateTo,
-      query
+      query,
+      userScope
     );
     const previousAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.comparisonDateFrom,
       analyticsRange.comparisonDateTo,
-      query
+      query,
+      userScope
     );
-    const chainOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
-      includeBranch: false,
-      includeChain: false,
-      includeStatus: false
-    });
-    const branchOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
-      includeBranch: false,
-      includeChain: true,
-      includeStatus: false
-    });
-    const statusOptionsWhere = buildFilterOptionWhere(activeBatch.id, query, {
-      includeBranch: true,
-      includeChain: true,
-      includeStatus: false
-    });
+    const chainOptionsWhere = buildFilterOptionWhere(
+      activeBatch.id,
+      query,
+      {
+        includeBranch: false,
+        includeChain: false,
+        includeStatus: false
+      },
+      userScope
+    );
+    const branchOptionsWhere = buildFilterOptionWhere(
+      activeBatch.id,
+      query,
+      {
+        includeBranch: false,
+        includeChain: true,
+        includeStatus: false
+      },
+      userScope
+    );
+    const statusOptionsWhere = buildFilterOptionWhere(
+      activeBatch.id,
+      query,
+      {
+        includeBranch: true,
+        includeChain: true,
+        includeStatus: false
+      },
+      userScope
+    );
     const totalRows = await this.prisma.attendanceDailyRecord.count({
       where: listWhere
     });
@@ -220,11 +254,95 @@ export class AttendanceReportService {
       rows: rows.map(toDailyReportRow)
     };
   }
+
+  private async resolveDailyReportUserScope(
+    actor: AttendanceReportActor
+  ): Promise<AttendanceDailyUserScope> {
+    // Phase 8A intentionally scopes by current active assignments, not shiftDate-effective history.
+    if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN) {
+      return {};
+    }
+
+    if (actor.role === UserRole.PICKER) {
+      return { userId: actor.id };
+    }
+
+    if (actor.role === UserRole.AREA_MANAGER) {
+      const chainAssignments =
+        await this.prisma.chainAreaManagerAssignment.findMany({
+          where: {
+            areaManagerId: actor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { chainId: true }
+        });
+      const chainIds = uniqueStrings(
+        chainAssignments.map((assignment) => assignment.chainId)
+      );
+
+      if (!chainIds.length) {
+        return { userId: { in: [] } };
+      }
+
+      const vendors = await this.prisma.vendor.findMany({
+        where: { chainId: { in: chainIds } },
+        select: { id: true }
+      });
+      const vendorIds = vendors.map((vendor) => vendor.id);
+
+      return {
+        userId: {
+          in: await this.resolveActivePickerIdsForVendors(vendorIds)
+        }
+      };
+    }
+
+    if (actor.role === UserRole.CHAMP) {
+      const vendorAssignments =
+        await this.prisma.vendorChampAssignment.findMany({
+          where: {
+            champId: actor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { vendorId: true }
+        });
+      const vendorIds = uniqueStrings(
+        vendorAssignments.map((assignment) => assignment.vendorId)
+      );
+
+      return {
+        userId: {
+          in: await this.resolveActivePickerIdsForVendors(vendorIds)
+        }
+      };
+    }
+
+    throw new ForbiddenException("You do not have permission for this action.");
+  }
+
+  private async resolveActivePickerIdsForVendors(vendorIds: string[]) {
+    const uniqueVendorIds = uniqueStrings(vendorIds);
+
+    if (!uniqueVendorIds.length) {
+      return [];
+    }
+
+    const assignments = await this.prisma.pickerBranchAssignment.findMany({
+      where: {
+        status: AssignmentStatus.ACTIVE,
+        vendorId: { in: uniqueVendorIds }
+      },
+      select: { pickerId: true }
+    });
+
+    return uniqueStrings(assignments.map((assignment) => assignment.pickerId));
+  }
 }
 
 function buildDailyReportWhere(
   importBatchId: string,
-  query: AttendanceDailyReportQuery
+  query: AttendanceDailyReportQuery,
+  userScope: AttendanceDailyUserScope
 ): Prisma.AttendanceDailyRecordWhereInput {
   const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
@@ -234,6 +352,7 @@ function buildDailyReportWhere(
       }
     }
   };
+  applyDailyUserScope(where, userScope);
 
   if (query.dateFrom || query.dateTo) {
     where.shiftDate = {};
@@ -294,14 +413,15 @@ function buildFilterOptionWhere(
     includeBranch: boolean;
     includeChain: boolean;
     includeStatus: boolean;
-  }
+  },
+  userScope: AttendanceDailyUserScope
 ) {
   return buildDailyReportWhere(importBatchId, {
     ...query,
     branch: options.includeBranch ? query.branch : undefined,
     chain: options.includeChain ? query.chain : undefined,
     status: options.includeStatus ? query.status : undefined
-  });
+  }, userScope);
 }
 
 function applyDailyFacetFilters(
@@ -347,7 +467,8 @@ function buildDailyAnalyticsWhere(
   importBatchId: string,
   dateFrom: string,
   dateTo: string,
-  query?: AttendanceDailyReportQuery
+  query: AttendanceDailyReportQuery | undefined,
+  userScope: AttendanceDailyUserScope
 ): Prisma.AttendanceDailyRecordWhereInput {
   const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
@@ -361,10 +482,20 @@ function buildDailyAnalyticsWhere(
       lte: parseDateOnly(dateTo, "dateTo")
     }
   };
+  applyDailyUserScope(where, userScope);
 
   applyDailyFacetFilters(where, query);
 
   return where;
+}
+
+function applyDailyUserScope(
+  where: Prisma.AttendanceDailyRecordWhereInput,
+  userScope: AttendanceDailyUserScope
+) {
+  if (userScope.userId !== undefined) {
+    where.userId = userScope.userId;
+  }
 }
 
 function buildDailyOrderBy(
@@ -807,6 +938,10 @@ function percentage(count: number, total: number) {
   }
 
   return roundMetric((count / total) * 100);
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
 }
 
 function normalizePeriodMonth(periodMonth: string | undefined): string {
