@@ -4,11 +4,13 @@ import {
   AlertCircle,
   Archive,
   BarChart3,
+  CalendarDays,
   ClipboardList,
   GitBranch,
   Inbox,
   ShieldCheck,
   Store,
+  UploadCloud,
   Users
 } from "lucide-react";
 import Link from "next/link";
@@ -142,6 +144,29 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
         >
           Open pending actions
         </Link>
+      </InfoCard>
+
+      <InfoCard title="Attendance Report">
+        <Definition label="Scope" value="Picker daily rows" />
+        <Definition label="Source" value="Active confirmed batches" />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/reports/attendance"
+            prefetch
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Daily report
+          </Link>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/attendance/imports"
+            prefetch
+          >
+            <UploadCloud className="mr-2 h-4 w-4" />
+            Import console
+          </Link>
+        </div>
       </InfoCard>
 
       <SimpleTable
