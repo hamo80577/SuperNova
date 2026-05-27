@@ -592,6 +592,12 @@ function UploadCard({
         </label>
       </div>
 
+      <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+        Imported Location and Sub Division values are kept as source labels for
+        attendance reporting filters only. They do not update assignments,
+        hierarchy, or authorization.
+      </p>
+
       {previewError ? <InlineError message={previewError} /> : null}
 
       <Button

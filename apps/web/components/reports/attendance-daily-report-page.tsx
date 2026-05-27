@@ -804,18 +804,18 @@ function ReportFilterBar({
         </FilterSelectShell>
         <FilterSelectShell tone="amber">
           <Select
-            aria-label="Filter by chain"
+            aria-label="Filter by imported source chain label"
             className="h-11 rounded-xl border-0 bg-transparent shadow-none"
             leadingIcon={<GitBranch className="h-4 w-4" />}
             onChange={(event) =>
               onFilterChange({ branch: "", chain: event.target.value })
             }
             searchable
-            searchPlaceholder="Search chains"
+            searchPlaceholder="Search source chains"
             value={filters.chain}
             wrapperClassName="min-w-0"
           >
-            <option value="">All chains</option>
+            <option value="">All source chains</option>
             {filterOptions.chains.map((chain) => (
               <option key={chain} value={chain}>
                 {chain}
@@ -825,16 +825,16 @@ function ReportFilterBar({
         </FilterSelectShell>
         <FilterSelectShell tone="sky">
           <Select
-            aria-label="Filter by branch"
+            aria-label="Filter by imported source branch label"
             className="h-11 rounded-xl border-0 bg-transparent shadow-none"
             leadingIcon={<MapPin className="h-4 w-4" />}
             onChange={(event) => onFilterChange({ branch: event.target.value })}
             searchable
-            searchPlaceholder="Search branches"
+            searchPlaceholder="Search source branches"
             value={filters.branch}
             wrapperClassName="min-w-0"
           >
-            <option value="">All branches</option>
+            <option value="">All source branches</option>
             {filterOptions.branches.map((branch) => (
               <option key={branch} value={branch}>
                 {branch}
@@ -852,6 +852,13 @@ function ReportFilterBar({
           Clear
         </Button>
       </div>
+      <p className="min-w-0 text-xs leading-5 text-slate-500 xl:col-span-3">
+        Chain and Branch filters use imported source labels from the attendance
+        file fields <span className="font-mono text-[11px]">sourceSubDivision</span>{" "}
+        and <span className="font-mono text-[11px]">sourceLocation</span>. They
+        are read-only reporting dimensions, not assignment-controlled hierarchy,
+        authorization, or operational source of truth.
+      </p>
     </section>
   );
 }
