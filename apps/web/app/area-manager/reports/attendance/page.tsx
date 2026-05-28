@@ -1,14 +1,14 @@
 import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
 import { AttendanceDailyReportPage } from "@/components/reports/attendance-daily-report-page";
 
-export default function AdminAttendanceReportRoute() {
+export default function AreaManagerAttendanceReportRoute() {
   return (
     <DashboardFrame
-      allowedRoles={["ADMIN", "SUPER_ADMIN"]}
-      description="Read-only Picker attendance rows from confirmed active batches."
+      allowedRoles={["AREA_MANAGER"]}
+      description="Read-only attendance scoped to current operational assignments."
       title="Attendance Report"
     >
-      <AttendanceDailyReportPage variant="admin" />
+      <AttendanceDailyReportPage variant="area-manager" />
     </DashboardFrame>
   );
 }

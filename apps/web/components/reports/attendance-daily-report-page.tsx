@@ -84,6 +84,41 @@ interface AttendanceDailyReportFilters {
   pageSize: number;
 }
 
+export type AttendanceReportWorkspaceVariant = "admin" | "area-manager" | "champ";
+
+const workspaceCopy: Record<
+  AttendanceReportWorkspaceVariant,
+  {
+    description: string;
+    scopeNote: string;
+    showImportShortcut: boolean;
+    title: string;
+  }
+> = {
+  admin: {
+    description: "Track picker attendance and manage daily records.",
+    scopeNote:
+      "Source Chain and Branch are imported attendance-file labels for reporting filters only. Operational access remains controlled by backend permissions.",
+    showImportShortcut: true,
+    title: "Attendance"
+  },
+  "area-manager": {
+    description: "Read-only attendance scoped to your current Chain assignments.",
+    scopeNote:
+      "This report is scoped by your current operational assignments. Source Chain and Branch are imported file labels that only filter the scoped data.",
+    showImportShortcut: false,
+    title: "Attendance"
+  },
+  champ: {
+    description:
+      "Read-only attendance scoped to your current assigned branches and pickers.",
+    scopeNote:
+      "This report is scoped by your current assigned branches and Pickers. Source Chain and Branch are imported file labels that only filter the scoped data.",
+    showImportShortcut: false,
+    title: "Attendance"
+  }
+};
+
 const pageSizes = [10, 25, 50, 100];
 const performanceViews: Array<{ label: string; value: PerformanceView }> = [
   { label: "Attend rate", value: "all" },
@@ -104,7 +139,12 @@ const sortOptions: Array<{
   { icon: Clock3, label: "Sort by log hours", value: "hours" }
 ];
 
-export function AttendanceDailyReportPage() {
+export function AttendanceDailyReportPage({
+  variant = "admin"
+}: {
+  variant?: AttendanceReportWorkspaceVariant;
+}) {
+  const copy = workspaceCopy[variant];
   const initialFilters = useMemo(createInitialFilters, []);
   const [filters, setFilters] =
     useState<AttendanceDailyReportFilters>(initialFilters);
@@ -239,10 +279,13 @@ export function AttendanceDailyReportPage() {
         <header className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
-              Attendance
+              {copy.title}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Track picker attendance and manage daily records.
+              {copy.description}
+            </p>
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">
+              {copy.scopeNote}
             </p>
           </div>
 
@@ -281,17 +324,19 @@ export function AttendanceDailyReportPage() {
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
-            <Link
-              aria-label="Import attendance"
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-11 w-11 rounded-xl p-0"
-              )}
-              href="/admin/attendance/imports"
-              prefetch
-            >
-              <UploadCloud className="h-5 w-5" />
-            </Link>
+            {copy.showImportShortcut ? (
+              <Link
+                aria-label="Import attendance"
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-11 w-11 rounded-xl p-0"
+                )}
+                href="/admin/attendance/imports"
+                prefetch
+              >
+                <UploadCloud className="h-5 w-5" />
+              </Link>
+            ) : null}
           </div>
         </header>
 
