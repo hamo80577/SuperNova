@@ -1,6 +1,5 @@
 import {
   Controller,
-  ForbiddenException,
   Get,
   Inject,
   Query,
@@ -25,18 +24,17 @@ export class AttendanceReportsController {
   ) {}
 
   @Get("daily")
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.AREA_MANAGER,
+    UserRole.CHAMP,
+    UserRole.PICKER
+  )
   getDailyReport(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: ListAttendanceDailyReportQueryDto
   ) {
-    assertAttendanceReportActor(user);
-    return this.attendanceReportService.getDailyReport(query);
-  }
-}
-
-function assertAttendanceReportActor(actor: { role: UserRole }) {
-  if (actor.role !== UserRole.ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
-    throw new ForbiddenException("You do not have permission for this action.");
+    return this.attendanceReportService.getDailyReport(query, user);
   }
 }
