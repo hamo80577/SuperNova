@@ -248,6 +248,8 @@ const assert = {
   assert.equal(formData.get("file"), file);
   assert.equal(formData.get("uploadDate"), "2026-05-09");
   assert.equal(formData.get("duplicateResolutionRowNumbers"), "[3,9]");
+  assert.equal(formData.has("periodMonth"), false);
+  assert.equal(formData.has("importMode"), false);
 }
 
 {
@@ -257,6 +259,19 @@ const assert = {
   });
 
   assert.equal(formData.get("file"), file);
+  assert.equal(formData.has("uploadDate"), false);
+}
+
+{
+  const file = new File(["attendance"], "historical.xlsx");
+  const formData = buildAttendanceImportPreviewFormData(file, {
+    importMode: "HISTORICAL_MONTH",
+    periodMonth: "2026-04"
+  });
+
+  assert.equal(formData.get("file"), file);
+  assert.equal(formData.get("importMode"), "HISTORICAL_MONTH");
+  assert.equal(formData.get("periodMonth"), "2026-04");
   assert.equal(formData.has("uploadDate"), false);
 }
 
