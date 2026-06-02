@@ -463,7 +463,7 @@ export class AttendanceImportService {
           issues.push(
             locationIssue({
               row,
-              severity: AttendanceIssueSeverity.ERROR,
+              severity: AttendanceIssueSeverity.WARNING,
               issueCode: AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION,
               fieldName: "Location",
               message:

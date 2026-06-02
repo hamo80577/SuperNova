@@ -80,6 +80,8 @@ export function AttendanceImportConsolePage({
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     status: "idle"
   });
+  const [unmappedLocationAcknowledged, setUnmappedLocationAcknowledged] =
+    useState(false);
   const [duplicateResolverOpen, setDuplicateResolverOpen] = useState(false);
   const [duplicateResolverIndex, setDuplicateResolverIndex] = useState(0);
   const [duplicateSelections, setDuplicateSelections] = useState<
@@ -94,8 +96,20 @@ export function AttendanceImportConsolePage({
   const selectedFileLabel = file
     ? `${file.name} (${formatFileSize(file.size)})`
     : "No file selected";
+  const unmappedLocations = useMemo(
+    () =>
+      preview?.preview.rowsByReportedLocationCode.filter(
+        (location) => location.mappingStatus === "UNMAPPED"
+      ) ?? [],
+    [preview]
+  );
+  const hasUnmappedLocationWarnings =
+    (preview?.preview.unmappedLocationRows ?? 0) > 0;
   const canConfirm = Boolean(
-    preview?.batchId && preview.canConfirm && confirmChecked
+    preview?.batchId &&
+      preview.canConfirm &&
+      confirmChecked &&
+      (!hasUnmappedLocationWarnings || unmappedLocationAcknowledged)
   );
   const isPreviewing = previewState.status === "loading";
   const pageTitle =
@@ -126,6 +140,7 @@ export function AttendanceImportConsolePage({
     setPreviewState({ status: "loading" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
 
     try {
       const nextPreview = await attendanceApi.previewImport(
@@ -138,6 +153,7 @@ export function AttendanceImportConsolePage({
       setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
       setDuplicateSaveState({ status: "idle" });
       setPreviewState({ status: "idle" });
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setPreview(null);
       setDuplicateResolverOpen(false);
@@ -172,6 +188,7 @@ export function AttendanceImportConsolePage({
     setDuplicateSaveState({ status: "loading" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
 
     try {
       const nextPreview = await attendanceApi.previewImport(
@@ -183,6 +200,7 @@ export function AttendanceImportConsolePage({
       setDuplicateResolverIndex(0);
       setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
       setDuplicateSaveState({ status: "idle" });
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setDuplicateSaveState({
         status: "error",
@@ -199,12 +217,21 @@ export function AttendanceImportConsolePage({
       return;
     }
 
+    if (hasUnmappedLocationWarnings && !unmappedLocationAcknowledged) {
+      setConfirmState({
+        status: "error",
+        error: "Acknowledge unmapped Location warnings before confirming."
+      });
+      return;
+    }
+
     setConfirmState({ status: "loading" });
 
     try {
       const result = await attendanceApi.confirmImport(preview.batchId);
       setConfirmState({ status: "confirmed", data: result });
       setConfirmChecked(false);
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setConfirmState({
         status: "error",
@@ -232,6 +259,7 @@ export function AttendanceImportConsolePage({
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
     setDuplicateResolverOpen(false);
     setDuplicateResolverIndex(0);
     setDuplicateSelections({});
@@ -348,6 +376,14 @@ export function AttendanceImportConsolePage({
             <ReportedLocationsSection
               locations={preview.preview.rowsByReportedLocationCode}
             />
+            {hasUnmappedLocationWarnings ? (
+              <UnmappedLocationsWarningSection
+                acknowledged={unmappedLocationAcknowledged}
+                locations={unmappedLocations}
+                onAcknowledgedChange={setUnmappedLocationAcknowledged}
+                rowCount={preview.preview.unmappedLocationRows}
+              />
+            ) : null}
             <IssuesSection issues={preview.preview.issues} />
             <ConfirmSection
               canConfirm={canConfirm}
@@ -884,7 +920,7 @@ function ReportedLocationsSection({
           </div>
         </div>
         <Badge variant={locations.length > 0 ? "outline" : "muted"}>
-          {locations.length} mapped groups
+          {locations.length} reported groups
         </Badge>
       </div>
 
@@ -948,6 +984,79 @@ function ReportedLocationsSection({
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+function UnmappedLocationsWarningSection({
+  acknowledged,
+  locations,
+  onAcknowledgedChange,
+  rowCount
+}: {
+  acknowledged: boolean;
+  locations: AttendanceReportedLocationSummary[];
+  onAcknowledgedChange: (checked: boolean) => void;
+  rowCount: number;
+}) {
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+            <AlertCircle className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-950">
+              Unmapped Location warnings
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-700">
+              These rows can continue with warning. They will be imported
+              without a reported branch until mapping can be fixed later.
+            </p>
+          </div>
+        </div>
+        <Badge className="border-amber-300 bg-white text-amber-800" variant="outline">
+          {rowCount} rows
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {locations.map((location) => (
+          <article
+            className="min-w-0 rounded-xl border border-amber-200 bg-white p-3"
+            key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-950">
+                  {formatText(location.name)}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  Code {formatText(location.code)}
+                </p>
+              </div>
+              <ReportedLocationStatusBadge status={location.mappingStatus} />
+            </div>
+            <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+              {location.rowCount} rows
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <label className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
+        <input
+          checked={acknowledged}
+          className="mt-1 h-4 w-4 shrink-0"
+          onChange={(event) => onAcknowledgedChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>
+          I understand these unmapped Location rows will be imported without a
+          reported branch until mapping is fixed.
+        </span>
+      </label>
     </section>
   );
 }
@@ -1389,7 +1498,7 @@ function reportedLocationStatusTone(
       "border-emerald-200 bg-emerald-50 text-emerald-700",
     MISSING_CODE: "border-destructive/40 bg-destructive/10 text-destructive",
     NOT_CHECKED: "border-slate-200 bg-slate-100 text-slate-600",
-    UNMAPPED: "border-destructive/40 bg-destructive/10 text-destructive"
+    UNMAPPED: "border-amber-300 bg-amber-50 text-amber-800"
   };
 
   return tones[status];

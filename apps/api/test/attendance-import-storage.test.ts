@@ -512,17 +512,27 @@ async function main() {
       baseRow({ Location: "999999 - Unknown Branch" })
     ], { prisma });
 
-    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
-    assert.equal(result.canConfirm, false);
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
     assert.equal(result.preview.mappedLocationRows, 0);
     assert.equal(result.preview.unmappedLocationRows, 1);
     assert.equal(result.preview.missingLocationCodeRows, 0);
-    assert.equal(store.dailyRecords.length, 0);
-    assert.ok(
-      result.preview.issues.some(
-        (issue) => issue.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
-      )
+    assert.equal(result.preview.errorRows, 0);
+    assert.equal(result.preview.warningRows, 1);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "999999");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Unknown Branch");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationRaw"], "999999 - Unknown Branch");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.UNMAPPED
     );
+    const issue = result.preview.issues.find(
+      (item) => item.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
+    );
+    assert.equal(issue?.severity, AttendanceIssueSeverity.WARNING);
   }
 
   {
@@ -756,6 +766,7 @@ async function main() {
 
   {
     const { prisma, store } = createStore();
+    const service = createService(prisma);
     const result = await previewRows([
       baseRow({ Location: "999999 - Unknown Branch" })
     ], {
@@ -765,13 +776,32 @@ async function main() {
       uploadDate: "2026-06-02"
     });
 
-    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
-    assert.equal(store.dailyRecords.length, 0);
-    assert.ok(
-      result.preview.issues.some(
-        (issue) => issue.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
-      )
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.unmappedLocationRows, 1);
+    assert.equal(result.preview.errorRows, 0);
+    assert.equal(result.preview.warningRows, 1);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "999999");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Unknown Branch");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationRaw"], "999999 - Unknown Branch");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.UNMAPPED
     );
+    const issue = result.preview.issues.find(
+      (item) => item.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
+    );
+    assert.equal(issue?.severity, AttendanceIssueSeverity.WARNING);
+
+    const confirmed = await service.confirmImport(result.batchId, {
+      actor: adminActor,
+      now: store.now
+    });
+
+    assert.equal(confirmed.status, AttendanceImportBatchStatus.ACTIVE);
   }
 
   {
