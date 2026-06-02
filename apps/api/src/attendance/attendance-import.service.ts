@@ -11,6 +11,7 @@ import {
   AssignmentStatus,
   AttendanceAssignmentMismatchStatus,
   AttendanceImportBatchStatus,
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
@@ -119,11 +120,19 @@ export class AttendanceImportService {
       throw new BadRequestException("Attendance file is required.");
     }
 
+    if (isMtdImportModeInput(options.importMode) && options.periodMonth?.trim()) {
+      throw new BadRequestException(
+        "periodMonth is only accepted for HISTORICAL_MONTH attendance imports."
+      );
+    }
+
     const now = normalizeDateTime(options.now);
     const uploadDate = options.uploadDate ?? now;
     const workbook = await this.parser.parseWorkbook(buffer);
     const preview = await this.validator.validateWorkbook(buffer, {
       duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
+      importMode: options.importMode,
+      periodMonth: options.periodMonth,
       uploadDate,
       rowsPreviewLimit: options.rowsPreviewLimit,
       userLookup: this.userLookup
@@ -138,7 +147,8 @@ export class AttendanceImportService {
     const locationEnrichment = await this.buildLocationPreviewEnrichment(
       workbook.rows,
       usersByShopperId,
-      duplicateSelections
+      duplicateSelections,
+      preview.importMode
     );
     const hasLocationMappingErrors = locationEnrichment.issues.some(
       (issue) => issue.severity === AttendanceIssueSeverity.ERROR
@@ -195,6 +205,7 @@ export class AttendanceImportService {
             periodMonth: preview.periodMonth ?? periodMonthFromUploadDate(uploadDate),
             fileName: normalizeFileName(options.fileName),
             fileHash: hashBuffer(buffer),
+            importMode: preview.importMode,
             uploadedByUserId: options.actor.id,
             uploadedAt: now,
             status,
@@ -262,6 +273,7 @@ export class AttendanceImportService {
             oldValue: Prisma.JsonNull,
             newValue: toAuditJson({
               periodMonth: createdBatch.periodMonth,
+              importMode: createdBatch.importMode,
               batchId: createdBatch.id,
               coverageStartDate: preview.coverageStartDate,
               coverageEndDate: preview.coverageEndDate,
@@ -361,6 +373,7 @@ export class AttendanceImportService {
       await writeConfirmAuditLogs(tx, {
         actorUserId: options.actor.id,
         batchId: activatedBatch.id,
+        importMode: activatedBatch.importMode,
         periodMonth: activatedBatch.periodMonth,
         coverageStartDate: formatDateOnlyOrNull(activatedBatch.coverageStartDate),
         coverageEndDate: formatDateOnlyOrNull(activatedBatch.coverageEndDate),
@@ -388,7 +401,8 @@ export class AttendanceImportService {
   private async buildLocationPreviewEnrichment(
     parsedRows: AttendanceParsedRow[],
     usersByShopperId: Map<string, AttendanceMatchedUser>,
-    duplicateSelections: Map<string, number>
+    duplicateSelections: Map<string, number>,
+    importMode: AttendanceImportMode
   ): Promise<AttendanceLocationPreviewEnrichment> {
     const mappableRows = buildMappableRows(
       parsedRows,
@@ -402,9 +416,12 @@ export class AttendanceImportService {
     );
     const vendorMatches =
       await this.loadVendorMatchesByLocationCode(reportedLocationCodes);
-    const activeAssignments = await this.loadActiveAssignmentsByPickerId(
-      uniqueStrings(mappableRows.map(({ user }) => user.id))
-    );
+    const shouldCompareActiveAssignments = importMode === AttendanceImportMode.MTD;
+    const activeAssignments = shouldCompareActiveAssignments
+      ? await this.loadActiveAssignmentsByPickerId(
+          uniqueStrings(mappableRows.map(({ user }) => user.id))
+        )
+      : new Map<string, string>();
 
     const issues: AttendancePreviewIssue[] = [];
     const contextsByRawRowNumber = new Map<
@@ -462,38 +479,40 @@ export class AttendanceImportService {
           context.chainName = vendor.chain.chainName;
           mappedLocationRows += 1;
 
-          const activeVendorId = activeAssignments.get(user.id) ?? null;
-          if (!activeVendorId) {
-            context.assignmentMismatchStatus =
-              AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
-            activeAssignmentMismatchRows += 1;
-            issues.push(
-              locationIssue({
-                row,
-                severity: AttendanceIssueSeverity.WARNING,
-                issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
-                fieldName: "Location",
-                message:
-                  "Picker has no active branch assignment to compare with the reported attendance Location."
-              })
-            );
-          } else if (activeVendorId === vendor.id) {
-            context.assignmentMismatchStatus =
-              AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
-          } else {
-            context.assignmentMismatchStatus =
-              AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT;
-            activeAssignmentMismatchRows += 1;
-            issues.push(
-              locationIssue({
-                row,
-                severity: AttendanceIssueSeverity.WARNING,
-                issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
-                fieldName: "Location",
-                message:
-                  "Reported attendance Location differs from the picker active branch assignment."
-              })
-            );
+          if (shouldCompareActiveAssignments) {
+            const activeVendorId = activeAssignments.get(user.id) ?? null;
+            if (!activeVendorId) {
+              context.assignmentMismatchStatus =
+                AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
+              activeAssignmentMismatchRows += 1;
+              issues.push(
+                locationIssue({
+                  row,
+                  severity: AttendanceIssueSeverity.WARNING,
+                  issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                  fieldName: "Location",
+                  message:
+                    "Picker has no active branch assignment to compare with the reported attendance Location."
+                })
+              );
+            } else if (activeVendorId === vendor.id) {
+              context.assignmentMismatchStatus =
+                AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
+            } else {
+              context.assignmentMismatchStatus =
+                AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT;
+              activeAssignmentMismatchRows += 1;
+              issues.push(
+                locationIssue({
+                  row,
+                  severity: AttendanceIssueSeverity.WARNING,
+                  issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                  fieldName: "Location",
+                  message:
+                    "Reported attendance Location differs from the picker active branch assignment."
+                })
+              );
+            }
           }
         }
       }
@@ -664,6 +683,10 @@ function assertConfirmableBatch(batch: {
       "Only validated attendance import batches can be confirmed."
     );
   }
+}
+
+function isMtdImportModeInput(value: AttendanceImportPreviewOptions["importMode"]) {
+  return !value || value === AttendanceImportMode.MTD;
 }
 
 function buildCalculationRows(
@@ -1043,6 +1066,7 @@ async function writeConfirmAuditLogs(
   metadata: {
     actorUserId: string;
     batchId: string;
+    importMode: AttendanceImportMode;
     periodMonth: string;
     coverageStartDate: string | null;
     coverageEndDate: string | null;

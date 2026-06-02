@@ -41,6 +41,8 @@ export class AttendanceImportsController {
   previewImport(
     @UploadedFile() file: UploadedAttendanceFile | undefined,
     @Body("uploadDate") uploadDate: string | undefined,
+    @Body("importMode") importMode: string | undefined,
+    @Body("periodMonth") periodMonth: string | undefined,
     @Body("duplicateResolutionRowNumbers")
     duplicateResolutionRowNumbers: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
@@ -56,6 +58,8 @@ export class AttendanceImportsController {
         duplicateResolutionRowNumbers
       ),
       fileName: file.originalname ?? "attendance-import.xlsx",
+      importMode,
+      periodMonth,
       uploadDate,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

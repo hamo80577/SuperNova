@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
@@ -54,11 +55,14 @@ export class AttendanceValidatorService {
     options: AttendanceValidationOptions
   ): Promise<AttendanceValidationPreview> {
     const workbook = await this.parser.parseWorkbook(buffer);
-    const expectedCoverageEndDate = previousDateOnly(
-      normalizeUploadDate(options.uploadDate)
-    );
+    const uploadDate = normalizeUploadDate(options.uploadDate);
     const issues: AttendancePreviewIssue[] = [];
     const rowIssueCounts = new Map<number, number>();
+    const importMode = normalizeImportMode(
+      options.importMode,
+      issues,
+      rowIssueCounts
+    );
     const matchStatuses = new Map<
       number,
       AttendanceRowsPreviewItem["matchStatus"]
@@ -81,7 +85,8 @@ export class AttendanceValidatorService {
     const coverageStartDate = minDateOnly(validShiftDates);
     const coverageEndDate = maxDateOnly(validShiftDates);
     const periodMonths = new Set(validShiftDates.map((date) => date.slice(0, 7)));
-    const periodMonth = coverageStartDate?.slice(0, 7) ?? null;
+    let periodMonth = coverageStartDate?.slice(0, 7) ?? null;
+    let expectedCoverageEndDate = previousDateOnly(uploadDate);
 
     if (periodMonths.size > 1) {
       addIssue(issues, rowIssueCounts, fileIssue(
@@ -91,36 +96,37 @@ export class AttendanceValidatorService {
       ));
     }
 
-    if (coverageStartDate && coverageStartDate !== firstDateOfMonth(coverageStartDate)) {
-      addIssue(issues, rowIssueCounts, fileIssue(
-        AttendanceIssueCode.MTD_COVERAGE_START_NOT_MONTH_START,
-        "Shift Date",
-        "MTD coverage must start on the first day of the period month."
-      ));
-    }
+    if (importMode === AttendanceImportMode.MTD) {
+      validateMtdCoverage({
+        coverageStartDate,
+        coverageEndDate,
+        expectedCoverageEndDate,
+        issues,
+        periodMonthInput: options.periodMonth,
+        rowIssueCounts,
+        uploadDate,
+        validShiftDates
+      });
+    } else {
+      const historicalPeriodMonth = validateHistoricalPeriodMonth(
+        options.periodMonth,
+        uploadDate,
+        issues,
+        rowIssueCounts
+      );
 
-    if (coverageEndDate && coverageEndDate !== expectedCoverageEndDate) {
-      addIssue(issues, rowIssueCounts, fileIssue(
-        AttendanceIssueCode.MTD_COVERAGE_END_NOT_YESTERDAY,
-        "Shift Date",
-        "MTD coverage must end on the day before the upload date."
-      ));
-    }
-
-    if (validShiftDates.includes(normalizeUploadDate(options.uploadDate))) {
-      addIssue(issues, rowIssueCounts, fileIssue(
-        AttendanceIssueCode.MTD_INCLUDES_UPLOAD_DAY,
-        "Shift Date",
-        "Normal daily MTD uploads must not include the upload day."
-      ));
-    }
-
-    if (validShiftDates.some((shiftDate) => shiftDate > normalizeUploadDate(options.uploadDate))) {
-      addIssue(issues, rowIssueCounts, fileIssue(
-        AttendanceIssueCode.MTD_INCLUDES_FUTURE_DATE,
-        "Shift Date",
-        "Attendance file must not include future shift dates."
-      ));
+      if (historicalPeriodMonth) {
+        periodMonth = historicalPeriodMonth;
+        expectedCoverageEndDate = lastDateOfMonth(historicalPeriodMonth);
+        validateHistoricalShiftDates(
+          workbook.rows,
+          historicalPeriodMonth,
+          issues,
+          rowIssueCounts
+        );
+      } else {
+        periodMonth = null;
+      }
     }
 
     let egyptRows = 0;
@@ -203,6 +209,7 @@ export class AttendanceValidatorService {
     const warningRows = countIssueRows(issues, AttendanceIssueSeverity.WARNING);
 
     return {
+      importMode,
       periodMonth,
       coverageStartDate,
       coverageEndDate,
@@ -389,6 +396,148 @@ function countIssueRows(
     });
 
   return rowNumbers.size + fileIssues;
+}
+
+function normalizeImportMode(
+  value: AttendanceValidationOptions["importMode"],
+  issues: AttendancePreviewIssue[],
+  rowIssueCounts: Map<number, number>
+) {
+  const normalized = typeof value === "string" ? value.trim() : value;
+
+  if (!normalized) {
+    return AttendanceImportMode.MTD;
+  }
+
+  if (
+    normalized === AttendanceImportMode.MTD ||
+    normalized === AttendanceImportMode.HISTORICAL_MONTH
+  ) {
+    return normalized;
+  }
+
+  addIssue(issues, rowIssueCounts, fileIssue(
+    AttendanceIssueCode.INVALID_ATTENDANCE_IMPORT_MODE,
+    "importMode",
+    "Attendance import mode must be MTD or HISTORICAL_MONTH."
+  ));
+
+  return AttendanceImportMode.MTD;
+}
+
+function validateMtdCoverage(options: {
+  coverageStartDate: string | null;
+  coverageEndDate: string | null;
+  expectedCoverageEndDate: string;
+  issues: AttendancePreviewIssue[];
+  periodMonthInput?: string;
+  rowIssueCounts: Map<number, number>;
+  uploadDate: string;
+  validShiftDates: string[];
+}) {
+  if (options.periodMonthInput?.trim()) {
+    addIssue(options.issues, options.rowIssueCounts, fileIssue(
+      AttendanceIssueCode.INVALID_ATTENDANCE_IMPORT_MODE,
+      "periodMonth",
+      "periodMonth is only accepted for HISTORICAL_MONTH attendance imports."
+    ));
+  }
+
+  if (
+    options.coverageStartDate &&
+    options.coverageStartDate !== firstDateOfMonth(options.coverageStartDate)
+  ) {
+    addIssue(options.issues, options.rowIssueCounts, fileIssue(
+      AttendanceIssueCode.MTD_COVERAGE_START_NOT_MONTH_START,
+      "Shift Date",
+      "MTD coverage must start on the first day of the period month."
+    ));
+  }
+
+  if (
+    options.coverageEndDate &&
+    options.coverageEndDate !== options.expectedCoverageEndDate
+  ) {
+    addIssue(options.issues, options.rowIssueCounts, fileIssue(
+      AttendanceIssueCode.MTD_COVERAGE_END_NOT_YESTERDAY,
+      "Shift Date",
+      "MTD coverage must end on the day before the upload date."
+    ));
+  }
+
+  if (options.validShiftDates.includes(options.uploadDate)) {
+    addIssue(options.issues, options.rowIssueCounts, fileIssue(
+      AttendanceIssueCode.MTD_INCLUDES_UPLOAD_DAY,
+      "Shift Date",
+      "Normal daily MTD uploads must not include the upload day."
+    ));
+  }
+
+  if (options.validShiftDates.some((shiftDate) => shiftDate > options.uploadDate)) {
+    addIssue(options.issues, options.rowIssueCounts, fileIssue(
+      AttendanceIssueCode.MTD_INCLUDES_FUTURE_DATE,
+      "Shift Date",
+      "Attendance file must not include future shift dates."
+    ));
+  }
+}
+
+function validateHistoricalPeriodMonth(
+  value: string | undefined,
+  uploadDate: string,
+  issues: AttendancePreviewIssue[],
+  rowIssueCounts: Map<number, number>
+) {
+  const periodMonth = value?.trim();
+
+  if (!periodMonth) {
+    addIssue(issues, rowIssueCounts, fileIssue(
+      AttendanceIssueCode.HISTORICAL_PERIOD_MONTH_REQUIRED,
+      "periodMonth",
+      "Historical attendance imports require periodMonth in YYYY-MM format."
+    ));
+    return null;
+  }
+
+  if (!isValidPeriodMonth(periodMonth)) {
+    addIssue(issues, rowIssueCounts, fileIssue(
+      AttendanceIssueCode.INVALID_HISTORICAL_PERIOD_MONTH,
+      "periodMonth",
+      "Historical attendance periodMonth must use YYYY-MM format."
+    ));
+    return null;
+  }
+
+  if (!isClosedHistoricalPeriodMonth(periodMonth, uploadDate)) {
+    addIssue(issues, rowIssueCounts, fileIssue(
+      AttendanceIssueCode.HISTORICAL_PERIOD_MONTH_NOT_CLOSED,
+      "periodMonth",
+      "Historical attendance periodMonth must be a closed past month."
+    ));
+  }
+
+  return periodMonth;
+}
+
+function validateHistoricalShiftDates(
+  rows: AttendanceParsedRow[],
+  periodMonth: string,
+  issues: AttendancePreviewIssue[],
+  rowIssueCounts: Map<number, number>
+) {
+  for (const row of rows) {
+    if (!row.shiftDate || row.shiftDate.startsWith(`${periodMonth}-`)) {
+      continue;
+    }
+
+    addIssue(issues, rowIssueCounts, rowIssue(row, {
+      severity: AttendanceIssueSeverity.ERROR,
+      issueCode: AttendanceIssueCode.SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH,
+      fieldName: "Shift Date",
+      message:
+        "Historical attendance shift date must be inside the selected periodMonth."
+    }));
+  }
 }
 
 function fileIssue(
@@ -607,6 +756,29 @@ function previousDateOnly(date: string) {
 
 function firstDateOfMonth(date: string) {
   return `${date.slice(0, 7)}-01`;
+}
+
+function isValidPeriodMonth(periodMonth: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(periodMonth);
+
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  return year >= 1900 && month >= 1 && month <= 12;
+}
+
+function isClosedHistoricalPeriodMonth(periodMonth: string, uploadDate: string) {
+  return periodMonth < uploadDate.slice(0, 7);
+}
+
+function lastDateOfMonth(periodMonth: string) {
+  const [year, month] = periodMonth.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month, 0));
+  return formatUtcDateOnly(date);
 }
 
 function minDateOnly(dates: string[]) {

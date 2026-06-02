@@ -236,6 +236,8 @@ export type AttendanceImportBatchStatus =
   | "FAILED"
   | "LOCKED";
 
+export type AttendanceImportMode = "MTD" | "HISTORICAL_MONTH";
+
 export type AttendanceIssueSeverity = "ERROR" | "WARNING";
 
 export type AttendanceIssueResolutionStatus = "OPEN" | "IGNORED" | "RESOLVED";
@@ -256,6 +258,8 @@ export type AttendanceMatchStatus =
 
 export interface AttendanceImportPreviewOptions {
   duplicateResolutionRowNumbers?: number[];
+  importMode?: AttendanceImportMode;
+  periodMonth?: string;
   uploadDate?: string;
 }
 
@@ -270,6 +274,7 @@ export interface AttendanceImportPreviewResponse {
 }
 
 export interface AttendanceValidationPreview {
+  importMode: AttendanceImportMode;
   periodMonth: string | null;
   coverageStartDate: string | null;
   coverageEndDate: string | null;
@@ -389,6 +394,8 @@ export function buildAttendanceImportPreviewFormData(
 ) {
   const formData = new FormData();
   formData.set("file", file);
+  setFormString(formData, "importMode", options.importMode);
+  setFormString(formData, "periodMonth", options.periodMonth);
   setFormString(formData, "uploadDate", options.uploadDate);
   if (options.duplicateResolutionRowNumbers?.length) {
     formData.set(

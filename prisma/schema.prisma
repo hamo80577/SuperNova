@@ -145,6 +145,11 @@ enum AttendanceImportBatchStatus {
   LOCKED
 }
 
+enum AttendanceImportMode {
+  MTD
+  HISTORICAL_MONTH
+}
+
 enum AttendanceCalculatedStatus {
   ON_TIME
   LATE
@@ -228,6 +233,11 @@ enum AttendanceIssueCode {
   LOCATION_SHIFT_LOCATION_DIFFERENCE
   ACTIVE_ASSIGNMENT_MISMATCH
   MISSING_ATTENDANCE_LOCATION_CODE
+  INVALID_ATTENDANCE_IMPORT_MODE
+  HISTORICAL_PERIOD_MONTH_REQUIRED
+  INVALID_HISTORICAL_PERIOD_MONTH
+  HISTORICAL_PERIOD_MONTH_NOT_CLOSED
+  SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
 }
 
 model User {
@@ -532,6 +542,7 @@ model AttendanceImportBatch {
   periodMonth             String
   fileName                String
   fileHash                String
+  importMode              AttendanceImportMode             @default(MTD)
   uploadedByUserId        String
   uploadedAt              DateTime                         @default(now())
   status                  AttendanceImportBatchStatus      @default(UPLOADED)
@@ -561,6 +572,7 @@ model AttendanceImportBatch {
   issues                  AttendanceImportIssue[]
 
   @@index([periodMonth, status])
+  @@index([importMode, periodMonth, status])
   @@index([uploadedAt])
   @@index([uploadedByUserId])
   @@index([confirmedByUserId])

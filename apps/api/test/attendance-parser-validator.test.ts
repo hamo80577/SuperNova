@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueSeverity,
   UserRole
@@ -112,6 +113,8 @@ async function validateRows(
   options: {
     duplicateResolutionRowNumbers?: number[];
     headers?: string[];
+    importMode?: AttendanceImportMode;
+    periodMonth?: string;
     uploadDate?: string;
     users?: AttendanceMatchedUser[];
   } = {}
@@ -121,6 +124,8 @@ async function validateRows(
 
   return validator.validateWorkbook(buffer, {
     uploadDate: options.uploadDate ?? "2026-05-09",
+    importMode: options.importMode,
+    periodMonth: options.periodMonth,
     duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
     rowsPreviewLimit: 5,
     userLookup
@@ -199,6 +204,45 @@ async function main() {
 
     assert.equal(preview.canConfirm, false);
     assertIssue(preview, AttendanceIssueCode.MTD_INCLUDES_FUTURE_DATE);
+  }
+
+  {
+    const preview = await validateRows([
+      baseRow({ "Shift Date": "2026-05-01" }),
+      baseRow({ "Shift Date": "2026-05-31" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(preview.canConfirm, true);
+    assert.equal(preview.importMode, AttendanceImportMode.HISTORICAL_MONTH);
+    assert.equal(preview.periodMonth, "2026-05");
+    assert.equal(preview.coverageEndDate, "2026-05-31");
+    assert.equal(preview.expectedCoverageEndDate, "2026-05-31");
+    assert.equal(
+      issueCodes(preview).includes(
+        AttendanceIssueCode.MTD_COVERAGE_END_NOT_YESTERDAY
+      ),
+      false
+    );
+  }
+
+  {
+    const preview = await validateRows([
+      baseRow({ "Shift Date": "2026-06-01" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(preview.canConfirm, false);
+    assertIssue(
+      preview,
+      AttendanceIssueCode.SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
+    );
   }
 
   {

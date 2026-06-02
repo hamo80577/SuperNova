@@ -1,4 +1,5 @@
 import type {
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
@@ -21,6 +22,8 @@ export interface AttendanceUserLookup {
 
 export interface AttendanceValidationOptions {
   duplicateResolutionRowNumbers?: number[];
+  importMode?: AttendanceImportMode | string;
+  periodMonth?: string;
   uploadDate: Date | string;
   rowsPreviewLimit?: number;
   userLookup?: AttendanceUserLookup;
@@ -105,6 +108,7 @@ export interface AttendanceRowsPreviewItem {
 }
 
 export interface AttendanceValidationPreview {
+  importMode: AttendanceImportMode;
   periodMonth: string | null;
   coverageStartDate: string | null;
   coverageEndDate: string | null;
