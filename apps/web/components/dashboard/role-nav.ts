@@ -44,6 +44,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Operations"
     },
     {
+      label: "Attendance",
+      href: "/picker/attendance",
+      icon: CalendarDays,
+      section: "Operations"
+    },
+    {
       label: "My Profile",
       disabled: true,
       icon: UserRound,
