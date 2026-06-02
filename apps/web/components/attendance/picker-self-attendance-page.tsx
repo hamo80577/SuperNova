@@ -33,6 +33,10 @@ import {
   type PickerAttendanceTab,
   type PickerShiftTag
 } from "./picker-self-attendance-view-model";
+import {
+  getPickerAttendanceDateToMax,
+  normalizePickerAttendanceDateRange
+} from "./picker-self-attendance-date-range";
 
 type AsyncState<T> =
   | { status: "loading"; data?: never; error?: never }
@@ -65,6 +69,7 @@ export function PickerSelfAttendancePage() {
   });
 
   const maxDate = initialRange.maxDate;
+  const dateToMax = getPickerAttendanceDateToMax(dateFrom, maxDate);
   const periodMonth = dateFrom.slice(0, 7);
 
   useEffect(() => {
@@ -139,17 +144,23 @@ export function PickerSelfAttendancePage() {
   );
 
   function updateDateFrom(value: string) {
-    setDateFrom(value);
-    if (value > dateTo) {
-      setDateTo(value);
-    }
+    const nextRange = normalizePickerAttendanceDateRange({
+      dateFrom: value,
+      dateTo,
+      maxDate
+    });
+    setDateFrom(nextRange.dateFrom);
+    setDateTo(nextRange.dateTo);
   }
 
   function updateDateTo(value: string) {
-    setDateTo(value);
-    if (value < dateFrom) {
-      setDateFrom(value);
-    }
+    const nextRange = normalizePickerAttendanceDateRange({
+      dateFrom,
+      dateTo: value,
+      maxDate
+    });
+    setDateFrom(nextRange.dateFrom);
+    setDateTo(nextRange.dateTo);
   }
 
   return (
@@ -169,22 +180,33 @@ export function PickerSelfAttendancePage() {
             </p>
           </div>
           <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:w-[26rem]">
-            <DatePicker
-              align="end"
-              maxDate={maxDate}
-              onChange={updateDateFrom}
-              placeholder="Start date"
-              quickActions={["yesterday"]}
-              value={dateFrom}
-            />
-            <DatePicker
-              align="end"
-              maxDate={maxDate}
-              onChange={updateDateTo}
-              placeholder="End date"
-              quickActions={["yesterday"]}
-              value={dateTo}
-            />
+            <div className="grid gap-1">
+              <DatePicker
+                align="end"
+                maxDate={maxDate}
+                onChange={updateDateFrom}
+                placeholder="Start date"
+                quickActions={["yesterday"]}
+                value={dateFrom}
+              />
+              <span className="px-1 text-[11px] font-medium text-slate-400">
+                Pick one attendance month.
+              </span>
+            </div>
+            <div className="grid gap-1">
+              <DatePicker
+                align="end"
+                maxDate={dateToMax}
+                minDate={dateFrom}
+                onChange={updateDateTo}
+                placeholder="End date"
+                quickActions={["yesterday"]}
+                value={dateTo}
+              />
+              <span className="px-1 text-[11px] font-medium text-slate-400">
+                Ends by {formatDate(dateToMax)}.
+              </span>
+            </div>
           </div>
         </div>
       </section>
@@ -223,7 +245,7 @@ export function PickerSelfAttendancePage() {
               </div>
               {viewModel.score.unavailableLateRows ? (
                 <button
-                  className="inline-flex min-h-9 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800"
                   onClick={() => setActiveTab("ALL")}
                   type="button"
                 >
@@ -237,7 +259,7 @@ export function PickerSelfAttendancePage() {
               {tabs.map((tab) => (
                 <button
                   className={cn(
-                    "min-h-10 shrink-0 rounded-full border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
+                    "min-h-11 shrink-0 rounded-full border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
                     activeTab === tab.value
                       ? "border-slate-900 bg-slate-950 text-white shadow-sm"
                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
@@ -255,7 +277,9 @@ export function PickerSelfAttendancePage() {
             </div>
 
             <div className="mt-2 grid gap-3">
-              {filteredRows.length ? (
+              {!viewModel.rows.length ? (
+                <NoAttendanceDataState />
+              ) : filteredRows.length ? (
                 filteredRows.map((shift) => (
                   <ShiftCard
                     key={shift.id}
@@ -304,7 +328,9 @@ function ScoreCard({
             <h2 className="text-base font-semibold text-slate-950">
               Shift Score
             </h2>
-            <p className="text-xs leading-5 text-slate-500">{label}</p>
+            <p className="text-xs leading-5 text-slate-500">
+              {label} · Clean Shifts / Scorable Shifts
+            </p>
           </div>
         </div>
         <Badge
@@ -355,6 +381,17 @@ function ScoreCard({
             value={score.excludedRows}
           />
           <InlineMetric label="Rows loaded" tone="slate" value={rows.length} />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-emerald-900">
+        <div className="flex gap-2">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Shift Score is Clean Shifts divided by Scorable Shifts. Leave and
+            Off Day are excluded. A check-in up to 15 minutes after shift start
+            can still count as clean.
+          </span>
         </div>
       </div>
 
@@ -526,7 +563,7 @@ function ShiftDetailSheet({
             </div>
             <Button
               aria-label="Close shift details"
-              className="h-10 w-10 rounded-xl p-0"
+              className="h-11 w-11 rounded-xl p-0"
               onClick={onClose}
               type="button"
               variant="outline"
@@ -626,7 +663,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
       <span className="text-sm text-slate-500">{label}</span>
-      <span className="max-w-full text-right text-sm font-semibold text-slate-950">
+      <span className="max-w-full break-words text-right text-sm font-semibold text-slate-950">
         {value}
       </span>
     </div>
@@ -676,14 +713,31 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function EmptyState({ activeTab }: { activeTab: PickerAttendanceTab }) {
+  const copy = emptyStateCopy[activeTab];
+
   return (
     <div className="grid place-items-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
       <ShieldCheck className="h-8 w-8 text-slate-400" />
       <p className="mt-3 text-sm font-semibold text-slate-700">
-        No shifts in {tabLabel(activeTab)}
+        {copy.title}
       </p>
       <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
-        Try another tab or date range.
+        {copy.body}
+      </p>
+    </div>
+  );
+}
+
+function NoAttendanceDataState() {
+  return (
+    <div className="grid place-items-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+      <CalendarDays className="h-8 w-8 text-slate-400" />
+      <p className="mt-3 text-sm font-semibold text-slate-700">
+        No attendance here yet
+      </p>
+      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+        Try another date in the same month, or check back after the attendance
+        file is imported.
       </p>
     </div>
   );
@@ -694,10 +748,6 @@ function getTabCount(
   tab: PickerAttendanceTab
 ) {
   return filterPickerAttendanceRows(rows, tab).length;
-}
-
-function tabLabel(tab: PickerAttendanceTab) {
-  return tabs.find((item) => item.value === tab)?.label ?? "this tab";
 }
 
 function getInitialRange() {
@@ -769,3 +819,37 @@ function formatSource(row: AttendanceDailyReportRow) {
     .filter(Boolean)
     .join(" / ") || "Not recorded";
 }
+
+const emptyStateCopy: Record<
+  PickerAttendanceTab,
+  { body: string; title: string }
+> = {
+  ABSENT: {
+    body: "No absent shifts in this range. Keep your attendance steady.",
+    title: "No absent shifts"
+  },
+  ALL: {
+    body: "No shifts match this range yet. Try another date in the same month.",
+    title: "No shifts to show"
+  },
+  CLEAN: {
+    body: "No clean shifts in this view yet. Small improvements can move the score quickly.",
+    title: "No clean shifts yet"
+  },
+  ERROR: {
+    body: "No error shifts in this range. That is the goal.",
+    title: "No error shifts"
+  },
+  LATE: {
+    body: "No late bucket shifts here. Check another range if needed.",
+    title: "No Late 1, 2, or 3 shifts"
+  },
+  OVER_15: {
+    body: "No shifts over 15 hours in this range.",
+    title: "No Over 15 shifts"
+  },
+  UNDER_8: {
+    body: "No shifts under 8 hours in this range.",
+    title: "No Under 8 shifts"
+  }
+};

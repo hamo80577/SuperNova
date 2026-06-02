@@ -4,6 +4,10 @@ import {
   filterPickerAttendanceRows,
   type PickerAttendanceTab
 } from "./picker-self-attendance-view-model";
+import {
+  getPickerAttendanceDateToMax,
+  normalizePickerAttendanceDateRange
+} from "./picker-self-attendance-date-range";
 import type { AttendanceDailyReportRow } from "@/lib/api/attendance";
 
 const assert = {
@@ -24,21 +28,24 @@ const assert = {
 {
   const viewModel = buildPickerAttendanceViewModel([
     row({ id: "clean-on-time", calculatedStatus: "ON_TIME" }),
-    row({ id: "clean-late", calculatedStatus: "LATE", rawLateMins: 12 }),
-    row({ id: "late-1", calculatedStatus: "LATE", rawLateMins: 18 }),
-    row({ id: "late-2", calculatedStatus: "LATE", rawLateMins: 31 }),
-    row({ id: "late-3", calculatedStatus: "LATE", rawLateMins: 46 }),
+    row({ id: "clean-late-0", calculatedStatus: "LATE", rawLateMins: 0 }),
+    row({ id: "clean-late-15", calculatedStatus: "LATE", rawLateMins: 15 }),
+    row({ id: "late-1-16", calculatedStatus: "LATE", rawLateMins: 16 }),
+    row({ id: "late-1-30", calculatedStatus: "LATE", rawLateMins: 30 }),
+    row({ id: "late-2-31", calculatedStatus: "LATE", rawLateMins: 31 }),
+    row({ id: "late-2-45", calculatedStatus: "LATE", rawLateMins: 45 }),
+    row({ id: "late-3-46", calculatedStatus: "LATE", rawLateMins: 46 }),
     row({ id: "absent", calculatedStatus: "ABSENT" }),
     row({ id: "under-8", isUnder8Hours: true }),
     row({ id: "over-15", isOver15Hours: true })
   ]);
 
-  assert.equal(viewModel.score.scorableShifts, 8);
-  assert.equal(viewModel.score.cleanShifts, 2);
-  assert.equal(viewModel.score.errorShifts, 6);
-  assert.equal(viewModel.score.percentage, 25);
-  assert.equal(viewModel.buckets.late1, 1);
-  assert.equal(viewModel.buckets.late2, 1);
+  assert.equal(viewModel.score.scorableShifts, 11);
+  assert.equal(viewModel.score.cleanShifts, 3);
+  assert.equal(viewModel.score.errorShifts, 8);
+  assert.equal(viewModel.score.percentage, 27.3);
+  assert.equal(viewModel.buckets.late1, 2);
+  assert.equal(viewModel.buckets.late2, 2);
   assert.equal(viewModel.buckets.late3, 1);
 }
 
@@ -63,7 +70,7 @@ const assert = {
 
 {
   const viewModel = buildPickerAttendanceViewModel([
-    row({ id: "late-bucket", calculatedStatus: "LATE", lateBucket: "LATE_2", rawLateMins: null }),
+    row({ id: "late-bucket", calculatedStatus: "LATE", lateBucket: "LATE_2", rawLateMins: 12 }),
     row({ id: "clean-late", calculatedStatus: "LATE", rawLateMins: 15 }),
     row({ id: "absent", calculatedStatus: "ABSENT" })
   ]);
@@ -79,6 +86,33 @@ const assert = {
   assert.deepEqual(ids(filterPickerAttendanceRows(viewModel.rows, "LATE")), [
     "late-bucket"
   ]);
+  assert.equal(viewModel.rows[0]?.lateBucket, "LATE_2");
+}
+
+{
+  assert.deepEqual(
+    normalizePickerAttendanceDateRange({
+      dateFrom: "2026-04-28",
+      dateTo: "2026-05-03",
+      maxDate: "2026-06-01"
+    }),
+    {
+      dateFrom: "2026-04-28",
+      dateTo: "2026-04-30"
+    }
+  );
+  assert.deepEqual(
+    normalizePickerAttendanceDateRange({
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-15",
+      maxDate: "2026-06-01"
+    }),
+    {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-01"
+    }
+  );
+  assert.equal(getPickerAttendanceDateToMax("2026-05-03", "2026-06-01"), "2026-05-31");
 }
 
 function ids(rows: Array<{ id: string }>) {
