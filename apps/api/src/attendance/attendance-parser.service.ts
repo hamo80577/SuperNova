@@ -5,6 +5,7 @@ import type {
   AttendanceParsedRow,
   AttendanceParsedWorkbook
 } from "./attendance-preview.types";
+import { parseAttendanceLocation } from "./attendance-location-parser";
 
 const headerNames = {
   identifier: "Identifier",
@@ -22,7 +23,8 @@ const headerNames = {
   sourceName: "Name",
   sourceDesignation: "Designation",
   sourceSubDivision: "Sub Division",
-  sourceLocation: "Location"
+  sourceLocation: "Location",
+  shiftLocation: "Shift Location"
 } as const;
 
 @Injectable()
@@ -91,6 +93,12 @@ export class AttendanceParserService {
     const actualWorkDurationHours = parseNumberValue(
       cellValue(row, headerIndex, headerNames.actualWorkDurationHours)
     );
+    const sourceLocation = normalizeText(
+      cellValue(row, headerIndex, headerNames.sourceLocation)
+    );
+    const shiftLocation = normalizeText(
+      cellValue(row, headerIndex, headerNames.shiftLocation)
+    );
 
     return {
       rawRowNumber,
@@ -121,10 +129,9 @@ export class AttendanceParserService {
       sourceSubDivision: normalizeText(
         cellValue(row, headerIndex, headerNames.sourceSubDivision)
       ),
-      sourceLocation: normalizeText(
-        cellValue(row, headerIndex, headerNames.sourceLocation)
-      ),
-      sourceLocationCode: null
+      sourceLocation,
+      sourceLocationCode: parseAttendanceLocation(sourceLocation).code,
+      shiftLocation
     };
   }
 }

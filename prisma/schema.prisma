@@ -179,6 +179,21 @@ enum AttendanceMatchStatus {
   EXCLUDED_NON_EGYPT
 }
 
+enum AttendanceLocationMappingStatus {
+  NOT_CHECKED
+  MAPPED_VENDOR_CODE
+  MAPPED_VENDOR_EXTERNAL_ID
+  UNMAPPED
+  MISSING_CODE
+}
+
+enum AttendanceAssignmentMismatchStatus {
+  NOT_CHECKED
+  MATCHES_ACTIVE_ASSIGNMENT
+  DIFFERS_FROM_ACTIVE_ASSIGNMENT
+  NO_ACTIVE_ASSIGNMENT
+}
+
 enum AttendanceIssueSeverity {
   ERROR
   WARNING
@@ -209,6 +224,10 @@ enum AttendanceIssueCode {
   INVALID_WORK_DURATION
   INVALID_SHIFT_DURATION
   INVALID_BREAK_DURATION
+  UNMAPPED_ATTENDANCE_LOCATION
+  LOCATION_SHIFT_LOCATION_DIFFERENCE
+  ACTIVE_ASSIGNMENT_MISMATCH
+  MISSING_ATTENDANCE_LOCATION_CODE
 }
 
 model User {
@@ -563,6 +582,16 @@ model AttendanceDailyRecord {
   sourceSubDivision       String?
   sourceLocation          String?
   sourceLocationCode      String?
+  reportedVendorId        String?
+  reportedChainId         String?
+  reportedLocationCode    String?
+  reportedLocationName    String?
+  reportedLocationRaw     String?
+  shiftLocationCode       String?
+  shiftLocationName       String?
+  shiftLocationRaw        String?
+  locationMappingStatus   AttendanceLocationMappingStatus   @default(NOT_CHECKED)
+  assignmentMismatchStatus AttendanceAssignmentMismatchStatus @default(NOT_CHECKED)
   shiftName               String
   scheduledStartTime      String?
   scheduledEndTime        String?
@@ -605,6 +634,12 @@ model AttendanceDailyRecord {
   @@index([shopperId])
   @@index([importBatchId])
   @@index([userId])
+  @@index([reportedVendorId])
+  @@index([reportedChainId])
+  @@index([periodMonth, reportedVendorId])
+  @@index([periodMonth, reportedChainId])
+  @@index([locationMappingStatus])
+  @@index([assignmentMismatchStatus])
 }
 
 model AttendancePickerMonthlySummary {

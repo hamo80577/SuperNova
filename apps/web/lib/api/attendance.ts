@@ -240,6 +240,13 @@ export type AttendanceIssueSeverity = "ERROR" | "WARNING";
 
 export type AttendanceIssueResolutionStatus = "OPEN" | "IGNORED" | "RESOLVED";
 
+export type AttendanceLocationMappingStatus =
+  | "NOT_CHECKED"
+  | "MAPPED_VENDOR_CODE"
+  | "MAPPED_VENDOR_EXTERNAL_ID"
+  | "UNMAPPED"
+  | "MISSING_CODE";
+
 export type AttendanceMatchStatus =
   | "MATCHED_PICKER"
   | "UNMATCHED_IDENTIFIER"
@@ -275,10 +282,27 @@ export interface AttendanceValidationPreview {
   excludedNonPickerRows: number;
   errorRows: number;
   warningRows: number;
+  mappedLocationRows: number;
+  unmappedLocationRows: number;
+  missingLocationCodeRows: number;
+  activeAssignmentMismatchRows: number;
+  locationShiftLocationDifferenceRows: number;
+  rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
   canConfirm: boolean;
   duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendanceReportedLocationSummary {
+  code: string | null;
+  name: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  chainId: string | null;
+  chainName: string | null;
+  rowCount: number;
+  mappingStatus: AttendanceLocationMappingStatus;
 }
 
 export interface AttendanceDuplicateGroup {

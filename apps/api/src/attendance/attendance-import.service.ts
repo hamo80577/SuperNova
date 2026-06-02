@@ -8,8 +8,13 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import {
+  AssignmentStatus,
+  AttendanceAssignmentMismatchStatus,
   AttendanceImportBatchStatus,
+  AttendanceIssueCode,
+  AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
+  AttendanceLocationMappingStatus,
   AttendanceMatchStatus,
   Prisma,
   UserRole
@@ -31,8 +36,10 @@ import { AttendanceParserService } from "./attendance-parser.service";
 import type {
   AttendanceMatchedUser,
   AttendanceParsedRow,
-  AttendancePreviewIssue
+  AttendancePreviewIssue,
+  AttendanceReportedLocationSummary
 } from "./attendance-preview.types";
+import { parseAttendanceLocation } from "./attendance-location-parser";
 import { AttendanceUserLookupService } from "./attendance-user-lookup.service";
 import { AttendanceValidatorService } from "./attendance-validator.service";
 
@@ -41,6 +48,49 @@ type AttendancePersistedIssue =
   | AttendanceCalculationIssue;
 
 type AttendancePrismaTransaction = Prisma.TransactionClient;
+
+type AttendanceLocationVendor = {
+  id: string;
+  vendorName: string;
+  vendorCode: string;
+  vendorExternalId: string | null;
+  chainId: string;
+  chain: {
+    id: string;
+    chainName: string;
+  };
+};
+
+type AttendanceLocationVendorMatch = {
+  vendor: AttendanceLocationVendor;
+  mappingStatus: AttendanceLocationMappingStatus;
+};
+
+type AttendanceRowLocationContext = {
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  shiftLocationCode: string | null;
+  shiftLocationName: string | null;
+  shiftLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
+  assignmentMismatchStatus: AttendanceAssignmentMismatchStatus;
+  vendorName: string | null;
+  chainName: string | null;
+};
+
+type AttendanceLocationPreviewEnrichment = {
+  issues: AttendancePreviewIssue[];
+  contextsByRawRowNumber: Map<number, AttendanceRowLocationContext>;
+  mappedLocationRows: number;
+  unmappedLocationRows: number;
+  missingLocationCodeRows: number;
+  activeAssignmentMismatchRows: number;
+  locationShiftLocationDifferenceRows: number;
+  rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
+};
 
 const ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS = 60_000;
 
@@ -80,23 +130,36 @@ export class AttendanceImportService {
     });
 
     const usersByShopperId = await this.loadUsersByShopperId(workbook.rows);
-    const validationIssueCounts = countIssuesByRow(preview.issues);
+    const duplicateSelections = selectedDuplicateRowsByMatchedKey(
+      workbook.rows,
+      usersByShopperId,
+      new Set(options.duplicateResolutionRowNumbers ?? [])
+    );
+    const locationEnrichment = await this.buildLocationPreviewEnrichment(
+      workbook.rows,
+      usersByShopperId,
+      duplicateSelections
+    );
+    const hasLocationMappingErrors = locationEnrichment.issues.some(
+      (issue) => issue.severity === AttendanceIssueSeverity.ERROR
+    );
+    const validationIssueCounts = countIssuesByRow([
+      ...preview.issues,
+      ...locationEnrichment.issues
+    ]);
     const calculationRows =
-      preview.canConfirm && preview.periodMonth
+      preview.canConfirm && preview.periodMonth && !hasLocationMappingErrors
         ? buildCalculationRows(
             preview.periodMonth,
             workbook.rows,
             usersByShopperId,
             validationIssueCounts,
-            selectedDuplicateRowsByMatchedKey(
-              workbook.rows,
-              usersByShopperId,
-              new Set(options.duplicateResolutionRowNumbers ?? [])
-            )
+            duplicateSelections,
+            locationEnrichment.contextsByRawRowNumber
           )
         : [];
     const calculationResult =
-      preview.canConfirm && preview.periodMonth
+      preview.canConfirm && preview.periodMonth && !hasLocationMappingErrors
         ? this.calculator.calculate({
             periodMonth: preview.periodMonth,
             calculatedAt: now,
@@ -109,13 +172,19 @@ export class AttendanceImportService {
           };
     const combinedIssues: AttendancePersistedIssue[] = [
       ...preview.issues,
+      ...locationEnrichment.issues,
       ...calculationResult.issues
     ];
     const hasCalculationErrors = calculationResult.issues.some(
       (issue) => issue.severity === AttendanceIssueSeverity.ERROR
     );
+    const errorRows = countIssueRows(combinedIssues, AttendanceIssueSeverity.ERROR);
+    const warningRows = countIssueRows(combinedIssues, AttendanceIssueSeverity.WARNING);
     const status =
-      preview.canConfirm && preview.periodMonth && !hasCalculationErrors
+      preview.canConfirm &&
+      preview.periodMonth &&
+      !hasLocationMappingErrors &&
+      !hasCalculationErrors
         ? AttendanceImportBatchStatus.VALIDATED
         : AttendanceImportBatchStatus.FAILED;
 
@@ -135,8 +204,8 @@ export class AttendanceImportService {
             unmatchedRows: preview.unmatchedRows,
             excludedNonPickerRows: preview.excludedNonPickerRows,
             excludedNonEgyptRows: preview.nonEgyptRows,
-            errorRows: preview.errorRows,
-            warningRows: preview.warningRows,
+            errorRows,
+            warningRows,
             coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
             coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
             expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
@@ -198,8 +267,8 @@ export class AttendanceImportService {
               coverageEndDate: preview.coverageEndDate,
               expectedCoverageEndDate: preview.expectedCoverageEndDate,
               rowCount: preview.rowCount,
-              errorRows: preview.errorRows,
-              warningRows: preview.warningRows,
+              errorRows,
+              warningRows,
               status
             }),
             ipAddress: options.ipAddress ?? null,
@@ -219,6 +288,17 @@ export class AttendanceImportService {
       preview: {
         ...preview,
         canConfirm: status === AttendanceImportBatchStatus.VALIDATED,
+        errorRows,
+        warningRows,
+        mappedLocationRows: locationEnrichment.mappedLocationRows,
+        unmappedLocationRows: locationEnrichment.unmappedLocationRows,
+        missingLocationCodeRows: locationEnrichment.missingLocationCodeRows,
+        activeAssignmentMismatchRows:
+          locationEnrichment.activeAssignmentMismatchRows,
+        locationShiftLocationDifferenceRows:
+          locationEnrichment.locationShiftLocationDifferenceRows,
+        rowsByReportedLocationCode:
+          locationEnrichment.rowsByReportedLocationCode,
         issues: combinedIssues
       },
       dailyRecordCount: calculationResult.dailyRecords.length,
@@ -305,6 +385,255 @@ export class AttendanceImportService {
     });
   }
 
+  private async buildLocationPreviewEnrichment(
+    parsedRows: AttendanceParsedRow[],
+    usersByShopperId: Map<string, AttendanceMatchedUser>,
+    duplicateSelections: Map<string, number>
+  ): Promise<AttendanceLocationPreviewEnrichment> {
+    const mappableRows = buildMappableRows(
+      parsedRows,
+      usersByShopperId,
+      duplicateSelections
+    );
+    const reportedLocationCodes = uniqueStrings(
+      mappableRows
+        .map(({ row }) => parseAttendanceLocation(row.sourceLocation).code)
+        .filter((code): code is string => Boolean(code))
+    );
+    const vendorMatches =
+      await this.loadVendorMatchesByLocationCode(reportedLocationCodes);
+    const activeAssignments = await this.loadActiveAssignmentsByPickerId(
+      uniqueStrings(mappableRows.map(({ user }) => user.id))
+    );
+
+    const issues: AttendancePreviewIssue[] = [];
+    const contextsByRawRowNumber = new Map<
+      number,
+      AttendanceRowLocationContext
+    >();
+    let mappedLocationRows = 0;
+    let unmappedLocationRows = 0;
+    let missingLocationCodeRows = 0;
+    let activeAssignmentMismatchRows = 0;
+    let locationShiftLocationDifferenceRows = 0;
+
+    for (const { row, user } of mappableRows) {
+      const reported = parseAttendanceLocation(row.sourceLocation);
+      const shift = parseAttendanceLocation(row.shiftLocation);
+      const context = defaultLocationContext(row);
+
+      if (!reported.code) {
+        context.locationMappingStatus =
+          AttendanceLocationMappingStatus.MISSING_CODE;
+        missingLocationCodeRows += 1;
+        issues.push(
+          locationIssue({
+            row,
+            severity: AttendanceIssueSeverity.ERROR,
+            issueCode: AttendanceIssueCode.MISSING_ATTENDANCE_LOCATION_CODE,
+            fieldName: "Location",
+            message:
+              "Attendance Location must start with a branch code for matched Egypt Picker rows."
+          })
+        );
+      } else {
+        const vendorMatch = vendorMatches.get(reported.code);
+
+        if (!vendorMatch) {
+          context.locationMappingStatus =
+            AttendanceLocationMappingStatus.UNMAPPED;
+          unmappedLocationRows += 1;
+          issues.push(
+            locationIssue({
+              row,
+              severity: AttendanceIssueSeverity.ERROR,
+              issueCode: AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION,
+              fieldName: "Location",
+              message:
+                "Attendance Location code is not mapped to a vendor code or external vendor id."
+            })
+          );
+        } else {
+          const vendor = vendorMatch.vendor;
+          context.reportedVendorId = vendor.id;
+          context.reportedChainId = vendor.chainId;
+          context.locationMappingStatus = vendorMatch.mappingStatus;
+          context.vendorName = vendor.vendorName;
+          context.chainName = vendor.chain.chainName;
+          mappedLocationRows += 1;
+
+          const activeVendorId = activeAssignments.get(user.id) ?? null;
+          if (!activeVendorId) {
+            context.assignmentMismatchStatus =
+              AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
+            activeAssignmentMismatchRows += 1;
+            issues.push(
+              locationIssue({
+                row,
+                severity: AttendanceIssueSeverity.WARNING,
+                issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                fieldName: "Location",
+                message:
+                  "Picker has no active branch assignment to compare with the reported attendance Location."
+              })
+            );
+          } else if (activeVendorId === vendor.id) {
+            context.assignmentMismatchStatus =
+              AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
+          } else {
+            context.assignmentMismatchStatus =
+              AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT;
+            activeAssignmentMismatchRows += 1;
+            issues.push(
+              locationIssue({
+                row,
+                severity: AttendanceIssueSeverity.WARNING,
+                issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                fieldName: "Location",
+                message:
+                  "Reported attendance Location differs from the picker active branch assignment."
+              })
+            );
+          }
+        }
+      }
+
+      if (reported.code && shift.code && reported.code !== shift.code) {
+        locationShiftLocationDifferenceRows += 1;
+        issues.push(
+          locationIssue({
+            row,
+            severity: AttendanceIssueSeverity.WARNING,
+            issueCode: AttendanceIssueCode.LOCATION_SHIFT_LOCATION_DIFFERENCE,
+            fieldName: "Shift Location",
+            message:
+              "Attendance Location code differs from Shift Location code."
+          })
+        );
+      }
+
+      contextsByRawRowNumber.set(row.rawRowNumber, context);
+    }
+
+    return {
+      issues,
+      contextsByRawRowNumber,
+      mappedLocationRows,
+      unmappedLocationRows,
+      missingLocationCodeRows,
+      activeAssignmentMismatchRows,
+      locationShiftLocationDifferenceRows,
+      rowsByReportedLocationCode: buildReportedLocationGroups(
+        contextsByRawRowNumber
+      )
+    };
+  }
+
+  private async loadVendorMatchesByLocationCode(codes: string[]) {
+    if (codes.length === 0) {
+      return new Map<string, AttendanceLocationVendorMatch>();
+    }
+
+    const vendors = await this.prisma.vendor.findMany({
+      where: {
+        OR: [
+          {
+            vendorCode: {
+              in: codes
+            }
+          },
+          {
+            vendorExternalId: {
+              in: codes
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        vendorName: true,
+        vendorCode: true,
+        vendorExternalId: true,
+        chainId: true,
+        chain: {
+          select: {
+            id: true,
+            chainName: true
+          }
+        }
+      }
+    });
+
+    const byVendorCode = new Map<string, AttendanceLocationVendor>();
+    const byVendorExternalId = new Map<string, AttendanceLocationVendor>();
+
+    for (const vendor of vendors) {
+      byVendorCode.set(vendor.vendorCode, vendor);
+      if (vendor.vendorExternalId) {
+        byVendorExternalId.set(vendor.vendorExternalId, vendor);
+      }
+    }
+
+    const matches = new Map<string, AttendanceLocationVendorMatch>();
+    for (const code of codes) {
+      const vendorByCode = byVendorCode.get(code);
+      if (vendorByCode) {
+        matches.set(code, {
+          vendor: vendorByCode,
+          mappingStatus: AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE
+        });
+        continue;
+      }
+
+      const vendorByExternalId = byVendorExternalId.get(code);
+      if (vendorByExternalId) {
+        matches.set(code, {
+          vendor: vendorByExternalId,
+          mappingStatus:
+            AttendanceLocationMappingStatus.MAPPED_VENDOR_EXTERNAL_ID
+        });
+      }
+    }
+
+    return matches;
+  }
+
+  private async loadActiveAssignmentsByPickerId(userIds: string[]) {
+    if (userIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const assignments = await this.prisma.pickerBranchAssignment.findMany({
+      where: {
+        pickerId: {
+          in: userIds
+        },
+        status: AssignmentStatus.ACTIVE
+      },
+      orderBy: [
+        {
+          startDate: "desc"
+        },
+        {
+          createdAt: "desc"
+        }
+      ],
+      select: {
+        pickerId: true,
+        vendorId: true
+      }
+    });
+
+    const activeAssignments = new Map<string, string>();
+    for (const assignment of assignments) {
+      if (!activeAssignments.has(assignment.pickerId)) {
+        activeAssignments.set(assignment.pickerId, assignment.vendorId);
+      }
+    }
+
+    return activeAssignments;
+  }
+
   private async loadUsersByShopperId(rows: AttendanceParsedRow[]) {
     const shopperIds = Array.from(
       new Set(rows.map((row) => row.identifier).filter(Boolean) as string[])
@@ -342,7 +671,8 @@ function buildCalculationRows(
   parsedRows: AttendanceParsedRow[],
   usersByShopperId: Map<string, AttendanceMatchedUser>,
   validationIssueCounts: Map<number, number>,
-  duplicateSelections: Map<string, number> = new Map()
+  duplicateSelections: Map<string, number> = new Map(),
+  locationContexts: Map<number, AttendanceRowLocationContext> = new Map()
 ): AttendanceCalculationInputRow[] {
   return parsedRows
     .map((row): AttendanceCalculationInputRow | null => {
@@ -361,6 +691,9 @@ function buildCalculationRows(
         return null;
       }
 
+      const locationContext =
+        locationContexts.get(row.rawRowNumber) ?? defaultLocationContext(row);
+
       return {
         periodMonth,
         shiftDate: row.shiftDate,
@@ -373,6 +706,16 @@ function buildCalculationRows(
         sourceSubDivision: row.sourceSubDivision,
         sourceLocation: row.sourceLocation,
         sourceLocationCode: row.sourceLocationCode,
+        reportedVendorId: locationContext.reportedVendorId,
+        reportedChainId: locationContext.reportedChainId,
+        reportedLocationCode: locationContext.reportedLocationCode,
+        reportedLocationName: locationContext.reportedLocationName,
+        reportedLocationRaw: locationContext.reportedLocationRaw,
+        shiftLocationCode: locationContext.shiftLocationCode,
+        shiftLocationName: locationContext.shiftLocationName,
+        shiftLocationRaw: locationContext.shiftLocationRaw,
+        locationMappingStatus: locationContext.locationMappingStatus,
+        assignmentMismatchStatus: locationContext.assignmentMismatchStatus,
         shiftName: row.shiftName,
         scheduledStartTime: row.scheduledStartTime,
         scheduledEndTime: row.scheduledEndTime,
@@ -388,6 +731,38 @@ function buildCalculationRows(
       };
     })
     .filter((row): row is AttendanceCalculationInputRow => row !== null);
+}
+
+function buildMappableRows(
+  parsedRows: AttendanceParsedRow[],
+  usersByShopperId: Map<string, AttendanceMatchedUser>,
+  duplicateSelections: Map<string, number>
+) {
+  const rows: Array<{
+    row: AttendanceParsedRow;
+    user: AttendanceMatchedUser;
+  }> = [];
+
+  for (const row of parsedRows) {
+    if (!row.identifier || !row.shiftDate || !isEgypt(row.division)) {
+      continue;
+    }
+
+    const user = usersByShopperId.get(row.identifier);
+
+    if (!user || user.role !== UserRole.PICKER) {
+      continue;
+    }
+
+    const duplicateSelection = duplicateSelections.get(matchedKey(row, user));
+    if (duplicateSelection && duplicateSelection !== row.rawRowNumber) {
+      continue;
+    }
+
+    rows.push({ row, user });
+  }
+
+  return rows;
 }
 
 function selectedDuplicateRowsByMatchedKey(
@@ -445,6 +820,116 @@ function countIssuesByRow(issues: AttendancePersistedIssue[]) {
   return counts;
 }
 
+function countIssueRows(
+  issues: AttendancePersistedIssue[],
+  severity: AttendanceIssueSeverity
+) {
+  const rowNumbers = new Set<number>();
+  let fileIssueCount = 0;
+
+  for (const issue of issues) {
+    if (issue.severity !== severity) {
+      continue;
+    }
+
+    if (issue.rowNumber === null) {
+      fileIssueCount += 1;
+      continue;
+    }
+
+    rowNumbers.add(issue.rowNumber);
+  }
+
+  return rowNumbers.size + fileIssueCount;
+}
+
+function defaultLocationContext(
+  row: AttendanceParsedRow
+): AttendanceRowLocationContext {
+  const reported = parseAttendanceLocation(row.sourceLocation);
+  const shift = parseAttendanceLocation(row.shiftLocation);
+
+  return {
+    reportedVendorId: null,
+    reportedChainId: null,
+    reportedLocationCode: reported.code,
+    reportedLocationName: reported.name,
+    reportedLocationRaw: reported.raw,
+    shiftLocationCode: shift.code,
+    shiftLocationName: shift.name,
+    shiftLocationRaw: shift.raw,
+    locationMappingStatus: AttendanceLocationMappingStatus.NOT_CHECKED,
+    assignmentMismatchStatus:
+      AttendanceAssignmentMismatchStatus.NOT_CHECKED,
+    vendorName: null,
+    chainName: null
+  };
+}
+
+function locationIssue(options: {
+  row: AttendanceParsedRow;
+  severity: AttendanceIssueSeverity;
+  issueCode: AttendanceIssueCode;
+  fieldName: string;
+  message: string;
+}): AttendancePreviewIssue {
+  return {
+    rowNumber: options.row.rawRowNumber,
+    shopperId: options.row.identifier,
+    severity: options.severity,
+    issueCode: options.issueCode,
+    fieldName: options.fieldName,
+    message: options.message,
+    resolutionStatus: AttendanceIssueResolutionStatus.OPEN
+  };
+}
+
+function buildReportedLocationGroups(
+  contextsByRawRowNumber: Map<number, AttendanceRowLocationContext>
+): AttendanceReportedLocationSummary[] {
+  const groups = new Map<string, AttendanceReportedLocationSummary>();
+
+  for (const context of contextsByRawRowNumber.values()) {
+    const key = [
+      context.reportedLocationCode ?? "",
+      context.reportedLocationName ?? "",
+      context.reportedVendorId ?? "",
+      context.locationMappingStatus
+    ].join("|");
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.rowCount += 1;
+      continue;
+    }
+
+    groups.set(key, {
+      code: context.reportedLocationCode,
+      name: context.reportedLocationName,
+      vendorId: context.reportedVendorId,
+      vendorName: context.vendorName,
+      chainId: context.reportedChainId,
+      chainName: context.chainName,
+      rowCount: 1,
+      mappingStatus: context.locationMappingStatus
+    });
+  }
+
+  return Array.from(groups.values()).sort((left, right) => {
+    const leftCode = left.code ?? "";
+    const rightCode = right.code ?? "";
+    if (leftCode !== rightCode) {
+      return leftCode.localeCompare(rightCode);
+    }
+
+    return (left.name ?? "").localeCompare(right.name ?? "");
+  });
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
+}
+
 function mapDailyRecordForCreate(
   importBatchId: string,
   record: import("./attendance-calculation.types").AttendanceDailyCalculationRecord
@@ -462,6 +947,16 @@ function mapDailyRecordForCreate(
     sourceSubDivision: record.sourceSubDivision,
     sourceLocation: record.sourceLocation,
     sourceLocationCode: record.sourceLocationCode,
+    reportedVendorId: record.reportedVendorId,
+    reportedChainId: record.reportedChainId,
+    reportedLocationCode: record.reportedLocationCode,
+    reportedLocationName: record.reportedLocationName,
+    reportedLocationRaw: record.reportedLocationRaw,
+    shiftLocationCode: record.shiftLocationCode,
+    shiftLocationName: record.shiftLocationName,
+    shiftLocationRaw: record.shiftLocationRaw,
+    locationMappingStatus: record.locationMappingStatus,
+    assignmentMismatchStatus: record.assignmentMismatchStatus,
     shiftName: record.shiftName,
     scheduledStartTime: record.scheduledStartTime,
     scheduledEndTime: record.scheduledEndTime,

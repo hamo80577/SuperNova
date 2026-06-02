@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 
 import {
   AttendanceCalculatedStatus,
+  AttendanceAssignmentMismatchStatus,
   AttendanceLateBucket,
-  AttendanceLeaveType
+  AttendanceLeaveType,
+  AttendanceLocationMappingStatus
 } from "@prisma/client";
 
 import { AttendanceCalculationService } from "../src/attendance/attendance-calculation.service";
@@ -24,8 +26,20 @@ function baseRow(
     sourceDesignation: "Picker",
     division: "Egypt",
     sourceSubDivision: "Cairo",
-    sourceLocation: "Branch A",
-    sourceLocationCode: "BR-A",
+    sourceLocation: "100001 - Branch A",
+    sourceLocationCode: "100001",
+    reportedVendorId: "vendor-a",
+    reportedChainId: "chain-a",
+    reportedLocationCode: "100001",
+    reportedLocationName: "Branch A",
+    reportedLocationRaw: "100001 - Branch A",
+    shiftLocationCode: "100001",
+    shiftLocationName: "Branch A",
+    shiftLocationRaw: "100001 - Branch A",
+    locationMappingStatus:
+      AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE,
+    assignmentMismatchStatus:
+      AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT,
     shiftName: "Morning Shift",
     scheduledStartTime: "09:00",
     scheduledEndTime: "17:00",

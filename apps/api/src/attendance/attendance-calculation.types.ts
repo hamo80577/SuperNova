@@ -5,6 +5,8 @@ import type {
   AttendanceIssueSeverity,
   AttendanceLateBucket,
   AttendanceLeaveType,
+  AttendanceAssignmentMismatchStatus,
+  AttendanceLocationMappingStatus,
   AttendanceMatchStatus
 } from "@prisma/client";
 
@@ -26,6 +28,16 @@ export interface AttendanceCalculationInputRow {
   sourceSubDivision: string | null;
   sourceLocation: string | null;
   sourceLocationCode: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  shiftLocationCode: string | null;
+  shiftLocationName: string | null;
+  shiftLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
+  assignmentMismatchStatus: AttendanceAssignmentMismatchStatus;
   shiftName: string | null;
   scheduledStartTime: string | null;
   scheduledEndTime: string | null;
@@ -52,6 +64,16 @@ export interface AttendanceDailyCalculationRecord {
   sourceSubDivision: string | null;
   sourceLocation: string | null;
   sourceLocationCode: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  shiftLocationCode: string | null;
+  shiftLocationName: string | null;
+  shiftLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
+  assignmentMismatchStatus: AttendanceAssignmentMismatchStatus;
   shiftName: string;
   scheduledStartTime: string | null;
   scheduledEndTime: string | null;

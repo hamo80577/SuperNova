@@ -710,6 +710,26 @@ function CountsSection({
       },
       { label: "Error rows", value: preview.preview.errorRows },
       { label: "Warning rows", value: preview.preview.warningRows },
+      {
+        label: "Mapped locations",
+        value: preview.preview.mappedLocationRows
+      },
+      {
+        label: "Unmapped locations",
+        value: preview.preview.unmappedLocationRows
+      },
+      {
+        label: "Missing location codes",
+        value: preview.preview.missingLocationCodeRows
+      },
+      {
+        label: "Assignment warnings",
+        value: preview.preview.activeAssignmentMismatchRows
+      },
+      {
+        label: "Location / Shift differences",
+        value: preview.preview.locationShiftLocationDifferenceRows
+      },
       { label: "Daily records", value: preview.dailyRecordCount },
       { label: "Monthly summaries", value: preview.monthlySummaryCount },
       { label: "Issues", value: preview.issueCount }

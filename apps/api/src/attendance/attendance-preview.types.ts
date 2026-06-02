@@ -2,6 +2,7 @@ import type {
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
+  AttendanceLocationMappingStatus,
   UserRole
 } from "@prisma/client";
 
@@ -57,6 +58,7 @@ export interface AttendanceParsedRow {
   sourceSubDivision: string | null;
   sourceLocation: string | null;
   sourceLocationCode: string | null;
+  shiftLocation: string | null;
 }
 
 export interface AttendancePreviewIssue {
@@ -115,8 +117,25 @@ export interface AttendanceValidationPreview {
   excludedNonPickerRows: number;
   errorRows: number;
   warningRows: number;
+  mappedLocationRows: number;
+  unmappedLocationRows: number;
+  missingLocationCodeRows: number;
+  activeAssignmentMismatchRows: number;
+  locationShiftLocationDifferenceRows: number;
+  rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
   canConfirm: boolean;
   duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendanceReportedLocationSummary {
+  code: string | null;
+  name: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  chainId: string | null;
+  chainName: string | null;
+  rowCount: number;
+  mappingStatus: AttendanceLocationMappingStatus;
 }
