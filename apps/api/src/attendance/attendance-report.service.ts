@@ -37,6 +37,12 @@ const dailyReportSelect = {
   sourceDesignation: true,
   sourceLocation: true,
   sourceSubDivision: true,
+  reportedVendorId: true,
+  reportedChainId: true,
+  reportedLocationCode: true,
+  reportedLocationName: true,
+  reportedLocationRaw: true,
+  locationMappingStatus: true,
   shiftName: true,
   scheduledStartTime: true,
   scheduledEndTime: true,
@@ -56,6 +62,10 @@ const dailyReportSelect = {
 
 const dailyFilterOptionSelect = {
   calculatedStatus: true,
+  reportedChainId: true,
+  reportedLocationCode: true,
+  reportedLocationName: true,
+  reportedLocationRaw: true,
   sourceLocation: true,
   sourceSubDivision: true
 } satisfies Prisma.AttendanceDailyRecordSelect;
@@ -88,10 +98,11 @@ type AttendanceDailyFilterOptionRecord =
 
 type AttendanceReportActor = Pick<AuthenticatedUser, "id" | "role">;
 
-type AttendanceDailyUserScope = Pick<
-  Prisma.AttendanceDailyRecordWhereInput,
-  "userId"
->;
+type AttendanceDailyReportScope =
+  | { kind: "ALL" }
+  | { kind: "PICKER"; userId: string }
+  | { kind: "REPORTED_CHAINS"; chainIds: string[] }
+  | { kind: "REPORTED_VENDORS"; vendorIds: string[] };
 
 @Injectable()
 export class AttendanceReportService {
@@ -107,7 +118,7 @@ export class AttendanceReportService {
     const periodMonth = normalizePeriodMonth(query.periodMonth);
     const pagination = normalizePagination(query);
     const fallbackRange = buildAnalyticsRange(periodMonth, query);
-    const userScope = await this.resolveDailyReportUserScope(actor);
+    const reportScope = await this.resolveDailyReportScope(actor);
     const activeBatch = await this.prisma.attendanceImportBatch.findFirst({
       where: {
         periodMonth,
@@ -140,20 +151,20 @@ export class AttendanceReportService {
       coverageEndDate: activeBatch.coverageEndDate,
       coverageStartDate: activeBatch.coverageStartDate
     });
-    const listWhere = buildDailyReportWhere(activeBatch.id, query, userScope);
+    const listWhere = buildDailyReportWhere(activeBatch.id, query, reportScope);
     const currentAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.dateFrom,
       analyticsRange.dateTo,
       query,
-      userScope
+      reportScope
     );
     const previousAnalyticsWhere = buildDailyAnalyticsWhere(
       activeBatch.id,
       analyticsRange.comparisonDateFrom,
       analyticsRange.comparisonDateTo,
       query,
-      userScope
+      reportScope
     );
     const chainOptionsWhere = buildFilterOptionWhere(
       activeBatch.id,
@@ -163,7 +174,7 @@ export class AttendanceReportService {
         includeChain: false,
         includeStatus: false
       },
-      userScope
+      reportScope
     );
     const branchOptionsWhere = buildFilterOptionWhere(
       activeBatch.id,
@@ -173,7 +184,7 @@ export class AttendanceReportService {
         includeChain: true,
         includeStatus: false
       },
-      userScope
+      reportScope
     );
     const statusOptionsWhere = buildFilterOptionWhere(
       activeBatch.id,
@@ -183,7 +194,7 @@ export class AttendanceReportService {
         includeChain: true,
         includeStatus: false
       },
-      userScope
+      reportScope
     );
     const totalRows = await this.prisma.attendanceDailyRecord.count({
       where: listWhere
@@ -255,16 +266,15 @@ export class AttendanceReportService {
     };
   }
 
-  private async resolveDailyReportUserScope(
+  private async resolveDailyReportScope(
     actor: AttendanceReportActor
-  ): Promise<AttendanceDailyUserScope> {
-    // Phase 8A intentionally scopes by current active assignments, not shiftDate-effective history.
+  ): Promise<AttendanceDailyReportScope> {
     if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN) {
-      return {};
+      return { kind: "ALL" };
     }
 
     if (actor.role === UserRole.PICKER) {
-      return { userId: actor.id };
+      return { kind: "PICKER", userId: actor.id };
     }
 
     if (actor.role === UserRole.AREA_MANAGER) {
@@ -280,21 +290,7 @@ export class AttendanceReportService {
         chainAssignments.map((assignment) => assignment.chainId)
       );
 
-      if (!chainIds.length) {
-        return { userId: { in: [] } };
-      }
-
-      const vendors = await this.prisma.vendor.findMany({
-        where: { chainId: { in: chainIds } },
-        select: { id: true }
-      });
-      const vendorIds = vendors.map((vendor) => vendor.id);
-
-      return {
-        userId: {
-          in: await this.resolveActivePickerIdsForVendors(vendorIds)
-        }
-      };
+      return { kind: "REPORTED_CHAINS", chainIds };
     }
 
     if (actor.role === UserRole.CHAMP) {
@@ -310,39 +306,17 @@ export class AttendanceReportService {
         vendorAssignments.map((assignment) => assignment.vendorId)
       );
 
-      return {
-        userId: {
-          in: await this.resolveActivePickerIdsForVendors(vendorIds)
-        }
-      };
+      return { kind: "REPORTED_VENDORS", vendorIds };
     }
 
     throw new ForbiddenException("You do not have permission for this action.");
-  }
-
-  private async resolveActivePickerIdsForVendors(vendorIds: string[]) {
-    const uniqueVendorIds = uniqueStrings(vendorIds);
-
-    if (!uniqueVendorIds.length) {
-      return [];
-    }
-
-    const assignments = await this.prisma.pickerBranchAssignment.findMany({
-      where: {
-        status: AssignmentStatus.ACTIVE,
-        vendorId: { in: uniqueVendorIds }
-      },
-      select: { pickerId: true }
-    });
-
-    return uniqueStrings(assignments.map((assignment) => assignment.pickerId));
   }
 }
 
 function buildDailyReportWhere(
   importBatchId: string,
   query: AttendanceDailyReportQuery,
-  userScope: AttendanceDailyUserScope
+  reportScope: AttendanceDailyReportScope
 ): Prisma.AttendanceDailyRecordWhereInput {
   const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
@@ -352,7 +326,7 @@ function buildDailyReportWhere(
       }
     }
   };
-  applyDailyUserScope(where, userScope);
+  applyDailyReportScope(where, reportScope);
 
   if (query.dateFrom || query.dateTo) {
     where.shiftDate = {};
@@ -393,6 +367,24 @@ function buildDailyReportWhere(
         }
       },
       {
+        reportedLocationName: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
+      {
+        reportedLocationRaw: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
+      {
+        reportedLocationCode: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
+      {
         sourceLocation: {
           contains: search,
           mode: "insensitive"
@@ -414,14 +406,14 @@ function buildFilterOptionWhere(
     includeChain: boolean;
     includeStatus: boolean;
   },
-  userScope: AttendanceDailyUserScope
+  reportScope: AttendanceDailyReportScope
 ) {
   return buildDailyReportWhere(importBatchId, {
     ...query,
     branch: options.includeBranch ? query.branch : undefined,
     chain: options.includeChain ? query.chain : undefined,
     status: options.includeStatus ? query.status : undefined
-  }, userScope);
+  }, reportScope);
 }
 
 function applyDailyFacetFilters(
@@ -433,17 +425,24 @@ function applyDailyFacetFilters(
   }
 
   if (query.branch?.trim()) {
-    where.sourceLocation = {
-      contains: query.branch.trim(),
-      mode: "insensitive"
-    };
+    const branch = query.branch.trim();
+    addDailyAnd(where, {
+      OR: [
+        { reportedLocationName: { contains: branch, mode: "insensitive" } },
+        { reportedLocationRaw: { contains: branch, mode: "insensitive" } },
+        { reportedLocationCode: { contains: branch, mode: "insensitive" } },
+        { sourceLocation: { contains: branch, mode: "insensitive" } }
+      ]
+    });
   }
 
   if (query.chain?.trim()) {
-    where.sourceSubDivision = {
-      contains: query.chain.trim(),
-      mode: "insensitive"
-    };
+    addDailyAnd(where, {
+      reportedChainId: {
+        contains: query.chain.trim(),
+        mode: "insensitive"
+      }
+    });
   }
 
   if (query.status) {
@@ -468,7 +467,7 @@ function buildDailyAnalyticsWhere(
   dateFrom: string,
   dateTo: string,
   query: AttendanceDailyReportQuery | undefined,
-  userScope: AttendanceDailyUserScope
+  reportScope: AttendanceDailyReportScope
 ): Prisma.AttendanceDailyRecordWhereInput {
   const where: Prisma.AttendanceDailyRecordWhereInput = {
     importBatchId,
@@ -482,20 +481,47 @@ function buildDailyAnalyticsWhere(
       lte: parseDateOnly(dateTo, "dateTo")
     }
   };
-  applyDailyUserScope(where, userScope);
+  applyDailyReportScope(where, reportScope);
 
   applyDailyFacetFilters(where, query);
 
   return where;
 }
 
-function applyDailyUserScope(
+function applyDailyReportScope(
   where: Prisma.AttendanceDailyRecordWhereInput,
-  userScope: AttendanceDailyUserScope
+  reportScope: AttendanceDailyReportScope
 ) {
-  if (userScope.userId !== undefined) {
-    where.userId = userScope.userId;
+  if (reportScope.kind === "PICKER") {
+    where.userId = reportScope.userId;
   }
+
+  if (reportScope.kind === "REPORTED_CHAINS") {
+    where.reportedChainId = { in: reportScope.chainIds };
+  }
+
+  if (reportScope.kind === "REPORTED_VENDORS") {
+    where.reportedVendorId = { in: reportScope.vendorIds };
+  }
+}
+
+function addDailyAnd(
+  where: Prisma.AttendanceDailyRecordWhereInput,
+  condition: Prisma.AttendanceDailyRecordWhereInput
+) {
+  const existing = where.AND;
+
+  if (Array.isArray(existing)) {
+    where.AND = [...existing, condition];
+    return;
+  }
+
+  if (existing) {
+    where.AND = [existing, condition];
+    return;
+  }
+
+  where.AND = [condition];
 }
 
 function buildDailyOrderBy(
@@ -505,7 +531,7 @@ function buildDailyOrderBy(
   const sortFieldByKey = {
     date: "shiftDate",
     hours: "actualWorkDurationHours",
-    location: "sourceLocation",
+    location: "reportedLocationName",
     name: "pickerNameSnapshot",
     status: "calculatedStatus"
   } satisfies Record<
@@ -722,10 +748,16 @@ function buildFilterOptions({
     statusSet.add(record.calculatedStatus);
   }
   for (const record of branchRecords) {
-    addCleanOption(branchSet, record.sourceLocation);
+    addCleanOption(
+      branchSet,
+      record.reportedLocationName ??
+        record.reportedLocationRaw ??
+        record.reportedLocationCode ??
+        record.sourceLocation
+    );
   }
   for (const record of chainRecords) {
-    addCleanOption(chainSet, record.sourceSubDivision);
+    addCleanOption(chainSet, record.reportedChainId);
   }
 
   return {
@@ -1095,6 +1127,12 @@ function toDailyReportRow(
     sourceDesignation: record.sourceDesignation,
     sourceLocation: record.sourceLocation,
     sourceSubDivision: record.sourceSubDivision,
+    reportedVendorId: record.reportedVendorId,
+    reportedChainId: record.reportedChainId,
+    reportedLocationCode: record.reportedLocationCode,
+    reportedLocationName: record.reportedLocationName,
+    reportedLocationRaw: record.reportedLocationRaw,
+    locationMappingStatus: record.locationMappingStatus,
     shiftName: record.shiftName,
     scheduledStartTime: record.scheduledStartTime,
     scheduledEndTime: record.scheduledEndTime,

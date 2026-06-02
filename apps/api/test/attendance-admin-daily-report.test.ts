@@ -8,6 +8,7 @@ import {
   AttendanceImportBatchStatus,
   AttendanceLateBucket,
   AttendanceLeaveType,
+  AttendanceLocationMappingStatus,
   EmploymentStatus,
   ProfileStatus,
   UserRole
@@ -849,6 +850,29 @@ function dailyRow(
 ) {
   const shiftDate =
     typeof overrides.shiftDate === "string" ? overrides.shiftDate : "2026-05-01";
+  const hasOverride = (key: keyof DailyRow) =>
+    Object.prototype.hasOwnProperty.call(overrides, key);
+  const sourceSubDivision = hasOverride("sourceSubDivision")
+    ? overrides.sourceSubDivision ?? null
+    : "Chain Alpha";
+  const sourceLocation = hasOverride("sourceLocation")
+    ? overrides.sourceLocation ?? null
+    : "Branch A";
+  const reportedVendorId = hasOverride("reportedVendorId")
+    ? overrides.reportedVendorId ?? null
+    : null;
+  const reportedChainId = hasOverride("reportedChainId")
+    ? overrides.reportedChainId ?? null
+    : sourceSubDivision;
+  const reportedLocationCode = hasOverride("reportedLocationCode")
+    ? overrides.reportedLocationCode ?? null
+    : null;
+  const reportedLocationName = hasOverride("reportedLocationName")
+    ? overrides.reportedLocationName ?? null
+    : sourceLocation;
+  const reportedLocationRaw = hasOverride("reportedLocationRaw")
+    ? overrides.reportedLocationRaw ?? null
+    : sourceLocation;
   const calculatedStatus =
     overrides.calculatedStatus ?? AttendanceCalculatedStatus.ON_TIME;
   const isLate = calculatedStatus === AttendanceCalculatedStatus.LATE;
@@ -864,8 +888,16 @@ function dailyRow(
     userId: `user-${overrides.shopperId ?? "SHOPPER-001"}`,
     pickerNameSnapshot: "Picker One",
     sourceDesignation: "Picker",
-    sourceSubDivision: "Chain Alpha",
-    sourceLocation: "Branch A",
+    sourceSubDivision,
+    sourceLocation,
+    reportedVendorId,
+    reportedChainId,
+    reportedLocationCode,
+    reportedLocationName,
+    reportedLocationRaw,
+    locationMappingStatus:
+      overrides.locationMappingStatus ??
+      AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE,
     shiftName: "Morning Shift",
     scheduledStartTime: "09:00",
     scheduledEndTime: "17:00",
@@ -979,6 +1011,10 @@ function matchesWhere(row: DailyRow, where: Record<string, unknown>): boolean {
       key === "pickerNameSnapshot" ||
       key === "sourceLocation" ||
       key === "sourceSubDivision" ||
+      key === "reportedLocationCode" ||
+      key === "reportedLocationName" ||
+      key === "reportedLocationRaw" ||
+      key === "reportedChainId" ||
       key === "sourceName"
     ) {
       const actual = String(row[key as keyof DailyRow] ?? "");
@@ -1041,6 +1077,12 @@ type DailyRow = {
   sourceDesignation: string | null;
   sourceSubDivision: string | null;
   sourceLocation: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
   shiftName: string;
   scheduledStartTime: string | null;
   scheduledEndTime: string | null;

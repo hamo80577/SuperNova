@@ -103,17 +103,18 @@ const workspaceCopy: Record<
     title: "Attendance"
   },
   "area-manager": {
-    description: "Read-only attendance scoped to your current Chain assignments.",
+    description:
+      "Read-only attendance scoped to reported Chains from attendance imports.",
     scopeNote:
-      "This report is scoped by your current operational assignments. Source Chain and Branch are imported file labels that only filter the scoped data.",
+      "This report is scoped by reported Chain context stored from the attendance file. Chain and Branch filters are imported reporting labels, not assignment-controlled hierarchy.",
     showImportShortcut: false,
     title: "Attendance"
   },
   champ: {
     description:
-      "Read-only attendance scoped to your current assigned branches and pickers.",
+      "Read-only attendance scoped to reported Branches from attendance imports.",
     scopeNote:
-      "This report is scoped by your current assigned branches and Pickers. Source Chain and Branch are imported file labels that only filter the scoped data.",
+      "This report is scoped by reported Branch context stored from the attendance file. Chain and Branch filters are imported reporting labels, not assignment-controlled hierarchy.",
     showImportShortcut: false,
     title: "Attendance"
   }
@@ -646,7 +647,7 @@ function AttendanceList({
                     <NameCell row={row} />
                   </TableCell>
                   <TableCell>
-                    <LocationPill value={row.sourceLocation} />
+                    <LocationPill value={rowLocationLabel(row)} />
                   </TableCell>
                   <TableCell>
                     {isLeaveStatus(row) ? null : <CheckInCell row={row} />}
@@ -686,7 +687,7 @@ function AttendanceList({
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
                   <Definition
                     label="Location"
-                    value={<LocationPill value={row.sourceLocation} />}
+                    value={<LocationPill value={rowLocationLabel(row)} />}
                   />
                   <Definition
                     label="Check-in"
@@ -898,9 +899,9 @@ function ReportFilterBar({
         </Button>
       </div>
       <p className="min-w-0 text-xs leading-5 text-slate-500 xl:col-span-3">
-        Chain and Branch filters use imported source labels from the attendance
-        file fields <span className="font-mono text-[11px]">sourceSubDivision</span>{" "}
-        and <span className="font-mono text-[11px]">sourceLocation</span>. They
+        Chain and Branch filters use reported labels mapped from the attendance
+        file fields <span className="font-mono text-[11px]">reportedChainId</span>{" "}
+        and <span className="font-mono text-[11px]">reportedLocation</span>. They
         are read-only reporting dimensions, not assignment-controlled hierarchy,
         authorization, or operational source of truth.
       </p>
@@ -1554,6 +1555,15 @@ function LocationPill({ value }: { value?: string | null }) {
     <span className="inline-flex max-w-full rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700">
       <TruncatedText value={value} />
     </span>
+  );
+}
+
+function rowLocationLabel(row: AttendanceDailyReportRow) {
+  return (
+    row.reportedLocationName ??
+    row.reportedLocationRaw ??
+    row.reportedLocationCode ??
+    row.sourceLocation
   );
 }
 
