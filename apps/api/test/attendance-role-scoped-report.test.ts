@@ -8,6 +8,7 @@ import {
   AttendanceCalculatedStatus,
   AttendanceImportBatchStatus,
   AttendanceLateBucket,
+  AttendanceLocationMappingStatus,
   EmploymentStatus,
   ProfileStatus,
   UserRole
@@ -98,65 +99,111 @@ const pickerBranchAssignments = [
 
 const activeRows = [
   dailyRow({
-    id: "am-on-time",
-    userId: "picker-am-1",
-    shopperId: "AM-001",
-    pickerNameSnapshot: "Area Picker One",
+    id: "reported-chain-a",
+    userId: "picker-outsider",
+    shopperId: "RCA-001",
+    pickerNameSnapshot: "Reported Chain A Picker",
     calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
-    sourceLocation: "Imported Branch A",
-    sourceSubDivision: "Imported Chain Outside"
+    reportedVendorId: "vendor-a",
+    reportedChainId: "chain-a",
+    reportedLocationCode: "100001",
+    reportedLocationName: "Reported Branch A",
+    reportedLocationRaw: "100001 - Reported Branch A",
+    sourceLocation: "Source Branch Different",
+    sourceSubDivision: "Source Chain Different"
   }),
   dailyRow({
-    id: "am-absent",
+    id: "current-assignment-only",
+    userId: "picker-am-1",
+    shopperId: "CUR-001",
+    pickerNameSnapshot: "Current Assignment Only",
+    calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
+    reportedVendorId: "vendor-c",
+    reportedChainId: "chain-c",
+    reportedLocationCode: "300001",
+    reportedLocationName: "Reported Branch C",
+    reportedLocationRaw: "300001 - Reported Branch C",
+    sourceLocation: "Imported Branch A",
+    sourceSubDivision: "Imported Chain A"
+  }),
+  dailyRow({
+    id: "unmapped-current-area",
     userId: "picker-am-2",
-    shopperId: "AM-002",
-    pickerNameSnapshot: "Area Picker Two",
+    shopperId: "UNMAP-001",
+    pickerNameSnapshot: "Unmapped Current Area Picker",
     calculatedStatus: AttendanceCalculatedStatus.ABSENT,
     isAbsent: true,
     actualCheckinTime: null,
     actualCheckoutTime: null,
     actualWorkDurationHours: null,
-    sourceLocation: "Imported Branch B",
-    sourceSubDivision: "Imported Chain A"
-  }),
-  dailyRow({
-    id: "closed-assignment-row",
-    userId: "picker-closed",
-    shopperId: "CLOSED-001",
-    pickerNameSnapshot: "Closed Assignment Picker",
-    calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
+    reportedVendorId: null,
+    reportedChainId: null,
+    reportedLocationCode: "999999",
+    reportedLocationName: "Unmapped Historical Branch",
+    reportedLocationRaw: "999999 - Unmapped Historical Branch",
+    locationMappingStatus: AttendanceLocationMappingStatus.UNMAPPED,
     sourceLocation: "Imported Branch A",
     sourceSubDivision: "Imported Chain A"
   }),
   dailyRow({
-    id: "champ-late",
-    userId: "picker-champ-1",
-    shopperId: "CHAMP-001",
-    pickerNameSnapshot: "Champ Picker",
+    id: "reported-vendor-b",
+    userId: "picker-outsider",
+    shopperId: "RVB-001",
+    pickerNameSnapshot: "Reported Vendor B Picker",
     calculatedStatus: AttendanceCalculatedStatus.LATE,
     rawLateMins: 25,
     chargeableLateMins: 10,
     lateBucket: AttendanceLateBucket.LATE_1,
+    reportedVendorId: "vendor-b",
+    reportedChainId: "chain-b",
+    reportedLocationCode: "200001",
+    reportedLocationName: "Reported Branch B",
+    reportedLocationRaw: "200001 - Reported Branch B",
+    sourceLocation: "Source Branch Other",
+    sourceSubDivision: "Source Chain Other"
+  }),
+  dailyRow({
+    id: "current-vendor-only",
+    userId: "picker-champ-1",
+    shopperId: "CUR-CHAMP-001",
+    pickerNameSnapshot: "Current Vendor Only",
+    calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
+    reportedVendorId: "vendor-c",
+    reportedChainId: "chain-c",
+    reportedLocationCode: "300002",
+    reportedLocationName: "Reported Branch C",
+    reportedLocationRaw: "300002 - Reported Branch C",
     sourceLocation: "Imported Branch C",
     sourceSubDivision: "Imported Chain B"
   }),
   dailyRow({
-    id: "picker-own",
+    id: "picker-own-chain-a",
     userId: "picker-self",
     shopperId: "SELF-001",
     pickerNameSnapshot: "Self Picker",
     calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
+    reportedVendorId: "vendor-a",
+    reportedChainId: "chain-a",
+    reportedLocationCode: "100002",
+    reportedLocationName: "Self Reported Branch A",
+    reportedLocationRaw: "100002 - Self Reported Branch A",
     sourceLocation: "Imported Branch Self",
     sourceSubDivision: "Imported Chain Self"
   }),
   dailyRow({
-    id: "outsider",
-    userId: "picker-outsider",
-    shopperId: "OUT-001",
-    pickerNameSnapshot: "Outside Picker",
+    id: "picker-own-unmapped",
+    userId: "picker-self",
+    shopperId: "SELF-002",
+    pickerNameSnapshot: "Self Picker",
     calculatedStatus: AttendanceCalculatedStatus.ON_TIME,
-    sourceLocation: "Outsider Branch",
-    sourceSubDivision: "Outsider Chain"
+    reportedVendorId: null,
+    reportedChainId: null,
+    reportedLocationCode: "888888",
+    reportedLocationName: "Self Unmapped Branch",
+    reportedLocationRaw: "888888 - Self Unmapped Branch",
+    locationMappingStatus: AttendanceLocationMappingStatus.UNMAPPED,
+    sourceLocation: "Imported Unmapped Self",
+    sourceSubDivision: "Imported Chain Self"
   })
 ];
 
@@ -257,16 +304,25 @@ async function run() {
     assert.deepEqual(
       result.rows.map((row) => row.id),
       [
-        "am-on-time",
-        "am-absent",
-        "closed-assignment-row",
-        "champ-late",
-        "picker-own",
-        "outsider"
+        "reported-chain-a",
+        "current-assignment-only",
+        "unmapped-current-area",
+        "reported-vendor-b",
+        "current-vendor-only",
+        "picker-own-chain-a",
+        "picker-own-unmapped"
       ]
     );
-    assert.equal(result.pagination.totalRows, 6);
-    assert.equal(result.analytics.attendanceRate.totalShifts, 6);
+    assert.equal(result.pagination.totalRows, 7);
+    assert.equal(result.analytics.attendanceRate.totalShifts, 7);
+    assert.equal(
+      result.rows.some(
+        (row) =>
+          (row as { locationMappingStatus?: string }).locationMappingStatus ===
+          "UNMAPPED"
+      ),
+      true
+    );
   }
 
   {
@@ -279,32 +335,31 @@ async function run() {
 
     assert.deepEqual(
       result.rows.map((row) => row.id),
-      ["am-on-time", "am-absent"]
+      ["reported-chain-a", "picker-own-chain-a"]
     );
     assert.equal(result.pagination.totalRows, 2);
     assert.deepEqual(result.summary, {
       totalRows: 2,
-      onTimeCount: 1,
+      onTimeCount: 2,
       lateCount: 0,
-      absentCount: 1,
+      absentCount: 0,
       leaveCount: 0,
       offDayCount: 0,
       under8HoursCount: 0,
       over15HoursCount: 0,
-      totalRawLateMins: 5,
+      totalRawLateMins: 10,
       totalChargeableLateMins: 0
     });
     assert.deepEqual(result.analytics.attendanceMix, {
-      absent: { count: 1, percentage: 50 },
-      attend: { count: 1, percentage: 50 },
+      absent: { count: 0, percentage: 0 },
+      attend: { count: 2, percentage: 100 },
       onLeave: { count: 0, percentage: 0 }
     });
     assert.deepEqual(result.filterOptions, {
-      branches: ["Imported Branch A", "Imported Branch B"],
-      chains: ["Imported Chain A", "Imported Chain Outside"],
+      branches: ["Reported Branch A", "Self Reported Branch A"],
+      chains: ["chain-a"],
       statuses: [
-        AttendanceCalculatedStatus.ON_TIME,
-        AttendanceCalculatedStatus.ABSENT
+        AttendanceCalculatedStatus.ON_TIME
       ]
     });
   }
@@ -319,7 +374,7 @@ async function run() {
 
     assert.deepEqual(
       result.rows.map((row) => row.id),
-      ["champ-late"]
+      ["reported-vendor-b"]
     );
     assert.equal(result.pagination.totalRows, 1);
     assert.deepEqual(result.analytics.lateBuckets, {
@@ -328,7 +383,7 @@ async function run() {
       late3: { count: 0, percentage: 0 },
       totalLateCount: 1
     });
-    assert.deepEqual(result.filterOptions.branches, ["Imported Branch C"]);
+    assert.deepEqual(result.filterOptions.branches, ["Reported Branch B"]);
   }
 
   {
@@ -341,10 +396,18 @@ async function run() {
 
     assert.deepEqual(
       result.rows.map((row) => row.id),
-      ["picker-own"]
+      ["picker-own-chain-a", "picker-own-unmapped"]
     );
-    assert.equal(result.pagination.totalRows, 1);
+    assert.equal(result.pagination.totalRows, 2);
     assert.equal(result.analytics.pickerCount, 1);
+    assert.equal(
+      result.rows.some(
+        (row) =>
+          (row as { locationMappingStatus?: string }).locationMappingStatus ===
+          "UNMAPPED"
+      ),
+      true
+    );
   }
 
   {
@@ -353,8 +416,8 @@ async function run() {
     const result = await service.getDailyReport(
       {
         periodMonth: "2026-05",
-        branch: "Outsider Branch",
-        chain: "Outsider Chain",
+        branch: "Reported Branch C",
+        chain: "chain-c",
         pageSize: 10
       },
       actor("area-manager-1", UserRole.AREA_MANAGER)
@@ -364,6 +427,25 @@ async function run() {
     assert.equal(result.pagination.totalRows, 0);
     assert.equal(result.analytics.attendanceRate.totalShifts, 0);
     assert.deepEqual(result.filterOptions.branches, []);
+  }
+
+  {
+    const { prisma } = createPrismaMock();
+    const service = new AttendanceReportService(prisma as never);
+    const result = await service.getDailyReport(
+      {
+        periodMonth: "2026-05",
+        branch: "100001"
+      },
+      actor("admin-1", UserRole.ADMIN)
+    );
+
+    assert.deepEqual(
+      result.rows.map((row) => row.id),
+      ["reported-chain-a"]
+    );
+    assert.equal(result.summary.totalRows, 1);
+    assert.equal(result.analytics.attendanceRate.totalShifts, 1);
   }
 
   {
@@ -409,6 +491,12 @@ function dailyRow(
     sourceDesignation: "Picker",
     sourceSubDivision: "Imported Chain A",
     sourceLocation: "Imported Branch A",
+    reportedVendorId: "vendor-a",
+    reportedChainId: "chain-a",
+    reportedLocationCode: "100001",
+    reportedLocationName: "Reported Branch A",
+    reportedLocationRaw: "100001 - Reported Branch A",
+    locationMappingStatus: AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE,
     shiftName: "Morning Shift",
     scheduledStartTime: "09:00",
     scheduledEndTime: "17:00",
@@ -496,6 +584,10 @@ function matchesWhere(row: Record<string, unknown>, where: Record<string, unknow
       key === "pickerNameSnapshot" ||
       key === "sourceLocation" ||
       key === "sourceSubDivision" ||
+      key === "reportedLocationCode" ||
+      key === "reportedLocationName" ||
+      key === "reportedLocationRaw" ||
+      key === "reportedChainId" ||
       key === "sourceName"
     ) {
       const actual = String(row[key] ?? "");
@@ -539,6 +631,12 @@ type DailyRow = {
   sourceDesignation: string | null;
   sourceSubDivision: string | null;
   sourceLocation: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
   shiftName: string;
   scheduledStartTime: string | null;
   scheduledEndTime: string | null;

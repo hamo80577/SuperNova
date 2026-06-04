@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 
 import {
+  AssignmentStatus,
+  AttendanceAssignmentMismatchStatus,
   AttendanceImportBatchStatus,
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueSeverity,
+  AttendanceLocationMappingStatus,
   UserRole
 } from "@prisma/client";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
@@ -32,7 +36,8 @@ const requiredHeaders = [
   "Name",
   "Designation",
   "Sub Division",
-  "Location"
+  "Location",
+  "Shift Location"
 ];
 
 type WorkbookRow = Record<string, unknown>;
@@ -42,6 +47,7 @@ interface StoredBatch {
   periodMonth: string;
   fileName: string;
   fileHash: string;
+  importMode: AttendanceImportMode;
   uploadedByUserId: string;
   uploadedAt: Date;
   status: AttendanceImportBatchStatus;
@@ -96,7 +102,8 @@ function baseRow(overrides: WorkbookRow = {}): WorkbookRow {
     Name: "Picker One",
     Designation: "Picker",
     "Sub Division": "Cairo",
-    Location: "Branch A",
+    Location: "100001 - Branch A",
+    "Shift Location": "100001 - Branch A",
     ...overrides
   };
 }
@@ -118,6 +125,7 @@ function createStore() {
   const store = {
     now,
     nextBatchNumber: 1,
+    activeAssignmentFindManyCalls: 0,
     failBatchUpdateForId: null as string | null,
     forbiddenMutationCalls: [] as string[],
     users: [
@@ -155,6 +163,46 @@ function createStore() {
         pickerBranchAssignments: []
       }
     ],
+    vendors: [
+      {
+        id: "vendor-a",
+        vendorCode: "100001",
+        vendorExternalId: null,
+        vendorName: "Branch A",
+        chainId: "chain-a",
+        chain: { id: "chain-a", chainName: "Chain A" }
+      },
+      {
+        id: "vendor-b",
+        vendorCode: "100002",
+        vendorExternalId: null,
+        vendorName: "Branch B",
+        chainId: "chain-b",
+        chain: { id: "chain-b", chainName: "Chain B" }
+      },
+      {
+        id: "vendor-external",
+        vendorCode: "EXT-1",
+        vendorExternalId: "200002",
+        vendorName: "External Branch",
+        chainId: "chain-external",
+        chain: { id: "chain-external", chainName: "External Chain" }
+      }
+    ],
+    pickerBranchAssignments: [
+      {
+        pickerId: "user-picker-1",
+        vendorId: "vendor-a",
+        status: AssignmentStatus.ACTIVE,
+        startDate: now
+      },
+      {
+        pickerId: "user-picker-2",
+        vendorId: "vendor-b",
+        status: AssignmentStatus.ACTIVE,
+        startDate: now
+      }
+    ],
     batches: [] as StoredBatch[],
     issues: [] as Record<string, unknown>[],
     dailyRecords: [] as Record<string, unknown>[],
@@ -176,7 +224,59 @@ function createStore() {
         throw new Error("User update is out of scope.");
       }
     },
+    vendor: {
+      findMany: async ({
+        where
+      }: {
+        where: {
+          OR?: Array<{
+            vendorCode?: { in: string[] };
+            vendorExternalId?: { in: string[] };
+          }>;
+        };
+      }) => {
+        const codes = new Set<string>();
+        for (const condition of where.OR ?? []) {
+          for (const code of condition.vendorCode?.in ?? []) {
+            codes.add(code);
+          }
+          for (const code of condition.vendorExternalId?.in ?? []) {
+            codes.add(code);
+          }
+        }
+
+        return store.vendors.filter(
+          (vendor) =>
+            codes.has(vendor.vendorCode) ||
+            (vendor.vendorExternalId ? codes.has(vendor.vendorExternalId) : false)
+        );
+      },
+      create: async () => {
+        store.forbiddenMutationCalls.push("vendor.create");
+        throw new Error("Vendor creation is out of scope.");
+      },
+      update: async () => {
+        store.forbiddenMutationCalls.push("vendor.update");
+        throw new Error("Vendor update is out of scope.");
+      }
+    },
     pickerBranchAssignment: {
+      findMany: async ({
+        where
+      }: {
+        where: {
+          pickerId?: { in: string[] };
+          status?: AssignmentStatus;
+        };
+      }) =>
+        {
+          store.activeAssignmentFindManyCalls += 1;
+          return store.pickerBranchAssignments.filter(
+            (assignment) =>
+              (!where.pickerId?.in || where.pickerId.in.includes(assignment.pickerId)) &&
+              (!where.status || assignment.status === where.status)
+          );
+        },
       create: async () => {
         store.forbiddenMutationCalls.push("pickerBranchAssignment.create");
         throw new Error("Assignment mutation is out of scope.");
@@ -301,6 +401,8 @@ async function previewRows(
     actor?: AttendanceImportActor;
     duplicateResolutionRowNumbers?: number[];
     fileName?: string;
+    importMode?: AttendanceImportMode;
+    periodMonth?: string;
     prisma?: unknown;
     uploadDate?: string;
   } = {}
@@ -311,6 +413,8 @@ async function previewRows(
   return service.previewImport(buffer, {
     actor: options.actor ?? adminActor,
     fileName: options.fileName ?? "attendance.xlsx",
+    importMode: options.importMode,
+    periodMonth: options.periodMonth,
     uploadDate: options.uploadDate ?? "2026-05-02",
     duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
     now: "2026-05-09T10:00:00.000Z"
@@ -353,13 +457,403 @@ async function main() {
 
     assert.equal(result.dailyRecordCount, 1);
     assert.equal(result.monthlySummaryCount, 1);
+    assert.equal(result.preview.mappedLocationRows, 1);
+    assert.equal(result.preview.unmappedLocationRows, 0);
+    assert.equal(result.preview.missingLocationCodeRows, 0);
+    assert.equal(result.preview.activeAssignmentMismatchRows, 0);
+    assert.equal(result.preview.locationShiftLocationDifferenceRows, 0);
     assert.equal(store.dailyRecords.length, 1);
     assert.equal(store.monthlySummaries.length, 1);
     assert.equal(store.dailyRecords[0]?.["importBatchId"], result.batchId);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-a");
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], "chain-a");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "100001");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Branch A");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationRaw"], "100001 - Branch A");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationCode"], "100001");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationName"], "Branch A");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationRaw"], "100001 - Branch A");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE
+    );
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT
+    );
     assert.equal(store.monthlySummaries[0]?.["sourceBatchId"], result.batchId);
     assert.ok(store.dailyRecords[0]?.["shiftDate"] instanceof Date);
     assert.ok(store.dailyRecords[0]?.["actualCheckinTime"] instanceof Date);
     assert.equal(store.monthlySummaries[0]?.["totalWorkingDays"], 1);
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "All Vendors" })
+    ], { prisma });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(result.canConfirm, false);
+    assert.equal(result.preview.mappedLocationRows, 0);
+    assert.equal(result.preview.missingLocationCodeRows, 1);
+    assert.equal(result.preview.unmappedLocationRows, 0);
+    assert.equal(store.dailyRecords.length, 0);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.MISSING_ATTENDANCE_LOCATION_CODE
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "999999 - Unknown Branch" })
+    ], { prisma });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.mappedLocationRows, 0);
+    assert.equal(result.preview.unmappedLocationRows, 1);
+    assert.equal(result.preview.missingLocationCodeRows, 0);
+    assert.equal(result.preview.errorRows, 0);
+    assert.equal(result.preview.warningRows, 1);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "999999");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Unknown Branch");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationRaw"], "999999 - Unknown Branch");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.UNMAPPED
+    );
+    const issue = result.preview.issues.find(
+      (item) => item.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
+    );
+    assert.equal(issue?.severity, AttendanceIssueSeverity.WARNING);
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "100002 - Branch B" })
+    ], { prisma });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.mappedLocationRows, 1);
+    assert.equal(result.preview.activeAssignmentMismatchRows, 1);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-b");
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT
+    );
+    assert.ok(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({
+        Location: "100001 - Branch A",
+        "Shift Location": "100002 - Branch B"
+      })
+    ], { prisma });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.locationShiftLocationDifferenceRows, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-a");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationCode"], "100002");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationName"], "Branch B");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationRaw"], "100002 - Branch B");
+    assert.ok(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.LOCATION_SHIFT_LOCATION_DIFFERENCE
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "200002 - External Branch" })
+    ], { prisma });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.mappedLocationRows, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-external");
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], "chain-external");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.MAPPED_VENDOR_EXTERNAL_ID
+    );
+  }
+
+  {
+    const { prisma } = createStore();
+    const result = await previewRows([baseRow()], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(result.canConfirm, false);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) =>
+          issue.issueCode === AttendanceIssueCode.HISTORICAL_PERIOD_MONTH_REQUIRED
+      )
+    );
+  }
+
+  {
+    const { prisma } = createStore();
+    const result = await previewRows([baseRow()], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026/05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) =>
+          issue.issueCode === AttendanceIssueCode.INVALID_HISTORICAL_PERIOD_MONTH
+      )
+    );
+  }
+
+  {
+    const { prisma } = createStore();
+    const currentMonthResult = await previewRows([baseRow()], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-06",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+    const futureMonthResult = await previewRows([baseRow()], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-07",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(currentMonthResult.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(futureMonthResult.status, AttendanceImportBatchStatus.FAILED);
+    assert.ok(
+      currentMonthResult.preview.issues.some(
+        (issue) =>
+          issue.issueCode ===
+          AttendanceIssueCode.HISTORICAL_PERIOD_MONTH_NOT_CLOSED
+      )
+    );
+    assert.ok(
+      futureMonthResult.preview.issues.some(
+        (issue) =>
+          issue.issueCode ===
+          AttendanceIssueCode.HISTORICAL_PERIOD_MONTH_NOT_CLOSED
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ "Shift Date": "2026-05-01" }),
+      baseRow({
+        "Shift Date": "2026-05-31",
+        "Shift Name": "Month End Shift",
+        "Actual Checkin Time": "09:10"
+      })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.importMode, AttendanceImportMode.HISTORICAL_MONTH);
+    assert.equal(result.preview.periodMonth, "2026-05");
+    assert.equal(result.preview.coverageStartDate, "2026-05-01");
+    assert.equal(result.preview.coverageEndDate, "2026-05-31");
+    assert.equal(result.preview.expectedCoverageEndDate, "2026-05-31");
+    assert.equal(result.dailyRecordCount, 2);
+    assert.equal(store.batches[0]?.importMode, AttendanceImportMode.HISTORICAL_MONTH);
+    assert.equal(store.activeAssignmentFindManyCalls, 0);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-a");
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], "chain-a");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "100001");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Branch A");
+    assert.equal(store.dailyRecords[0]?.["shiftLocationCode"], "100001");
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.NOT_CHECKED
+    );
+    assert.equal(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.MTD_COVERAGE_END_NOT_YESTERDAY
+      ),
+      false
+    );
+    assert.equal(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.MTD_INCLUDES_UPLOAD_DAY
+      ),
+      false
+    );
+    assert.equal(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.MTD_INCLUDES_FUTURE_DATE
+      ),
+      false
+    );
+  }
+
+  {
+    const { prisma } = createStore();
+    const result = await previewRows([
+      baseRow({ "Shift Date": "2026-06-01" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) =>
+          issue.issueCode ===
+          AttendanceIssueCode.SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "All Vendors" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(store.dailyRecords.length, 0);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) =>
+          issue.issueCode === AttendanceIssueCode.MISSING_ATTENDANCE_LOCATION_CODE
+      )
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const service = createService(prisma);
+    const result = await previewRows([
+      baseRow({ Location: "999999 - Unknown Branch" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.unmappedLocationRows, 1);
+    assert.equal(result.preview.errorRows, 0);
+    assert.equal(result.preview.warningRows, 1);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], null);
+    assert.equal(store.dailyRecords[0]?.["reportedLocationCode"], "999999");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationName"], "Unknown Branch");
+    assert.equal(store.dailyRecords[0]?.["reportedLocationRaw"], "999999 - Unknown Branch");
+    assert.equal(
+      store.dailyRecords[0]?.["locationMappingStatus"],
+      AttendanceLocationMappingStatus.UNMAPPED
+    );
+    const issue = result.preview.issues.find(
+      (item) => item.issueCode === AttendanceIssueCode.UNMAPPED_ATTENDANCE_LOCATION
+    );
+    assert.equal(issue?.severity, AttendanceIssueSeverity.WARNING);
+
+    const confirmed = await service.confirmImport(result.batchId, {
+      actor: adminActor,
+      now: store.now
+    });
+
+    assert.equal(confirmed.status, AttendanceImportBatchStatus.ACTIVE);
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({ Location: "100002 - Branch B" })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.preview.activeAssignmentMismatchRows, 0);
+    assert.equal(store.activeAssignmentFindManyCalls, 0);
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-b");
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.NOT_CHECKED
+    );
+    assert.equal(
+      result.preview.issues.some(
+        (issue) => issue.issueCode === AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH
+      ),
+      false
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const result = await previewRows([
+      baseRow({
+        Location: "100001 - Branch A",
+        "Shift Location": "100002 - Branch B"
+      })
+    ], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.preview.locationShiftLocationDifferenceRows, 1);
+    assert.equal(store.dailyRecords[0]?.["shiftLocationCode"], "100002");
+    assert.ok(
+      result.preview.issues.some(
+        (issue) =>
+          issue.issueCode === AttendanceIssueCode.LOCATION_SHIFT_LOCATION_DIFFERENCE
+      )
+    );
   }
 
   {
@@ -475,6 +969,7 @@ async function main() {
       periodMonth: "2026-05",
       fileName: "previous.xlsx",
       fileHash: "previous-hash",
+      importMode: AttendanceImportMode.MTD,
       uploadedByUserId: adminActor.id,
       uploadedAt: store.now,
       status: AttendanceImportBatchStatus.ACTIVE,
@@ -523,10 +1018,70 @@ async function main() {
     const { prisma, store } = createStore();
     const service = createService(prisma);
     store.batches.push({
+      id: "previous-historical-active",
+      periodMonth: "2026-05",
+      fileName: "previous-historical.xlsx",
+      fileHash: "previous-historical-hash",
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      uploadedByUserId: adminActor.id,
+      uploadedAt: store.now,
+      status: AttendanceImportBatchStatus.ACTIVE,
+      rowCount: 1,
+      egyptRows: 1,
+      matchedPickerRows: 1,
+      unmatchedRows: 0,
+      excludedNonPickerRows: 0,
+      excludedNonEgyptRows: 0,
+      errorRows: 0,
+      warningRows: 0,
+      coverageStartDate: store.now,
+      coverageEndDate: store.now,
+      expectedCoverageEndDate: store.now,
+      replaceOfBatchId: null,
+      confirmedByUserId: adminActor.id,
+      confirmedAt: store.now,
+      notes: null,
+      createdAt: store.now,
+      updatedAt: store.now
+    });
+    const preview = await previewRows([baseRow()], {
+      importMode: AttendanceImportMode.HISTORICAL_MONTH,
+      periodMonth: "2026-05",
+      prisma,
+      uploadDate: "2026-06-02"
+    });
+
+    const confirmed = await service.confirmImport(preview.batchId, {
+      actor: adminActor,
+      now: store.now
+    });
+
+    assert.equal(confirmed.previousActiveBatchId, "previous-historical-active");
+    assert.equal(
+      store.batches.find((batch) => batch.id === "previous-historical-active")
+        ?.status,
+      AttendanceImportBatchStatus.REPLACED
+    );
+    assert.equal(
+      store.batches.find((batch) => batch.id === preview.batchId)
+        ?.replaceOfBatchId,
+      "previous-historical-active"
+    );
+    assert.equal(
+      store.batches.find((batch) => batch.id === preview.batchId)?.importMode,
+      AttendanceImportMode.HISTORICAL_MONTH
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const service = createService(prisma);
+    store.batches.push({
       id: "previous-active",
       periodMonth: "2026-05",
       fileName: "previous.xlsx",
       fileHash: "previous-hash",
+      importMode: AttendanceImportMode.MTD,
       uploadedByUserId: adminActor.id,
       uploadedAt: store.now,
       status: AttendanceImportBatchStatus.ACTIVE,

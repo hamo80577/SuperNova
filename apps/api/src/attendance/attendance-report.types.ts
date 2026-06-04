@@ -1,7 +1,8 @@
 import type {
   AttendanceCalculatedStatus,
   AttendanceLateBucket,
-  AttendanceLeaveType
+  AttendanceLeaveType,
+  AttendanceLocationMappingStatus
 } from "@prisma/client";
 
 export interface AttendanceDailyReportQuery {
@@ -208,5 +209,11 @@ export interface AttendanceDailyReportRow {
   sourceLocation: string | null;
   sourceSubDivision: string | null;
   sourceDesignation: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
   issuesCount: number;
 }

@@ -1,7 +1,9 @@
 import type {
+  AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
+  AttendanceLocationMappingStatus,
   UserRole
 } from "@prisma/client";
 
@@ -20,6 +22,8 @@ export interface AttendanceUserLookup {
 
 export interface AttendanceValidationOptions {
   duplicateResolutionRowNumbers?: number[];
+  importMode?: AttendanceImportMode | string;
+  periodMonth?: string;
   uploadDate: Date | string;
   rowsPreviewLimit?: number;
   userLookup?: AttendanceUserLookup;
@@ -57,6 +61,7 @@ export interface AttendanceParsedRow {
   sourceSubDivision: string | null;
   sourceLocation: string | null;
   sourceLocationCode: string | null;
+  shiftLocation: string | null;
 }
 
 export interface AttendancePreviewIssue {
@@ -103,6 +108,7 @@ export interface AttendanceRowsPreviewItem {
 }
 
 export interface AttendanceValidationPreview {
+  importMode: AttendanceImportMode;
   periodMonth: string | null;
   coverageStartDate: string | null;
   coverageEndDate: string | null;
@@ -115,8 +121,25 @@ export interface AttendanceValidationPreview {
   excludedNonPickerRows: number;
   errorRows: number;
   warningRows: number;
+  mappedLocationRows: number;
+  unmappedLocationRows: number;
+  missingLocationCodeRows: number;
+  activeAssignmentMismatchRows: number;
+  locationShiftLocationDifferenceRows: number;
+  rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
   canConfirm: boolean;
   duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendanceReportedLocationSummary {
+  code: string | null;
+  name: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  chainId: string | null;
+  chainName: string | null;
+  rowCount: number;
+  mappingStatus: AttendanceLocationMappingStatus;
 }

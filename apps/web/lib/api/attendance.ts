@@ -224,6 +224,12 @@ export interface AttendanceDailyReportRow {
   sourceLocation: string | null;
   sourceSubDivision: string | null;
   sourceDesignation: string | null;
+  reportedVendorId: string | null;
+  reportedChainId: string | null;
+  reportedLocationCode: string | null;
+  reportedLocationName: string | null;
+  reportedLocationRaw: string | null;
+  locationMappingStatus: AttendanceLocationMappingStatus;
   issuesCount: number;
 }
 
@@ -236,9 +242,18 @@ export type AttendanceImportBatchStatus =
   | "FAILED"
   | "LOCKED";
 
+export type AttendanceImportMode = "MTD" | "HISTORICAL_MONTH";
+
 export type AttendanceIssueSeverity = "ERROR" | "WARNING";
 
 export type AttendanceIssueResolutionStatus = "OPEN" | "IGNORED" | "RESOLVED";
+
+export type AttendanceLocationMappingStatus =
+  | "NOT_CHECKED"
+  | "MAPPED_VENDOR_CODE"
+  | "MAPPED_VENDOR_EXTERNAL_ID"
+  | "UNMAPPED"
+  | "MISSING_CODE";
 
 export type AttendanceMatchStatus =
   | "MATCHED_PICKER"
@@ -249,6 +264,8 @@ export type AttendanceMatchStatus =
 
 export interface AttendanceImportPreviewOptions {
   duplicateResolutionRowNumbers?: number[];
+  importMode?: AttendanceImportMode;
+  periodMonth?: string;
   uploadDate?: string;
 }
 
@@ -263,6 +280,7 @@ export interface AttendanceImportPreviewResponse {
 }
 
 export interface AttendanceValidationPreview {
+  importMode: AttendanceImportMode;
   periodMonth: string | null;
   coverageStartDate: string | null;
   coverageEndDate: string | null;
@@ -275,10 +293,27 @@ export interface AttendanceValidationPreview {
   excludedNonPickerRows: number;
   errorRows: number;
   warningRows: number;
+  mappedLocationRows: number;
+  unmappedLocationRows: number;
+  missingLocationCodeRows: number;
+  activeAssignmentMismatchRows: number;
+  locationShiftLocationDifferenceRows: number;
+  rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
   canConfirm: boolean;
   duplicateGroups: AttendanceDuplicateGroup[];
   issues: AttendancePreviewIssue[];
   rowsPreview: AttendanceRowsPreviewItem[];
+}
+
+export interface AttendanceReportedLocationSummary {
+  code: string | null;
+  name: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+  chainId: string | null;
+  chainName: string | null;
+  rowCount: number;
+  mappingStatus: AttendanceLocationMappingStatus;
 }
 
 export interface AttendanceDuplicateGroup {
@@ -365,6 +400,8 @@ export function buildAttendanceImportPreviewFormData(
 ) {
   const formData = new FormData();
   formData.set("file", file);
+  setFormString(formData, "importMode", options.importMode);
+  setFormString(formData, "periodMonth", options.periodMonth);
   setFormString(formData, "uploadDate", options.uploadDate);
   if (options.duplicateResolutionRowNumbers?.length) {
     formData.set(

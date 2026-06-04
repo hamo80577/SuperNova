@@ -145,6 +145,11 @@ enum AttendanceImportBatchStatus {
   LOCKED
 }
 
+enum AttendanceImportMode {
+  MTD
+  HISTORICAL_MONTH
+}
+
 enum AttendanceCalculatedStatus {
   ON_TIME
   LATE
@@ -179,6 +184,21 @@ enum AttendanceMatchStatus {
   EXCLUDED_NON_EGYPT
 }
 
+enum AttendanceLocationMappingStatus {
+  NOT_CHECKED
+  MAPPED_VENDOR_CODE
+  MAPPED_VENDOR_EXTERNAL_ID
+  UNMAPPED
+  MISSING_CODE
+}
+
+enum AttendanceAssignmentMismatchStatus {
+  NOT_CHECKED
+  MATCHES_ACTIVE_ASSIGNMENT
+  DIFFERS_FROM_ACTIVE_ASSIGNMENT
+  NO_ACTIVE_ASSIGNMENT
+}
+
 enum AttendanceIssueSeverity {
   ERROR
   WARNING
@@ -209,6 +229,15 @@ enum AttendanceIssueCode {
   INVALID_WORK_DURATION
   INVALID_SHIFT_DURATION
   INVALID_BREAK_DURATION
+  UNMAPPED_ATTENDANCE_LOCATION
+  LOCATION_SHIFT_LOCATION_DIFFERENCE
+  ACTIVE_ASSIGNMENT_MISMATCH
+  MISSING_ATTENDANCE_LOCATION_CODE
+  INVALID_ATTENDANCE_IMPORT_MODE
+  HISTORICAL_PERIOD_MONTH_REQUIRED
+  INVALID_HISTORICAL_PERIOD_MONTH
+  HISTORICAL_PERIOD_MONTH_NOT_CLOSED
+  SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
 }
 
 model User {
@@ -513,6 +542,7 @@ model AttendanceImportBatch {
   periodMonth             String
   fileName                String
   fileHash                String
+  importMode              AttendanceImportMode             @default(MTD)
   uploadedByUserId        String
   uploadedAt              DateTime                         @default(now())
   status                  AttendanceImportBatchStatus      @default(UPLOADED)
@@ -542,6 +572,7 @@ model AttendanceImportBatch {
   issues                  AttendanceImportIssue[]
 
   @@index([periodMonth, status])
+  @@index([importMode, periodMonth, status])
   @@index([uploadedAt])
   @@index([uploadedByUserId])
   @@index([confirmedByUserId])
@@ -563,6 +594,16 @@ model AttendanceDailyRecord {
   sourceSubDivision       String?
   sourceLocation          String?
   sourceLocationCode      String?
+  reportedVendorId        String?
+  reportedChainId         String?
+  reportedLocationCode    String?
+  reportedLocationName    String?
+  reportedLocationRaw     String?
+  shiftLocationCode       String?
+  shiftLocationName       String?
+  shiftLocationRaw        String?
+  locationMappingStatus   AttendanceLocationMappingStatus   @default(NOT_CHECKED)
+  assignmentMismatchStatus AttendanceAssignmentMismatchStatus @default(NOT_CHECKED)
   shiftName               String
   scheduledStartTime      String?
   scheduledEndTime        String?
@@ -605,6 +646,12 @@ model AttendanceDailyRecord {
   @@index([shopperId])
   @@index([importBatchId])
   @@index([userId])
+  @@index([reportedVendorId])
+  @@index([reportedChainId])
+  @@index([periodMonth, reportedVendorId])
+  @@index([periodMonth, reportedChainId])
+  @@index([locationMappingStatus])
+  @@index([assignmentMismatchStatus])
 }
 
 model AttendancePickerMonthlySummary {

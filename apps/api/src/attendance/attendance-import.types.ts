@@ -1,5 +1,6 @@
 import type {
   AttendanceImportBatchStatus,
+  AttendanceImportMode,
   UserRole
 } from "@prisma/client";
 
@@ -20,6 +21,8 @@ export interface AttendanceImportPreviewOptions
   extends AttendanceImportRequestContext {
   duplicateResolutionRowNumbers?: number[];
   fileName: string;
+  importMode?: AttendanceImportMode | string;
+  periodMonth?: string;
   uploadDate?: Date | string;
   rowsPreviewLimit?: number;
   now?: Date | string;

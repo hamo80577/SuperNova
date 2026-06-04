@@ -30,12 +30,14 @@ import { Select } from "@/components/ui/select";
 import {
   attendanceApi,
   type AttendanceImportConfirmResponse,
+  type AttendanceImportMode,
   type AttendanceImportPreviewResponse,
   type AttendanceImportBatchStatus,
   type AttendanceDuplicateGroup,
   type AttendanceDuplicateOption,
   type AttendancePreviewIssue,
-  type AttendanceIssueSeverity
+  type AttendanceIssueSeverity,
+  type AttendanceReportedLocationSummary
 } from "@/lib/api/attendance";
 import { cn } from "@/lib/utils";
 
@@ -52,9 +54,23 @@ type ConfirmState =
 
 const issuePageSizes = [10, 25];
 
-export function AttendanceImportConsolePage() {
+interface AttendanceImportConsolePageProps {
+  backHref?: string;
+  description?: string;
+  importMode?: AttendanceImportMode;
+  title?: string;
+}
+
+export function AttendanceImportConsolePage({
+  backHref,
+  description,
+  importMode = "MTD",
+  title
+}: AttendanceImportConsolePageProps = {}) {
+  const isHistorical = importMode === "HISTORICAL_MONTH";
   const [file, setFile] = useState<File | null>(null);
   const [uploadDate, setUploadDate] = useState(defaultUploadDate);
+  const [periodMonth, setPeriodMonth] = useState("");
   const [preview, setPreview] =
     useState<AttendanceImportPreviewResponse | null>(null);
   const [previewState, setPreviewState] = useState<AsyncActionState>({
@@ -64,6 +80,8 @@ export function AttendanceImportConsolePage() {
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     status: "idle"
   });
+  const [unmappedLocationAcknowledged, setUnmappedLocationAcknowledged] =
+    useState(false);
   const [duplicateResolverOpen, setDuplicateResolverOpen] = useState(false);
   const [duplicateResolverIndex, setDuplicateResolverIndex] = useState(0);
   const [duplicateSelections, setDuplicateSelections] = useState<
@@ -78,16 +96,43 @@ export function AttendanceImportConsolePage() {
   const selectedFileLabel = file
     ? `${file.name} (${formatFileSize(file.size)})`
     : "No file selected";
+  const unmappedLocations = useMemo(
+    () =>
+      preview?.preview.rowsByReportedLocationCode.filter(
+        (location) => location.mappingStatus === "UNMAPPED"
+      ) ?? [],
+    [preview]
+  );
+  const hasUnmappedLocationWarnings =
+    (preview?.preview.unmappedLocationRows ?? 0) > 0;
   const canConfirm = Boolean(
-    preview?.batchId && preview.canConfirm && confirmChecked
+    preview?.batchId &&
+      preview.canConfirm &&
+      confirmChecked &&
+      (!hasUnmappedLocationWarnings || unmappedLocationAcknowledged)
   );
   const isPreviewing = previewState.status === "loading";
+  const pageTitle =
+    title ?? (isHistorical ? "Historical Attendance Import" : "Attendance Imports");
+  const pageDescription =
+    description ??
+    (isHistorical
+      ? "Import a closed monthly attendance file without changing assignments."
+      : "Upload, preview, resolve, and confirm monthly picker attendance.");
 
   async function handlePreview() {
     if (!file) {
       setPreviewState({
         status: "error",
-        error: "Choose an MTD Excel file before previewing."
+        error: `Choose ${isHistorical ? "a historical" : "an MTD"} Excel file before previewing.`
+      });
+      return;
+    }
+
+    if (isHistorical && !periodMonth.trim()) {
+      setPreviewState({
+        status: "error",
+        error: "Choose the historical month before previewing."
       });
       return;
     }
@@ -95,17 +140,20 @@ export function AttendanceImportConsolePage() {
     setPreviewState({ status: "loading" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
 
     try {
-      const nextPreview = await attendanceApi.previewImport(file, {
-        uploadDate
-      });
+      const nextPreview = await attendanceApi.previewImport(
+        file,
+        buildPreviewOptions()
+      );
       setPreview(nextPreview);
       setDuplicateSelections(defaultDuplicateSelections(nextPreview));
       setDuplicateResolverIndex(0);
       setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
       setDuplicateSaveState({ status: "idle" });
       setPreviewState({ status: "idle" });
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setPreview(null);
       setDuplicateResolverOpen(false);
@@ -140,17 +188,19 @@ export function AttendanceImportConsolePage() {
     setDuplicateSaveState({ status: "loading" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
 
     try {
-      const nextPreview = await attendanceApi.previewImport(file, {
-        duplicateResolutionRowNumbers: selectedRows,
-        uploadDate
-      });
+      const nextPreview = await attendanceApi.previewImport(
+        file,
+        buildPreviewOptions({ duplicateResolutionRowNumbers: selectedRows })
+      );
       setPreview(nextPreview);
       setDuplicateSelections(defaultDuplicateSelections(nextPreview));
       setDuplicateResolverIndex(0);
       setDuplicateResolverOpen(hasUnresolvedDuplicateGroups(nextPreview));
       setDuplicateSaveState({ status: "idle" });
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setDuplicateSaveState({
         status: "error",
@@ -167,12 +217,21 @@ export function AttendanceImportConsolePage() {
       return;
     }
 
+    if (hasUnmappedLocationWarnings && !unmappedLocationAcknowledged) {
+      setConfirmState({
+        status: "error",
+        error: "Acknowledge unmapped Location warnings before confirming."
+      });
+      return;
+    }
+
     setConfirmState({ status: "loading" });
 
     try {
       const result = await attendanceApi.confirmImport(preview.batchId);
       setConfirmState({ status: "confirmed", data: result });
       setConfirmChecked(false);
+      setUnmappedLocationAcknowledged(false);
     } catch (error) {
       setConfirmState({
         status: "error",
@@ -186,28 +245,50 @@ export function AttendanceImportConsolePage() {
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
+    resetPreviewState();
+    setFileInputKey((current) => current + 1);
+  }
+
+  function handlePeriodMonthChange(value: string) {
+    setPeriodMonth(value);
+    resetPreviewState();
+  }
+
+  function resetPreviewState() {
     setPreview(null);
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
+    setUnmappedLocationAcknowledged(false);
     setDuplicateResolverOpen(false);
     setDuplicateResolverIndex(0);
     setDuplicateSelections({});
     setDuplicateSaveState({ status: "idle" });
-    setFileInputKey((current) => current + 1);
   }
 
   function resetConsole() {
     setFile(null);
     setUploadDate(defaultUploadDate());
-    setPreview(null);
-    setPreviewState({ status: "idle" });
-    setConfirmState({ status: "idle" });
-    setConfirmChecked(false);
-    setDuplicateResolverOpen(false);
-    setDuplicateResolverIndex(0);
-    setDuplicateSelections({});
-    setDuplicateSaveState({ status: "idle" });
+    setPeriodMonth("");
+    resetPreviewState();
+    setFileInputKey((current) => current + 1);
+  }
+
+  function buildPreviewOptions(options: {
+    duplicateResolutionRowNumbers?: number[];
+  } = {}) {
+    if (isHistorical) {
+      return {
+        duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
+        importMode,
+        periodMonth
+      };
+    }
+
+    return {
+      duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
+      uploadDate
+    };
   }
 
   return (
@@ -216,13 +297,38 @@ export function AttendanceImportConsolePage() {
         <header className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
-              Attendance Imports
+              {pageTitle}
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Upload, preview, resolve, and confirm monthly picker attendance.
+              {pageDescription}
             </p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {backHref ? (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-11 rounded-xl"
+                )}
+                href={backHref}
+                prefetch
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back to MTD
+              </Link>
+            ) : (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                )}
+                href="/admin/attendance/imports/historical"
+                prefetch
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                Import Historical Month
+              </Link>
+            )}
             <Link
               className={cn(
                 buttonVariants({ variant: "outline" }),
@@ -250,20 +356,34 @@ export function AttendanceImportConsolePage() {
           <UploadCard
             fileLabel={selectedFileLabel}
             fileInputKey={fileInputKey}
+            importMode={importMode}
             isPreviewing={isPreviewing}
             onFileChange={handleFileChange}
+            onPeriodMonthChange={handlePeriodMonthChange}
             onPreview={handlePreview}
             onUploadDateChange={setUploadDate}
+            periodMonth={periodMonth}
             previewError={previewState.status === "error" ? previewState.error : null}
             uploadDate={uploadDate}
           />
-          <PreviewStatusCard preview={preview} />
+          <PreviewStatusCard importMode={importMode} preview={preview} />
         </section>
 
         {preview ? (
           <>
             <CoverageCard preview={preview} />
             <CountsSection preview={preview} />
+            <ReportedLocationsSection
+              locations={preview.preview.rowsByReportedLocationCode}
+            />
+            {hasUnmappedLocationWarnings ? (
+              <UnmappedLocationsWarningSection
+                acknowledged={unmappedLocationAcknowledged}
+                locations={unmappedLocations}
+                onAcknowledgedChange={setUnmappedLocationAcknowledged}
+                rowCount={preview.preview.unmappedLocationRows}
+              />
+            ) : null}
             <IssuesSection issues={preview.preview.issues} />
             <ConfirmSection
               canConfirm={canConfirm}
@@ -292,7 +412,7 @@ export function AttendanceImportConsolePage() {
             ) : null}
           </>
         ) : (
-          <EmptyConsoleState />
+          <EmptyConsoleState importMode={importMode} />
         )}
       </div>
     </div>
@@ -535,22 +655,30 @@ function MiniFact({ label, value }: { label: string; value: string }) {
 function UploadCard({
   fileLabel,
   fileInputKey,
+  importMode,
   isPreviewing,
   onFileChange,
+  onPeriodMonthChange,
   onPreview,
   onUploadDateChange,
+  periodMonth,
   previewError,
   uploadDate
 }: {
   fileLabel: string;
   fileInputKey: number;
+  importMode: AttendanceImportMode;
   isPreviewing: boolean;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onPeriodMonthChange: (value: string) => void;
   onPreview: () => void;
   onUploadDateChange: (value: string) => void;
+  periodMonth: string;
   previewError: string | null;
   uploadDate: string;
 }) {
+  const historical = importMode === "HISTORICAL_MONTH";
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
@@ -559,10 +687,12 @@ function UploadCard({
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-950">
-            Upload MTD file
+            {historical ? "Upload historical month file" : "Upload MTD file"}
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Preview only - this does not activate the batch.
+            {historical
+              ? "Preview a closed month before replacing that month batch."
+              : "Preview only - this does not activate the batch."}
           </p>
         </div>
       </div>
@@ -581,21 +711,37 @@ function UploadCard({
         <p className="break-words rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
           {fileLabel}
         </p>
-        <label className="grid gap-1 text-xs font-medium text-slate-600">
-          Upload date
-          <Input
-            className="h-11 rounded-xl"
-            onChange={(event) => onUploadDateChange(event.target.value)}
-            type="date"
-            value={uploadDate}
-          />
-        </label>
+        {historical ? (
+          <label className="grid gap-1 text-xs font-medium text-slate-600">
+            Period month
+            <Input
+              className="h-11 rounded-xl"
+              onChange={(event) => onPeriodMonthChange(event.target.value)}
+              type="month"
+              value={periodMonth}
+            />
+            <span className="text-xs leading-5 text-slate-500">
+              Choose a closed month. Current and future months are rejected by
+              the backend.
+            </span>
+          </label>
+        ) : (
+          <label className="grid gap-1 text-xs font-medium text-slate-600">
+            Upload date
+            <Input
+              className="h-11 rounded-xl"
+              onChange={(event) => onUploadDateChange(event.target.value)}
+              type="date"
+              value={uploadDate}
+            />
+          </label>
+        )}
       </div>
 
       <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
-        Imported Location and Sub Division values are kept as source labels for
-        attendance reporting filters only. They do not update assignments,
-        hierarchy, or authorization.
+        {historical
+          ? "This imports a closed historical month. It does not update assignments. Attendance Location from the file controls the reported branch used by attendance reporting, and confirm replaces the active attendance batch for the selected month."
+          : "Imported Location and Sub Division values are kept as reported branch source labels for attendance reporting filters only. They do not update assignments, hierarchy, or authorization."}
       </p>
 
       {previewError ? <InlineError message={previewError} /> : null}
@@ -618,12 +764,15 @@ function UploadCard({
 }
 
 function PreviewStatusCard({
+  importMode,
   preview
 }: {
+  importMode: AttendanceImportMode;
   preview: AttendanceImportPreviewResponse | null;
 }) {
   const status = preview?.status ?? "UPLOADED";
   const ready = Boolean(preview?.canConfirm);
+  const historical = importMode === "HISTORICAL_MONTH";
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -636,7 +785,9 @@ function PreviewStatusCard({
             Preview status
           </h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Confirm will replace the current active batch for this month.
+            {historical
+              ? "Confirm will replace the active batch for the selected historical month."
+              : "Confirm will replace the current active batch for this month."}
           </p>
         </div>
       </div>
@@ -710,6 +861,26 @@ function CountsSection({
       },
       { label: "Error rows", value: preview.preview.errorRows },
       { label: "Warning rows", value: preview.preview.warningRows },
+      {
+        label: "Mapped locations",
+        value: preview.preview.mappedLocationRows
+      },
+      {
+        label: "Unmapped locations",
+        value: preview.preview.unmappedLocationRows
+      },
+      {
+        label: "Missing location codes",
+        value: preview.preview.missingLocationCodeRows
+      },
+      {
+        label: "Assignment warnings",
+        value: preview.preview.activeAssignmentMismatchRows
+      },
+      {
+        label: "Location / Shift differences",
+        value: preview.preview.locationShiftLocationDifferenceRows
+      },
       { label: "Daily records", value: preview.dailyRecordCount },
       { label: "Monthly summaries", value: preview.monthlySummaryCount },
       { label: "Issues", value: preview.issueCount }
@@ -722,6 +893,170 @@ function CountsSection({
       {counts.map((count) => (
         <CountCard key={count.label} label={count.label} value={count.value} />
       ))}
+    </section>
+  );
+}
+
+function ReportedLocationsSection({
+  locations
+}: {
+  locations: AttendanceReportedLocationSummary[];
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+            <MapPin className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-950">
+              Reported Locations
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Attendance Location from the file controls the reported branch
+              used by attendance reporting.
+            </p>
+          </div>
+        </div>
+        <Badge variant={locations.length > 0 ? "outline" : "muted"}>
+          {locations.length} reported groups
+        </Badge>
+      </div>
+
+      {locations.length === 0 ? (
+        <EmptyState message="No reported attendance locations returned by the backend." />
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+          <table className="hidden w-full table-fixed text-left text-sm lg:table">
+            <colgroup>
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+              <col className="w-[18%]" />
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+              <tr>
+                <TableHeader>Code</TableHeader>
+                <TableHeader>Name</TableHeader>
+                <TableHeader>Branch</TableHeader>
+                <TableHeader>Chain</TableHeader>
+                <TableHeader>Rows</TableHeader>
+                <TableHeader>Status</TableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {locations.map((location) => (
+                <tr
+                  className="border-b last:border-0"
+                  key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
+                >
+                  <TableCell>
+                    <TruncatedText value={location.code} />
+                  </TableCell>
+                  <TableCell>
+                    <TruncatedText value={location.name} />
+                  </TableCell>
+                  <TableCell>
+                    <TruncatedText value={location.vendorName} />
+                  </TableCell>
+                  <TableCell>
+                    <TruncatedText value={location.chainName} />
+                  </TableCell>
+                  <TableCell>{location.rowCount}</TableCell>
+                  <TableCell>
+                    <ReportedLocationStatusBadge status={location.mappingStatus} />
+                  </TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="grid gap-3 p-3 lg:hidden">
+            {locations.map((location) => (
+              <ReportedLocationCard
+                key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
+                location={location}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UnmappedLocationsWarningSection({
+  acknowledged,
+  locations,
+  onAcknowledgedChange,
+  rowCount
+}: {
+  acknowledged: boolean;
+  locations: AttendanceReportedLocationSummary[];
+  onAcknowledgedChange: (checked: boolean) => void;
+  rowCount: number;
+}) {
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+            <AlertCircle className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-950">
+              Unmapped Location warnings
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-700">
+              These rows can continue with warning. They will be imported
+              without a reported branch until mapping can be fixed later.
+            </p>
+          </div>
+        </div>
+        <Badge className="border-amber-300 bg-white text-amber-800" variant="outline">
+          {rowCount} rows
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {locations.map((location) => (
+          <article
+            className="min-w-0 rounded-xl border border-amber-200 bg-white p-3"
+            key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-950">
+                  {formatText(location.name)}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  Code {formatText(location.code)}
+                </p>
+              </div>
+              <ReportedLocationStatusBadge status={location.mappingStatus} />
+            </div>
+            <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+              {location.rowCount} rows
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <label className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
+        <input
+          checked={acknowledged}
+          className="mt-1 h-4 w-4 shrink-0"
+          onChange={(event) => onAcknowledgedChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span>
+          I understand these unmapped Location rows will be imported without a
+          reported branch until mapping is fixed.
+        </span>
+      </label>
     </section>
   );
 }
@@ -963,7 +1298,13 @@ function ConfirmedResult({
   );
 }
 
-function EmptyConsoleState() {
+function EmptyConsoleState({
+  importMode
+}: {
+  importMode: AttendanceImportMode;
+}) {
+  const historical = importMode === "HISTORICAL_MONTH";
+
   return (
     <section className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
       <Inbox className="mb-3 h-8 w-8 text-slate-400" />
@@ -971,8 +1312,9 @@ function EmptyConsoleState() {
         No preview loaded
       </h2>
       <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">
-        Upload an MTD Excel file to inspect backend validation results before
-        confirming replacement.
+        {historical
+          ? "Choose a closed historical month and Excel file to inspect backend validation results before confirming replacement."
+          : "Upload an MTD Excel file to inspect backend validation results before confirming replacement."}
       </p>
     </section>
   );
@@ -1014,9 +1356,49 @@ function IssueCard({ issue }: { issue: AttendancePreviewIssue }) {
   );
 }
 
+function ReportedLocationCard({
+  location
+}: {
+  location: AttendanceReportedLocationSummary;
+}) {
+  return (
+    <article className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="break-words text-sm font-semibold text-slate-950">
+            {formatText(location.name)}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Code {formatText(location.code)}
+          </p>
+        </div>
+        <ReportedLocationStatusBadge status={location.mappingStatus} />
+      </div>
+      <div className="grid gap-2 text-sm sm:grid-cols-2">
+        <Definition label="Branch" value={formatText(location.vendorName)} />
+        <Definition label="Chain" value={formatText(location.chainName)} />
+        <Definition label="Rows" value={location.rowCount} />
+        <Definition label="Mapping" value={formatEnum(location.mappingStatus)} />
+      </div>
+    </article>
+  );
+}
+
 function StatusBadge({ status }: { status: AttendanceImportBatchStatus }) {
   return (
     <Badge className={statusTone(status)} variant="outline">
+      {formatEnum(status)}
+    </Badge>
+  );
+}
+
+function ReportedLocationStatusBadge({
+  status
+}: {
+  status: AttendanceReportedLocationSummary["mappingStatus"];
+}) {
+  return (
+    <Badge className={reportedLocationStatusTone(status)} variant="outline">
       {formatEnum(status)}
     </Badge>
   );
@@ -1102,6 +1484,24 @@ function sourceStatusTone(value: string | null) {
   }
 
   return "border-slate-200 bg-slate-100 text-slate-600";
+}
+
+function reportedLocationStatusTone(
+  status: AttendanceReportedLocationSummary["mappingStatus"]
+) {
+  const tones: Record<
+    AttendanceReportedLocationSummary["mappingStatus"],
+    string
+  > = {
+    MAPPED_VENDOR_CODE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    MAPPED_VENDOR_EXTERNAL_ID:
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
+    MISSING_CODE: "border-destructive/40 bg-destructive/10 text-destructive",
+    NOT_CHECKED: "border-slate-200 bg-slate-100 text-slate-600",
+    UNMAPPED: "border-amber-300 bg-amber-50 text-amber-800"
+  };
+
+  return tones[status];
 }
 
 function formatSourceStatus(value: string | null) {
