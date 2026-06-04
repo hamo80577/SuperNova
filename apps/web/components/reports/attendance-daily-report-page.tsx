@@ -30,7 +30,6 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton, TableRowsSkeleton } from "@/components/ui/skeleton";
@@ -46,6 +45,15 @@ import {
   type AttendanceSegmentMetric
 } from "@/lib/api/attendance";
 import { cn } from "@/lib/utils";
+import {
+  addDaysIso,
+  formatDateLong,
+  getAttendanceRangeLength as rangeLength,
+  normalizeAttendanceDateRange as normalizeDateRange,
+  validateAttendanceDateRange as validateReportDateRange,
+  yesterdayIsoDate
+} from "./attendance-date-range";
+import { AttendanceDateRangeSelector } from "./attendance-date-range-selector";
 
 type AsyncState<T> =
   | { status: "loading"; data?: T; error?: never }
@@ -309,7 +317,7 @@ export function AttendanceDailyReportPage({
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <DateRangeControl
+            <AttendanceDateRangeSelector
               dateFrom={filters.dateFrom}
               dateTo={filters.dateTo}
               error={dateError}
@@ -738,54 +746,6 @@ function AttendanceList({
         </label>
       </div>
     </section>
-  );
-}
-
-function DateRangeControl({
-  dateFrom,
-  dateTo,
-  error,
-  onChange
-}: {
-  dateFrom: string;
-  dateTo: string;
-  error: string | null;
-  onChange: (dateFrom: string, dateTo: string) => void;
-}) {
-  const maxDate = yesterdayIsoDate();
-
-  return (
-    <div className="min-w-0 sm:min-w-[22rem]">
-      <div
-        className={cn(
-          "grid min-w-0 grid-cols-1 gap-1 rounded-xl border bg-white p-1 shadow-sm sm:grid-cols-[minmax(10rem,1fr)_minmax(10rem,1fr)]",
-          error ? "border-rose-200" : "border-slate-200"
-        )}
-      >
-        <DatePicker
-          className="h-9 border-0 px-2 shadow-none"
-          maxDate={maxDate}
-          maxYear={Number(maxDate.slice(0, 4))}
-          onChange={(value) => onChange(value, dateTo)}
-          placeholder="Start"
-          quickActions={["yesterday"]}
-          value={dateFrom}
-        />
-        <DatePicker
-          align="end"
-          className="h-9 border-0 px-2 shadow-none"
-          maxDate={maxDate}
-          maxYear={Number(maxDate.slice(0, 4))}
-          onChange={(value) => onChange(dateFrom, value)}
-          placeholder="End"
-          quickActions={["yesterday"]}
-          value={dateTo}
-        />
-      </div>
-      {error ? (
-        <p className="mt-1 text-xs font-medium text-rose-600">{error}</p>
-      ) : null}
-    </div>
   );
 }
 
@@ -1873,37 +1833,6 @@ function createInitialFilters(): AttendanceDailyReportFilters {
   };
 }
 
-function normalizeDateRange(dateFrom: string, dateTo: string) {
-  const fallback = yesterdayIsoDate();
-  const start = isIsoDate(dateFrom) ? dateFrom : isIsoDate(dateTo) ? dateTo : fallback;
-  const end = isIsoDate(dateTo) ? dateTo : start;
-
-  return { dateFrom: start, dateTo: end };
-}
-
-function validateReportDateRange(dateFrom: string, dateTo: string) {
-  if (!isIsoDate(dateFrom) || !isIsoDate(dateTo)) {
-    return "Select a valid start and end date.";
-  }
-
-  if (dateFrom > dateTo) {
-    return "Start date must be before end date.";
-  }
-
-  const today = todayIsoDate();
-  if (dateFrom >= today || dateTo >= today) {
-    return "Today and future dates are not available.";
-  }
-
-  return null;
-}
-
-function rangeLength(dateFrom: string, dateTo: string) {
-  const start = parseIsoDate(dateFrom);
-  const end = parseIsoDate(dateTo);
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
-}
-
 function rangeAttendanceTitle(range: AttendanceDailyReportAnalytics["range"]) {
   if (range.dateFrom === yesterdayIsoDate() && range.dateTo === yesterdayIsoDate()) {
     return "Yesterday Attendance";
@@ -1922,42 +1851,6 @@ function formatRangeLabel(dateFrom: string, dateTo: string) {
   }
 
   return `${formatDateLong(dateFrom)} - ${formatDateLong(dateTo)}`;
-}
-
-function yesterdayIsoDate() {
-  return addDaysIso(todayIsoDate(), -1);
-}
-
-function todayIsoDate() {
-  return formatIsoDate(new Date());
-}
-
-function addDaysIso(value: string, days: number) {
-  const date = parseIsoDate(value);
-  date.setDate(date.getDate() + days);
-  return formatIsoDate(date);
-}
-
-function parseIsoDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function formatIsoDate(value: Date) {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
-}
-
-function isIsoDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function formatDateLong(value: string) {
-  const date = parseIsoDate(value);
-  return date.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  });
 }
 
 function formatText(value?: string | null) {
