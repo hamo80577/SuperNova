@@ -40,20 +40,20 @@ const assert = {
     })),
     [
       {
-        active: true,
-        count: "1,345",
+        active: false,
+        count: "Live data",
         subtitle: "Active workforce",
         title: "All Pickers"
       },
       {
         active: false,
-        count: "4",
+        count: "Live data",
         subtitle: "Branch leaders",
         title: "All Champs"
       },
       {
         active: false,
-        count: "3",
+        count: "Live data",
         subtitle: "Admins & Area Managers",
         title: "Management Users"
       }
@@ -70,34 +70,34 @@ const assert = {
     })),
     [
       {
-        helper: "Active at Apr 1",
+        helper: "Needs workforce summary endpoint",
         label: "Starting Headcount",
-        value: "1,345"
+        value: "Coming soon"
       },
       {
-        helper: "Completed onboarding",
+        helper: "Needs completed onboarding period data",
         label: "New Hires",
-        value: "120"
+        value: "Coming soon"
       },
       {
-        helper: "Completed exits",
+        helper: "Needs completed exit period data",
         label: "Exited",
-        value: "67"
+        value: "Coming soon"
       },
       {
-        helper: "Active at Apr 30",
+        helper: "Needs end-of-period assignment snapshot",
         label: "Ending Headcount",
-        value: "1,398"
+        value: "Coming soon"
       },
       {
-        helper: "Exited / Avg HC",
+        helper: "Do not calculate from visible rows",
         label: "Attrition Rate",
-        value: "5.1%"
+        value: "Coming soon"
       },
       {
-        helper: "Hires - Exits",
+        helper: "Needs hires minus exits for selected scope",
         label: "Net Movement",
-        value: "+53"
+        value: "Coming soon"
       }
     ]
   );
@@ -111,7 +111,7 @@ const assert = {
   );
   assert.equal(
     directoryPlaceholder.emptyState,
-    "Static placeholder directory for the reset phase. Live user APIs remain disconnected."
+    "No static rows are rendered. Live user APIs power the directory."
   );
 }
 
@@ -125,28 +125,13 @@ const assert = {
 }
 
 {
-  assert.equal(userDirectoryRows.length, 6);
-  assert.deepEqual(
-    userDirectoryRows.map((row) => ({
-      lifecycle: row.lifecycle,
-      name: row.name,
-      role: row.role
-    })),
-    [
-      { lifecycle: "Active", name: "Mohammed Mahmoud", role: "Picker" },
-      { lifecycle: "Active", name: "Ahmed Samir", role: "Picker" },
-      { lifecycle: "Pending Request", name: "Omar Hassan", role: "Picker" },
-      { lifecycle: "Active", name: "Mohamed Ali", role: "Champ" },
-      { lifecycle: "Active", name: "Youssef Nabil", role: "Champ" },
-      { lifecycle: "Active", name: "Ahmed Samy", role: "Area Manager" }
-    ]
-  );
+  assert.equal(userDirectoryRows.length, 0);
 }
 
 {
   assert.deepEqual(usersPaginationPlaceholder, {
     page: 1,
     pageSize: 10,
-    rangeLabel: "Showing 1 to 6 of 1,522 users"
+    rangeLabel: "Pagination is loaded from the Users API."
   });
 }

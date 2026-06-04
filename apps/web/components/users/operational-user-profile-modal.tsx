@@ -73,11 +73,13 @@ export interface OperationalUserProfileActions {
 
 export function OperationalUserProfileModal({
   actions,
+  allowDirectProfileMutation = true,
   onClose,
   onUpdated,
   userId
 }: {
   actions?: OperationalUserProfileActions;
+  allowDirectProfileMutation?: boolean;
   onClose: () => void;
   onUpdated?: () => void;
   userId: string;
@@ -128,6 +130,7 @@ export function OperationalUserProfileModal({
           ) : (
             <ProfileContent
               actions={actions}
+              allowDirectProfileMutation={allowDirectProfileMutation}
               onClose={onClose}
               onReload={() => {
                 void loadProfile();
@@ -144,11 +147,13 @@ export function OperationalUserProfileModal({
 
 function ProfileContent({
   actions,
+  allowDirectProfileMutation,
   onClose,
   onReload,
   profile
 }: {
   actions?: OperationalUserProfileActions;
+  allowDirectProfileMutation: boolean;
   onClose: () => void;
   onReload: () => void;
   profile: OperationalProfileResponse;
@@ -190,6 +195,7 @@ function ProfileContent({
 
           <div className="flex shrink-0 items-center gap-2">
             <ProfileHeaderActions
+              allowDirectProfileMutation={allowDirectProfileMutation}
               actions={actions}
               onEdit={
                 profile.permissions.canEditProfile
@@ -220,6 +226,7 @@ function ProfileContent({
           />
         ) : user.role === "AREA_MANAGER" ? (
           <AreaManagerProfileCard
+            allowDirectAssignmentEditing={allowDirectProfileMutation}
             onReload={onReload}
             profile={profile}
             whatsappHref={whatsappHref}
@@ -251,11 +258,13 @@ function ProfileContent({
 }
 
 function ProfileHeaderActions({
+  allowDirectProfileMutation,
   actions,
   onEdit,
   onPassword,
   profile
 }: {
+  allowDirectProfileMutation: boolean;
   actions?: OperationalUserProfileActions;
   onEdit?: () => void;
   onPassword: () => void;
@@ -269,8 +278,12 @@ function ProfileHeaderActions({
       user.role === "CHAMP" ||
       user.role === "AREA_MANAGER") &&
     Boolean(actions?.onResignation);
-  const canEdit = profile.permissions.canEditProfile && Boolean(onEdit);
-  const canPassword = hasPasswordAccess(profile);
+  const canEdit =
+    allowDirectProfileMutation &&
+    profile.permissions.canEditProfile &&
+    Boolean(onEdit);
+  const canPassword =
+    allowDirectProfileMutation && hasPasswordAccess(profile);
 
   if (!canTransfer && !canResign && !canEdit && !canPassword) {
     return null;
@@ -466,10 +479,12 @@ function ChampProfileCard({
 }
 
 function AreaManagerProfileCard({
+  allowDirectAssignmentEditing,
   onReload,
   profile,
   whatsappHref
 }: {
+  allowDirectAssignmentEditing: boolean;
   onReload: () => void;
   profile: OperationalProfileResponse;
   whatsappHref: string;
@@ -493,7 +508,7 @@ function AreaManagerProfileCard({
           <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "chains" ? (
-        profile.permissions.canEditProfile ? (
+        profile.permissions.canEditProfile && allowDirectAssignmentEditing ? (
           <AreaManagerChainAssignmentManager
             onReload={onReload}
             profile={profile}
