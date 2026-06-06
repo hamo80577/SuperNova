@@ -8,13 +8,11 @@ import {
   useState,
   type ReactNode
 } from "react";
-import { useRouter } from "next/navigation";
 
 import { authApi } from "@/lib/auth/api-client";
 import { getUserRedirect } from "@/lib/auth/role-redirects";
 import type { AuthResponse, SafeUser } from "@/lib/auth/types";
 import { clearApiCache } from "@/lib/api/request";
-import { replaceRoute } from "@/lib/navigation";
 import { showGlobalLoading } from "@/lib/navigation-loading";
 
 interface AuthContextValue {
@@ -38,7 +36,6 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   async function refresh() {
     try {
@@ -74,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } finally {
           clearApiCache();
           setUser(null);
-          replaceRoute(router, "/login");
+          window.location.assign("/login");
         }
       },
       async changePassword(currentPassword, newPassword) {
@@ -88,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       refresh
     }),
-    [loading, router, user]
+    [loading, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
