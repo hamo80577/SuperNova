@@ -168,29 +168,35 @@ const movementKpiCards: Array<{
 const kpiToneStyles = {
   blue: {
     icon: "bg-blue-50 text-blue-600",
-    line: "bg-blue-200"
+    line: "bg-blue-300",
+    ring: "ring-blue-100"
   },
   emerald: {
     icon: "bg-emerald-50 text-emerald-600",
-    line: "bg-emerald-200"
+    line: "bg-emerald-300",
+    ring: "ring-emerald-100"
   },
   green: {
     icon: "bg-green-50 text-green-600",
-    line: "bg-green-200"
+    line: "bg-green-300",
+    ring: "ring-green-100"
   },
   orange: {
     icon: "bg-orange-50 text-orange-600",
-    line: "bg-orange-200"
+    line: "bg-orange-300",
+    ring: "ring-orange-100"
   },
   red: {
     icon: "bg-red-50 text-red-600",
-    line: "bg-red-200"
+    line: "bg-red-300",
+    ring: "ring-red-100"
   },
   violet: {
     icon: "bg-violet-50 text-violet-600",
-    line: "bg-violet-200"
+    line: "bg-violet-300",
+    ring: "ring-violet-100"
   }
-} satisfies Record<KpiTone, { icon: string; line: string }>;
+} satisfies Record<KpiTone, { icon: string; line: string; ring: string }>;
 
 const statusOptions: Array<{ label: string; value: "" | UserLookupStatus }> = [
   { label: "All statuses", value: "" },
@@ -336,13 +342,17 @@ export function UsersAreaPage() {
   const showAdminFilters = viewerIsAdmin;
 
   useEffect(() => {
+    if (state.status !== "ready") {
+      return;
+    }
+
     const sanitized = sanitizeFiltersForOptions(filters, scopedFilterOptions);
 
     if (!sameDirectoryFilters(filters, sanitized)) {
       setFilters(sanitized);
       setPageBySection(initialPages);
     }
-  }, [filters, scopedFilterOptions]);
+  }, [filters, scopedFilterOptions, state.status]);
 
   function refreshUsersArea() {
     setRefreshToken((current) => current + 1);
@@ -552,41 +562,39 @@ function UsersPageHeader({
   onRefresh: () => void;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
-            Users
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Operational workforce, assignments, and lifecycle movement.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button
-            aria-disabled="true"
-            className="h-10 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-white"
-            type="button"
-            variant="outline"
-          >
-            <CalendarDays className="mr-2 h-4 w-4 text-primary" />
-            This month
-          </Button>
-          <Button
-            className="h-10 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-50"
-            disabled={loading}
-            onClick={onRefresh}
-            type="button"
-            variant="outline"
-          >
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4 text-slate-500" />
-            )}
-            Refresh
-          </Button>
-        </div>
+    <section className="flex flex-col gap-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-white via-white to-orange-50/45 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="max-w-2xl text-sm font-medium leading-6 text-slate-600">
+          Operational workforce, assignments, and lifecycle movement.
+        </p>
+        <p className="mt-0.5 text-xs font-semibold text-orange-600">
+          Live users, guarded sections, and assignment-based context.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2 sm:justify-end">
+        <Button
+          aria-disabled="true"
+          className="h-9 rounded-xl border-orange-100 bg-white px-3 text-slate-700 shadow-sm hover:bg-white"
+          type="button"
+          variant="outline"
+        >
+          <CalendarDays className="mr-2 h-4 w-4 text-primary" />
+          This month
+        </Button>
+        <Button
+          className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-orange-50/60"
+          disabled={loading}
+          onClick={onRefresh}
+          type="button"
+          variant="outline"
+        >
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4 text-slate-500" />
+          )}
+          Refresh
+        </Button>
       </div>
     </section>
   );
@@ -612,7 +620,7 @@ function RoleSelectorCards({
   return (
     <section
       aria-label="User role selector"
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      className="grid gap-3 md:grid-cols-3"
     >
       {sections.map((card) => {
         const Icon = roleIcons[card.id];
@@ -622,43 +630,57 @@ function RoleSelectorCards({
           <button
             aria-pressed={active}
             className={cn(
-              "min-h-[92px] rounded-2xl border bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
+              "group relative min-h-[118px] overflow-hidden rounded-2xl border bg-white p-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
               active
-                ? "border-primary/25 bg-brand-soft shadow-[0_16px_30px_rgba(249,115,22,0.12)]"
-                : "border-slate-200 hover:border-slate-300"
+                ? "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-white shadow-[0_16px_34px_rgba(249,115,22,0.14)]"
+                : "border-slate-200 hover:border-orange-100 hover:bg-orange-50/20 hover:shadow-[0_12px_28px_rgba(15,23,42,0.07)]"
             )}
             key={card.id}
             onClick={() => onSelect(card.id)}
             type="button"
           >
+            <span
+              aria-hidden="true"
+              className={cn(
+                "absolute inset-x-0 top-0 h-1 transition",
+                active ? "bg-primary" : "bg-transparent group-hover:bg-orange-100"
+              )}
+            />
             <span className="flex items-start justify-between gap-3">
               <span
                 className={cn(
-                  "grid h-10 w-10 shrink-0 place-items-center rounded-2xl",
+                  "grid h-12 w-12 shrink-0 place-items-center rounded-2xl ring-1 transition",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-slate-50 text-slate-500"
+                    ? "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(249,115,22,0.20)] ring-orange-200"
+                    : "bg-slate-50 text-slate-500 ring-slate-100 group-hover:bg-orange-50 group-hover:text-primary group-hover:ring-orange-100"
                 )}
               >
                 <Icon className="h-5 w-5" />
               </span>
               <Badge
                 className={cn(
-                  "border-transparent px-2 py-0.5 text-[11px]",
+                  "rounded-full border-transparent px-2.5 py-0.5 text-[11px] font-semibold",
                   active
-                    ? "bg-white text-primary"
-                    : "bg-slate-100 text-slate-600"
+                    ? "bg-white text-primary shadow-sm"
+                    : "bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-primary"
                 )}
               >
                 {loading ? "..." : formatCount(counts[card.id])}
               </Badge>
             </span>
-            <span className="mt-3 block text-sm font-semibold text-slate-950">
+            <span className="mt-4 block text-base font-semibold text-slate-950">
               {card.label}
             </span>
-            <span className="mt-1 block text-xs font-medium text-slate-500">
+            <span className="mt-1 block text-xs font-semibold text-slate-500">
               {card.subtitle}
             </span>
+            <span
+              aria-hidden="true"
+              className={cn(
+                "mt-4 block h-1.5 rounded-full",
+                active ? "bg-orange-200" : "bg-slate-100 group-hover:bg-orange-100"
+              )}
+            />
           </button>
         );
       })}
@@ -670,7 +692,7 @@ function MovementKpiCards() {
   return (
     <section
       aria-label="Workforce movement"
-      className="grid gap-3 min-[420px]:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+      className="grid gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
     >
       {movementKpiCards.map((card) => (
         <MovementKpiCard card={card} key={card.id} />
@@ -683,12 +705,18 @@ function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) 
   const tone = kpiToneStyles[card.tone];
 
   return (
-    <article className="min-h-[148px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <article
+      aria-disabled="true"
+      className={cn(
+        "min-h-[148px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.045)] ring-1 ring-transparent"
+      )}
+    >
       <div className="flex items-start gap-3">
         <span
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-            tone.icon
+            "grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1",
+            tone.icon,
+            tone.ring
           )}
         >
           <TrendingUp className="h-4 w-4" />
@@ -697,7 +725,7 @@ function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) 
           <p className="truncate text-xs font-semibold text-slate-700">
             {card.label}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] font-medium text-slate-400">
+          <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-4 text-slate-400">
             {card.helper}
           </p>
         </div>
@@ -708,7 +736,7 @@ function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) 
       <div aria-hidden="true" className="mt-3 flex h-7 items-end gap-1">
         {sparklineHeights.map((height, index) => (
           <span
-            className={cn("w-full rounded-full opacity-80", tone.line)}
+            className={cn("w-full rounded-full opacity-75", tone.line)}
             key={`${card.id}-${height}-${index}`}
             style={{ height }}
           />
@@ -768,7 +796,7 @@ function UserDirectory({
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="border-b border-slate-100 p-3 sm:p-4">
+      <div className="border-b border-slate-100 bg-white p-3 sm:p-4">
         <DirectoryToolbar
           filters={filters}
           filtersOpen={filtersOpen}
@@ -844,114 +872,125 @@ function DirectoryToolbar({
   showAdminFilters: boolean;
   viewMode: ViewMode;
 }) {
-  const filterSelectClass = cn(!filtersOpen && "hidden xl:block");
+  const filterSelectClass = cn(!filtersOpen && "hidden lg:block");
 
   return (
-    <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(240px,1fr)_auto] xl:grid-cols-[minmax(260px,1.5fr)_auto_repeat(5,minmax(112px,1fr))_auto_auto]">
-      <label className="relative min-w-0">
-        <span className="sr-only">Search users</span>
-        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-        <Input
-          className="h-11 rounded-xl border-slate-200 bg-white pl-9 pr-3 shadow-none placeholder:text-slate-400"
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search by name, phone, shopper ID, branch..."
-          type="search"
-          value={query}
-        />
-      </label>
+    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(320px,1.15fr)_minmax(0,2.35fr)_auto] xl:items-start">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-1">
+        <label className="relative min-w-0">
+          <span className="sr-only">Search users</span>
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+          <Input
+            className="h-11 rounded-xl border-slate-200 bg-slate-50/60 pl-9 pr-3 shadow-inner shadow-slate-100/60 placeholder:text-slate-400 focus:bg-white"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search by name, phone, shopper ID, branch..."
+            type="search"
+            value={query}
+          />
+        </label>
 
-      <Button
-        aria-expanded={filtersOpen}
-        className={cn(
-          "h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-50",
-          hasActiveFilters(filters) &&
-            "border-primary/25 bg-brand-soft text-primary hover:bg-brand-soft"
-        )}
-        onClick={onToggleFilters}
-        type="button"
-        variant="outline"
-      >
-        <SlidersHorizontal className="mr-2 h-4 w-4 text-slate-500" />
-        Filters
-      </Button>
+        <Button
+          aria-expanded={filtersOpen}
+          className={cn(
+            "h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-orange-50/60 lg:hidden",
+            hasActiveFilters(filters) &&
+              "border-primary/25 bg-brand-soft text-primary hover:bg-brand-soft"
+          )}
+          onClick={onToggleFilters}
+          type="button"
+          variant="outline"
+        >
+          <SlidersHorizontal
+            className={cn(
+              "mr-2 h-4 w-4",
+              hasActiveFilters(filters) ? "text-primary" : "text-slate-500"
+            )}
+          />
+          Filters
+        </Button>
+      </div>
 
-      <FilterSelect
-        className={filterSelectClass}
-        label="Chain"
-        onChange={(value) => onChangeFilter("chainId", value)}
-        options={options.chains}
-        value={filters.chainId}
-      />
-      <FilterSelect
-        className={filterSelectClass}
-        label="Branch"
-        onChange={(value) => onChangeFilter("vendorId", value)}
-        options={options.vendors}
-        value={filters.vendorId}
-      />
-      {showAdminFilters ? (
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         <FilterSelect
           className={filterSelectClass}
-          label="Area Manager"
-          onChange={(value) => onChangeFilter("areaManagerId", value)}
-          options={options.areaManagers}
-          value={filters.areaManagerId}
+          label="Chain"
+          onChange={(value) => onChangeFilter("chainId", value)}
+          options={options.chains}
+          value={filters.chainId}
         />
-      ) : null}
-      <FilterSelect
-        className={filterSelectClass}
-        label="Champ"
-        onChange={(value) => onChangeFilter("champId", value)}
-        options={options.champs}
-        value={filters.champId}
-      />
-      <StatusSelect
-        className={filterSelectClass}
-        onChange={(value) => onChangeFilter("status", value)}
-        value={filters.status}
-      />
+        <FilterSelect
+          className={filterSelectClass}
+          label="Branch"
+          onChange={(value) => onChangeFilter("vendorId", value)}
+          options={options.vendors}
+          value={filters.vendorId}
+        />
+        {showAdminFilters ? (
+          <FilterSelect
+            className={filterSelectClass}
+            label="Area Manager"
+            onChange={(value) => onChangeFilter("areaManagerId", value)}
+            options={options.areaManagers}
+            value={filters.areaManagerId}
+          />
+        ) : null}
+        <FilterSelect
+          className={filterSelectClass}
+          label="Champ"
+          onChange={(value) => onChangeFilter("champId", value)}
+          options={options.champs}
+          value={filters.champId}
+        />
+        <StatusSelect
+          className={filterSelectClass}
+          onChange={(value) => onChangeFilter("status", value)}
+          value={filters.status}
+        />
+      </div>
 
-      <Button
-        aria-disabled="true"
-        className="h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-500 hover:bg-white"
-        disabled
-        title="Column customization is not part of Phase 1."
-        type="button"
-        variant="outline"
-      >
-        <Columns3 className="mr-2 h-4 w-4" />
-        Columns
-      </Button>
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(180px,220px)] xl:justify-end">
+        <Button
+          aria-disabled="true"
+          className="h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-500 shadow-sm hover:bg-white"
+          disabled
+          title="Column customization is not part of Phase 1."
+          type="button"
+          variant="outline"
+        >
+          <Columns3 className="mr-2 h-4 w-4" />
+          Columns
+        </Button>
 
-      <div className="grid h-11 grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
-        <button
-          aria-pressed={viewMode === "rows"}
-          className={cn(
-            "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
-            viewMode === "rows"
-              ? "bg-white text-primary shadow-sm"
-              : "text-slate-500 hover:text-slate-900"
-          )}
-          onClick={() => onViewModeChange("rows")}
-          type="button"
-        >
-          <Rows3 className="h-4 w-4" />
-          Rows
-        </button>
-        <button
-          aria-pressed={viewMode === "cards"}
-          className={cn(
-            "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
-            viewMode === "cards"
-              ? "bg-white text-primary shadow-sm"
-              : "text-slate-500 hover:text-slate-900"
-          )}
-          onClick={() => onViewModeChange("cards")}
-          type="button"
-        >
-          <LayoutGrid className="h-4 w-4" />
-          Cards
-        </button>
+        <div className="grid h-11 grid-cols-2 rounded-xl border border-slate-200 bg-slate-100/70 p-1 shadow-inner shadow-slate-200/40">
+          <button
+            aria-pressed={viewMode === "rows"}
+            className={cn(
+              "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
+              viewMode === "rows"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            )}
+            onClick={() => onViewModeChange("rows")}
+            type="button"
+          >
+            <Rows3 className="h-4 w-4" />
+            Rows
+          </button>
+          <button
+            aria-pressed={viewMode === "cards"}
+            className={cn(
+              "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
+              viewMode === "cards"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            )}
+            onClick={() => onViewModeChange("cards")}
+            type="button"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Cards
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -975,7 +1014,7 @@ function FilterSelect({
       <span className="sr-only">{label}</span>
       <Select
         aria-label={label}
-        className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
+        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-orange-100"
         disabled={!options.length}
         onChange={(event) => onChange(event.target.value)}
         value={value}
@@ -1006,7 +1045,7 @@ function StatusSelect({
       <span className="sr-only">Status</span>
       <Select
         aria-label="Status"
-        className="h-11 rounded-xl border-slate-200 bg-white shadow-sm"
+        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-orange-100"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -1038,10 +1077,10 @@ function ActiveFilterChips({
   }
 
   return (
-    <div className="flex flex-wrap gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
+    <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-orange-50/20 px-3 py-2.5 sm:px-4">
       {active.map(([key, value]) => (
         <button
-          className="inline-flex min-h-8 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600 transition hover:border-primary/25 hover:bg-brand-soft hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+          className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-orange-100 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-primary/25 hover:bg-brand-soft hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
           key={key}
           onClick={() => onClearFilter(key)}
           type="button"
@@ -1052,7 +1091,7 @@ function ActiveFilterChips({
         </button>
       ))}
       <button
-        className="h-8 rounded-lg px-2 text-xs font-semibold text-primary"
+        className="h-7 rounded-lg px-2 text-[11px] font-semibold text-primary hover:bg-white"
         onClick={onClearAll}
         type="button"
       >
@@ -1121,17 +1160,17 @@ function DesktopDirectoryTable({
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[1040px] border-collapse text-left">
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-normal text-slate-500">
-            <th className="px-4 py-3">User</th>
-            <th className="px-3 py-3">Role</th>
-            <th className="px-3 py-3">Operational Context</th>
-            <th className="px-3 py-3">Manager</th>
-            <th className="px-3 py-3">Lifecycle</th>
-            <th className="px-3 py-3">Contact</th>
-            <th className="px-4 py-3 text-right">Actions</th>
+          <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-normal text-slate-500">
+            <th className="px-4 py-3.5">User</th>
+            <th className="px-3 py-3.5">Role</th>
+            <th className="px-3 py-3.5">Operational Context</th>
+            <th className="px-3 py-3.5">Manager</th>
+            <th className="px-3 py-3.5">Lifecycle</th>
+            <th className="w-[150px] px-3 py-3.5">Contact</th>
+            <th className="px-4 py-3.5 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 bg-white">
           {items.map((item) => (
             <DirectoryTableRow
               actions={actions}
@@ -1157,31 +1196,31 @@ function DirectoryTableRow({
 }) {
   return (
     <tr
-      className="cursor-pointer text-sm text-slate-700 transition hover:bg-orange-50/30"
+      className="cursor-pointer text-sm text-slate-700 transition hover:bg-orange-50/45"
       onClick={() => onOpenProfile(item.user.id)}
     >
-      <td className="px-4 py-3 align-middle">
+      <td className="px-4 py-4 align-middle">
         <UserIdentity item={item} />
       </td>
-      <td className="px-3 py-3 align-middle">
+      <td className="px-3 py-4 align-middle">
         <RoleBadge role={item.user.role} />
       </td>
-      <td className="px-3 py-3 align-middle">
+      <td className="px-3 py-4 align-middle">
         <OperationalContext item={item} />
       </td>
-      <td className="px-3 py-3 align-middle">
+      <td className="px-3 py-4 align-middle">
         <ManagerCell item={item} />
       </td>
-      <td className="px-3 py-3 align-middle">
+      <td className="px-3 py-4 align-middle">
         <LifecycleBadge item={item} />
       </td>
-      <td className="px-3 py-3 align-middle">
+      <td className="w-[150px] px-3 py-4 align-middle">
         <ContactCell item={item} />
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-4 py-4 align-middle">
         <div className="flex justify-end gap-2">
           <Button
-            className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-50"
+            className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:border-orange-100 hover:bg-orange-50/60"
             onClick={(event) => {
               event.stopPropagation();
               onOpenProfile(item.user.id);
@@ -1232,7 +1271,7 @@ function DirectoryUserCard({
   onOpenProfile: (id: string) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.045)]">
       <div className="flex items-start justify-between gap-3">
         <UserIdentity item={item} />
         <LifecycleBadge item={item} />
@@ -1264,7 +1303,7 @@ function DirectoryUserCard({
       </div>
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
         <Button
-          className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:border-orange-100 hover:bg-orange-50/60"
           onClick={() => onOpenProfile(item.user.id)}
           type="button"
           variant="outline"
@@ -1305,7 +1344,7 @@ function OperationalContext({ item }: { item: UsersAreaItem }) {
   const context = getOperationalContextDisplay(item);
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 border-l border-slate-100 pl-3">
       <p className="truncate text-sm font-semibold text-slate-800">
         {context.primary}
       </p>
@@ -1322,7 +1361,7 @@ function ManagerCell({ item }: { item: UsersAreaItem }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-50 text-xs font-semibold text-primary">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-50 text-xs font-semibold text-primary ring-1 ring-orange-100">
         {getInitials(manager.name)}
       </span>
       <span className="min-w-0">
@@ -1339,7 +1378,7 @@ function ManagerCell({ item }: { item: UsersAreaItem }) {
 
 function ContactCell({ item }: { item: UsersAreaItem }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-slate-600">
+    <span className="inline-flex max-w-[150px] items-center gap-2 rounded-full bg-slate-50 px-2.5 py-1 text-sm font-medium text-slate-600 ring-1 ring-slate-100">
       <Phone className="h-4 w-4 shrink-0 text-slate-400" />
       <span className="truncate">{item.user.phoneNumber}</span>
     </span>
@@ -1350,12 +1389,12 @@ function RoleBadge({ role }: { role: UserRole }) {
   return (
     <Badge
       className={cn(
-        "border-transparent text-[11px]",
-        role === "PICKER" && "bg-orange-50 text-orange-700",
-        role === "CHAMP" && "bg-violet-50 text-violet-700",
-        role === "AREA_MANAGER" && "bg-blue-50 text-blue-700",
+        "rounded-full border-transparent px-2.5 py-1 text-[11px] font-semibold",
+        role === "PICKER" && "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
+        role === "CHAMP" && "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
+        role === "AREA_MANAGER" && "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
         (role === "ADMIN" || role === "SUPER_ADMIN") &&
-          "bg-slate-100 text-slate-700"
+          "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
       )}
     >
       {formatEnum(role)}
@@ -1369,11 +1408,15 @@ function LifecycleBadge({ item }: { item: UsersAreaItem }) {
   return (
     <Badge
       className={cn(
-        "gap-1.5 border-transparent text-[11px]",
-        lifecycle.tone === "active" && "bg-emerald-50 text-emerald-700",
-        lifecycle.tone === "pending" && "bg-orange-50 text-orange-700",
-        lifecycle.tone === "blocked" && "bg-red-50 text-red-700",
-        lifecycle.tone === "muted" && "bg-slate-100 text-slate-700"
+        "gap-1.5 rounded-full border-transparent px-2.5 py-1 text-[11px] font-semibold",
+        lifecycle.tone === "active" &&
+          "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+        lifecycle.tone === "pending" &&
+          "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
+        lifecycle.tone === "blocked" &&
+          "bg-red-50 text-red-700 ring-1 ring-red-100",
+        lifecycle.tone === "muted" &&
+          "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
       )}
       title={lifecycle.title}
     >
@@ -1642,9 +1685,10 @@ function getActiveSectionResult({
     const meta = data.meta[section];
     const totalPages = meta?.totalPages ?? 1;
     const safePage = clampPage(page, totalPages);
+    const displayItems = applyClientFilters(guardedItems, filters);
 
     return {
-      items: guardedItems,
+      items: displayItems,
       page: safePage,
       total: meta?.total ?? guardedItems.length,
       totalPages
