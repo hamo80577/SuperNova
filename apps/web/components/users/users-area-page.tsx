@@ -58,10 +58,11 @@ import {
   type UsersActionHandlers
 } from "./users-actions-menu";
 import {
+  canLoadWorkforceSummary,
   deriveVisibleFilterOptions,
   formatWorkforceSummaryMetric,
   getUsersSectionLabel,
-  getWorkforceSummaryRole,
+  getScopedWorkforceSummaryRole,
   getVisibleUserSections,
   isAdminUsersRole,
   keepUsersSectionItems,
@@ -317,11 +318,14 @@ export function UsersAreaPage() {
   ]);
 
   useEffect(() => {
-    if (!viewerIsAdmin) {
+    const summaryRole = getScopedWorkforceSummaryRole(user?.role, activeSection);
+
+    if (!canLoadWorkforceSummary(user?.role) || !summaryRole) {
       setSummaryState({ status: "disabled" });
       return;
     }
 
+    const requestedSummaryRole = summaryRole;
     let alive = true;
 
     async function loadWorkforceSummary() {
@@ -330,7 +334,7 @@ export function UsersAreaPage() {
       try {
         const summary = await usersApi.workforceSummary({
           period: "this-month",
-          role: getWorkforceSummaryRole(activeSection),
+          role: requestedSummaryRole,
           ...toWorkforceSummaryFilters(filters)
         });
 
@@ -362,7 +366,7 @@ export function UsersAreaPage() {
     filters.champId,
     filters.vendorId,
     refreshToken,
-    viewerIsAdmin
+    user?.role
   ]);
 
   useEffect(() => {
@@ -837,8 +841,8 @@ function getMovementKpiCardDisplay(
   if (summaryState.status === "disabled") {
     return {
       footer: "Workforce summary",
-      helper: "Available for Admin and Super Admin",
-      value: "Admin only"
+      helper: "No workforce summary access",
+      value: "Coming soon"
     };
   }
 

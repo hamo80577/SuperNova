@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 
+import { ForbiddenException } from "@nestjs/common";
 import {
   AccountStatus,
   AssignmentStatus,
   EmploymentStatus,
+  ProfileStatus,
   RequestStatus,
   RequestType,
   UserRole
@@ -11,6 +13,7 @@ import {
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 
+import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import { WorkforceSummaryQueryDto } from "../src/users/dto/workforce-summary-query.dto";
 import { UsersService } from "../src/users/users.service";
 
@@ -31,10 +34,27 @@ function assignmentRows(ids: string[], key: string) {
   return ids.map((id) => ({ [key]: id }));
 }
 
+function actor(role: UserRole, id = `actor-${role.toLowerCase()}`): AuthenticatedUser {
+  return {
+    id,
+    role,
+    nameEn: role,
+    phoneNumber: "01000000000",
+    accountStatus: AccountStatus.ACTIVE,
+    employmentStatus: EmploymentStatus.ACTIVE,
+    profileStatus: ProfileStatus.COMPLETE,
+    mustChangePassword: false
+  };
+}
+
 function serviceHarness(options: {
   pickerSnapshots?: string[][];
   champSnapshots?: string[][];
   areaManagerSnapshots?: string[][];
+  areaManagerScopeChainIds?: string[];
+  areaManagerScopedChampIds?: string[];
+  champScopeBranches?: Array<{ vendorId: string; chainId: string }>;
+  vendors?: Array<{ id: string; chainId: string }>;
   requestCounts?: number[];
   userCounts?: number[];
 }) {
@@ -43,6 +63,12 @@ function serviceHarness(options: {
   const pickerSnapshots = [...(options.pickerSnapshots ?? [])];
   const champSnapshots = [...(options.champSnapshots ?? [])];
   const areaManagerSnapshots = [...(options.areaManagerSnapshots ?? [])];
+  const areaManagerScopeChainIds = [...(options.areaManagerScopeChainIds ?? [])];
+  const areaManagerScopedChampIds = [
+    ...(options.areaManagerScopedChampIds ?? [])
+  ];
+  const champScopeBranches = [...(options.champScopeBranches ?? [])];
+  const vendors = [...(options.vendors ?? [])];
   const requestCounts = [...(options.requestCounts ?? [])];
   const userCounts = [...(options.userCounts ?? [])];
 
@@ -56,13 +82,51 @@ function serviceHarness(options: {
     vendorChampAssignment: {
       findMany: async (args: { where: unknown }) => {
         assignmentFindCalls.push({ model: "vendorChampAssignment", args });
+        if (
+          "select" in args &&
+          (args as { select?: { vendorId?: boolean } }).select?.vendorId
+        ) {
+          return champScopeBranches.map((branch) => ({
+            vendorId: branch.vendorId,
+            vendor: { chainId: branch.chainId }
+          }));
+        }
         return assignmentRows(champSnapshots.shift() ?? [], "champId");
+      },
+      findFirst: async (args: { where: { champId?: string } }) => {
+        assignmentFindCalls.push({
+          model: "vendorChampAssignment",
+          args: args as { where: unknown }
+        });
+        return args.where.champId &&
+          areaManagerScopedChampIds.includes(args.where.champId)
+          ? { id: `assignment-${args.where.champId}` }
+          : null;
       }
     },
     chainAreaManagerAssignment: {
       findMany: async (args: { where: unknown }) => {
         assignmentFindCalls.push({ model: "chainAreaManagerAssignment", args });
+        if (
+          "select" in args &&
+          (args as { select?: { chainId?: boolean } }).select?.chainId
+        ) {
+          return assignmentRows(areaManagerScopeChainIds, "chainId");
+        }
         return assignmentRows(areaManagerSnapshots.shift() ?? [], "areaManagerId");
+      }
+    },
+    vendor: {
+      findFirst: async (args: {
+        where: { id?: string; chainId?: { in?: string[] } };
+      }) => {
+        const match = vendors.find(
+          (vendor) =>
+            vendor.id === args.where.id &&
+            (!args.where.chainId?.in ||
+              args.where.chainId.in.includes(vendor.chainId))
+        );
+        return match ? { id: match.id } : null;
       }
     },
     request: {
@@ -91,6 +155,8 @@ function serialized(value: unknown) {
 }
 
 async function run() {
+  const admin = actor(UserRole.ADMIN, "admin-1");
+
   {
     const dto = plainToInstance(WorkforceSummaryQueryDto, {});
     const errors = await validate(dto, {
@@ -112,13 +178,16 @@ async function run() {
       requestCounts: [3, 1]
     });
 
-    const summary = await harness.service.getWorkforceSummary({
-      role: "PICKER",
-      chainId: "chain-1",
-      vendorId: "vendor-1",
-      areaManagerId: "area-manager-1",
-      champId: "champ-1"
-    });
+    const summary = await harness.service.getWorkforceSummary(
+      {
+        role: "PICKER",
+        chainId: "chain-1",
+        vendorId: "vendor-1",
+        areaManagerId: "area-manager-1",
+        champId: "champ-1"
+      },
+      admin
+    );
 
     assert.equal(summary.role, "PICKER");
     assert.equal(summary.startingHeadcount, 2);
@@ -161,10 +230,13 @@ async function run() {
       requestCounts: [1, 2]
     });
 
-    const summary = await harness.service.getWorkforceSummary({
-      role: "MANAGEMENT",
-      chainId: "chain-1"
-    });
+    const summary = await harness.service.getWorkforceSummary(
+      {
+        role: "MANAGEMENT",
+        chainId: "chain-1"
+      },
+      admin
+    );
 
     assert.equal(summary.role, "MANAGEMENT");
     assert.equal(summary.startingHeadcount, 2);
@@ -194,9 +266,12 @@ async function run() {
       userCounts: [2, 3, 1, 1]
     });
 
-    const summary = await harness.service.getWorkforceSummary({
-      role: "MANAGEMENT"
-    });
+    const summary = await harness.service.getWorkforceSummary(
+      {
+        role: "MANAGEMENT"
+      },
+      admin
+    );
 
     assert.equal(summary.role, "MANAGEMENT");
     assert.equal(summary.startingHeadcount, 3);
@@ -216,6 +291,136 @@ async function run() {
     assert.match(userWhere, new RegExp(UserRole.SUPER_ADMIN));
     assert.match(userWhere, new RegExp(AccountStatus.ACTIVE));
     assert.match(userWhere, new RegExp(EmploymentStatus.ACTIVE));
+  }
+
+  {
+    const areaManager = actor(UserRole.AREA_MANAGER, "area-manager-1");
+    const harness = serviceHarness({
+      areaManagerScopeChainIds: ["chain-1"],
+      pickerSnapshots: [["picker-1"], ["picker-1", "picker-2"]],
+      requestCounts: [2, 1]
+    });
+
+    const summary = await harness.service.getWorkforceSummary(
+      { role: "PICKER" },
+      areaManager
+    );
+
+    assert.equal(summary.role, "PICKER");
+    assert.equal(summary.startingHeadcount, 1);
+    assert.equal(summary.endingHeadcount, 2);
+    assert.equal(summary.newHires, 2);
+    assert.equal(summary.exited, 1);
+
+    const pickerWhere = serialized(
+      harness.assignmentFindCalls.find(
+        (call) => call.model === "pickerBranchAssignment"
+      )?.args.where
+    );
+    assert.match(pickerWhere, /chain-1/);
+
+    const requestWhere = serialized(harness.countCalls[0].args.where);
+    assert.match(requestWhere, new RegExp(RequestStatus.COMPLETED));
+    assert.match(requestWhere, /chain-1/);
+  }
+
+  {
+    const areaManager = actor(UserRole.AREA_MANAGER, "area-manager-1");
+    const harness = serviceHarness({
+      areaManagerScopeChainIds: ["chain-1"],
+      vendors: [{ id: "vendor-2", chainId: "chain-2" }]
+    });
+
+    await assert.rejects(
+      () =>
+        harness.service.getWorkforceSummary(
+          { role: "PICKER", chainId: "chain-2" },
+          areaManager
+        ),
+      ForbiddenException
+    );
+    await assert.rejects(
+      () =>
+        harness.service.getWorkforceSummary(
+          { role: "PICKER", vendorId: "vendor-2" },
+          areaManager
+        ),
+      ForbiddenException
+    );
+  }
+
+  {
+    const areaManager = actor(UserRole.AREA_MANAGER, "area-manager-1");
+    const harness = serviceHarness({
+      areaManagerScopeChainIds: ["chain-1"],
+      champSnapshots: [["champ-1"], ["champ-1", "champ-2"]],
+      requestCounts: [1, 0]
+    });
+
+    const summary = await harness.service.getWorkforceSummary(
+      { role: "CHAMP" },
+      areaManager
+    );
+
+    assert.equal(summary.role, "CHAMP");
+    assert.equal(summary.startingHeadcount, 1);
+    assert.equal(summary.endingHeadcount, 2);
+
+    const champWhere = serialized(
+      harness.assignmentFindCalls.find(
+        (call) => call.model === "vendorChampAssignment"
+      )?.args.where
+    );
+    assert.match(champWhere, /chain-1/);
+  }
+
+  {
+    const champ = actor(UserRole.CHAMP, "champ-1");
+    const harness = serviceHarness({
+      champScopeBranches: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+      pickerSnapshots: [["picker-1"], ["picker-1", "picker-2"]],
+      requestCounts: [1, 0]
+    });
+
+    const summary = await harness.service.getWorkforceSummary(
+      { role: "PICKER" },
+      champ
+    );
+
+    assert.equal(summary.role, "PICKER");
+    assert.equal(summary.startingHeadcount, 1);
+    assert.equal(summary.endingHeadcount, 2);
+
+    const pickerWhere = serialized(
+      harness.assignmentFindCalls.find(
+        (call) => call.model === "pickerBranchAssignment"
+      )?.args.where
+    );
+    assert.match(pickerWhere, /vendor-1/);
+
+    const requestWhere = serialized(harness.countCalls[0].args.where);
+    assert.match(requestWhere, /vendor-1/);
+  }
+
+  {
+    const champ = actor(UserRole.CHAMP, "champ-1");
+    const harness = serviceHarness({
+      champScopeBranches: [{ vendorId: "vendor-1", chainId: "chain-1" }]
+    });
+
+    await assert.rejects(
+      () =>
+        harness.service.getWorkforceSummary(
+          { role: "PICKER", vendorId: "vendor-2" },
+          champ
+        ),
+      ForbiddenException
+    );
+    await assert.rejects(
+      () =>
+        harness.service.getWorkforceSummary({ role: "MANAGEMENT" }, champ),
+      ForbiddenException
+    );
   }
 }
 

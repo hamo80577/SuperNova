@@ -75,14 +75,19 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.AREA_MANAGER,
+    UserRole.CHAMP
+  )
   @Get("workforce-summary")
   getWorkforceSummary(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: WorkforceSummaryQueryDto
   ) {
     this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
-    return this.usersService.getWorkforceSummary(query);
+    return this.usersService.getWorkforceSummary(query, user);
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)

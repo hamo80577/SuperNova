@@ -125,6 +125,23 @@ export function getWorkforceSummaryRole(
   return "PICKER";
 }
 
+export function canLoadWorkforceSummary(role: UserRole | undefined) {
+  return getVisibleUserSections(role).length > 0;
+}
+
+export function getScopedWorkforceSummaryRole(
+  role: UserRole | undefined,
+  section: UsersSectionId
+): Exclude<WorkforceSummaryRole, "ALL"> | null {
+  const visible = getVisibleUserSections(role);
+
+  if (!visible.some((item) => item.id === section)) {
+    return null;
+  }
+
+  return getWorkforceSummaryRole(section);
+}
+
 export function formatWorkforceSummaryMetric(
   summary: WorkforceSummaryResponse,
   metric: WorkforceKpiMetricId

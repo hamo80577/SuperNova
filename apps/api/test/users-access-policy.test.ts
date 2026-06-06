@@ -130,9 +130,9 @@ const usersService = {
     vendorId?: string;
     areaManagerId?: string;
     champId?: string;
-  }) => {
+  }, currentUser: AuthenticatedUser) => {
     serviceCalls.push(
-      `workforce-summary:${query.period ?? "none"}:${query.role ?? "none"}`
+      `workforce-summary:${query.period ?? "none"}:${query.role ?? "none"}:${currentUser.id}`
     );
     return responses.workforceSummary;
   },
@@ -248,7 +248,9 @@ async function run() {
   ]);
   assert.deepEqual(rolesFor("getWorkforceSummary"), [
     UserRole.ADMIN,
-    UserRole.SUPER_ADMIN
+    UserRole.SUPER_ADMIN,
+    UserRole.AREA_MANAGER,
+    UserRole.CHAMP
   ]);
   assert.deepEqual(rolesFor("updateAdminProfile"), [
     UserRole.ADMIN,
@@ -316,11 +318,19 @@ async function run() {
     }),
     responses.workforceSummary
   );
+  assert.equal(
+    await controller.getWorkforceSummary(champ, {
+      period: "this-month",
+      role: "PICKER"
+    }),
+    responses.workforceSummary
+  );
 
   assert.deepEqual(policyCalls, [
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
-    { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL }
+    { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
+    { actor: champ, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL }
   ]);
 
   assert.deepEqual(serviceCalls, [
@@ -328,7 +338,8 @@ async function run() {
     `operational-profile:target-user:${champ.id}`,
     "list:2:CHAMP",
     "operational-list:2:CHAMP",
-    "workforce-summary:this-month:PICKER"
+    `workforce-summary:this-month:PICKER:${admin.id}`,
+    `workforce-summary:this-month:PICKER:${champ.id}`
   ]);
 
   policyCalls.length = 0;

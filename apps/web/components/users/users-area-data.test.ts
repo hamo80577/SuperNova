@@ -1,6 +1,8 @@
 import {
+  canLoadWorkforceSummary,
   deriveVisibleFilterOptions,
   formatWorkforceSummaryMetric,
+  getScopedWorkforceSummaryRole,
   getWorkforceSummaryRole,
   getVisibleUserSections,
   isRoleAllowedInUsersSection,
@@ -213,6 +215,22 @@ const noFilters = {
   assert.equal(getWorkforceSummaryRole("pickers"), "PICKER");
   assert.equal(getWorkforceSummaryRole("champs"), "CHAMP");
   assert.equal(getWorkforceSummaryRole("management"), "MANAGEMENT");
+}
+
+{
+  assert.equal(canLoadWorkforceSummary("CHAMP"), true);
+  assert.equal(getScopedWorkforceSummaryRole("CHAMP", "pickers"), "PICKER");
+  assert.equal(getScopedWorkforceSummaryRole("CHAMP", "champs"), null);
+}
+
+{
+  assert.equal(canLoadWorkforceSummary("AREA_MANAGER"), true);
+  assert.equal(getScopedWorkforceSummaryRole("AREA_MANAGER", "champs"), "CHAMP");
+}
+
+{
+  assert.equal(canLoadWorkforceSummary("PICKER"), false);
+  assert.equal(getScopedWorkforceSummaryRole("PICKER", "pickers"), null);
 }
 
 {
