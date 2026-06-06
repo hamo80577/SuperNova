@@ -78,6 +78,21 @@ const responses = {
     items: [],
     meta: { page: 1, pageSize: 20, total: 0, totalPages: 1 }
   },
+  workforceSummary: {
+    period: {
+      from: "2026-06-01T00:00:00.000Z",
+      to: "2026-06-06T00:00:00.000Z",
+      label: "This month"
+    },
+    role: "PICKER",
+    startingHeadcount: 10,
+    newHires: 3,
+    exited: 1,
+    endingHeadcount: 12,
+    averageHeadcount: 11,
+    attritionRate: 9.09,
+    netMovement: 2
+  },
   operationalProfile: { user: { id: "target-user" } },
   preferences: { user: { id: "current-user", uiTheme: UiTheme.TEAL } },
   areaManagerAssignments: { assignments: [] },
@@ -107,6 +122,19 @@ const usersService = {
   listOperational: async (query: ListUsersQueryDto) => {
     serviceCalls.push(`operational-list:${query.page}:${query.role ?? "none"}`);
     return responses.operationalList;
+  },
+  getWorkforceSummary: async (query: {
+    period?: string;
+    role?: string;
+    chainId?: string;
+    vendorId?: string;
+    areaManagerId?: string;
+    champId?: string;
+  }) => {
+    serviceCalls.push(
+      `workforce-summary:${query.period ?? "none"}:${query.role ?? "none"}`
+    );
+    return responses.workforceSummary;
   },
   updatePreferences: async (
     userId: string,
@@ -218,6 +246,10 @@ async function run() {
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
   ]);
+  assert.deepEqual(rolesFor("getWorkforceSummary"), [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ]);
   assert.deepEqual(rolesFor("updateAdminProfile"), [
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN
@@ -248,6 +280,10 @@ async function run() {
   ]);
   assert.deepEqual(guardsFor("list"), [JwtAuthGuard, RolesGuard]);
   assert.deepEqual(guardsFor("listOperational"), [JwtAuthGuard, RolesGuard]);
+  assert.deepEqual(guardsFor("getWorkforceSummary"), [
+    JwtAuthGuard,
+    RolesGuard
+  ]);
   assert.deepEqual(guardsFor("updateAdminProfile"), [
     JwtAuthGuard,
     RolesGuard
@@ -273,8 +309,16 @@ async function run() {
     await controller.listOperational(admin, listQuery),
     responses.operationalList
   );
+  assert.equal(
+    await controller.getWorkforceSummary(admin, {
+      period: "this-month",
+      role: "PICKER"
+    }),
+    responses.workforceSummary
+  );
 
   assert.deepEqual(policyCalls, [
+    { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL },
     { actor: admin, permissionKey: PermissionKeys.USERS_LIST_OPERATIONAL }
   ]);
@@ -283,7 +327,8 @@ async function run() {
     `get-me:${champ.id}`,
     `operational-profile:target-user:${champ.id}`,
     "list:2:CHAMP",
-    "operational-list:2:CHAMP"
+    "operational-list:2:CHAMP",
+    "workforce-summary:this-month:PICKER"
   ]);
 
   policyCalls.length = 0;

@@ -32,16 +32,33 @@ import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import type { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { toSafeUser, type SafeUserDto } from "./dto/safe-user.dto";
 import type { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
+import type {
+  WorkforceSummaryPeriod,
+  WorkforceSummaryQueryDto,
+  WorkforceSummaryRole
+} from "./dto/workforce-summary-query.dto";
 import { TemporaryPasswordService } from "./temporary-password.service";
 
 const MAX_PAGE_SIZE = 100;
 const PASSWORD_HASH_ROUNDS = 12;
 const TEMPORARY_PASSWORD_EXPIRY_HOURS = 72;
+const ADMIN_MANAGEMENT_ROLES = [UserRole.ADMIN, UserRole.SUPER_ADMIN] as const;
 const REQUIRED_PICKER_PROFILE_FIELDS = [
   "nationalId",
   "address",
   "dateOfBirth"
 ] as const;
+
+type WorkforcePeriod = {
+  from: Date;
+  to: Date;
+  label: string;
+};
+
+type WorkforceMovementRequestType = Extract<
+  RequestType,
+  "NEW_HIRE" | "RESIGNATION"
+>;
 
 type OperationalAssignmentSummary = {
   id: string;
@@ -189,6 +206,40 @@ export class UsersService {
         total,
         totalPages: Math.max(1, Math.ceil(total / pageSize))
       }
+    };
+  }
+
+  async getWorkforceSummary(query: WorkforceSummaryQueryDto) {
+    const period = this.resolveWorkforcePeriod(query.period ?? "this-month");
+    const role = query.role ?? "PICKER";
+    const [startingHeadcount, endingHeadcount, newHires, exited] =
+      await Promise.all([
+        this.countWorkforceHeadcountAt(role, query, period.from),
+        this.countWorkforceHeadcountAt(role, query, period.to),
+        this.countWorkforceMovement(role, query, period, RequestType.NEW_HIRE),
+        this.countWorkforceMovement(role, query, period, RequestType.RESIGNATION)
+      ]);
+    const averageHeadcount = this.roundWorkforceMetric(
+      (startingHeadcount + endingHeadcount) / 2
+    );
+    const attritionRate = averageHeadcount
+      ? this.roundWorkforceMetric((exited / averageHeadcount) * 100)
+      : 0;
+
+    return {
+      period: {
+        from: period.from.toISOString(),
+        to: period.to.toISOString(),
+        label: period.label
+      },
+      role,
+      startingHeadcount,
+      newHires,
+      exited,
+      endingHeadcount,
+      averageHeadcount,
+      attritionRate,
+      netMovement: newHires - exited
     };
   }
 
@@ -1478,6 +1529,424 @@ export class UsersService {
       area: vendor.area,
       city: vendor.city
     };
+  }
+
+  private resolveWorkforcePeriod(period: WorkforceSummaryPeriod): WorkforcePeriod {
+    if (period !== "this-month") {
+      throw new BadRequestException("Unsupported workforce summary period.");
+    }
+
+    const to = new Date();
+    const from = new Date(to.getFullYear(), to.getMonth(), 1);
+    from.setHours(0, 0, 0, 0);
+
+    return {
+      from,
+      to,
+      label: "This month"
+    };
+  }
+
+  private async countWorkforceHeadcountAt(
+    role: WorkforceSummaryRole,
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ) {
+    let total = 0;
+
+    if (role === "PICKER" || role === "ALL") {
+      total += await this.countPickerHeadcountAt(query, asOf);
+    }
+
+    if (role === "CHAMP" || role === "ALL") {
+      total += await this.countChampHeadcountAt(query, asOf);
+    }
+
+    if (role === "MANAGEMENT" || role === "ALL") {
+      total += await this.countAreaManagerHeadcountAt(query, asOf);
+
+      if (!this.hasOperationalScope(query)) {
+        total += await this.countAdminManagementHeadcountAt(asOf);
+      }
+    }
+
+    return total;
+  }
+
+  private async countPickerHeadcountAt(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ) {
+    const rows = await this.prisma.pickerBranchAssignment.findMany({
+      where: this.buildPickerAssignmentSnapshotWhere(query, asOf),
+      select: { pickerId: true },
+      distinct: ["pickerId"]
+    });
+
+    return new Set(rows.map((row) => row.pickerId)).size;
+  }
+
+  private async countChampHeadcountAt(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ) {
+    const rows = await this.prisma.vendorChampAssignment.findMany({
+      where: this.buildChampAssignmentSnapshotWhere(query, asOf),
+      select: { champId: true },
+      distinct: ["champId"]
+    });
+
+    return new Set(rows.map((row) => row.champId)).size;
+  }
+
+  private async countAreaManagerHeadcountAt(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ) {
+    const where = this.buildAreaManagerAssignmentSnapshotWhere(query, asOf);
+
+    if (!where) {
+      return 0;
+    }
+
+    const rows = await this.prisma.chainAreaManagerAssignment.findMany({
+      where,
+      select: { areaManagerId: true },
+      distinct: ["areaManagerId"]
+    });
+
+    return new Set(rows.map((row) => row.areaManagerId)).size;
+  }
+
+  private async countWorkforceMovement(
+    role: WorkforceSummaryRole,
+    query: WorkforceSummaryQueryDto,
+    period: WorkforcePeriod,
+    type: WorkforceMovementRequestType
+  ) {
+    let total = 0;
+
+    if (role === "PICKER" || role === "ALL") {
+      total += await this.countLifecycleRequestsForRole(
+        UserRole.PICKER,
+        query,
+        period,
+        type
+      );
+    }
+
+    if (role === "CHAMP" || role === "ALL") {
+      total += await this.countLifecycleRequestsForRole(
+        UserRole.CHAMP,
+        query,
+        period,
+        type
+      );
+    }
+
+    if (role === "MANAGEMENT" || role === "ALL") {
+      total += await this.countLifecycleRequestsForRole(
+        UserRole.AREA_MANAGER,
+        query,
+        period,
+        type
+      );
+
+      if (!this.hasOperationalScope(query)) {
+        total +=
+          type === RequestType.NEW_HIRE
+            ? await this.countAdminManagementNewHires(period)
+            : await this.countAdminManagementExits(period);
+      }
+    }
+
+    return total;
+  }
+
+  private async countLifecycleRequestsForRole(
+    role: Extract<UserRole, "PICKER" | "CHAMP" | "AREA_MANAGER">,
+    query: WorkforceSummaryQueryDto,
+    period: WorkforcePeriod,
+    type: WorkforceMovementRequestType
+  ) {
+    const scopeWhere = this.buildLifecycleRequestScopeWhere(role, query);
+
+    if (!scopeWhere) {
+      return 0;
+    }
+
+    return this.prisma.request.count({
+      where: {
+        AND: [
+          {
+            type,
+            status: RequestStatus.COMPLETED,
+            completedAt: {
+              gte: period.from,
+              lte: period.to
+            },
+            targetUser: {
+              is: { role }
+            }
+          },
+          scopeWhere
+        ]
+      }
+    });
+  }
+
+  private async countAdminManagementHeadcountAt(asOf: Date) {
+    return this.prisma.user.count({
+      where: {
+        role: { in: [...ADMIN_MANAGEMENT_ROLES] },
+        AND: [
+          this.buildUserJoinedOnOrBeforeWhere(asOf),
+          {
+            OR: [
+              {
+                accountStatus: AccountStatus.ACTIVE,
+                employmentStatus: EmploymentStatus.ACTIVE,
+                resignationDate: null
+              },
+              {
+                resignationDate: { gt: asOf }
+              }
+            ]
+          }
+        ]
+      }
+    });
+  }
+
+  private async countAdminManagementNewHires(period: WorkforcePeriod) {
+    return this.prisma.user.count({
+      where: {
+        role: { in: [...ADMIN_MANAGEMENT_ROLES] },
+        OR: [
+          {
+            joiningDate: {
+              gte: period.from,
+              lte: period.to
+            }
+          },
+          {
+            joiningDate: null,
+            createdAt: {
+              gte: period.from,
+              lte: period.to
+            }
+          }
+        ]
+      }
+    });
+  }
+
+  private async countAdminManagementExits(period: WorkforcePeriod) {
+    return this.prisma.user.count({
+      where: {
+        role: { in: [...ADMIN_MANAGEMENT_ROLES] },
+        resignationDate: {
+          gte: period.from,
+          lte: period.to
+        }
+      }
+    });
+  }
+
+  private buildPickerAssignmentSnapshotWhere(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ): Prisma.PickerBranchAssignmentWhereInput {
+    const and: Prisma.PickerBranchAssignmentWhereInput[] = [
+      this.buildAssignmentActiveAtWhere(asOf)
+    ];
+
+    if (query.chainId) {
+      and.push({ vendor: { chainId: query.chainId } });
+    }
+
+    if (query.vendorId) {
+      and.push({ vendorId: query.vendorId });
+    }
+
+    if (query.areaManagerId) {
+      and.push({
+        vendor: {
+          chain: {
+            areaManagerAssignments: {
+              some: {
+                areaManagerId: query.areaManagerId,
+                ...this.buildAssignmentActiveAtWhere(asOf)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (query.champId) {
+      and.push({
+        vendor: {
+          champAssignments: {
+            some: {
+              champId: query.champId,
+              ...this.buildAssignmentActiveAtWhere(asOf)
+            }
+          }
+        }
+      });
+    }
+
+    return { AND: and };
+  }
+
+  private buildChampAssignmentSnapshotWhere(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ): Prisma.VendorChampAssignmentWhereInput {
+    const and: Prisma.VendorChampAssignmentWhereInput[] = [
+      this.buildAssignmentActiveAtWhere(asOf)
+    ];
+
+    if (query.chainId) {
+      and.push({ vendor: { chainId: query.chainId } });
+    }
+
+    if (query.vendorId) {
+      and.push({ vendorId: query.vendorId });
+    }
+
+    if (query.areaManagerId) {
+      and.push({
+        vendor: {
+          chain: {
+            areaManagerAssignments: {
+              some: {
+                areaManagerId: query.areaManagerId,
+                ...this.buildAssignmentActiveAtWhere(asOf)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (query.champId) {
+      and.push({ champId: query.champId });
+    }
+
+    return { AND: and };
+  }
+
+  private buildAreaManagerAssignmentSnapshotWhere(
+    query: WorkforceSummaryQueryDto,
+    asOf: Date
+  ): Prisma.ChainAreaManagerAssignmentWhereInput | null {
+    if (query.vendorId || query.champId) {
+      return null;
+    }
+
+    const and: Prisma.ChainAreaManagerAssignmentWhereInput[] = [
+      this.buildAssignmentActiveAtWhere(asOf)
+    ];
+
+    if (query.chainId) {
+      and.push({ chainId: query.chainId });
+    }
+
+    if (query.areaManagerId) {
+      and.push({ areaManagerId: query.areaManagerId });
+    }
+
+    return { AND: and };
+  }
+
+  private buildLifecycleRequestScopeWhere(
+    role: Extract<UserRole, "PICKER" | "CHAMP" | "AREA_MANAGER">,
+    query: WorkforceSummaryQueryDto
+  ): Prisma.RequestWhereInput | null {
+    if (role === UserRole.AREA_MANAGER && (query.vendorId || query.champId)) {
+      return null;
+    }
+
+    const and: Prisma.RequestWhereInput[] = [];
+
+    if (query.chainId) {
+      and.push({ sourceChainId: query.chainId });
+    }
+
+    if (query.vendorId) {
+      and.push({ sourceVendorId: query.vendorId });
+    }
+
+    if (query.areaManagerId) {
+      if (role === UserRole.AREA_MANAGER) {
+        and.push({ targetUserId: query.areaManagerId });
+      } else {
+        and.push({
+          sourceChain: {
+            is: {
+              areaManagerAssignments: {
+                some: {
+                  areaManagerId: query.areaManagerId,
+                  status: AssignmentStatus.ACTIVE
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    if (query.champId) {
+      if (role === UserRole.CHAMP) {
+        and.push({ targetUserId: query.champId });
+      } else {
+        and.push({
+          sourceVendor: {
+            is: {
+              champAssignments: {
+                some: {
+                  champId: query.champId,
+                  status: AssignmentStatus.ACTIVE
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    return and.length ? { AND: and } : {};
+  }
+
+  private buildAssignmentActiveAtWhere(asOf: Date) {
+    return {
+      startDate: { lte: asOf },
+      OR: [{ endDate: null }, { endDate: { gt: asOf } }]
+    };
+  }
+
+  private buildUserJoinedOnOrBeforeWhere(asOf: Date): Prisma.UserWhereInput {
+    return {
+      OR: [
+        { joiningDate: { lte: asOf } },
+        {
+          joiningDate: null,
+          createdAt: { lte: asOf }
+        }
+      ]
+    };
+  }
+
+  private hasOperationalScope(query: WorkforceSummaryQueryDto) {
+    return Boolean(
+      query.chainId || query.vendorId || query.areaManagerId || query.champId
+    );
+  }
+
+  private roundWorkforceMetric(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   private buildWhere(query: ListUsersQueryDto): Prisma.UserWhereInput {

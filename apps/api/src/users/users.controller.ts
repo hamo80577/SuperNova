@@ -34,6 +34,7 @@ import { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignme
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
 import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
+import { WorkforceSummaryQueryDto } from "./dto/workforce-summary-query.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -71,6 +72,17 @@ export class UsersController {
   ) {
     this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
     return this.usersService.listOperational(query);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @Get("workforce-summary")
+  getWorkforceSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: WorkforceSummaryQueryDto
+  ) {
+    this.accessPolicy.assertCan(user, PermissionKeys.USERS_LIST_OPERATIONAL);
+    return this.usersService.getWorkforceSummary(query);
   }
 
   @UseGuards(JwtAuthGuard, PermissionGuard)
