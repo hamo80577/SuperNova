@@ -26,6 +26,13 @@ export type UsersAreaItem = {
 export type UsersFilters = Record<UsersFilterKey, string>;
 export type FilterOption = { id: string; label: string; hint?: string };
 
+export type UsersFilterLink = {
+  chain?: FilterOption | null;
+  vendor?: FilterOption | null;
+  areaManager?: FilterOption | null;
+  champ?: FilterOption | null;
+};
+
 export type UsersFilterOptions = {
   chains: FilterOption[];
   vendors: FilterOption[];
@@ -39,4 +46,5 @@ export type UsersAreaData = {
   management: UsersAreaItem[];
   meta: Partial<Record<UsersSectionId, PageMeta>>;
   filters: UsersFilterOptions;
+  filterLinks: UsersFilterLink[];
 };

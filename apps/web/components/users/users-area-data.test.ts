@@ -1,7 +1,9 @@
 import {
+  deriveVisibleFilterOptions,
   getVisibleUserSections,
   isRoleAllowedInUsersSection,
-  keepUsersSectionItems
+  keepUsersSectionItems,
+  sanitizeFiltersForOptions
 } from "./users-area-data";
 import type { UserRole } from "@/lib/auth/types";
 
@@ -19,6 +21,143 @@ const assert = {
     }
   }
 };
+
+const filterLinks = [
+  {
+    areaManager: { hint: "0100", id: "am-north", label: "North AM" },
+    chain: { hint: "CRF", id: "chain-carrefour", label: "Carrefour" },
+    champ: { hint: "0111", id: "champ-hcc", label: "HCC Champ" },
+    vendor: { hint: "HCC", id: "branch-hcc", label: "Carrefour HCC" }
+  },
+  {
+    areaManager: { hint: "0100", id: "am-north", label: "North AM" },
+    chain: { hint: "CRF", id: "chain-carrefour", label: "Carrefour" },
+    champ: { hint: "0122", id: "champ-maadi", label: "Maadi Champ" },
+    vendor: { hint: "MAD", id: "branch-maadi", label: "Carrefour Maadi" }
+  },
+  {
+    areaManager: { hint: "0109", id: "am-east", label: "East AM" },
+    chain: { hint: "SPN", id: "chain-spinneys", label: "Spinneys" },
+    champ: { hint: "0133", id: "champ-alex", label: "Alex Champ" },
+    vendor: { hint: "ALX", id: "branch-alex", label: "Spinneys Alex" }
+  }
+];
+
+const noFilters = {
+  areaManagerId: "",
+  chainId: "",
+  champId: "",
+  vendorId: ""
+};
+
+{
+  const options = deriveVisibleFilterOptions(
+    { ...noFilters, chainId: "chain-carrefour" },
+    filterLinks
+  );
+
+  assert.deepEqual(
+    options.vendors.map((option) => option.id),
+    ["branch-hcc", "branch-maadi"]
+  );
+  assert.deepEqual(
+    options.champs.map((option) => option.id),
+    ["champ-hcc", "champ-maadi"]
+  );
+  assert.deepEqual(
+    options.areaManagers.map((option) => option.id),
+    ["am-north"]
+  );
+}
+
+{
+  const options = deriveVisibleFilterOptions(
+    { ...noFilters, vendorId: "branch-hcc" },
+    filterLinks
+  );
+
+  assert.deepEqual(
+    options.chains.map((option) => option.id),
+    ["chain-carrefour"]
+  );
+  assert.deepEqual(
+    options.champs.map((option) => option.id),
+    ["champ-hcc"]
+  );
+  assert.deepEqual(
+    options.areaManagers.map((option) => option.id),
+    ["am-north"]
+  );
+}
+
+{
+  const options = deriveVisibleFilterOptions(
+    { ...noFilters, champId: "champ-hcc" },
+    filterLinks
+  );
+
+  assert.deepEqual(
+    options.vendors.map((option) => option.id),
+    ["branch-hcc"]
+  );
+  assert.deepEqual(
+    options.chains.map((option) => option.id),
+    ["chain-carrefour"]
+  );
+}
+
+{
+  const options = deriveVisibleFilterOptions(
+    { ...noFilters, areaManagerId: "am-north" },
+    filterLinks
+  );
+
+  assert.deepEqual(
+    options.chains.map((option) => option.id),
+    ["chain-carrefour"]
+  );
+  assert.deepEqual(
+    options.vendors.map((option) => option.id),
+    ["branch-hcc", "branch-maadi"]
+  );
+  assert.deepEqual(
+    options.champs.map((option) => option.id),
+    ["champ-hcc", "champ-maadi"]
+  );
+}
+
+{
+  const sanitized = sanitizeFiltersForOptions(
+    {
+      areaManagerId: "am-north",
+      chainId: "chain-spinneys",
+      champId: "champ-hcc",
+      vendorId: "branch-hcc"
+    },
+    deriveVisibleFilterOptions(
+      { ...noFilters, chainId: "chain-spinneys" },
+      filterLinks
+    )
+  );
+
+  assert.deepEqual(sanitized, {
+    areaManagerId: "",
+    chainId: "chain-spinneys",
+    champId: "",
+    vendorId: ""
+  });
+}
+
+{
+  const options = deriveVisibleFilterOptions(noFilters, []);
+  assert.deepEqual(options, {
+    areaManagers: [],
+    chains: [],
+    champs: [],
+    vendors: []
+  });
+  assert.deepEqual(sanitizeFiltersForOptions(noFilters, options), noFilters);
+}
 
 {
   assert.deepEqual(

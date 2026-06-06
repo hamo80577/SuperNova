@@ -56,16 +56,19 @@ import {
   type UsersActionHandlers
 } from "./users-actions-menu";
 import {
+  deriveVisibleFilterOptions,
   getUsersSectionLabel,
   getVisibleUserSections,
   isAdminUsersRole,
   keepUsersSectionItems,
+  sanitizeFiltersForOptions,
   usersManagementRoles
 } from "./users-area-data";
 import type {
   FilterOption,
   UsersAreaData,
   UsersAreaItem,
+  UsersFilterLink,
   UsersFilterKey,
   UsersFilterOptions,
   UsersFilters,
@@ -306,6 +309,16 @@ export function UsersAreaPage() {
     debouncedQuery,
     viewerIsAdmin
   );
+  const scopedFilterOptions = useMemo(
+    () => deriveVisibleFilterOptions(filters, data.filterLinks),
+    [
+      data.filterLinks,
+      filters.areaManagerId,
+      filters.chainId,
+      filters.champId,
+      filters.vendorId
+    ]
+  );
   const activeResult = getActiveSectionResult({
     data,
     filters,
@@ -322,6 +335,15 @@ export function UsersAreaPage() {
   const allowedResignationRoles = getAllowedResignationTargetRoles(user?.role);
   const showAdminFilters = viewerIsAdmin;
 
+  useEffect(() => {
+    const sanitized = sanitizeFiltersForOptions(filters, scopedFilterOptions);
+
+    if (!sameDirectoryFilters(filters, sanitized)) {
+      setFilters(sanitized);
+      setPageBySection(initialPages);
+    }
+  }, [filters, scopedFilterOptions]);
+
   function refreshUsersArea() {
     setRefreshToken((current) => current + 1);
   }
@@ -331,7 +353,13 @@ export function UsersAreaPage() {
   }
 
   function updateFilter(key: DirectoryFilterKey, value: string) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => {
+      const nextFilters = { ...current, [key]: value };
+      return sanitizeFiltersForOptions(
+        nextFilters,
+        deriveVisibleFilterOptions(nextFilters, data.filterLinks)
+      );
+    });
     resetPages();
   }
 
@@ -465,7 +493,7 @@ export function UsersAreaPage() {
         onRetry={refreshUsersArea}
         onToggleFilters={() => setFiltersOpen((current) => !current)}
         onViewModeChange={setViewMode}
-        options={data.filters}
+        options={scopedFilterOptions}
         query={query}
         sectionLabel={getUsersSectionLabel(activeSection, user?.role)}
         showAdminFilters={showAdminFilters}
@@ -740,15 +768,7 @@ function UserDirectory({
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="grid gap-4 border-b border-slate-100 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-slate-950">
-            User Directory
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Search, filter, and inspect operational users.
-          </p>
-        </div>
+      <div className="border-b border-slate-100 p-3 sm:p-4">
         <DirectoryToolbar
           filters={filters}
           filtersOpen={filtersOpen}
@@ -827,7 +847,7 @@ function DirectoryToolbar({
   const filterSelectClass = cn(!filtersOpen && "hidden xl:block");
 
   return (
-    <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(240px,1fr)_auto] xl:min-w-[880px] xl:grid-cols-[minmax(220px,1fr)_auto_repeat(5,minmax(112px,1fr))_auto_auto]">
+    <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(240px,1fr)_auto] xl:grid-cols-[minmax(260px,1.5fr)_auto_repeat(5,minmax(112px,1fr))_auto_auto]">
       <label className="relative min-w-0">
         <span className="sr-only">Search users</span>
         <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
@@ -1500,10 +1520,12 @@ async function fetchUsersAreaData(
         vendor: branch.vendor
       }))
     );
+    const filterLinks = filterLinksFromScopedItems(pickers);
 
     return {
       champs: [],
-      filters: filterOptionsFromScopedItems(pickers),
+      filterLinks,
+      filters: deriveVisibleFilterOptions(emptyFilters, filterLinks),
       management: [],
       meta: {},
       pickers: keepUsersSectionItems("pickers", pickers)
@@ -1542,10 +1564,12 @@ async function fetchUsersAreaData(
       )
     );
     const scopedItems = [...pickers, ...champs];
+    const filterLinks = filterLinksFromScopedItems(scopedItems);
 
     return {
       champs: keepUsersSectionItems("champs", champs),
-      filters: filterOptionsFromScopedItems(scopedItems),
+      filterLinks,
+      filters: deriveVisibleFilterOptions(emptyFilters, filterLinks),
       management: [],
       meta: {},
       pickers: keepUsersSectionItems("pickers", pickers)
@@ -1578,10 +1602,12 @@ async function fetchUsersAreaData(
       }),
       adminOrganizationApi.get()
     ]);
+    const filterLinks = filterLinksFromAdminOrganization(organization.chains);
 
     return {
       champs: keepUsersSectionItems("champs", champs.items),
-      filters: filterOptionsFromAdminOrganization(organization.chains),
+      filterLinks,
+      filters: deriveVisibleFilterOptions(emptyFilters, filterLinks),
       management: keepUsersSectionItems("management", management.items),
       meta: {
         champs: champs.meta,
@@ -1734,9 +1760,23 @@ function applyClientFilters(items: UsersAreaItem[], filters: DirectoryFilters) {
   });
 }
 
+function sameDirectoryFilters(
+  left: DirectoryFilters,
+  right: DirectoryFilters
+) {
+  return (
+    left.areaManagerId === right.areaManagerId &&
+    left.chainId === right.chainId &&
+    left.champId === right.champId &&
+    left.status === right.status &&
+    left.vendorId === right.vendorId
+  );
+}
+
 function emptyUsersAreaData(): UsersAreaData {
   return {
     champs: [],
+    filterLinks: [],
     filters: emptyFilterOptions(),
     management: [],
     meta: {},
@@ -1766,48 +1806,40 @@ function toApiFilters(filters: DirectoryFilters): Pick<
   };
 }
 
-function filterOptionsFromScopedItems(items: UsersAreaItem[]): UsersFilterOptions {
-  return {
-    areaManagers: uniqueOptions(
-      items
-        .filter((item) => item.areaManager)
-        .map((item) => ({
-          hint: item.areaManager!.phoneNumber,
-          id: item.areaManager!.id,
-          label: item.areaManager!.nameEn
-        }))
-    ),
-    chains: uniqueOptions(
-      items
-        .filter((item) => item.chain)
-        .map((item) => ({
-          hint: item.chain!.chainCode,
-          id: item.chain!.id,
-          label: item.chain!.chainName
-        }))
-    ),
-    champs: uniqueOptions(
-      items
-        .filter((item) => item.champ)
-        .map((item) => ({
-          hint: item.champ!.phoneNumber,
-          id: item.champ!.id,
-          label: item.champ!.nameEn
-        }))
-    ),
-    vendors: uniqueOptions(
-      items
-        .filter((item) => item.vendor)
-        .map((item) => ({
-          hint: item.vendor!.vendorCode,
-          id: item.vendor!.id,
-          label: item.vendor!.vendorName
-        }))
-    )
-  };
+function filterLinksFromScopedItems(items: UsersAreaItem[]): UsersFilterLink[] {
+  return items.map((item) => ({
+    areaManager: item.areaManager
+      ? {
+          hint: item.areaManager.phoneNumber,
+          id: item.areaManager.id,
+          label: item.areaManager.nameEn
+        }
+      : null,
+    chain: item.chain
+      ? {
+          hint: item.chain.chainCode,
+          id: item.chain.id,
+          label: item.chain.chainName
+        }
+      : null,
+    champ: item.champ
+      ? {
+          hint: item.champ.phoneNumber,
+          id: item.champ.id,
+          label: item.champ.nameEn
+        }
+      : null,
+    vendor: item.vendor
+      ? {
+          hint: item.vendor.vendorCode,
+          id: item.vendor.id,
+          label: item.vendor.vendorName
+        }
+      : null
+  }));
 }
 
-function filterOptionsFromAdminOrganization(
+function filterLinksFromAdminOrganization(
   chains: Array<{
     id: string;
     chainCode: string;
@@ -1820,49 +1852,48 @@ function filterOptionsFromAdminOrganization(
       currentChamp: UserSummary | null;
     }>;
   }>
-): UsersFilterOptions {
-  const branches = chains.flatMap((chain) => chain.branches);
-
-  return {
-    areaManagers: uniqueOptions(
-      chains
-        .filter((chain) => chain.currentAreaManager)
-        .map((chain) => ({
-          hint: chain.currentAreaManager!.phoneNumber,
-          id: chain.currentAreaManager!.id,
-          label: chain.currentAreaManager!.nameEn
-        }))
-    ),
-    chains: chains.map((chain) => ({
+): UsersFilterLink[] {
+  return chains.flatMap((chain): UsersFilterLink[] => {
+    const chainOption = {
       hint: chain.chainCode,
       id: chain.id,
       label: chain.chainName
-    })),
-    champs: uniqueOptions(
-      branches
-        .filter((branch) => branch.currentChamp)
-        .map((branch) => ({
-          hint: branch.currentChamp!.phoneNumber,
-          id: branch.currentChamp!.id,
-          label: branch.currentChamp!.nameEn
-        }))
-    ),
-    vendors: branches.map((branch) => ({
-      hint: branch.vendorCode,
-      id: branch.id,
-      label: branch.vendorName
-    }))
-  };
-}
+    };
+    const areaManagerOption = chain.currentAreaManager
+      ? {
+          hint: chain.currentAreaManager.phoneNumber,
+          id: chain.currentAreaManager.id,
+          label: chain.currentAreaManager.nameEn
+        }
+      : null;
 
-function uniqueOptions(options: FilterOption[]) {
-  const seen = new Set<string>();
-  return options.filter((option) => {
-    if (seen.has(option.id)) {
-      return false;
+    if (!chain.branches.length) {
+      return [
+        {
+          areaManager: areaManagerOption,
+          chain: chainOption,
+          champ: null,
+          vendor: null
+        }
+      ];
     }
-    seen.add(option.id);
-    return true;
+
+    return chain.branches.map((branch) => ({
+      areaManager: areaManagerOption,
+      chain: chainOption,
+      champ: branch.currentChamp
+        ? {
+            hint: branch.currentChamp.phoneNumber,
+            id: branch.currentChamp.id,
+            label: branch.currentChamp.nameEn
+          }
+        : null,
+      vendor: {
+        hint: branch.vendorCode,
+        id: branch.id,
+        label: branch.vendorName
+      }
+    }));
   });
 }
 
