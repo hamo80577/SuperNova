@@ -347,6 +347,11 @@ async function run() {
         ),
       ForbiddenException
     );
+    await assert.rejects(
+      () =>
+        harness.service.getWorkforceSummary({ role: "ALL" }, areaManager),
+      ForbiddenException
+    );
   }
 
   {
@@ -419,6 +424,10 @@ async function run() {
     await assert.rejects(
       () =>
         harness.service.getWorkforceSummary({ role: "MANAGEMENT" }, champ),
+      ForbiddenException
+    );
+    await assert.rejects(
+      () => harness.service.getWorkforceSummary({ role: "ALL" }, champ),
       ForbiddenException
     );
   }

@@ -1607,9 +1607,9 @@ export class UsersService {
     areaManagerId: string,
     role: WorkforceSummaryRole
   ) {
-    if (role === "MANAGEMENT") {
+    if (role !== "PICKER" && role !== "CHAMP") {
       throw new ForbiddenException(
-        "Area Managers cannot view management workforce summary."
+        "Area Managers can view Picker or Champ workforce summary only."
       );
     }
 
@@ -1650,7 +1650,7 @@ export class UsersService {
     champId: string,
     role: WorkforceSummaryRole
   ) {
-    if (role === "CHAMP" || role === "MANAGEMENT") {
+    if (role !== "PICKER") {
       throw new ForbiddenException(
         "Champs can view Picker workforce summary only."
       );
