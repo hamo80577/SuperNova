@@ -1,5 +1,9 @@
 import type { UserRole } from "@/lib/auth/types";
 import type {
+  WorkforceSummaryResponse,
+  WorkforceSummaryRole
+} from "@/lib/api/users";
+import type {
   FilterOption,
   UsersFilterLink,
   UsersFilterOptions,
@@ -97,6 +101,55 @@ export function getUsersSectionLabel(
 ) {
   const visible = getVisibleUserSections(viewerRole);
   return visible.find((item) => item.id === section)?.label ?? "Users";
+}
+
+export type WorkforceKpiMetricId =
+  | "starting-headcount"
+  | "new-hires"
+  | "exited"
+  | "ending-headcount"
+  | "attrition-rate"
+  | "net-movement";
+
+export function getWorkforceSummaryRole(
+  section: UsersSectionId
+): Exclude<WorkforceSummaryRole, "ALL"> {
+  if (section === "champs") {
+    return "CHAMP";
+  }
+
+  if (section === "management") {
+    return "MANAGEMENT";
+  }
+
+  return "PICKER";
+}
+
+export function formatWorkforceSummaryMetric(
+  summary: WorkforceSummaryResponse,
+  metric: WorkforceKpiMetricId
+) {
+  if (metric === "starting-headcount") {
+    return formatWorkforceNumber(summary.startingHeadcount);
+  }
+
+  if (metric === "new-hires") {
+    return formatWorkforceNumber(summary.newHires);
+  }
+
+  if (metric === "exited") {
+    return formatWorkforceNumber(summary.exited);
+  }
+
+  if (metric === "ending-headcount") {
+    return formatWorkforceNumber(summary.endingHeadcount);
+  }
+
+  if (metric === "attrition-rate") {
+    return `${formatWorkforceNumber(summary.attritionRate)}%`;
+  }
+
+  return formatWorkforceNumber(summary.netMovement);
 }
 
 export type UsersCascadingFilters = {
@@ -252,4 +305,10 @@ function uniqueOptions(options: FilterOption[]) {
     seen.add(option.id);
     return true;
   });
+}
+
+function formatWorkforceNumber(value: number) {
+  return new Intl.NumberFormat("en", {
+    maximumFractionDigits: 2
+  }).format(value);
 }

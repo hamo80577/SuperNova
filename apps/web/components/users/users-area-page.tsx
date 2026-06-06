@@ -42,7 +42,9 @@ import {
   usersApi,
   type ListUsersParams,
   type OperationalProfileResponse,
-  type UserLookupStatus
+  type UserLookupStatus,
+  type WorkforceSummaryParams,
+  type WorkforceSummaryResponse
 } from "@/lib/api/users";
 import { type UserSummary, workspacesApi } from "@/lib/api/workspaces";
 import type { SafeUser, UserRole } from "@/lib/auth/types";
@@ -57,11 +59,14 @@ import {
 } from "./users-actions-menu";
 import {
   deriveVisibleFilterOptions,
+  formatWorkforceSummaryMetric,
   getUsersSectionLabel,
+  getWorkforceSummaryRole,
   getVisibleUserSections,
   isAdminUsersRole,
   keepUsersSectionItems,
   sanitizeFiltersForOptions,
+  type WorkforceKpiMetricId,
   usersManagementRoles
 } from "./users-area-data";
 import type {
@@ -86,6 +91,12 @@ type UsersAreaState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: UsersAreaData; error?: never };
+
+type WorkforceSummaryState =
+  | { status: "disabled"; summary?: never; error?: never }
+  | { status: "loading"; summary?: never; error?: never }
+  | { status: "error"; error: string; summary?: never }
+  | { status: "ready"; summary: WorkforceSummaryResponse; error?: never };
 
 type DirectoryFilterKey = UsersFilterKey | "status";
 type DirectoryFilters = UsersFilters & {
@@ -123,7 +134,7 @@ const roleIcons = {
 
 const movementKpiCards: Array<{
   helper: string;
-  id: string;
+  id: WorkforceKpiMetricId;
   label: string;
   tone: KpiTone;
 }> = [
@@ -212,6 +223,9 @@ export function UsersAreaPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [state, setState] = useState<UsersAreaState>({ status: "loading" });
+  const [summaryState, setSummaryState] = useState<WorkforceSummaryState>({
+    status: "disabled"
+  });
   const [activeSection, setActiveSection] = useState<UsersSectionId>("pickers");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -300,6 +314,55 @@ export function UsersAreaPage() {
     pageBySection.management,
     pageBySection.pickers,
     refreshToken
+  ]);
+
+  useEffect(() => {
+    if (!viewerIsAdmin) {
+      setSummaryState({ status: "disabled" });
+      return;
+    }
+
+    let alive = true;
+
+    async function loadWorkforceSummary() {
+      setSummaryState({ status: "loading" });
+
+      try {
+        const summary = await usersApi.workforceSummary({
+          period: "this-month",
+          role: getWorkforceSummaryRole(activeSection),
+          ...toWorkforceSummaryFilters(filters)
+        });
+
+        if (alive) {
+          setSummaryState({ status: "ready", summary });
+        }
+      } catch (caughtError) {
+        if (alive) {
+          setSummaryState({
+            status: "error",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load workforce summary."
+          });
+        }
+      }
+    }
+
+    void loadWorkforceSummary();
+
+    return () => {
+      alive = false;
+    };
+  }, [
+    activeSection,
+    filters.areaManagerId,
+    filters.chainId,
+    filters.champId,
+    filters.vendorId,
+    refreshToken,
+    viewerIsAdmin
   ]);
 
   useEffect(() => {
@@ -470,7 +533,9 @@ export function UsersAreaPage() {
   return (
     <main className="grid min-w-0 gap-4 lg:gap-5">
       <UsersPageHeader
-        loading={state.status === "loading"}
+        loading={
+          state.status === "loading" || summaryState.status === "loading"
+        }
         onRefresh={refreshUsersArea}
       />
       <RoleSelectorCards
@@ -480,7 +545,7 @@ export function UsersAreaPage() {
         onSelect={selectSection}
         sections={visibleSections}
       />
-      <MovementKpiCards />
+      <MovementKpiCards summaryState={summaryState} />
       <UserDirectory
         activeResult={activeResult}
         activeSection={activeSection}
@@ -688,25 +753,41 @@ function RoleSelectorCards({
   );
 }
 
-function MovementKpiCards() {
+function MovementKpiCards({
+  summaryState
+}: {
+  summaryState: WorkforceSummaryState;
+}) {
   return (
     <section
       aria-label="Workforce movement"
       className="grid gap-3 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
     >
       {movementKpiCards.map((card) => (
-        <MovementKpiCard card={card} key={card.id} />
+        <MovementKpiCard
+          card={card}
+          key={card.id}
+          summaryState={summaryState}
+        />
       ))}
     </section>
   );
 }
 
-function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) {
+function MovementKpiCard({
+  card,
+  summaryState
+}: {
+  card: (typeof movementKpiCards)[number];
+  summaryState: WorkforceSummaryState;
+}) {
   const tone = kpiToneStyles[card.tone];
+  const display = getMovementKpiCardDisplay(card, summaryState);
 
   return (
     <article
-      aria-disabled="true"
+      aria-busy={summaryState.status === "loading"}
+      aria-disabled={summaryState.status === "disabled" ? "true" : undefined}
       className={cn(
         "min-h-[148px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.045)] ring-1 ring-transparent"
       )}
@@ -726,12 +807,12 @@ function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) 
             {card.label}
           </p>
           <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-4 text-slate-400">
-            {card.helper}
+            {display.helper}
           </p>
         </div>
       </div>
       <p className="mt-4 text-lg font-semibold tracking-normal text-slate-950">
-        Coming soon
+        {display.value}
       </p>
       <div aria-hidden="true" className="mt-3 flex h-7 items-end gap-1">
         {sparklineHeights.map((height, index) => (
@@ -743,10 +824,51 @@ function MovementKpiCard({ card }: { card: (typeof movementKpiCards)[number] }) 
         ))}
       </div>
       <p className="mt-3 text-xs font-medium text-slate-500">
-        Pending real workforce summary
+        {display.footer}
       </p>
     </article>
   );
+}
+
+function getMovementKpiCardDisplay(
+  card: (typeof movementKpiCards)[number],
+  summaryState: WorkforceSummaryState
+) {
+  if (summaryState.status === "disabled") {
+    return {
+      footer: "Workforce summary",
+      helper: "Available for Admin and Super Admin",
+      value: "Admin only"
+    };
+  }
+
+  if (summaryState.status === "loading") {
+    return {
+      footer: "This month",
+      helper: "Loading workforce summary",
+      value: "--"
+    };
+  }
+
+  if (summaryState.status === "error") {
+    return {
+      footer: "Summary unavailable",
+      helper: "Refresh to retry",
+      value: "Unable to load"
+    };
+  }
+
+  const { summary } = summaryState;
+  const periodLabel = summary.period.label || "This month";
+
+  return {
+    footer: periodLabel,
+    helper:
+      card.id === "attrition-rate"
+        ? `Average ${formatCount(summary.averageHeadcount)} headcount`
+        : periodLabel,
+    value: formatWorkforceSummaryMetric(summary, card.id)
+  };
 }
 
 function UserDirectory({
@@ -1846,6 +1968,18 @@ function toApiFilters(filters: DirectoryFilters): Pick<
     chainId: filters.chainId || undefined,
     champId: filters.champId || undefined,
     status: filters.status || undefined,
+    vendorId: filters.vendorId || undefined
+  };
+}
+
+function toWorkforceSummaryFilters(filters: DirectoryFilters): Pick<
+  WorkforceSummaryParams,
+  "areaManagerId" | "chainId" | "champId" | "vendorId"
+> {
+  return {
+    areaManagerId: filters.areaManagerId || undefined,
+    chainId: filters.chainId || undefined,
+    champId: filters.champId || undefined,
     vendorId: filters.vendorId || undefined
   };
 }

@@ -33,6 +33,33 @@ export interface OperationalUsersListResponse {
   meta: PageMeta;
 }
 
+export type WorkforceSummaryRole = "PICKER" | "CHAMP" | "MANAGEMENT" | "ALL";
+
+export interface WorkforceSummaryParams {
+  period?: "this-month";
+  role?: WorkforceSummaryRole;
+  chainId?: string;
+  vendorId?: string;
+  areaManagerId?: string;
+  champId?: string;
+}
+
+export interface WorkforceSummaryResponse {
+  period: {
+    from: string;
+    to: string;
+    label: string;
+  };
+  role: WorkforceSummaryRole;
+  startingHeadcount: number;
+  newHires: number;
+  exited: number;
+  endingHeadcount: number;
+  averageHeadcount: number;
+  attritionRate: number;
+  netMovement: number;
+}
+
 export interface ListUsersParams {
   page?: number;
   pageSize?: number;
@@ -168,6 +195,19 @@ function toQuery(params: Record<string, string | number | undefined>) {
   return serialized ? `?${serialized}` : "";
 }
 
+export function buildWorkforceSummaryPath(
+  params: WorkforceSummaryParams = {}
+) {
+  return `/users/workforce-summary${toQuery({
+    period: params.period,
+    role: params.role,
+    chainId: params.chainId,
+    vendorId: params.vendorId,
+    areaManagerId: params.areaManagerId,
+    champId: params.champId
+  })}`;
+}
+
 export const usersApi = {
   list(params: ListUsersParams = {}) {
     return apiRequest<PaginatedUsers>(
@@ -199,6 +239,11 @@ export const usersApi = {
         areaManagerId: params.areaManagerId,
         champId: params.champId
       })}`
+    );
+  },
+  workforceSummary(params: WorkforceSummaryParams = {}) {
+    return apiRequest<WorkforceSummaryResponse>(
+      buildWorkforceSummaryPath(params)
     );
   },
   operationalProfile(id: string) {

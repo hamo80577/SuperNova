@@ -1,5 +1,7 @@
 import {
   deriveVisibleFilterOptions,
+  formatWorkforceSummaryMetric,
+  getWorkforceSummaryRole,
   getVisibleUserSections,
   isRoleAllowedInUsersSection,
   keepUsersSectionItems,
@@ -204,5 +206,35 @@ const noFilters = {
   assert.deepEqual(
     keepUsersSectionItems("management", items).map((item) => item.key),
     ["area-manager", "admin"]
+  );
+}
+
+{
+  assert.equal(getWorkforceSummaryRole("pickers"), "PICKER");
+  assert.equal(getWorkforceSummaryRole("champs"), "CHAMP");
+  assert.equal(getWorkforceSummaryRole("management"), "MANAGEMENT");
+}
+
+{
+  assert.equal(
+    formatWorkforceSummaryMetric(
+      {
+        attritionRate: 8.25,
+        averageHeadcount: 120.5,
+        endingHeadcount: 118,
+        exited: 10,
+        netMovement: -2,
+        newHires: 8,
+        period: {
+          from: "2026-06-01T00:00:00.000Z",
+          label: "This month",
+          to: "2026-06-07T23:59:59.999Z"
+        },
+        role: "PICKER",
+        startingHeadcount: 120
+      },
+      "attrition-rate"
+    ),
+    "8.25%"
   );
 }
