@@ -240,6 +240,12 @@ enum AttendanceIssueCode {
   SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
 }
 
+enum OrdersKpiImportBatchStatus {
+  VALIDATED
+  CONFIRMED
+  FAILED
+}
+
 model User {
   id                          String                           @id @default(uuid())
   ibsId                       String?                          @unique
@@ -282,6 +288,10 @@ model User {
   confirmedAttendanceBatches  AttendanceImportBatch[]          @relation("AttendanceImportConfirmedBy")
   attendanceDailyRecords      AttendanceDailyRecord[]          @relation("AttendanceDailyRecordUser")
   attendanceMonthlySummaries  AttendancePickerMonthlySummary[] @relation("AttendanceMonthlySummaryUser")
+  uploadedOrdersKpiBatches    OrdersKpiImportBatch[]           @relation("OrdersKpiImportUploadedBy")
+  confirmedOrdersKpiBatches   OrdersKpiImportBatch[]           @relation("OrdersKpiImportConfirmedBy")
+  ordersKpiStagingRows        OrdersKpiImportStagingRow[]      @relation("OrdersKpiImportStagingRowUser")
+  ordersKpiDailyRecords       OrdersKpiDailyRecord[]           @relation("OrdersKpiDailyRecordUser")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -711,4 +721,144 @@ model AttendanceImportIssue {
   @@index([issueCode])
   @@index([severity])
   @@index([resolutionStatus])
+}
+
+model OrdersKpiImportBatch {
+  id                String                     @id @default(uuid())
+  fileName          String
+  fileHash          String
+  uploadedByUserId  String
+  uploadedAt        DateTime                   @default(now())
+  status            OrdersKpiImportBatchStatus
+  rowCount          Int                        @default(0)
+  matchedRows       Int                        @default(0)
+  unmatchedRows     Int                        @default(0)
+  errorRows         Int                        @default(0)
+  warningRows       Int                        @default(0)
+  dateFrom          DateTime?
+  dateTo            DateTime?
+  confirmedByUserId String?
+  confirmedAt       DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  uploadedBy        User                       @relation("OrdersKpiImportUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  confirmedBy       User?                      @relation("OrdersKpiImportConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  stagingRows       OrdersKpiImportStagingRow[]
+  records           OrdersKpiDailyRecord[]
+  issues            OrdersKpiImportIssue[]
+
+  @@index([status])
+  @@index([uploadedAt])
+  @@index([dateFrom, dateTo])
+  @@index([uploadedByUserId])
+  @@index([confirmedByUserId])
+  @@index([fileHash])
+}
+
+model OrdersKpiImportStagingRow {
+  id                  String               @id @default(uuid())
+  sourceBatchId       String
+  kpiDate             DateTime
+  shopperId           String
+  userId              String
+  pickerNameSnapshot  String
+  sourceVendorId      String
+  matchedVendorId     String?
+  matchedChainId      String?
+  totalOrders         Int
+  successfulOrders    Int
+  qcFailedOrders      Int
+  vendorFailedOrders  Int
+  unhealthyOrders     Int
+  orderNotOnTime      Int
+  partialRefund       Int
+  vendorDelay         Int
+  preparationTime     Decimal?             @db.Decimal(10, 4)
+  outOfStock          Int
+  firNotOnTime        Int
+  priceModified       Int
+  successRate         Decimal?             @db.Decimal(8, 4)
+  unhealthyRate       Decimal?             @db.Decimal(8, 4)
+  notOnTimeRate       Decimal?             @db.Decimal(8, 4)
+  rawRowNumber        Int
+  rowHash             String
+  issuesCount         Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  sourceBatch         OrdersKpiImportBatch @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  user                User                 @relation("OrdersKpiImportStagingRowUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([sourceBatchId, rawRowNumber])
+  @@index([sourceBatchId])
+  @@index([kpiDate])
+  @@index([shopperId])
+  @@index([userId])
+  @@index([matchedVendorId])
+  @@index([matchedChainId])
+  @@index([kpiDate, userId])
+  @@index([kpiDate, matchedVendorId])
+  @@index([kpiDate, matchedChainId])
+}
+
+model OrdersKpiDailyRecord {
+  id                  String               @id @default(uuid())
+  sourceBatchId       String
+  kpiDate             DateTime
+  shopperId           String
+  userId              String
+  pickerNameSnapshot  String
+  sourceVendorId      String
+  matchedVendorId     String?
+  matchedChainId      String?
+  totalOrders         Int
+  successfulOrders    Int
+  qcFailedOrders      Int
+  vendorFailedOrders  Int
+  unhealthyOrders     Int
+  orderNotOnTime      Int
+  partialRefund       Int
+  vendorDelay         Int
+  preparationTime     Decimal?             @db.Decimal(10, 4)
+  outOfStock          Int
+  firNotOnTime        Int
+  priceModified       Int
+  successRate         Decimal?             @db.Decimal(8, 4)
+  unhealthyRate       Decimal?             @db.Decimal(8, 4)
+  notOnTimeRate       Decimal?             @db.Decimal(8, 4)
+  rawRowNumber        Int
+  rowHash             String
+  issuesCount         Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  sourceBatch         OrdersKpiImportBatch @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  user                User                 @relation("OrdersKpiDailyRecordUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([kpiDate, shopperId, sourceVendorId])
+  @@index([sourceBatchId])
+  @@index([kpiDate])
+  @@index([shopperId])
+  @@index([userId])
+  @@index([matchedVendorId])
+  @@index([matchedChainId])
+  @@index([kpiDate, userId])
+  @@index([kpiDate, matchedVendorId])
+  @@index([kpiDate, matchedChainId])
+}
+
+model OrdersKpiImportIssue {
+  id        String               @id @default(uuid())
+  batchId   String
+  rowNumber Int?
+  shopperId String?
+  severity  String
+  issueCode String
+  fieldName String?
+  message   String
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  batch     OrdersKpiImportBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@index([batchId])
+  @@index([severity])
+  @@index([issueCode])
 }

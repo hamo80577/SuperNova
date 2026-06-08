@@ -14,6 +14,7 @@ import { ChainsModule } from "./chains/chains.module";
 import { HealthModule } from "./health/health.module";
 import { HrSyncModule } from "./hr-sync/hr-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OrdersKpisModule } from "./orders-kpis/orders-kpis.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RequestsModule } from "./requests/requests.module";
@@ -42,6 +43,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     AccessControlModule,
     HrSyncModule,
     AttendanceModule,
+    OrdersKpisModule,
     NotificationsModule,
     AuditModule,
     AdminModule,
