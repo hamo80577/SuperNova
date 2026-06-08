@@ -12,6 +12,10 @@ apps/*/dist
 packages/*/dist
 prisma/generated
 *.tsbuildinfo
+*.pid
+logs/
+.codex-dev-logs/
+.codex-run-logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
