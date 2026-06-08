@@ -25,10 +25,23 @@ export interface OrdersKpiImportConfirmOptions
   now?: Date | string;
 }
 
+export interface OrdersKpiApproveValidRowsOptions
+  extends OrdersKpiImportConfirmOptions {
+  acknowledgeSkippedErrorRows?: boolean;
+}
+
+export interface OrdersKpiImportRejectOptions
+  extends OrdersKpiImportRequestContext {
+  now?: Date | string;
+}
+
 export interface OrdersKpiImportPreviewResult {
   batchId: string;
   status: OrdersKpiImportBatchStatus;
   canConfirm: boolean;
+  canApproveValidRows: boolean;
+  canReject: boolean;
+  skippedErrorRows: number;
   preview: OrdersKpiValidationPreview;
   stagingRowCount: number;
   issueCount: number;
@@ -45,6 +58,20 @@ export interface OrdersKpiImportConfirmResult {
   rowCount: number;
   errorRows: number;
   warningRows: number;
+  skippedErrorRows: number;
+  approvedWithErrors: boolean;
+}
+
+export interface OrdersKpiImportRejectResult {
+  batchId: string;
+  status: OrdersKpiImportBatchStatus;
+  rejectedAt: string;
+  dateFrom: string | null;
+  dateTo: string | null;
+  rowCount: number;
+  errorRows: number;
+  warningRows: number;
+  stagingRowCount: number;
 }
 
 export interface OrdersKpiParsedWorkbook {
@@ -170,6 +197,9 @@ export interface OrdersKpiValidationPreview {
   dateFrom: string | null;
   dateTo: string | null;
   canConfirm: boolean;
+  canApproveValidRows: boolean;
+  canReject: boolean;
+  skippedErrorRows: number;
   issues: OrdersKpiPreviewIssue[];
   rowsPreview: OrdersKpiRowsPreviewItem[];
   stagingRows: OrdersKpiValidatedStagingRow[];

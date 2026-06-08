@@ -11,7 +11,6 @@ import {
   Map,
   Settings,
   ShieldCheck,
-  ShoppingCart,
   Store,
   UploadCloud,
   UserRound,
@@ -221,9 +220,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Orders KPIs",
-      href: "/admin/orders-kpis",
-      icon: ShoppingCart,
+      label: "Orders KPI Imports",
+      href: "/admin/orders-kpis/imports",
+      icon: UploadCloud,
       section: "Reports"
     },
     {
@@ -295,9 +294,9 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Orders KPIs",
-      href: "/admin/orders-kpis",
-      icon: ShoppingCart,
+      label: "Orders KPI Imports",
+      href: "/admin/orders-kpis/imports",
+      icon: UploadCloud,
       section: "Reports"
     },
     {

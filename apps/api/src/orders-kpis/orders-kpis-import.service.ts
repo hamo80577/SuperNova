@@ -17,10 +17,13 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { OrdersKpisParserService } from "./orders-kpis-parser.service";
 import type {
+  OrdersKpiApproveValidRowsOptions,
   OrdersKpiImportConfirmOptions,
   OrdersKpiImportConfirmResult,
   OrdersKpiImportPreviewOptions,
   OrdersKpiImportPreviewResult,
+  OrdersKpiImportRejectOptions,
+  OrdersKpiImportRejectResult,
   OrdersKpiMatchedUser,
   OrdersKpiMatchedVendor,
   OrdersKpiParsedRow,
@@ -56,9 +59,16 @@ export class OrdersKpisImportService {
     const status =
       preview.errorRows === 0
         ? OrdersKpiImportBatchStatus.VALIDATED
-        : OrdersKpiImportBatchStatus.FAILED;
-    const stagingRows =
-      status === OrdersKpiImportBatchStatus.VALIDATED ? preview.stagingRows : [];
+        : OrdersKpiImportBatchStatus.NEEDS_REVIEW;
+    const stagingRows = preview.stagingRows;
+    const canConfirm = status === OrdersKpiImportBatchStatus.VALIDATED;
+    const canApproveValidRows =
+      status === OrdersKpiImportBatchStatus.NEEDS_REVIEW &&
+      stagingRows.length > 0;
+    const canReject =
+      status === OrdersKpiImportBatchStatus.VALIDATED ||
+      status === OrdersKpiImportBatchStatus.NEEDS_REVIEW;
+    const skippedErrorRows = preview.errorRows;
 
     const batch = await this.prisma.$transaction(async (tx) => {
       const createdBatch = await tx.ordersKpiImportBatch.create({
@@ -108,7 +118,7 @@ export class OrdersKpisImportService {
           action:
             status === OrdersKpiImportBatchStatus.VALIDATED
               ? "ORDERS_KPI_IMPORT_PREVIEW_CREATED"
-              : "ORDERS_KPI_IMPORT_FAILED_VALIDATION",
+              : "ORDERS_KPI_IMPORT_REVIEW_CREATED",
           entityType: "OrdersKpiImportBatch",
           entityId: createdBatch.id,
           oldValue: Prisma.JsonNull,
@@ -121,7 +131,9 @@ export class OrdersKpisImportService {
             warningRows: preview.warningRows,
             dateFrom: preview.dateFrom,
             dateTo: preview.dateTo,
-            status
+            status,
+            stagingRowCount: stagingRows.length,
+            skippedErrorRows
           }),
           ipAddress: options.ipAddress ?? null,
           userAgent: options.userAgent ?? null
@@ -134,10 +146,16 @@ export class OrdersKpisImportService {
     return {
       batchId: batch.id,
       status,
-      canConfirm: status === OrdersKpiImportBatchStatus.VALIDATED,
+      canConfirm,
+      canApproveValidRows,
+      canReject,
+      skippedErrorRows,
       preview: {
         ...preview,
-        canConfirm: status === OrdersKpiImportBatchStatus.VALIDATED,
+        canConfirm,
+        canApproveValidRows,
+        canReject,
+        skippedErrorRows,
         stagingRows
       },
       stagingRowCount: stagingRows.length,
@@ -159,12 +177,6 @@ export class OrdersKpisImportService {
       throw new NotFoundException("Orders KPI import batch was not found.");
     }
 
-    if (batch.errorRows > 0) {
-      throw new BadRequestException(
-        "Orders KPI import batch has blocking validation errors."
-      );
-    }
-
     if (batch.status !== OrdersKpiImportBatchStatus.VALIDATED) {
       throw new BadRequestException(
         "Only validated Orders KPI import batches can be confirmed."
@@ -177,30 +189,8 @@ export class OrdersKpisImportService {
       const stagingRows = await tx.ordersKpiImportStagingRow.findMany({
         where: { sourceBatchId: batch.id }
       });
-      const existingKeys = await loadExistingDailyKeys(tx, stagingRows);
-      let insertedCount = 0;
-      let updatedCount = 0;
-
-      for (const row of stagingRows) {
-        const key = dailyKey(row);
-        if (existingKeys.has(key)) {
-          updatedCount += 1;
-        } else {
-          insertedCount += 1;
-        }
-
-        await tx.ordersKpiDailyRecord.upsert({
-          where: {
-            kpiDate_shopperId_sourceVendorId: {
-              kpiDate: row.kpiDate,
-              shopperId: row.shopperId,
-              sourceVendorId: row.sourceVendorId
-            }
-          },
-          create: mapDailyRecordForCreate(row),
-          update: mapDailyRecordForUpdate(row)
-        });
-      }
+      const { insertedCount, updatedCount } =
+        await upsertDailyRecordsFromStagingRows(tx, stagingRows);
 
       const confirmedBatch = await tx.ordersKpiImportBatch.update({
         where: { id: batch.id },
@@ -226,7 +216,9 @@ export class OrdersKpisImportService {
             dateTo: formatDateOnlyOrNull(confirmedBatch.dateTo),
             rowCount: confirmedBatch.rowCount,
             errorRows: confirmedBatch.errorRows,
-            warningRows: confirmedBatch.warningRows
+            warningRows: confirmedBatch.warningRows,
+            skippedErrorRows: 0,
+            approvedWithErrors: false
           }),
           ipAddress: options.ipAddress ?? null,
           userAgent: options.userAgent ?? null
@@ -243,7 +235,175 @@ export class OrdersKpisImportService {
         dateTo: formatDateOnlyOrNull(confirmedBatch.dateTo),
         rowCount: confirmedBatch.rowCount,
         errorRows: confirmedBatch.errorRows,
-        warningRows: confirmedBatch.warningRows
+        warningRows: confirmedBatch.warningRows,
+        skippedErrorRows: 0,
+        approvedWithErrors: false
+      };
+    });
+  }
+
+  async approveValidRows(
+    batchId: string,
+    options: OrdersKpiApproveValidRowsOptions
+  ): Promise<OrdersKpiImportConfirmResult> {
+    assertAdminActor(options.actor);
+
+    const batch = await this.prisma.ordersKpiImportBatch.findUnique({
+      where: { id: batchId }
+    });
+
+    if (!batch) {
+      throw new NotFoundException("Orders KPI import batch was not found.");
+    }
+
+    if (batch.status !== OrdersKpiImportBatchStatus.NEEDS_REVIEW) {
+      throw new BadRequestException(
+        "Only Orders KPI import batches that need review can approve valid rows."
+      );
+    }
+
+    if (options.acknowledgeSkippedErrorRows !== true) {
+      throw new BadRequestException(
+        "You must acknowledge skipped error rows before approving valid rows."
+      );
+    }
+
+    const confirmedAt = normalizeDateTime(options.now);
+
+    return this.prisma.$transaction(async (tx) => {
+      const stagingRows = await tx.ordersKpiImportStagingRow.findMany({
+        where: { sourceBatchId: batch.id }
+      });
+
+      if (stagingRows.length === 0) {
+        throw new BadRequestException(
+          "No valid Orders KPI staging rows are available to approve."
+        );
+      }
+
+      const { insertedCount, updatedCount } =
+        await upsertDailyRecordsFromStagingRows(tx, stagingRows);
+
+      const confirmedBatch = await tx.ordersKpiImportBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: OrdersKpiImportBatchStatus.CONFIRMED,
+          confirmedByUserId: options.actor.id,
+          confirmedAt
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: options.actor.id,
+          action: "ORDERS_KPI_IMPORT_VALID_ROWS_APPROVED",
+          entityType: "OrdersKpiImportBatch",
+          entityId: confirmedBatch.id,
+          oldValue: Prisma.JsonNull,
+          newValue: toAuditJson({
+            batchId: confirmedBatch.id,
+            insertedCount,
+            updatedCount,
+            dateFrom: formatDateOnlyOrNull(confirmedBatch.dateFrom),
+            dateTo: formatDateOnlyOrNull(confirmedBatch.dateTo),
+            rowCount: confirmedBatch.rowCount,
+            errorRows: confirmedBatch.errorRows,
+            warningRows: confirmedBatch.warningRows,
+            skippedErrorRows: confirmedBatch.errorRows,
+            approvedWithErrors: true
+          }),
+          ipAddress: options.ipAddress ?? null,
+          userAgent: options.userAgent ?? null
+        }
+      });
+
+      return {
+        batchId: confirmedBatch.id,
+        status: confirmedBatch.status,
+        confirmedAt: confirmedBatch.confirmedAt?.toISOString() ?? confirmedAt.toISOString(),
+        insertedCount,
+        updatedCount,
+        dateFrom: formatDateOnlyOrNull(confirmedBatch.dateFrom),
+        dateTo: formatDateOnlyOrNull(confirmedBatch.dateTo),
+        rowCount: confirmedBatch.rowCount,
+        errorRows: confirmedBatch.errorRows,
+        warningRows: confirmedBatch.warningRows,
+        skippedErrorRows: confirmedBatch.errorRows,
+        approvedWithErrors: true
+      };
+    });
+  }
+
+  async rejectImport(
+    batchId: string,
+    options: OrdersKpiImportRejectOptions
+  ): Promise<OrdersKpiImportRejectResult> {
+    assertAdminActor(options.actor);
+
+    const batch = await this.prisma.ordersKpiImportBatch.findUnique({
+      where: { id: batchId }
+    });
+
+    if (!batch) {
+      throw new NotFoundException("Orders KPI import batch was not found.");
+    }
+
+    if (
+      batch.status !== OrdersKpiImportBatchStatus.VALIDATED &&
+      batch.status !== OrdersKpiImportBatchStatus.NEEDS_REVIEW
+    ) {
+      throw new BadRequestException(
+        "Only validated or review Orders KPI import batches can be rejected."
+      );
+    }
+
+    const rejectedAt = normalizeDateTime(options.now);
+
+    return this.prisma.$transaction(async (tx) => {
+      const stagingRows = await tx.ordersKpiImportStagingRow.findMany({
+        where: { sourceBatchId: batch.id }
+      });
+      const rejectedBatch = await tx.ordersKpiImportBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: OrdersKpiImportBatchStatus.REJECTED,
+          confirmedByUserId: null,
+          confirmedAt: null
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: options.actor.id,
+          action: "ORDERS_KPI_IMPORT_REJECTED",
+          entityType: "OrdersKpiImportBatch",
+          entityId: rejectedBatch.id,
+          oldValue: Prisma.JsonNull,
+          newValue: toAuditJson({
+            batchId: rejectedBatch.id,
+            dateFrom: formatDateOnlyOrNull(rejectedBatch.dateFrom),
+            dateTo: formatDateOnlyOrNull(rejectedBatch.dateTo),
+            rowCount: rejectedBatch.rowCount,
+            errorRows: rejectedBatch.errorRows,
+            warningRows: rejectedBatch.warningRows,
+            stagingRowCount: stagingRows.length,
+            rejectedAt: rejectedAt.toISOString()
+          }),
+          ipAddress: options.ipAddress ?? null,
+          userAgent: options.userAgent ?? null
+        }
+      });
+
+      return {
+        batchId: rejectedBatch.id,
+        status: rejectedBatch.status,
+        rejectedAt: rejectedAt.toISOString(),
+        dateFrom: formatDateOnlyOrNull(rejectedBatch.dateFrom),
+        dateTo: formatDateOnlyOrNull(rejectedBatch.dateTo),
+        rowCount: rejectedBatch.rowCount,
+        errorRows: rejectedBatch.errorRows,
+        warningRows: rejectedBatch.warningRows,
+        stagingRowCount: stagingRows.length
       };
     });
   }
@@ -411,6 +571,40 @@ async function loadExistingDailyKeys(
   });
 
   return new Set(existing.map(dailyKey));
+}
+
+async function upsertDailyRecordsFromStagingRows(
+  tx: OrdersKpiPrismaTransaction,
+  stagingRows: Array<
+    Prisma.OrdersKpiImportStagingRowGetPayload<Record<string, never>>
+  >
+) {
+  const existingKeys = await loadExistingDailyKeys(tx, stagingRows);
+  let insertedCount = 0;
+  let updatedCount = 0;
+
+  for (const row of stagingRows) {
+    const key = dailyKey(row);
+    if (existingKeys.has(key)) {
+      updatedCount += 1;
+    } else {
+      insertedCount += 1;
+    }
+
+    await tx.ordersKpiDailyRecord.upsert({
+      where: {
+        kpiDate_shopperId_sourceVendorId: {
+          kpiDate: row.kpiDate,
+          shopperId: row.shopperId,
+          sourceVendorId: row.sourceVendorId
+        }
+      },
+      create: mapDailyRecordForCreate(row),
+      update: mapDailyRecordForUpdate(row)
+    });
+  }
+
+  return { insertedCount, updatedCount };
 }
 
 function mapStagingRowForCreate(

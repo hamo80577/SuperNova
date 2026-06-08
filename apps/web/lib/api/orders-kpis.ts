@@ -2,7 +2,9 @@ import { apiGet, apiRequest, clearApiCache } from "./request";
 
 export type OrdersKpiImportBatchStatus =
   | "VALIDATED"
+  | "NEEDS_REVIEW"
   | "CONFIRMED"
+  | "REJECTED"
   | "FAILED";
 
 export type OrdersKpiIssueSeverity = "ERROR" | "WARNING";
@@ -51,15 +53,20 @@ export interface OrdersKpiDailyReportQuery {
 
 export interface OrdersKpiImportPreviewResponse {
   batchId: string;
+  canApproveValidRows: boolean;
   canConfirm: boolean;
+  canReject: boolean;
   issueCount: number;
   preview: OrdersKpiValidationPreview;
+  skippedErrorRows: number;
   stagingRowCount: number;
   status: OrdersKpiImportBatchStatus;
 }
 
 export interface OrdersKpiValidationPreview {
+  canApproveValidRows: boolean;
   canConfirm: boolean;
+  canReject: boolean;
   dateFrom: string | null;
   dateTo: string | null;
   errorRows: number;
@@ -67,6 +74,7 @@ export interface OrdersKpiValidationPreview {
   matchedRows: number;
   rowCount: number;
   rowsPreview: OrdersKpiRowsPreviewItem[];
+  skippedErrorRows: number;
   stagingRows: OrdersKpiValidatedStagingRow[];
   unmatchedRows: number;
   warningRows: number;
@@ -123,6 +131,7 @@ export interface OrdersKpiValidatedStagingRow {
 }
 
 export interface OrdersKpiImportConfirmResponse {
+  approvedWithErrors: boolean;
   batchId: string;
   confirmedAt: string;
   dateFrom: string | null;
@@ -130,8 +139,25 @@ export interface OrdersKpiImportConfirmResponse {
   errorRows: number;
   insertedCount: number;
   rowCount: number;
+  skippedErrorRows: number;
   status: OrdersKpiImportBatchStatus;
   updatedCount: number;
+  warningRows: number;
+}
+
+export interface OrdersKpiApproveValidRowsRequest {
+  acknowledgeSkippedErrorRows: boolean;
+}
+
+export interface OrdersKpiImportRejectResponse {
+  batchId: string;
+  dateFrom: string | null;
+  dateTo: string | null;
+  errorRows: number;
+  rejectedAt: string;
+  rowCount: number;
+  stagingRowCount: number;
+  status: OrdersKpiImportBatchStatus;
   warningRows: number;
 }
 
@@ -222,11 +248,33 @@ export function buildOrdersKpiImportConfirmPath(batchId: string) {
   return `/orders-kpis/imports/${encodeURIComponent(batchId)}/confirm`;
 }
 
+export function buildOrdersKpiApproveValidRowsPath(batchId: string) {
+  return `/orders-kpis/imports/${encodeURIComponent(batchId)}/approve-valid-rows`;
+}
+
+export function buildOrdersKpiRejectImportPath(batchId: string) {
+  return `/orders-kpis/imports/${encodeURIComponent(batchId)}/reject`;
+}
+
 export function clearOrdersKpiDailyReportCache() {
   clearApiCache(ordersKpiDailyReportPathPrefix);
 }
 
 export const ordersKpisApi = {
+  async approveValidRows(
+    batchId: string,
+    body: OrdersKpiApproveValidRowsRequest
+  ) {
+    const result = await apiRequest<OrdersKpiImportConfirmResponse>(
+      buildOrdersKpiApproveValidRowsPath(batchId),
+      {
+        body: JSON.stringify(body),
+        method: "POST"
+      }
+    );
+    clearOrdersKpiDailyReportCache();
+    return result;
+  },
   clearDailyReportCache() {
     clearOrdersKpiDailyReportCache();
   },
@@ -250,6 +298,14 @@ export const ordersKpisApi = {
       "/orders-kpis/imports/preview",
       {
         body: buildOrdersKpiImportPreviewFormData(file),
+        method: "POST"
+      }
+    );
+  },
+  rejectImport(batchId: string) {
+    return apiRequest<OrdersKpiImportRejectResponse>(
+      buildOrdersKpiRejectImportPath(batchId),
+      {
         method: "POST"
       }
     );

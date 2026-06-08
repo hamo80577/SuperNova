@@ -10,6 +10,9 @@ import { OrdersKpisImportService } from "../src/orders-kpis/orders-kpis-import.s
 import { OrdersKpisParserService } from "../src/orders-kpis/orders-kpis-parser.service";
 import { OrdersKpisValidatorService } from "../src/orders-kpis/orders-kpis-validator.service";
 
+const NEEDS_REVIEW = "NEEDS_REVIEW" as OrdersKpiImportBatchStatus;
+const REJECTED = "REJECTED" as OrdersKpiImportBatchStatus;
+
 const headers = [
   "shopperId",
   "vendor id",
@@ -332,6 +335,8 @@ async function run() {
 
     assert.equal(result.status, OrdersKpiImportBatchStatus.VALIDATED);
     assert.equal(result.canConfirm, true);
+    assert.equal(result.canApproveValidRows, false);
+    assert.equal(result.canReject, true);
     assert.equal(result.preview.rowCount, 1);
     assert.equal(result.preview.matchedRows, 1);
     assert.equal(result.preview.warningRows, 1);
@@ -346,17 +351,106 @@ async function run() {
   {
     const { prisma, store } = createStore();
     const result = await previewRows([
+      baseRow(),
       baseRow({ shopperId: "No data" })
     ], { prisma });
 
-    assert.equal(result.status, OrdersKpiImportBatchStatus.FAILED);
+    assert.equal(result.status, NEEDS_REVIEW);
     assert.equal(result.canConfirm, false);
+    assert.equal(result.canApproveValidRows, true);
+    assert.equal(result.canReject, true);
     assert.equal(result.preview.errorRows, 1);
-    assert.equal(store.stagingRows.length, 0);
+    assert.equal(result.skippedErrorRows, 1);
+    assert.equal(store.stagingRows.length, 1);
+    assert.equal(store.stagingRows[0]?.["shopperId"], "SHOPPER-1");
     assert.ok(
       result.preview.issues.some(
         (issue) => issue.issueCode === "MISSING_SHOPPER_ID"
       )
+    );
+    assert.equal(store.auditRows[0]?.["action"], "ORDERS_KPI_IMPORT_REVIEW_CREATED");
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const service = createService(prisma);
+    const preview = await previewRows([
+      baseRow(),
+      baseRow({ shopperId: "No data" })
+    ], { prisma });
+
+    await assert.rejects(
+      () =>
+        service.approveValidRows(preview.batchId, {
+          actor: adminActor,
+          acknowledgeSkippedErrorRows: false,
+          now: store.now
+        }),
+      /acknowledge/i
+    );
+    assert.equal(store.dailyRecords.length, 0);
+    assert.equal(store.batches[0]?.["status"], NEEDS_REVIEW);
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const service = createService(prisma);
+    const preview = await previewRows([
+      baseRow(),
+      baseRow({ shopperId: "No data" })
+    ], { prisma });
+    const approved = await service.approveValidRows(preview.batchId, {
+      actor: adminActor,
+      acknowledgeSkippedErrorRows: true,
+      now: store.now
+    });
+
+    assert.equal(approved.status, OrdersKpiImportBatchStatus.CONFIRMED);
+    assert.equal(approved.insertedCount, 1);
+    assert.equal(approved.updatedCount, 0);
+    assert.equal(approved.skippedErrorRows, 1);
+    assert.equal(approved.approvedWithErrors, true);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(store.dailyRecords[0]?.["shopperId"], "SHOPPER-1");
+    assert.equal(store.dailyRecords[0]?.["sourceVendorId"], "100001");
+    assert.equal(store.auditRows.at(-1)?.["action"], "ORDERS_KPI_IMPORT_VALID_ROWS_APPROVED");
+
+    await assert.rejects(
+      () =>
+        service.rejectImport(preview.batchId, {
+          actor: adminActor,
+          now: store.now
+        }),
+      /validated|review/i
+    );
+  }
+
+  {
+    const { prisma, store } = createStore();
+    const service = createService(prisma);
+    const preview = await previewRows([
+      baseRow(),
+      baseRow({ shopperId: "No data" })
+    ], { prisma });
+    const rejected = await service.rejectImport(preview.batchId, {
+      actor: adminActor,
+      now: store.now
+    });
+
+    assert.equal(rejected.status, REJECTED);
+    assert.equal(rejected.stagingRowCount, 1);
+    assert.equal(store.dailyRecords.length, 0);
+    assert.equal(store.batches[0]?.["status"], REJECTED);
+    assert.equal(store.auditRows.at(-1)?.["action"], "ORDERS_KPI_IMPORT_REJECTED");
+
+    await assert.rejects(
+      () =>
+        service.approveValidRows(preview.batchId, {
+          actor: adminActor,
+          acknowledgeSkippedErrorRows: true,
+          now: store.now
+        }),
+      /review/i
     );
   }
 
@@ -392,6 +486,15 @@ async function run() {
     assert.equal(formatDate(store.dailyRecords[0]?.["kpiDate"]), "2026-06-07");
     assert.equal(store.auditRows.at(-1)?.["action"], "ORDERS_KPI_IMPORT_CONFIRMED");
     assert.deepEqual(store.forbiddenMutationCalls, []);
+
+    await assert.rejects(
+      () =>
+        service.confirmImport(preview.batchId, {
+          actor: adminActor,
+          now: store.now
+        }),
+      /validated/i
+    );
   }
 
   {

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Inject,
   Param,
@@ -61,6 +62,34 @@ export class OrdersKpisImportsController {
     @Req() request: AuthenticatedRequest
   ) {
     return this.ordersKpisImportService.confirmImport(batchId, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post(":batchId/approve-valid-rows")
+  approveValidRows(
+    @Param("batchId", ParseUUIDPipe) batchId: string,
+    @Body() body: { acknowledgeSkippedErrorRows?: boolean },
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersKpisImportService.approveValidRows(batchId, {
+      actor: user,
+      acknowledgeSkippedErrorRows: body.acknowledgeSkippedErrorRows,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post(":batchId/reject")
+  rejectImport(
+    @Param("batchId", ParseUUIDPipe) batchId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersKpisImportService.rejectImport(batchId, {
       actor: user,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

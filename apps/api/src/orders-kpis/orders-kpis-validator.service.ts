@@ -118,6 +118,9 @@ export class OrdersKpisValidatorService {
       dateFrom: minString(validDateOnlyValues),
       dateTo: maxString(validDateOnlyValues),
       canConfirm: errorRows === 0,
+      canApproveValidRows: errorRows > 0 && stagingRows.length > 0,
+      canReject: true,
+      skippedErrorRows: errorRows,
       issues,
       rowsPreview: drafts.slice(0, 20).map((draft) => ({
         rawRowNumber: draft.row.rawRowNumber,

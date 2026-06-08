@@ -1,7 +1,9 @@
 import {
+  buildOrdersKpiApproveValidRowsPath,
   buildOrdersKpiDailyReportPath,
   buildOrdersKpiImportConfirmPath,
   buildOrdersKpiImportPreviewFormData,
+  buildOrdersKpiRejectImportPath,
   ordersKpisApi
 } from "./orders-kpis";
 
@@ -65,6 +67,20 @@ const assert = {
   );
 }
 
+{
+  assert.equal(
+    buildOrdersKpiApproveValidRowsPath("batch 123"),
+    "/orders-kpis/imports/batch%20123/approve-valid-rows"
+  );
+}
+
+{
+  assert.equal(
+    buildOrdersKpiRejectImportPath("batch 123"),
+    "/orders-kpis/imports/batch%20123/reject"
+  );
+}
+
 void runCacheInvalidationTest();
 
 async function runCacheInvalidationTest() {
@@ -82,6 +98,12 @@ async function runCacheInvalidationTest() {
       dateTo: "2026-06-08",
       rows: [{ id: "new-row" }],
       summary: { totalOrders: 20 }
+    },
+    {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-08",
+      rows: [{ id: "approved-row" }],
+      summary: { totalOrders: 30 }
     }
   ];
 
@@ -112,6 +134,48 @@ async function runCacheInvalidationTest() {
       });
     }
 
+    if (
+      url.pathname ===
+        "/api/orders-kpis/imports/batch-review/approve-valid-rows" &&
+      method === "POST"
+    ) {
+      assert.equal(
+        init?.body,
+        JSON.stringify({ acknowledgeSkippedErrorRows: true })
+      );
+      return jsonResponse({
+        approvedWithErrors: true,
+        batchId: "batch-review",
+        confirmedAt: "2026-06-08T10:00:00.000Z",
+        dateFrom: "2026-06-01",
+        dateTo: "2026-06-08",
+        errorRows: 1,
+        insertedCount: 1,
+        rowCount: 2,
+        skippedErrorRows: 1,
+        status: "CONFIRMED",
+        updatedCount: 0,
+        warningRows: 0
+      });
+    }
+
+    if (
+      url.pathname === "/api/orders-kpis/imports/batch-review/reject" &&
+      method === "POST"
+    ) {
+      return jsonResponse({
+        batchId: "batch-review",
+        dateFrom: "2026-06-01",
+        dateTo: "2026-06-08",
+        errorRows: 1,
+        rejectedAt: "2026-06-08T10:00:00.000Z",
+        rowCount: 2,
+        stagingRowCount: 1,
+        status: "REJECTED",
+        warningRows: 0
+      });
+    }
+
     return jsonResponse({ message: "Not found" }, 404);
   };
 
@@ -127,6 +191,12 @@ async function runCacheInvalidationTest() {
     const refreshed = await ordersKpisApi.dailyReport(query);
 
     assert.equal(refreshed.rows[0]?.id, "new-row");
+    await ordersKpisApi.approveValidRows("batch-review", {
+      acknowledgeSkippedErrorRows: true
+    });
+    const afterApprove = await ordersKpisApi.dailyReport(query);
+    assert.equal(afterApprove.rows[0]?.id, "approved-row");
+    await ordersKpisApi.rejectImport("batch-review");
     assert.deepEqual(calls, [
       {
         method: "GET",
@@ -139,6 +209,18 @@ async function runCacheInvalidationTest() {
       {
         method: "GET",
         path: "/api/orders-kpis/reports/daily?dateFrom=2026-06-01&dateTo=2026-06-08&page=1"
+      },
+      {
+        method: "POST",
+        path: "/api/orders-kpis/imports/batch-review/approve-valid-rows"
+      },
+      {
+        method: "GET",
+        path: "/api/orders-kpis/reports/daily?dateFrom=2026-06-01&dateTo=2026-06-08&page=1"
+      },
+      {
+        method: "POST",
+        path: "/api/orders-kpis/imports/batch-review/reject"
       }
     ]);
   } finally {
