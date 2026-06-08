@@ -38,6 +38,20 @@ export type OrdersKpiDailyReportSortBy =
 
 export type OrdersKpiDailyReportSortDirection = "asc" | "desc";
 
+export type OrdersKpiPerformanceReportView = "CHAIN" | "VENDOR" | "PICKER";
+
+export type OrdersKpiPerformanceReportSortBy =
+  | "totalOrders"
+  | "uho"
+  | "uhoRate"
+  | "notOnTime"
+  | "qcFailedOrders"
+  | "partialRefund"
+  | "oos"
+  | "priceModified";
+
+export type OrdersKpiPerformanceReportSortDirection = "asc" | "desc";
+
 export interface OrdersKpiDailyReportQuery {
   chainId?: string;
   dateFrom?: string;
@@ -49,6 +63,19 @@ export interface OrdersKpiDailyReportQuery {
   sortBy?: OrdersKpiDailyReportSortBy;
   sortDirection?: OrdersKpiDailyReportSortDirection;
   vendorId?: string;
+}
+
+export interface OrdersKpiPerformanceReportQuery {
+  chainId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+  pickerSearch?: string;
+  sortBy?: OrdersKpiPerformanceReportSortBy;
+  sortDirection?: OrdersKpiPerformanceReportSortDirection;
+  vendorId?: string;
+  view?: OrdersKpiPerformanceReportView;
 }
 
 export interface OrdersKpiImportPreviewResponse {
@@ -216,7 +243,75 @@ export interface OrdersKpiDailyReportRow {
   vendorDelay: number;
 }
 
+export interface OrdersKpiPerformanceReportResponse {
+  dateFrom: string;
+  dateTo: string;
+  pagination: OrdersKpiDailyReportPagination;
+  rows: OrdersKpiPerformanceReportRow[];
+  scope: OrdersKpiPerformanceReportScope;
+  summary: OrdersKpiPerformanceReportSummary;
+  view: OrdersKpiPerformanceReportView;
+}
+
+export interface OrdersKpiPerformanceReportScope {
+  chainId: string | null;
+  chainName: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
+}
+
+export interface OrdersKpiPerformanceReportSummary {
+  notOnTime: number;
+  oos: number;
+  partialRefund: number;
+  priceModified: number;
+  qcFailedOrders: number;
+  totalOrders: number;
+  uho: number;
+  uhoRate: number | null;
+}
+
+export type OrdersKpiPerformanceReportRow =
+  | OrdersKpiChainPerformanceRow
+  | OrdersKpiVendorPerformanceRow
+  | OrdersKpiPickerPerformanceRow;
+
+export interface OrdersKpiChainPerformanceRow
+  extends OrdersKpiPerformanceReportSummary {
+  chainId: string | null;
+  chainName: string;
+  kind: "CHAIN";
+  pickerCount: number;
+  vendorCount: number;
+}
+
+export interface OrdersKpiVendorPerformanceRow
+  extends OrdersKpiPerformanceReportSummary {
+  chainId: string | null;
+  chainName: string | null;
+  kind: "VENDOR";
+  pickerCount: number;
+  sourceVendorId: string | null;
+  vendorId: string | null;
+  vendorName: string;
+}
+
+export interface OrdersKpiPickerPerformanceRow
+  extends OrdersKpiPerformanceReportSummary {
+  chainId: string | null;
+  chainName: string | null;
+  kind: "PICKER";
+  pickerName: string;
+  shopperId: string;
+  sourceVendorId: string | null;
+  userId: string;
+  vendorId: string | null;
+  vendorName: string | null;
+}
+
 const ordersKpiDailyReportPathPrefix = "/orders-kpis/reports/daily";
+const ordersKpiPerformanceReportPathPrefix =
+  "/orders-kpis/reports/performance";
 
 export function buildOrdersKpiDailyReportPath(
   query: OrdersKpiDailyReportQuery
@@ -236,6 +331,26 @@ export function buildOrdersKpiDailyReportPath(
 
   const serialized = params.toString();
   return `${ordersKpiDailyReportPathPrefix}${serialized ? `?${serialized}` : ""}`;
+}
+
+export function buildOrdersKpiPerformanceReportPath(
+  query: OrdersKpiPerformanceReportQuery
+) {
+  const params = new URLSearchParams();
+
+  setString(params, "dateFrom", query.dateFrom);
+  setString(params, "dateTo", query.dateTo);
+  setString(params, "view", query.view);
+  setString(params, "chainId", query.chainId);
+  setString(params, "vendorId", query.vendorId);
+  setString(params, "pickerSearch", query.pickerSearch);
+  setString(params, "sortBy", query.sortBy);
+  setString(params, "sortDirection", query.sortDirection);
+  setNumber(params, "page", query.page);
+  setNumber(params, "pageSize", query.pageSize);
+
+  const serialized = params.toString();
+  return `${ordersKpiPerformanceReportPathPrefix}${serialized ? `?${serialized}` : ""}`;
 }
 
 export function buildOrdersKpiImportPreviewFormData(file: File) {
@@ -260,6 +375,15 @@ export function clearOrdersKpiDailyReportCache() {
   clearApiCache(ordersKpiDailyReportPathPrefix);
 }
 
+export function clearOrdersKpiPerformanceReportCache() {
+  clearApiCache(ordersKpiPerformanceReportPathPrefix);
+}
+
+export function clearOrdersKpiReportCaches() {
+  clearOrdersKpiDailyReportCache();
+  clearOrdersKpiPerformanceReportCache();
+}
+
 export const ordersKpisApi = {
   async approveValidRows(
     batchId: string,
@@ -272,11 +396,14 @@ export const ordersKpisApi = {
         method: "POST"
       }
     );
-    clearOrdersKpiDailyReportCache();
+    clearOrdersKpiReportCaches();
     return result;
   },
   clearDailyReportCache() {
     clearOrdersKpiDailyReportCache();
+  },
+  clearPerformanceReportCache() {
+    clearOrdersKpiPerformanceReportCache();
   },
   async confirmImport(batchId: string) {
     const result = await apiRequest<OrdersKpiImportConfirmResponse>(
@@ -285,12 +412,17 @@ export const ordersKpisApi = {
         method: "POST"
       }
     );
-    clearOrdersKpiDailyReportCache();
+    clearOrdersKpiReportCaches();
     return result;
   },
   dailyReport(query: OrdersKpiDailyReportQuery) {
     return apiGet<OrdersKpiDailyReportResponse>(
       buildOrdersKpiDailyReportPath(query)
+    );
+  },
+  performanceReport(query: OrdersKpiPerformanceReportQuery) {
+    return apiGet<OrdersKpiPerformanceReportResponse>(
+      buildOrdersKpiPerformanceReportPath(query)
     );
   },
   previewImport(file: File) {

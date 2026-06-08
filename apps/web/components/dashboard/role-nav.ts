@@ -214,6 +214,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
+      label: "Orders KPI Report",
+      href: "/admin/orders-kpis/report",
+      icon: BarChart3,
+      section: "Reports"
+    },
+    {
       label: "Attendance Imports",
       href: "/admin/attendance/imports",
       icon: UploadCloud,
@@ -285,6 +291,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Attendance",
       href: "/admin/reports/attendance",
       icon: CalendarDays,
+      section: "Reports"
+    },
+    {
+      label: "Orders KPI Report",
+      href: "/admin/orders-kpis/report",
+      icon: BarChart3,
       section: "Reports"
     },
     {

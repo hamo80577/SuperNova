@@ -3,6 +3,7 @@ import {
   buildOrdersKpiDailyReportPath,
   buildOrdersKpiImportConfirmPath,
   buildOrdersKpiImportPreviewFormData,
+  buildOrdersKpiPerformanceReportPath,
   buildOrdersKpiRejectImportPath,
   ordersKpisApi
 } from "./orders-kpis";
@@ -50,6 +51,37 @@ const assert = {
       sortDirection: "asc"
     }),
     "/orders-kpis/reports/daily?sortDirection=asc&page=1&pageSize=50"
+  );
+}
+
+{
+  assert.equal(
+    buildOrdersKpiPerformanceReportPath({
+      chainId: "chain-1",
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-08",
+      page: 2,
+      pageSize: 25,
+      pickerSearch: "Aya Picker",
+      sortBy: "uhoRate",
+      sortDirection: "desc",
+      vendorId: "vendor-1",
+      view: "PICKER"
+    }),
+    "/orders-kpis/reports/performance?dateFrom=2026-06-01&dateTo=2026-06-08&view=PICKER&chainId=chain-1&vendorId=vendor-1&pickerSearch=Aya+Picker&sortBy=uhoRate&sortDirection=desc&page=2&pageSize=25"
+  );
+}
+
+{
+  assert.equal(
+    buildOrdersKpiPerformanceReportPath({
+      chainId: " ",
+      page: 1,
+      pageSize: 50,
+      pickerSearch: "",
+      sortDirection: "asc"
+    }),
+    "/orders-kpis/reports/performance?sortDirection=asc&page=1&pageSize=50"
   );
 }
 
