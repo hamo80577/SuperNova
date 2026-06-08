@@ -1,5 +1,6 @@
 import {
   canApproveOrdersKpiReview,
+  getOrdersKpiReviewActionMessage,
   groupOrdersKpiImportIssues
 } from "./orders-kpis-import-review";
 
@@ -87,5 +88,29 @@ const issueBase = {
       }
     }),
     false
+  );
+  assert.equal(
+    getOrdersKpiReviewActionMessage({
+      acknowledged: false,
+      preview: {
+        batchId: "batch-1",
+        canApproveValidRows: true,
+        stagingRowCount: 3,
+        status: "NEEDS_REVIEW"
+      }
+    }),
+    "Acknowledge skipped error rows to enable approval."
+  );
+  assert.equal(
+    getOrdersKpiReviewActionMessage({
+      acknowledged: true,
+      preview: {
+        batchId: "batch-1",
+        canApproveValidRows: true,
+        stagingRowCount: 0,
+        status: "NEEDS_REVIEW"
+      }
+    }),
+    "No valid rows are available to approve. Reject this review and upload a corrected file."
   );
 }

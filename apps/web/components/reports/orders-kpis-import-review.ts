@@ -28,6 +28,11 @@ interface ApproveReviewState {
     | null;
 }
 
+interface ReviewActionMessageState {
+  acknowledged: boolean;
+  preview: ApproveReviewState["preview"];
+}
+
 const issueCopy: Partial<
   Record<OrdersKpiIssueCode, { description: string; label: string }>
 > = {
@@ -128,6 +133,29 @@ export function canApproveOrdersKpiReview({
       acknowledged &&
       !actionPending
   );
+}
+
+export function getOrdersKpiReviewActionMessage({
+  acknowledged,
+  preview
+}: ReviewActionMessageState) {
+  if (!preview || preview.status !== "NEEDS_REVIEW") {
+    return null;
+  }
+
+  if (preview.stagingRowCount <= 0) {
+    return "No valid rows are available to approve. Reject this review and upload a corrected file.";
+  }
+
+  if (!preview.canApproveValidRows) {
+    return "The backend did not mark this review batch as approvable.";
+  }
+
+  if (!acknowledged) {
+    return "Acknowledge skipped error rows to enable approval.";
+  }
+
+  return null;
 }
 
 function addUniqueNumber(values: number[], value: number | null) {

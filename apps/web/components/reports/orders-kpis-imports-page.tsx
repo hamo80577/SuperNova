@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 import {
   canApproveOrdersKpiReview,
+  getOrdersKpiReviewActionMessage,
   groupOrdersKpiImportIssues,
   type OrdersKpiIssueGroup
 } from "./orders-kpis-import-review";
@@ -61,13 +62,14 @@ export function OrdersKpisImportsPage() {
     ? `${file.name} (${formatFileSize(file.size)})`
     : "No file selected";
   const isBusy = actionState.status === "loading";
+  const isReviewBatch = preview?.status === "NEEDS_REVIEW";
   const canApprove = canApproveOrdersKpiReview({
     acknowledged,
     actionPending: isBusy || decisionState.status !== "idle",
     preview
   });
   const canConfirm =
-    Boolean(preview?.batchId && preview.canConfirm) &&
+    Boolean(preview?.batchId && preview.canConfirm && !isReviewBatch) &&
     !isBusy &&
     decisionState.status === "idle";
   const canReject =
@@ -78,6 +80,10 @@ export function OrdersKpisImportsPage() {
     () => groupOrdersKpiImportIssues(preview?.preview.issues ?? []),
     [preview]
   );
+  const reviewActionMessage = getOrdersKpiReviewActionMessage({
+    acknowledged,
+    preview
+  });
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null);
@@ -299,6 +305,7 @@ export function OrdersKpisImportsPage() {
             canApprove={canApprove}
             canConfirm={canConfirm}
             canReject={canReject}
+            decisionStatus={decisionState.status}
             groupedIssues={groupedIssues}
             isApproving={
               actionState.status === "loading" && actionState.action === "approve"
@@ -314,6 +321,7 @@ export function OrdersKpisImportsPage() {
             onConfirm={handleConfirm}
             onReject={handleReject}
             preview={preview}
+            reviewActionMessage={reviewActionMessage}
           />
         </div>
       </section>
@@ -326,6 +334,7 @@ function PreviewPanel({
   canApprove,
   canConfirm,
   canReject,
+  decisionStatus,
   groupedIssues,
   isApproving,
   isConfirming,
@@ -334,12 +343,14 @@ function PreviewPanel({
   onApproveValidRows,
   onConfirm,
   onReject,
-  preview
+  preview,
+  reviewActionMessage
 }: {
   acknowledged: boolean;
   canApprove: boolean;
   canConfirm: boolean;
   canReject: boolean;
+  decisionStatus: DecisionState["status"];
   groupedIssues: ReturnType<typeof groupOrdersKpiImportIssues>;
   isApproving: boolean;
   isConfirming: boolean;
@@ -349,6 +360,7 @@ function PreviewPanel({
   onConfirm: () => void;
   onReject: () => void;
   preview: OrdersKpiImportPreviewResponse | null;
+  reviewActionMessage: string | null;
 }) {
   if (!preview) {
     return (
@@ -426,24 +438,67 @@ function PreviewPanel({
         </label>
       ) : null}
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Button
-          disabled={!canConfirm}
-          onClick={onConfirm}
-          type="button"
-        >
-          {isConfirming ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-          )}
-          Confirm import
-        </Button>
+      {decisionStatus === "idle" ? (
+        <DecisionActions
+          canApprove={canApprove}
+          canConfirm={canConfirm}
+          canReject={canReject}
+          isApproving={isApproving}
+          isConfirming={isConfirming}
+          isRejecting={isRejecting}
+          isReview={isReview}
+          onApproveValidRows={onApproveValidRows}
+          onConfirm={onConfirm}
+          onReject={onReject}
+        />
+      ) : (
+        <InlineAlert
+          message={
+            decisionStatus === "confirmed"
+              ? "Decision complete. No additional confirm step is required."
+              : "Decision complete. This review was rejected."
+          }
+          tone="neutral"
+        />
+      )}
+
+      {reviewActionMessage ? (
+        <p className="text-xs leading-5 text-amber-700">{reviewActionMessage}</p>
+      ) : null}
+    </section>
+  );
+}
+
+function DecisionActions({
+  canApprove,
+  canConfirm,
+  canReject,
+  isApproving,
+  isConfirming,
+  isRejecting,
+  isReview,
+  onApproveValidRows,
+  onConfirm,
+  onReject
+}: {
+  canApprove: boolean;
+  canConfirm: boolean;
+  canReject: boolean;
+  isApproving: boolean;
+  isConfirming: boolean;
+  isRejecting: boolean;
+  isReview: boolean;
+  onApproveValidRows: () => void;
+  onConfirm: () => void;
+  onReject: () => void;
+}) {
+  if (isReview) {
+    return (
+      <div className="grid gap-2 sm:grid-cols-2">
         <Button
           disabled={!canApprove}
           onClick={onApproveValidRows}
           type="button"
-          variant="outline"
         >
           {isApproving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -466,7 +521,37 @@ function PreviewPanel({
           Reject review
         </Button>
       </div>
-    </section>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      <Button
+        disabled={!canConfirm}
+        onClick={onConfirm}
+        type="button"
+      >
+        {isConfirming ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <CheckCircle2 className="mr-2 h-4 w-4" />
+        )}
+        Confirm import
+      </Button>
+      <Button
+        disabled={!canReject}
+        onClick={onReject}
+        type="button"
+        variant="outline"
+      >
+        {isRejecting ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Ban className="mr-2 h-4 w-4" />
+        )}
+        Reject preview
+      </Button>
+    </div>
   );
 }
 
