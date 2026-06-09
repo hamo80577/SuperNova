@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ArrowRight,
   ArrowUpDown,
   BarChart3,
   ChevronLeft,
@@ -20,7 +21,14 @@ import {
   UserRound,
   type LucideIcon
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,27 +52,23 @@ import { cn } from "@/lib/utils";
 import {
   normalizeAttendanceDateRange as normalizeDateRange,
   validateAttendanceDateRange as validateReportDateRange,
-  yesterdayIsoDate
 } from "./attendance-date-range";
 import { AttendanceDateRangeSelector } from "./attendance-date-range-selector";
+import {
+  backToOrdersKpisVendors,
+  clearOrdersKpisReportScope,
+  drillDownOrdersKpisChainRow,
+  drillDownOrdersKpisVendorRow,
+  parseOrdersKpisReportFilters,
+  selectOrdersKpisReportView,
+  serializeOrdersKpisReportFilters,
+  type OrdersKpisReportFilters
+} from "./orders-kpis-report-state";
 
 type AsyncState<T> =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
-
-interface OrdersKpisReportFilters {
-  chainId: string;
-  dateFrom: string;
-  dateTo: string;
-  page: number;
-  pageSize: number;
-  pickerSearch: string;
-  sortBy: OrdersKpiPerformanceReportSortBy;
-  sortDirection: OrdersKpiPerformanceReportSortDirection;
-  vendorId: string;
-  view: OrdersKpiPerformanceReportView;
-}
 
 interface FilterDrafts {
   chainId: string;
@@ -117,19 +121,53 @@ const metricColumns: Array<{
 ];
 
 export function OrdersKpisReportPage() {
-  const initialFilters = useMemo(createInitialFilters, []);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamsText = searchParams.toString();
+  const initialFilters = parseOrdersKpisReportFilters(
+    new URLSearchParams(searchParamsText)
+  );
+  const lastSyncedQueryRef = useRef(searchParamsText);
   const [filters, setFilters] =
     useState<OrdersKpisReportFilters>(initialFilters);
-  const [filterDrafts, setFilterDrafts] = useState<FilterDrafts>({
-    chainId: initialFilters.chainId,
-    pickerSearch: initialFilters.pickerSearch,
-    vendorId: initialFilters.vendorId
-  });
+  const [filterDrafts, setFilterDrafts] = useState<FilterDrafts>(
+    filterDraftsFromFilters(initialFilters)
+  );
   const [dateError, setDateError] = useState<string | null>(null);
   const [state, setState] =
     useState<AsyncState<OrdersKpiPerformanceReportResponse>>({
       status: "loading"
     });
+
+  useEffect(() => {
+    if (searchParamsText === lastSyncedQueryRef.current) {
+      return;
+    }
+
+    const nextFilters = parseOrdersKpisReportFilters(
+      new URLSearchParams(searchParamsText)
+    );
+    const nextQuery = serializeOrdersKpisReportFilters(nextFilters);
+
+    lastSyncedQueryRef.current = nextQuery;
+    setDateError(null);
+    setFilters(nextFilters);
+    setFilterDrafts(filterDraftsFromFilters(nextFilters));
+  }, [searchParamsText]);
+
+  useEffect(() => {
+    const nextQuery = serializeOrdersKpisReportFilters(filters);
+    if (nextQuery === searchParamsText) {
+      lastSyncedQueryRef.current = searchParamsText;
+      return;
+    }
+
+    lastSyncedQueryRef.current = nextQuery;
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false
+    });
+  }, [filters, pathname, router, searchParamsText]);
 
   useEffect(() => {
     let mounted = true;
@@ -212,16 +250,47 @@ export function OrdersKpisReportPage() {
       chainId: "",
       page: 1,
       pickerSearch: "",
-      vendorId: ""
+      vendorId: "",
+      view: "CHAIN"
     }));
   }
 
   function changeView(view: OrdersKpiPerformanceReportView) {
-    setFilters((current) => ({
-      ...current,
-      page: 1,
-      view
-    }));
+    const nextFilters = selectOrdersKpisReportView(filters, view);
+    setFilters(nextFilters);
+    setFilterDrafts(filterDraftsFromFilters(nextFilters));
+  }
+
+  function clearScope() {
+    const nextFilters = clearOrdersKpisReportScope(filters);
+    setFilters(nextFilters);
+    setFilterDrafts(filterDraftsFromFilters(nextFilters));
+  }
+
+  function backToChains() {
+    clearScope();
+  }
+
+  function backToVendors() {
+    const nextFilters = backToOrdersKpisVendors(filters);
+    setFilters(nextFilters);
+    setFilterDrafts(filterDraftsFromFilters(nextFilters));
+  }
+
+  function drillDownRow(row: OrdersKpiPerformanceReportRow) {
+    const nextFilters =
+      row.kind === "CHAIN"
+        ? drillDownOrdersKpisChainRow(filters, row)
+        : row.kind === "VENDOR"
+          ? drillDownOrdersKpisVendorRow(filters, row)
+          : null;
+
+    if (!nextFilters) {
+      return;
+    }
+
+    setFilters(nextFilters);
+    setFilterDrafts(filterDraftsFromFilters(nextFilters));
   }
 
   function changeSort(sortBy: OrdersKpiPerformanceReportSortBy) {
@@ -355,7 +424,7 @@ export function OrdersKpisReportPage() {
             type="button"
             variant="outline"
           >
-            Clear
+            Clear all filters
           </Button>
           <Button className="h-11 rounded-xl" type="submit">
             <SlidersHorizontal className="mr-2 h-4 w-4" />
@@ -374,8 +443,13 @@ export function OrdersKpisReportPage() {
             <ReportTable
               activeView={filters.view}
               data={data}
+              filters={filters}
+              onBackToChains={backToChains}
+              onBackToVendors={backToVendors}
+              onClearScope={clearScope}
               onPageChange={changePage}
               onPageSizeChange={changePageSize}
+              onRowDrillDown={drillDownRow}
               onSortChange={changeSort}
               onViewChange={changeView}
               sortBy={filters.sortBy}
@@ -490,8 +564,13 @@ function KpiCard({
 function ReportTable({
   activeView,
   data,
+  filters,
+  onBackToChains,
+  onBackToVendors,
+  onClearScope,
   onPageChange,
   onPageSizeChange,
+  onRowDrillDown,
   onSortChange,
   onViewChange,
   sortBy,
@@ -499,8 +578,13 @@ function ReportTable({
 }: {
   activeView: OrdersKpiPerformanceReportView;
   data: OrdersKpiPerformanceReportResponse;
+  filters: OrdersKpisReportFilters;
+  onBackToChains: () => void;
+  onBackToVendors: () => void;
+  onClearScope: () => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onRowDrillDown: (row: OrdersKpiPerformanceReportRow) => void;
   onSortChange: (sortBy: OrdersKpiPerformanceReportSortBy) => void;
   onViewChange: (view: OrdersKpiPerformanceReportView) => void;
   sortBy: OrdersKpiPerformanceReportSortBy;
@@ -538,11 +622,19 @@ function ReportTable({
         </div>
       </div>
 
+      <ScopeStrip
+        data={data}
+        filters={filters}
+        onBackToChains={onBackToChains}
+        onBackToVendors={onBackToVendors}
+        onClearScope={onClearScope}
+      />
+
       {data.rows.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+          <table className="min-w-[1080px] w-full border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
               <tr>
                 <th className="w-[260px] px-4 py-3">Group</th>
@@ -563,11 +655,16 @@ function ReportTable({
                     />
                   </th>
                 ))}
+                <th className="w-[150px] px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.rows.map((row) => (
-                <ReportRow key={rowKey(row)} row={row} />
+                <ReportRow
+                  key={rowKey(row)}
+                  onDrillDown={onRowDrillDown}
+                  row={row}
+                />
               ))}
             </tbody>
           </table>
@@ -603,12 +700,134 @@ function ReportTable({
   );
 }
 
-function ReportRow({ row }: { row: OrdersKpiPerformanceReportRow }) {
-  const group = groupLabel(row);
-  const context = contextItems(row);
+function ScopeStrip({
+  data,
+  filters,
+  onBackToChains,
+  onBackToVendors,
+  onClearScope
+}: {
+  data: OrdersKpiPerformanceReportResponse;
+  filters: OrdersKpisReportFilters;
+  onBackToChains: () => void;
+  onBackToVendors: () => void;
+  onClearScope: () => void;
+}) {
+  const hasScope = Boolean(filters.chainId || filters.vendorId);
+  const canBackToVendors = filters.view === "PICKER" && hasScope;
 
   return (
-    <tr className="bg-white align-top transition hover:bg-slate-50/70">
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase text-slate-400">
+          Scope
+        </span>
+        <ScopeCrumbs data={data} filters={filters} />
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+        {hasScope ? (
+          <Button
+            className="h-9 rounded-xl"
+            onClick={onClearScope}
+            type="button"
+            variant="outline"
+          >
+            Clear scope
+          </Button>
+        ) : null}
+        {filters.view !== "CHAIN" || hasScope ? (
+          <Button
+            className="h-9 rounded-xl"
+            onClick={onBackToChains}
+            type="button"
+            variant="outline"
+          >
+            Back to Chains
+          </Button>
+        ) : null}
+        {canBackToVendors ? (
+          <Button
+            className="h-9 rounded-xl"
+            onClick={onBackToVendors}
+            type="button"
+            variant="outline"
+          >
+            Back to Vendors
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ScopeCrumbs({
+  data,
+  filters
+}: {
+  data: OrdersKpiPerformanceReportResponse;
+  filters: OrdersKpisReportFilters;
+}) {
+  if (!filters.chainId && !filters.vendorId) {
+    return (
+      <Badge className="rounded-full bg-white text-slate-700" variant="outline">
+        All Chains
+      </Badge>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      {filters.chainId ? (
+        <ScopeChip label="Chain" value={data.scope.chainName ?? filters.chainId} />
+      ) : null}
+      {filters.chainId && filters.vendorId ? (
+        <span className="text-xs font-semibold text-slate-400">&gt;</span>
+      ) : null}
+      {filters.vendorId ? (
+        <ScopeChip label="Vendor" value={data.scope.vendorName ?? filters.vendorId} />
+      ) : null}
+    </div>
+  );
+}
+
+function ScopeChip({ label, value }: { label: string; value: string }) {
+  return (
+    <Badge
+      className="max-w-full rounded-full bg-white text-slate-700"
+      title={`${label}: ${value}`}
+      variant="outline"
+    >
+      <span className="text-slate-400">{label}: </span>
+      <span className="truncate">{value}</span>
+    </Badge>
+  );
+}
+
+function ReportRow({
+  onDrillDown,
+  row
+}: {
+  onDrillDown: (row: OrdersKpiPerformanceReportRow) => void;
+  row: OrdersKpiPerformanceReportRow;
+}) {
+  const group = groupLabel(row);
+  const context = contextItems(row);
+  const actionLabel = drillDownActionLabel(row);
+  const canDrillDown = Boolean(actionLabel);
+
+  return (
+    <tr
+      className={cn(
+        "bg-white align-top transition hover:bg-slate-50/70",
+        canDrillDown && "cursor-pointer"
+      )}
+      onDoubleClick={() => {
+        if (canDrillDown) {
+          onDrillDown(row);
+        }
+      }}
+      title={canDrillDown ? `${actionLabel} for ${group}` : undefined}
+    >
       <td className="px-4 py-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-900 text-white">
@@ -648,6 +867,24 @@ function ReportRow({ row }: { row: OrdersKpiPerformanceReportRow }) {
           {column.render(row[column.key])}
         </td>
       ))}
+      <td className="px-4 py-3 text-right">
+        {actionLabel ? (
+          <Button
+            className="h-9 rounded-xl"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDrillDown(row);
+            }}
+            type="button"
+            variant="outline"
+          >
+            {actionLabel}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : (
+          <span className="text-xs font-medium text-slate-400">-</span>
+        )}
+      </td>
     </tr>
   );
 }
@@ -827,21 +1064,24 @@ function CalendarBadgeIcon() {
   return <BarChart3 className="mr-1.5 h-3.5 w-3.5" />;
 }
 
-function createInitialFilters(): OrdersKpisReportFilters {
-  const yesterday = yesterdayIsoDate();
-
+function filterDraftsFromFilters(filters: OrdersKpisReportFilters): FilterDrafts {
   return {
-    chainId: "",
-    dateFrom: yesterday,
-    dateTo: yesterday,
-    page: 1,
-    pageSize: 50,
-    pickerSearch: "",
-    sortBy: "uhoRate",
-    sortDirection: "desc",
-    vendorId: "",
-    view: "CHAIN"
+    chainId: filters.chainId,
+    pickerSearch: filters.pickerSearch,
+    vendorId: filters.vendorId
   };
+}
+
+function drillDownActionLabel(row: OrdersKpiPerformanceReportRow) {
+  if (row.kind === "CHAIN" && row.chainId) {
+    return "Open Vendors";
+  }
+
+  if (row.kind === "VENDOR" && row.vendorId) {
+    return "Open Pickers";
+  }
+
+  return null;
 }
 
 function groupLabel(row: OrdersKpiPerformanceReportRow) {
