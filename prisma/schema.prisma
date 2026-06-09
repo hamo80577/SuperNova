@@ -240,6 +240,49 @@ enum AttendanceIssueCode {
   SHIFT_DATE_OUTSIDE_SELECTED_PERIOD_MONTH
 }
 
+enum OrdersKpiImportBatchStatus {
+  VALIDATED
+  NEEDS_REVIEW
+  CONFIRMED
+  REJECTED
+  FAILED
+}
+
+enum OrdersKpiVendorMatchStatus {
+  MATCHED_VENDOR
+  UNMAPPED_VENDOR_ID
+}
+
+enum OrdersKpiPickerMatchStatus {
+  MATCHED_PICKER
+  UNMATCHED_SHOPPER_ID
+  UNKNOWN_PICKER
+  MATCHED_USER_NOT_PICKER
+}
+
+enum OrdersKpiIssueSeverity {
+  WARNING
+  ERROR
+}
+
+enum OrdersKpiIssueCode {
+  MISSING_REQUIRED_COLUMNS
+  MISSING_DATE
+  INVALID_DATE
+  MISSING_VENDOR_ID
+  AMBIGUOUS_VENDOR_ID
+  INVALID_NUMERIC_METRIC
+  NEGATIVE_METRIC
+  UNSAFE_DUPLICATE_CONFLICT
+  UNMAPPED_VENDOR_ID
+  MISSING_SHOPPER_ID
+  NO_DATA_SHOPPER_ID
+  UNMATCHED_SHOPPER_ID
+  MATCHED_USER_NOT_PICKER
+  PREPARATION_TIME_MISSING
+  SUSPICIOUS_METRIC_VALUE
+}
+
 model User {
   id                          String                           @id @default(uuid())
   ibsId                       String?                          @unique
@@ -282,6 +325,11 @@ model User {
   confirmedAttendanceBatches  AttendanceImportBatch[]          @relation("AttendanceImportConfirmedBy")
   attendanceDailyRecords      AttendanceDailyRecord[]          @relation("AttendanceDailyRecordUser")
   attendanceMonthlySummaries  AttendancePickerMonthlySummary[] @relation("AttendanceMonthlySummaryUser")
+  uploadedOrdersKpiBatches    OrdersKpiImportBatch[]           @relation("OrdersKpiImportUploadedBy")
+  confirmedOrdersKpiBatches   OrdersKpiImportBatch[]           @relation("OrdersKpiImportConfirmedBy")
+  rejectedOrdersKpiBatches    OrdersKpiImportBatch[]           @relation("OrdersKpiImportRejectedBy")
+  ordersKpiStagingMatchedRows OrdersKpiImportStagingRow[]      @relation("OrdersKpiStagingMatchedUser")
+  ordersKpiDailyMatchedRows   OrdersKpiDailyRecord[]           @relation("OrdersKpiDailyMatchedUser")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -349,25 +397,29 @@ model Chain {
   areaManagerAssignments ChainAreaManagerAssignment[]
   sourceRequests         Request[]                    @relation("RequestSourceChain")
   destinationRequests    Request[]                    @relation("RequestDestinationChain")
+  ordersKpiStagingRows   OrdersKpiImportStagingRow[]  @relation("OrdersKpiStagingMatchedChain")
+  ordersKpiDailyRecords  OrdersKpiDailyRecord[]       @relation("OrdersKpiDailyMatchedChain")
 }
 
 model Vendor {
-  id                  String                   @id @default(uuid())
-  vendorName          String
-  vendorCode          String                   @unique
-  vendorExternalId    String?                  @unique
-  status              VendorStatus             @default(ACTIVE)
-  chainId             String
-  address             String?
-  area                String?
-  city                String?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  chain               Chain                    @relation(fields: [chainId], references: [id], onDelete: Restrict)
-  pickerAssignments   PickerBranchAssignment[]
-  champAssignments    VendorChampAssignment[]
-  sourceRequests      Request[]                @relation("RequestSourceVendor")
-  destinationRequests Request[]                @relation("RequestDestinationVendor")
+  id                    String                      @id @default(uuid())
+  vendorName            String
+  vendorCode            String                      @unique
+  vendorExternalId      String?                     @unique
+  status                VendorStatus                @default(ACTIVE)
+  chainId               String
+  address               String?
+  area                  String?
+  city                  String?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  chain                 Chain                       @relation(fields: [chainId], references: [id], onDelete: Restrict)
+  pickerAssignments     PickerBranchAssignment[]
+  champAssignments      VendorChampAssignment[]
+  sourceRequests        Request[]                   @relation("RequestSourceVendor")
+  destinationRequests   Request[]                   @relation("RequestDestinationVendor")
+  ordersKpiStagingRows  OrdersKpiImportStagingRow[] @relation("OrdersKpiStagingMatchedVendor")
+  ordersKpiDailyRecords OrdersKpiDailyRecord[]      @relation("OrdersKpiDailyMatchedVendor")
 
   @@index([chainId])
 }
@@ -711,4 +763,167 @@ model AttendanceImportIssue {
   @@index([issueCode])
   @@index([severity])
   @@index([resolutionStatus])
+}
+
+model OrdersKpiImportBatch {
+  id                String                      @id @default(uuid())
+  fileName          String
+  fileHash          String
+  uploadedByUserId  String
+  uploadedAt        DateTime                    @default(now())
+  status            OrdersKpiImportBatchStatus
+  rowCount          Int                         @default(0)
+  confirmableRows   Int                         @default(0)
+  skippedRows       Int                         @default(0)
+  errorRows         Int                         @default(0)
+  warningRows       Int                         @default(0)
+  coveredDates      Json
+  coveredDateFrom   DateTime?
+  coveredDateTo     DateTime?
+  confirmedByUserId String?
+  confirmedAt       DateTime?
+  rejectedByUserId  String?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  uploadedBy        User                        @relation("OrdersKpiImportUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  confirmedBy       User?                       @relation("OrdersKpiImportConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy        User?                       @relation("OrdersKpiImportRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+  stagingRows       OrdersKpiImportStagingRow[]
+  records           OrdersKpiDailyRecord[]
+  issues            OrdersKpiImportIssue[]
+
+  @@index([status])
+  @@index([uploadedAt])
+  @@index([coveredDateFrom, coveredDateTo])
+  @@index([uploadedByUserId])
+  @@index([confirmedByUserId])
+  @@index([fileHash])
+}
+
+model OrdersKpiImportStagingRow {
+  id                 String                     @id @default(uuid())
+  sourceBatchId      String
+  rawRowNumber       Int
+  rowHash            String
+  kpiDate            DateTime
+  sourceVendorId     String
+  matchedVendorId    String?
+  matchedChainId     String?
+  vendorNameSnapshot String?
+  chainNameSnapshot  String?
+  vendorMatchStatus  OrdersKpiVendorMatchStatus
+  sourceShopperId    String?
+  sourcePickerKey    String
+  userId             String?
+  pickerNameSnapshot String?
+  pickerMatchStatus  OrdersKpiPickerMatchStatus
+  totalOrders        Int
+  successfulOrders   Int
+  qcFailedOrders     Int
+  vendorFailedOrders Int
+  unhealthyOrders    Int
+  orderNotOnTime     Int
+  partialRefund      Int
+  vendorDelay        Int
+  preparationTime    Decimal?                   @db.Decimal(10, 4)
+  outOfStock         Int
+  firNotOnTime       Int
+  priceModified      Int
+  issuesCount        Int                        @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  sourceBatch        OrdersKpiImportBatch       @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  matchedVendor      Vendor?                    @relation("OrdersKpiStagingMatchedVendor", fields: [matchedVendorId], references: [id], onDelete: SetNull)
+  matchedChain       Chain?                     @relation("OrdersKpiStagingMatchedChain", fields: [matchedChainId], references: [id], onDelete: SetNull)
+  user               User?                      @relation("OrdersKpiStagingMatchedUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceBatchId, rawRowNumber])
+  @@index([sourceBatchId])
+  @@index([kpiDate])
+  @@index([sourceVendorId])
+  @@index([matchedVendorId])
+  @@index([matchedChainId])
+  @@index([sourceShopperId])
+  @@index([sourcePickerKey])
+  @@index([userId])
+  @@index([kpiDate, sourceVendorId])
+  @@index([kpiDate, matchedVendorId])
+  @@index([kpiDate, matchedChainId])
+}
+
+model OrdersKpiDailyRecord {
+  id                 String                     @id @default(uuid())
+  sourceBatchId      String
+  kpiDate            DateTime
+  sourceVendorId     String
+  matchedVendorId    String?
+  matchedChainId     String?
+  vendorNameSnapshot String?
+  chainNameSnapshot  String?
+  vendorMatchStatus  OrdersKpiVendorMatchStatus
+  sourceShopperId    String?
+  sourcePickerKey    String
+  userId             String?
+  pickerNameSnapshot String?
+  pickerMatchStatus  OrdersKpiPickerMatchStatus
+  totalOrders        Int
+  successfulOrders   Int
+  qcFailedOrders     Int
+  vendorFailedOrders Int
+  unhealthyOrders    Int
+  orderNotOnTime     Int
+  partialRefund      Int
+  vendorDelay        Int
+  preparationTime    Decimal?                   @db.Decimal(10, 4)
+  outOfStock         Int
+  firNotOnTime       Int
+  priceModified      Int
+  issuesCount        Int                        @default(0)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  sourceBatch        OrdersKpiImportBatch       @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  matchedVendor      Vendor?                    @relation("OrdersKpiDailyMatchedVendor", fields: [matchedVendorId], references: [id], onDelete: SetNull)
+  matchedChain       Chain?                     @relation("OrdersKpiDailyMatchedChain", fields: [matchedChainId], references: [id], onDelete: SetNull)
+  user               User?                      @relation("OrdersKpiDailyMatchedUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([kpiDate, sourceVendorId, sourcePickerKey])
+  @@index([sourceBatchId])
+  @@index([kpiDate])
+  @@index([sourceVendorId])
+  @@index([matchedVendorId])
+  @@index([matchedChainId])
+  @@index([sourceShopperId])
+  @@index([sourcePickerKey])
+  @@index([userId])
+  @@index([kpiDate, sourceVendorId])
+  @@index([kpiDate, matchedVendorId])
+  @@index([kpiDate, matchedChainId])
+  @@index([sourceVendorId, matchedVendorId])
+  @@index([sourceShopperId, userId])
+  @@index([userId, kpiDate])
+  @@index([vendorMatchStatus])
+  @@index([pickerMatchStatus])
+}
+
+model OrdersKpiImportIssue {
+  id              String                 @id @default(uuid())
+  batchId         String
+  rowNumber       Int?
+  sourceVendorId  String?
+  sourceShopperId String?
+  severity        OrdersKpiIssueSeverity
+  issueCode       OrdersKpiIssueCode
+  fieldName       String?
+  message         String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  batch           OrdersKpiImportBatch   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@index([batchId])
+  @@index([severity])
+  @@index([issueCode])
+  @@index([sourceVendorId])
+  @@index([sourceShopperId])
 }
