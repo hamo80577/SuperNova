@@ -6,6 +6,7 @@ import {
   BarChart3,
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GitBranch,
   Inbox,
   ShieldCheck,
@@ -161,6 +162,29 @@ function AdminReportContent({ data }: { data: AdminReportsOverview }) {
           <Link
             className={buttonVariants({ size: "sm", variant: "outline" })}
             href="/admin/attendance/imports"
+            prefetch
+          >
+            <UploadCloud className="mr-2 h-4 w-4" />
+            Import console
+          </Link>
+        </div>
+      </InfoCard>
+
+      <InfoCard title="Orders KPI Report">
+        <Definition label="Scope" value="Chain, vendor, and picker KPI rows" />
+        <Definition label="Source" value="Confirmed Orders KPI daily records" />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/reports/orders-kpi"
+            prefetch
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Performance report
+          </Link>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/admin/imports/orders-kpi"
             prefetch
           >
             <UploadCloud className="mr-2 h-4 w-4" />

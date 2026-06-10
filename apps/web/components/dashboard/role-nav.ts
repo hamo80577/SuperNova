@@ -4,6 +4,7 @@ import {
   Bell,
   BarChart3,
   CalendarDays,
+  FileSpreadsheet,
   FileSearch,
   GitBranch,
   Home,
@@ -208,6 +209,24 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
+      label: "Orders KPI Report",
+      href: "/admin/reports/orders-kpi",
+      icon: FileSpreadsheet,
+      section: "Reports"
+    },
+    {
+      label: "Imports",
+      href: "/admin/imports",
+      icon: UploadCloud,
+      section: "Reports"
+    },
+    {
+      label: "Orders KPI Import",
+      href: "/admin/imports/orders-kpi",
+      icon: FileSpreadsheet,
+      section: "Reports"
+    },
+    {
       label: "Attendance",
       href: "/admin/reports/attendance",
       icon: CalendarDays,
@@ -273,6 +292,24 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Reports",
       href: "/admin/reports",
       icon: BarChart3,
+      section: "Reports"
+    },
+    {
+      label: "Orders KPI Report",
+      href: "/admin/reports/orders-kpi",
+      icon: FileSpreadsheet,
+      section: "Reports"
+    },
+    {
+      label: "Imports",
+      href: "/admin/imports",
+      icon: UploadCloud,
+      section: "Reports"
+    },
+    {
+      label: "Orders KPI Import",
+      href: "/admin/imports/orders-kpi",
+      icon: FileSpreadsheet,
       section: "Reports"
     },
     {
