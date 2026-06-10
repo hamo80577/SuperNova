@@ -48,8 +48,12 @@ export class OrdersKpisTargetSettingsService {
   async getTargetSettings(
     options: OrdersKpiTargetSettingsOptions
   ): Promise<OrdersKpiTargetSettingsResponse> {
-    assertOrdersKpiTargetSettingsActor(options.actor);
+    assertOrdersKpiTargetSettingsReader(options.actor);
 
+    return this.getTargetSettingsForReport();
+  }
+
+  async getTargetSettingsForReport(): Promise<OrdersKpiTargetSettingsResponse> {
     const settings = await this.prisma.ordersKpiTargetSettings.findUnique({
       where: { id: ORDERS_KPI_TARGET_SETTINGS_ID }
     });
@@ -102,6 +106,17 @@ export class OrdersKpisTargetSettingsService {
 
 function assertOrdersKpiTargetSettingsActor(actor: OrdersKpiImportActor) {
   if (actor.role !== UserRole.ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
+    throw new ForbiddenException("Only admins can manage Orders KPI targets.");
+  }
+}
+
+function assertOrdersKpiTargetSettingsReader(actor: OrdersKpiImportActor) {
+  const allowedRoles: UserRole[] = [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN
+  ];
+
+  if (!allowedRoles.includes(actor.role)) {
     throw new ForbiddenException("Only admins can manage Orders KPI targets.");
   }
 }

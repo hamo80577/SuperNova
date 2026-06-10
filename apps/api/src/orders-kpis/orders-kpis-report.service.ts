@@ -5,6 +5,7 @@ import {
   Injectable
 } from "@nestjs/common";
 import {
+  AssignmentStatus,
   OrdersKpiPickerMatchStatus,
   OrdersKpiVendorMatchStatus,
   Prisma,
@@ -81,6 +82,11 @@ interface OrdersKpiPerformanceReportOptions {
   actor: OrdersKpiImportActor;
 }
 
+type OrdersKpiReportScope =
+  | { kind: "ALL" }
+  | { kind: "MATCHED_CHAINS"; chainIds: string[] }
+  | { kind: "MATCHED_VENDORS"; vendorIds: string[] };
+
 interface ParsedPerformanceReportQuery {
   dateFrom: string;
   dateTo: string;
@@ -131,6 +137,8 @@ export class OrdersKpisReportService {
     assertOrdersKpiReportActor(options.actor);
 
     const filters = parsePerformanceReportQuery(query);
+    const scope = await this.resolveReportScope(options.actor);
+    assertScopedReportFilters(filters, scope);
     const previousPeriod = previousEquivalentPeriod(filters);
     const previousFilters = {
       ...filters,
@@ -141,14 +149,14 @@ export class OrdersKpisReportService {
     };
     const [records, previousRecords, targetSettings] = await Promise.all([
       this.prisma.ordersKpiDailyRecord.findMany({
-        where: buildReportWhere(filters),
+        where: buildReportWhere(filters, scope),
         select: reportRecordSelect
       }),
       this.prisma.ordersKpiDailyRecord.findMany({
-        where: buildReportWhere(previousFilters),
+        where: buildReportWhere(previousFilters, scope),
         select: reportRecordSelect
       }),
-      this.targetSettingsService.getTargetSettings(options)
+      this.targetSettingsService.getTargetSettingsForReport()
     ]);
     const filteredRecords = applyReportSearch(records, filters);
     const filteredPreviousRecords = applyReportSearch(previousRecords, filters);
@@ -190,12 +198,84 @@ export class OrdersKpisReportService {
       }
     };
   }
+
+  private async resolveReportScope(
+    actor: OrdersKpiImportActor
+  ): Promise<OrdersKpiReportScope> {
+    if (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN) {
+      return { kind: "ALL" };
+    }
+
+    if (actor.role === UserRole.AREA_MANAGER) {
+      const chainAssignments =
+        await this.prisma.chainAreaManagerAssignment.findMany({
+          where: {
+            areaManagerId: actor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { chainId: true }
+        });
+
+      return {
+        kind: "MATCHED_CHAINS",
+        chainIds: uniqueStrings(
+          chainAssignments.map((assignment) => assignment.chainId)
+        )
+      };
+    }
+
+    if (actor.role === UserRole.CHAMP) {
+      const vendorAssignments =
+        await this.prisma.vendorChampAssignment.findMany({
+          where: {
+            champId: actor.id,
+            status: AssignmentStatus.ACTIVE
+          },
+          select: { vendorId: true }
+        });
+
+      return {
+        kind: "MATCHED_VENDORS",
+        vendorIds: uniqueStrings(
+          vendorAssignments.map((assignment) => assignment.vendorId)
+        )
+      };
+    }
+
+    throw new ForbiddenException(
+      "You do not have permission to read Orders KPI reports."
+    );
+  }
 }
 
 function assertOrdersKpiReportActor(actor: OrdersKpiImportActor) {
-  if (actor.role !== UserRole.ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
-    throw new ForbiddenException("Only admins can read Orders KPI reports.");
+  const allowedRoles: UserRole[] = [
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.AREA_MANAGER,
+    UserRole.CHAMP
+  ];
+
+  if (!allowedRoles.includes(actor.role)) {
+    throw new ForbiddenException(
+      "You do not have permission to read Orders KPI reports."
+    );
   }
+}
+
+function assertScopedReportFilters(
+  filters: ParsedPerformanceReportQuery,
+  scope: OrdersKpiReportScope
+) {
+  if (scope.kind !== "ALL" && filters.unmappedOnly) {
+    throw new ForbiddenException(
+      "Unmapped Orders KPI data is limited to admins."
+    );
+  }
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
 function parsePerformanceReportQuery(
@@ -362,9 +442,10 @@ function assertReportFilters(filters: ParsedPerformanceReportQuery) {
 }
 
 function buildReportWhere(
-  filters: ParsedPerformanceReportQuery
+  filters: ParsedPerformanceReportQuery,
+  scope: OrdersKpiReportScope
 ): Prisma.OrdersKpiDailyRecordWhereInput {
-  return {
+  const filterWhere: Prisma.OrdersKpiDailyRecordWhereInput = {
     kpiDate: {
       gte: filters.dateFromValue,
       lt: filters.dateToExclusiveValue
@@ -383,6 +464,23 @@ function buildReportWhere(
       ? { sourcePickerKey: filters.sourcePickerKey }
       : {})
   };
+  const scopeWhere = buildScopeWhere(scope);
+
+  return scopeWhere ? { AND: [filterWhere, scopeWhere] } : filterWhere;
+}
+
+function buildScopeWhere(
+  scope: OrdersKpiReportScope
+): Prisma.OrdersKpiDailyRecordWhereInput | null {
+  if (scope.kind === "MATCHED_CHAINS") {
+    return { matchedChainId: { in: scope.chainIds } };
+  }
+
+  if (scope.kind === "MATCHED_VENDORS") {
+    return { matchedVendorId: { in: scope.vendorIds } };
+  }
+
+  return null;
 }
 
 function applyReportSearch(

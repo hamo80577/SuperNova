@@ -11,7 +11,12 @@ import type { OrdersKpiPerformanceReportQuery } from "./orders-kpis.types";
 
 @Controller("orders-kpis/reports")
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+  UserRole.AREA_MANAGER,
+  UserRole.CHAMP
+)
 export class OrdersKpisReportsController {
   constructor(
     @Inject(OrdersKpisReportService)

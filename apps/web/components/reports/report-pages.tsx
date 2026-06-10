@@ -222,6 +222,28 @@ function AreaManagerReportContent({
 }) {
   return (
     <ReportGrid>
+      <InfoCard title="Operational Reports">
+        <Definition label="Scope" value="Your assigned chains" />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/area-manager/reports/attendance"
+            prefetch
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Attendance report
+          </Link>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/area-manager/reports/orders-kpi"
+            prefetch
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Orders KPI report
+          </Link>
+        </div>
+      </InfoCard>
+
       <MetricCard icon={GitBranch} label="Assigned Chains" value={data.cards.chains} />
       <MetricCard icon={Store} label="Branches in scope" value={data.cards.vendors} />
       <MetricCard icon={Users} label="Active Pickers" value={data.cards.activePickers} />
@@ -271,6 +293,28 @@ function AreaManagerReportContent({
 function ChampReportContent({ data }: { data: ChampReportsOverview }) {
   return (
     <ReportGrid>
+      <InfoCard title="Operational Reports">
+        <Definition label="Scope" value="Your assigned branches" />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/champ/reports/attendance"
+            prefetch
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Attendance report
+          </Link>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href="/champ/reports/orders-kpi"
+            prefetch
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Orders KPI report
+          </Link>
+        </div>
+      </InfoCard>
+
       <MetricCard icon={Store} label="Assigned Branches" value={data.cards.assignedBranches} />
       <MetricCard icon={Users} label="Active Pickers" value={data.cards.activePickers} />
       <MetricCard

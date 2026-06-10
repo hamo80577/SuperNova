@@ -137,6 +137,18 @@ async function testRejectsInvalidAndUnauthorizedRequests() {
     ForbiddenException
   );
   await assert.rejects(
+    context.service.getTargetSettings({
+      actor: { id: "area-manager-1", role: UserRole.AREA_MANAGER }
+    }),
+    ForbiddenException
+  );
+  await assert.rejects(
+    context.service.getTargetSettings({
+      actor: { id: "champ-1", role: UserRole.CHAMP }
+    }),
+    ForbiddenException
+  );
+  await assert.rejects(
     context.service.updateTargetSettings(
       {
         uhoRateTarget: 101,

@@ -386,7 +386,7 @@ function createStore(targets: OrdersKpiTargetSettingsValues = defaultTargets) {
   return {
     prisma,
     service: new OrdersKpisReportService(prisma as never, {
-      getTargetSettings: async () => ({
+      getTargetSettingsForReport: async () => ({
         id: "global",
         source: "SAVED",
         targets,
@@ -687,7 +687,9 @@ async function testSortingAccessAndControllerRoles() {
   assert.equal(unhealthyRateDesc.rows[0].groupKey, "UNMAPPED_CHAIN");
   assert.deepEqual(Reflect.getMetadata(ROLES_KEY, OrdersKpisReportsController), [
     UserRole.ADMIN,
-    UserRole.SUPER_ADMIN
+    UserRole.SUPER_ADMIN,
+    UserRole.AREA_MANAGER,
+    UserRole.CHAMP
   ]);
   await assert.rejects(
     context.service.getPerformanceReport(reportQuery(), { actor: pickerActor }),
