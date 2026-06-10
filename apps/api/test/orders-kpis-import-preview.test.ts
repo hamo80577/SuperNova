@@ -400,7 +400,7 @@ async function runMixedCsvPreviewTest() {
   assert.equal(response.batch.rowCount, 5);
   assert.equal(response.batch.confirmableRows, 4);
   assert.equal(response.batch.errorRows, 1);
-  assert.equal(response.batch.canConfirm, false);
+  assert.equal(response.batch.canConfirm, true);
   assert.equal(response.batch.requiresReviewDecision, true);
   assert.deepEqual(response.batch.coveredDates, ["2026-06-07", "2026-06-08"]);
   assert.equal(response.batch.coveredDateFrom, "2026-06-07");

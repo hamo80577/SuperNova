@@ -1,7 +1,10 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Inject,
+  Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UploadedFile,
@@ -18,6 +21,10 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { OrdersKpisImportService } from "./orders-kpis-import.service";
+import type {
+  OrdersKpiConfirmReplaceRequest,
+  OrdersKpiRejectImportRequest
+} from "./orders-kpis.types";
 
 type UploadedOrdersKpiFile = Readonly<{
   originalname?: string;
@@ -47,6 +54,38 @@ export class OrdersKpisImportsController {
     return this.ordersKpisImportService.previewImport(file.buffer, {
       actor: user,
       fileName: file.originalname ?? "orders-kpis-import.xlsx",
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post(":batchId/confirm-replace")
+  confirmReplaceImport(
+    @Param("batchId", ParseUUIDPipe) batchId: string,
+    @Body() body: OrdersKpiConfirmReplaceRequest | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersKpisImportService.confirmReplaceImport(batchId, {
+      actor: user,
+      acknowledgeReplaceDates: body?.acknowledgeReplaceDates === true,
+      approveValidRowsOnly: body?.approveValidRowsOnly === true,
+      acknowledgeSkippedErrorRows: body?.acknowledgeSkippedErrorRows === true,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @Post(":batchId/reject")
+  rejectImport(
+    @Param("batchId", ParseUUIDPipe) batchId: string,
+    @Body() body: OrdersKpiRejectImportRequest | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.ordersKpisImportService.rejectImport(batchId, {
+      actor: user,
+      reason: body?.reason,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
     });

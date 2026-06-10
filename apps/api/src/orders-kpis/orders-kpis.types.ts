@@ -1,14 +1,17 @@
-import type {
+import {
   OrdersKpiImportBatchStatus,
-  OrdersKpiIssueCode,
-  OrdersKpiIssueSeverity,
-  OrdersKpiPickerMatchStatus,
-  OrdersKpiVendorMatchStatus,
-  UserRole
+  type OrdersKpiIssueCode,
+  type OrdersKpiIssueSeverity,
+  type OrdersKpiPickerMatchStatus,
+  type OrdersKpiVendorMatchStatus,
+  type UserRole
 } from "@prisma/client";
 
 export const ORDERS_KPI_UNKNOWN_PICKER_KEY = "__UNKNOWN__";
 export const ORDERS_KPI_PREVIEW_ACTION = "ORDERS_KPI_IMPORT_PREVIEWED";
+export const ORDERS_KPI_CONFIRM_REPLACE_ACTION =
+  "ORDERS_KPI_IMPORT_CONFIRMED_REPLACE";
+export const ORDERS_KPI_REJECT_ACTION = "ORDERS_KPI_IMPORT_REJECTED";
 export const ORDERS_KPI_UPLOAD_MODE = "FULL_DAILY_SNAPSHOT";
 
 export const ORDERS_KPI_INTEGER_METRIC_KEYS = [
@@ -40,6 +43,32 @@ export interface OrdersKpiPreviewImportOptions {
   fileName: string;
   ipAddress?: string | null;
   userAgent?: string | null;
+}
+
+export interface OrdersKpiConfirmReplaceRequest {
+  acknowledgeReplaceDates?: boolean;
+  approveValidRowsOnly?: boolean;
+  acknowledgeSkippedErrorRows?: boolean;
+}
+
+export interface OrdersKpiConfirmReplaceOptions
+  extends OrdersKpiConfirmReplaceRequest {
+  actor: OrdersKpiImportActor;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  now?: Date;
+}
+
+export interface OrdersKpiRejectImportRequest {
+  reason?: string | null;
+}
+
+export interface OrdersKpiRejectImportOptions
+  extends OrdersKpiRejectImportRequest {
+  actor: OrdersKpiImportActor;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  now?: Date;
 }
 
 export interface OrdersKpiParsedDate {
@@ -184,4 +213,23 @@ export interface OrdersKpiPreviewResponse {
     fieldName: string | null;
     message: string;
   }>;
+}
+
+export interface OrdersKpiConfirmReplaceResponse {
+  batchId: string;
+  status: "CONFIRMED";
+  coveredDates: string[];
+  deletedRecords: number;
+  insertedRecords: number;
+  skippedRows: number;
+  errorRows: number;
+  warningRows: number;
+  confirmedAt: string;
+}
+
+export interface OrdersKpiRejectImportResponse {
+  batchId: string;
+  status: "REJECTED";
+  rejectedAt: string;
+  reason: string | null;
 }
