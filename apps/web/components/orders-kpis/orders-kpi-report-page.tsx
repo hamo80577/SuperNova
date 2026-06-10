@@ -2,11 +2,24 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   BarChart3,
   ChevronRight,
-  RotateCcw,
-  Search
+  ClipboardList,
+  Clock3,
+  Gauge,
+  PackageX,
+  ReceiptText,
+  RefreshCcw,
+  Search,
+  ShieldAlert,
+  SlidersHorizontal,
+  Store,
+  type LucideIcon
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
@@ -22,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import {
   ordersKpisApi,
   type OrdersKpiPerformanceReportQuery,
@@ -32,24 +44,112 @@ import {
   type OrdersKpiPerformanceReportView,
   type OrdersKpiPerformanceRow
 } from "@/lib/api/orders-kpis";
+import { cn } from "@/lib/utils";
 
 type ReportStatus = "idle" | "loading" | "success" | "error";
+type MetricTone = "default" | "danger" | "info" | "success" | "warning";
 
-const viewOptions: Array<{ label: string; value: OrdersKpiPerformanceReportView }> = [
-  { label: "Chain View", value: "CHAIN" },
-  { label: "Vendor View", value: "VENDOR" },
-  { label: "Picker View", value: "PICKER" }
+interface MetricDefinition {
+  cardTone: MetricTone;
+  icon: LucideIcon;
+  key: OrdersKpiPerformanceReportSortKey;
+  label: string;
+  shortLabel: string;
+  valueType: "count" | "percent";
+}
+
+interface ActiveContext {
+  label: string;
+  value: string;
+}
+
+const reportViews: Array<{
+  description: string;
+  label: string;
+  value: OrdersKpiPerformanceReportView;
+}> = [
+  {
+    description: "Chain performance groups",
+    label: "Chain",
+    value: "CHAIN"
+  },
+  {
+    description: "Vendor and unmapped vendor rows",
+    label: "Vendor",
+    value: "VENDOR"
+  },
+  {
+    description: "Picker and shopper buckets",
+    label: "Picker",
+    value: "PICKER"
+  }
 ];
 
-const sortOptions: Array<{ label: string; value: OrdersKpiPerformanceReportSortKey }> = [
-  { label: "Total Orders", value: "totalOrders" },
-  { label: "UHO", value: "unhealthyOrders" },
-  { label: "UHO %", value: "unhealthyRate" },
-  { label: "Not on time", value: "orderNotOnTime" },
-  { label: "QC Failed Orders", value: "qcFailedOrders" },
-  { label: "Partial Refund", value: "partialRefund" },
-  { label: "OOS", value: "outOfStock" },
-  { label: "Price Modified", value: "priceModified" }
+const metricDefinitions: MetricDefinition[] = [
+  {
+    cardTone: "success",
+    icon: ReceiptText,
+    key: "totalOrders",
+    label: "Total Orders",
+    shortLabel: "Total",
+    valueType: "count"
+  },
+  {
+    cardTone: "danger",
+    icon: Activity,
+    key: "unhealthyOrders",
+    label: "UHO",
+    shortLabel: "UHO",
+    valueType: "count"
+  },
+  {
+    cardTone: "danger",
+    icon: Gauge,
+    key: "unhealthyRate",
+    label: "UHO %",
+    shortLabel: "UHO %",
+    valueType: "percent"
+  },
+  {
+    cardTone: "warning",
+    icon: Clock3,
+    key: "orderNotOnTime",
+    label: "Not on Time",
+    shortLabel: "Not on Time",
+    valueType: "count"
+  },
+  {
+    cardTone: "warning",
+    icon: ShieldAlert,
+    key: "qcFailedOrders",
+    label: "QC Failed Orders",
+    shortLabel: "QC Failed",
+    valueType: "count"
+  },
+  {
+    cardTone: "info",
+    icon: Store,
+    key: "partialRefund",
+    label: "Partial Refund",
+    shortLabel: "Refund",
+    valueType: "count"
+  },
+  {
+    cardTone: "warning",
+    icon: PackageX,
+    key: "outOfStock",
+    label: "OOS",
+    shortLabel: "OOS",
+    valueType: "count"
+  },
+  {
+    cardTone: "info",
+    icon: ClipboardList,
+    key: "priceModified",
+    label: "Price Modified",
+    shortLabel: "Price Mod.",
+    valueType: "count"
+  }
 ];
 
 const pageSizeOptions = [10, 25, 50, 100];
@@ -64,15 +164,21 @@ export function OrdersKpiReportPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const filters = useMemo(() => parseReportFilters(searchParams), [searchParams]);
-  const [pickerSearchDraft, setPickerSearchDraft] = useState(filters.pickerSearch ?? "");
-  const [report, setReport] = useState<OrdersKpiPerformanceReportResponse | null>(null);
+  const [pickerSearchDraft, setPickerSearchDraft] = useState(
+    filters.pickerSearch ?? ""
+  );
+  const [report, setReport] =
+    useState<OrdersKpiPerformanceReportResponse | null>(null);
   const [status, setStatus] = useState<ReportStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const dateRangeError = validateAttendanceDateRange(filters.dateFrom, filters.dateTo);
+  const dateRangeError = validateAttendanceDateRange(
+    filters.dateFrom,
+    filters.dateTo
+  );
   const pickerScopeError =
     filters.view === "PICKER" && !filters.vendorId && !filters.sourceVendorId
-      ? "Open Picker View from a vendor row or choose a vendor-scoped link."
+      ? "Picker View requires one Vendor or Unmapped Vendor context."
       : null;
   const queryError = dateRangeError ?? pickerScopeError;
   const query = useMemo<OrdersKpiPerformanceReportQuery>(
@@ -116,6 +222,7 @@ export function OrdersKpiReportPage() {
         if (ignore) {
           return;
         }
+
         setReport(response);
         setStatus("success");
       })
@@ -123,6 +230,7 @@ export function OrdersKpiReportPage() {
         if (ignore) {
           return;
         }
+
         setError(getErrorMessage(fetchError));
         setStatus("error");
       });
@@ -144,7 +252,8 @@ export function OrdersKpiReportPage() {
       nextParams.set(key, String(value));
     });
 
-    router.push(`${pathname}?${nextParams.toString()}`);
+    const nextSearch = nextParams.toString();
+    router.push(nextSearch ? `${pathname}?${nextSearch}` : pathname);
   }
 
   function resetFilters() {
@@ -184,12 +293,19 @@ export function OrdersKpiReportPage() {
       return;
     }
 
-    updateFilters({ page: 1, view });
+    updateFilters({ page: 1, pickerSearch: null, view });
   }
 
   function handlePickerSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     updateFilters({ page: 1, pickerSearch: pickerSearchDraft.trim() || null });
+  }
+
+  function handleSort(sortBy: OrdersKpiPerformanceReportSortKey) {
+    const sortDirection: OrdersKpiPerformanceReportSortDirection =
+      filters.sortBy === sortBy && filters.sortDirection === "desc" ? "asc" : "desc";
+
+    updateFilters({ page: 1, sortBy, sortDirection });
   }
 
   function handleDrilldown(row: OrdersKpiPerformanceRow) {
@@ -225,148 +341,164 @@ export function OrdersKpiReportPage() {
   const summary = report?.summary ?? null;
   const rows = report?.rows ?? [];
   const pagination = report?.pagination ?? null;
+  const activeContexts = activeReportContexts(filters);
   const isLoading = status === "loading";
   const isEmpty = status === "success" && !rows.length;
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-        <div className="flex flex-col gap-4">
-          <AttendanceDateRangeSelector
-            dateFrom={filters.dateFrom}
-            dateTo={filters.dateTo}
-            error={dateRangeError}
-            onChange={handleDateRangeChange}
-          />
-
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(160px,220px)_minmax(160px,220px)_minmax(140px,180px)]">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950">Orders KPI Report</p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Confirmed Orders KPI daily records from {formatDateLong(filters.dateFrom)} to {formatDateLong(filters.dateTo)}.
-              </p>
-              <ReportBreadcrumb filters={filters} onViewChange={handleViewChange} />
+    <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-slate-50/80 p-3 sm:p-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <BarChart3 className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
+                  Orders KPI Performance
+                </h1>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Vendor-first operational KPI workspace
+                </p>
+              </div>
             </div>
-            <Select
-              onChange={(event) => handleViewChange(event.target.value as OrdersKpiPerformanceReportView)}
-              value={filters.view}
-            >
-              {viewOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              onChange={(event) =>
-                updateFilters({
-                  page: 1,
-                  sortBy: event.target.value as OrdersKpiPerformanceReportSortKey
-                })
-              }
-              value={filters.sortBy}
-            >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  Sort: {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              onChange={(event) =>
-                updateFilters({
-                  page: 1,
-                  sortDirection: event.target.value as OrdersKpiPerformanceReportSortDirection
-                })
-              }
-              value={filters.sortDirection}
-            >
-              <option value="desc">High to low</option>
-              <option value="asc">Low to high</option>
-            </Select>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Confirmed daily records from {formatDateLong(filters.dateFrom)} to{" "}
+              {formatDateLong(filters.dateTo)}.
+            </p>
           </div>
 
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {viewOptions.map((option) => (
-                <button
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-sm font-semibold transition",
-                    filters.view === option.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-primary/30"
-                  )}
-                  key={option.value}
-                  onClick={() => handleViewChange(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              {filters.view === "PICKER" ? (
-                <form className="flex min-w-0 gap-2" onSubmit={handlePickerSearchSubmit}>
-                  <div className="relative min-w-0 flex-1 sm:w-64">
-                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <Input
-                      className="h-10 rounded-xl pl-9"
-                      onChange={(event) => setPickerSearchDraft(event.target.value)}
-                      placeholder="Search picker"
-                      value={pickerSearchDraft}
-                    />
-                  </div>
-                  <Button className="rounded-xl" type="submit" variant="outline">
-                    Apply
-                  </Button>
-                </form>
-              ) : null}
-              <Button className="gap-2 rounded-xl" onClick={resetFilters} type="button" variant="outline">
-                <RotateCcw className="h-4 w-4" />
-                Clear filters
-              </Button>
-            </div>
+          <div className="w-full shrink-0 lg:w-auto">
+            <AttendanceDateRangeSelector
+              dateFrom={filters.dateFrom}
+              dateTo={filters.dateTo}
+              error={dateRangeError}
+              onChange={handleDateRangeChange}
+            />
           </div>
         </div>
       </section>
 
-      {queryError ? <InlineNotice message={queryError} tone="warning" title="Filter needs attention" /> : null}
-      {error ? <InlineNotice message={error} tone="error" title="Report failed" /> : null}
+      {queryError ? (
+        <InlineNotice
+          message={queryError}
+          tone="warning"
+          title="Filter needs attention"
+        />
+      ) : null}
+      {error ? (
+        <InlineNotice message={error} tone="error" title="Report failed" />
+      ) : null}
 
       <KpiCards isLoading={isLoading} summary={summary} />
 
-      <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">
-              {getViewLabel(filters.view)} rows
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {pagination
-                ? `${formatNumber(pagination.totalRows)} rows across ${formatNumber(pagination.totalPages)} pages`
-                : "Rows are loaded from confirmed Orders KPI records."}
-            </p>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+              <SlidersHorizontal className="h-4 w-4 text-primary" />
+              Report controls
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {activeContexts.length ? (
+                activeContexts.map((context) => (
+                  <span
+                    className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600"
+                    key={`${context.label}:${context.value}`}
+                  >
+                    <span className="text-slate-400">{context.label}</span>
+                    <span className="max-w-[14rem] truncate text-slate-900">
+                      {context.value}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                <span className="inline-flex min-h-9 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-500">
+                  All confirmed records
+                </span>
+              )}
+            </div>
           </div>
-          <Select
-            onChange={(event) =>
-              updateFilters({ page: 1, pageSize: Number(event.target.value) })
-            }
-            value={String(filters.pageSize)}
-            wrapperClassName="w-full sm:w-40"
-          >
-            {pageSizeOptions.map((pageSize) => (
-              <option key={pageSize} value={pageSize}>
-                {pageSize} per page
-              </option>
-            ))}
-          </Select>
+
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,18rem)_auto]">
+            <form
+              className="flex min-w-0 gap-2"
+              onSubmit={handlePickerSearchSubmit}
+            >
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Input
+                  className="h-11 rounded-xl pl-9"
+                  disabled={filters.view !== "PICKER" || Boolean(pickerScopeError)}
+                  onChange={(event) => setPickerSearchDraft(event.target.value)}
+                  placeholder={
+                    filters.view === "PICKER" ? "Search picker" : "Picker search"
+                  }
+                  value={pickerSearchDraft}
+                />
+              </div>
+              <Button
+                className="h-11 rounded-xl"
+                disabled={filters.view !== "PICKER" || Boolean(pickerScopeError)}
+                type="submit"
+                variant="outline"
+              >
+                Apply
+              </Button>
+            </form>
+            <Button
+              className="h-11 gap-2 rounded-xl"
+              onClick={resetFilters}
+              type="button"
+              variant="outline"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <ReportViewTabs
+            activeView={filters.view}
+            onViewChange={handleViewChange}
+          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <p className="text-sm text-slate-500">
+              {pagination
+                ? `${formatNumber(pagination.totalRows)} rows across ${formatNumber(
+                    pagination.totalPages
+                  )} pages`
+                : "Rows load from confirmed Orders KPI records."}
+            </p>
+            <Select
+              onChange={(event) =>
+                updateFilters({ page: 1, pageSize: Number(event.target.value) })
+              }
+              value={String(filters.pageSize)}
+              wrapperClassName="w-full sm:w-40"
+            >
+              {pageSizeOptions.map((pageSize) => (
+                <option key={pageSize} value={pageSize}>
+                  {pageSize} per page
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         {isLoading ? <ReportTableSkeleton /> : null}
         {isEmpty ? <EmptyReport /> : null}
         {!isLoading && !queryError && rows.length ? (
-          <ReportRows rows={rows} onDrilldown={handleDrilldown} />
+          <ReportRows
+            filters={filters}
+            onDrilldown={handleDrilldown}
+            onSort={handleSort}
+            rows={rows}
+          />
         ) : null}
 
         {pagination ? (
@@ -388,79 +520,157 @@ function KpiCards({
   isLoading: boolean;
   summary: OrdersKpiPerformanceReportResponse["summary"] | null;
 }) {
-  const cards = [
-    { label: "Total Orders", value: formatNumber(summary?.totalOrders ?? 0) },
-    { label: "UHO", value: formatNumber(summary?.unhealthyOrders ?? 0) },
-    { label: "UHO %", value: `${percentFormatter.format(summary?.unhealthyRate ?? 0)}%` },
-    { label: "Not on time", value: formatNumber(summary?.orderNotOnTime ?? 0) },
-    { label: "QC Failed Orders", value: formatNumber(summary?.qcFailedOrders ?? 0) },
-    { label: "Partial Refund", value: formatNumber(summary?.partialRefund ?? 0) },
-    { label: "OOS", value: formatNumber(summary?.outOfStock ?? 0) },
-    { label: "Price Modified", value: formatNumber(summary?.priceModified ?? 0) }
-  ];
-
   return (
-    <section className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" key={card.label}>
-          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-            {card.label}
-          </p>
-          {isLoading ? (
-            <Skeleton className="mt-3 h-8 w-24" />
-          ) : (
-            <p className="mt-2 text-2xl font-semibold text-slate-950">{card.value}</p>
-          )}
-        </div>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {metricDefinitions.map((metric) => (
+        <KpiCard
+          isLoading={isLoading}
+          key={metric.key}
+          metric={metric}
+          value={summary?.[metric.key] ?? 0}
+        />
       ))}
     </section>
   );
 }
 
+function KpiCard({
+  isLoading,
+  metric,
+  value
+}: {
+  isLoading: boolean;
+  metric: MetricDefinition;
+  value: number;
+}) {
+  const Icon = metric.icon;
+
+  return (
+    <article
+      className={cn(
+        "min-w-0 rounded-2xl border bg-white p-4 shadow-sm",
+        metric.key === "unhealthyRate"
+          ? "border-primary/30 ring-1 ring-primary/10"
+          : "border-slate-200"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+            {metric.label}
+          </p>
+          {isLoading ? (
+            <Skeleton className="mt-3 h-8 w-28" />
+          ) : (
+            <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950">
+              {formatMetricValue(value, metric.valueType)}
+            </p>
+          )}
+        </div>
+        <span
+          className={cn(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+            metricToneClasses(metric.cardTone)
+          )}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="text-xs font-medium text-slate-500">Comparison unavailable</p>
+        <div className="mt-2 flex h-7 items-end gap-1" aria-hidden="true">
+          <span className="h-3 flex-1 rounded-full bg-slate-200" />
+          <span className="h-5 flex-1 rounded-full bg-slate-200" />
+          <span className="h-4 flex-1 rounded-full bg-slate-200" />
+          <span className="h-6 flex-1 rounded-full bg-slate-200" />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ReportViewTabs({
+  activeView,
+  onViewChange
+}: {
+  activeView: OrdersKpiPerformanceReportView;
+  onViewChange: (view: OrdersKpiPerformanceReportView) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[34rem]">
+      {reportViews.map((view) => (
+        <button
+          aria-pressed={activeView === view.value}
+          className={cn(
+            "min-h-16 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+            activeView === view.value
+              ? "border-primary/45 bg-primary/5 text-primary shadow-sm"
+              : "border-slate-200 bg-white text-slate-600 hover:border-primary/30"
+          )}
+          key={view.value}
+          onClick={() => onViewChange(view.value)}
+          type="button"
+        >
+          <span className="block text-sm font-semibold">{view.label}</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            {view.description}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ReportRows({
+  filters,
   onDrilldown,
+  onSort,
   rows
 }: {
+  filters: ParsedReportFilters;
   onDrilldown: (row: OrdersKpiPerformanceRow) => void;
+  onSort: (sortBy: OrdersKpiPerformanceReportSortKey) => void;
   rows: OrdersKpiPerformanceRow[];
 }) {
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
       <div className="overflow-x-auto">
-        <table className="hidden min-w-[980px] divide-y divide-slate-200 text-sm lg:table">
+        <table className="hidden min-w-[1080px] divide-y divide-slate-200 text-sm lg:table">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
-              <th className="px-3 py-3">Group</th>
-              <th className="px-3 py-3">Type</th>
-              <th className="px-3 py-3 text-right">Total</th>
-              <th className="px-3 py-3 text-right">UHO</th>
-              <th className="px-3 py-3 text-right">UHO %</th>
-              <th className="px-3 py-3 text-right">Not on time</th>
-              <th className="px-3 py-3 text-right">QC Failed</th>
-              <th className="px-3 py-3 text-right">Partial Refund</th>
-              <th className="px-3 py-3 text-right">OOS</th>
-              <th className="px-3 py-3 text-right">Price Modified</th>
+              <th className="px-3 py-3">Name</th>
+              {metricDefinitions.map((metric) => (
+                <SortableMetricHeader
+                  direction={filters.sortDirection}
+                  isActive={filters.sortBy === metric.key}
+                  key={metric.key}
+                  metric={metric}
+                  onSort={onSort}
+                />
+              ))}
               <th className="px-3 py-3">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {rows.map((row) => (
-              <tr key={row.groupKey}>
+              <tr className="transition hover:bg-slate-50/70" key={row.groupKey}>
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-slate-950">{getRowLabel(row)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{getRowSubLabel(row)}</p>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <GroupIcon row={row} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-950">
+                        {getRowLabel(row)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {getRowSubLabel(row)}
+                      </p>
+                      <GroupBadge row={row} />
+                    </div>
+                  </div>
                 </td>
-                <td className="px-3 py-3">
-                  <Badge variant="muted">{getGroupTypeLabel(row.groupType)}</Badge>
-                </td>
-                <MetricCell value={row.metrics.totalOrders} />
-                <MetricCell value={row.metrics.unhealthyOrders} />
-                <MetricCell value={`${percentFormatter.format(row.metrics.unhealthyRate)}%`} />
-                <MetricCell value={row.metrics.orderNotOnTime} />
-                <MetricCell value={row.metrics.qcFailedOrders} />
-                <MetricCell value={row.metrics.partialRefund} />
-                <MetricCell value={row.metrics.outOfStock} />
-                <MetricCell value={row.metrics.priceModified} />
+                {metricDefinitions.map((metric) => (
+                  <MetricCell key={metric.key} metric={metric} row={row} />
+                ))}
                 <td className="px-3 py-3">
                   {row.hasDrilldown ? (
                     <Button
@@ -470,11 +680,13 @@ function ReportRows({
                       type="button"
                       variant="outline"
                     >
-                      Drilldown
+                      Open
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <span className="text-xs text-slate-400">Final view</span>
+                    <span className="text-xs font-medium text-slate-400">
+                      Final view
+                    </span>
                   )}
                 </td>
               </tr>
@@ -484,38 +696,145 @@ function ReportRows({
 
         <div className="divide-y divide-slate-100 bg-white lg:hidden">
           {rows.map((row) => (
-            <div className="p-4" key={row.groupKey}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-950">{getRowLabel(row)}</p>
-                  <p className="mt-1 text-xs text-slate-500">{getRowSubLabel(row)}</p>
-                </div>
-                <Badge variant="muted">{getGroupTypeLabel(row.groupType)}</Badge>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <MobileMetric label="Total" value={row.metrics.totalOrders} />
-                <MobileMetric label="UHO" value={row.metrics.unhealthyOrders} />
-                <MobileMetric label="UHO %" value={`${percentFormatter.format(row.metrics.unhealthyRate)}%`} />
-                <MobileMetric label="Not on time" value={row.metrics.orderNotOnTime} />
-                <MobileMetric label="QC Failed" value={row.metrics.qcFailedOrders} />
-                <MobileMetric label="Price Modified" value={row.metrics.priceModified} />
-              </div>
-              {row.hasDrilldown ? (
-                <Button
-                  className="mt-4 w-full gap-1 rounded-xl"
-                  onClick={() => onDrilldown(row)}
-                  type="button"
-                  variant="outline"
-                >
-                  Drilldown
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
+            <MobileReportCard key={row.groupKey} onDrilldown={onDrilldown} row={row} />
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function SortableMetricHeader({
+  direction,
+  isActive,
+  metric,
+  onSort
+}: {
+  direction: OrdersKpiPerformanceReportSortDirection;
+  isActive: boolean;
+  metric: MetricDefinition;
+  onSort: (sortBy: OrdersKpiPerformanceReportSortKey) => void;
+}) {
+  const SortIcon = isActive ? (direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+  return (
+    <th
+      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
+      className="px-3 py-3 text-right"
+    >
+      <button
+        className="ml-auto inline-flex items-center justify-end gap-1 rounded-lg px-2 py-1 text-right transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+        onClick={() => onSort(metric.key)}
+        type="button"
+      >
+        <span>{metric.shortLabel}</span>
+        <SortIcon className="h-3.5 w-3.5" />
+      </button>
+    </th>
+  );
+}
+
+function MetricCell({
+  metric,
+  row
+}: {
+  metric: MetricDefinition;
+  row: OrdersKpiPerformanceRow;
+}) {
+  const value = row.metrics[metric.key];
+
+  return (
+    <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-700">
+      {formatMetricValue(value, metric.valueType)}
+    </td>
+  );
+}
+
+function MobileReportCard({
+  onDrilldown,
+  row
+}: {
+  onDrilldown: (row: OrdersKpiPerformanceRow) => void;
+  row: OrdersKpiPerformanceRow;
+}) {
+  return (
+    <article className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <GroupIcon row={row} />
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-950">{getRowLabel(row)}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              {getRowSubLabel(row)}
+            </p>
+            <GroupBadge row={row} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+        {metricDefinitions.map((metric) => (
+          <div
+            className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+            key={metric.key}
+          >
+            <p className="text-xs font-semibold text-slate-500">
+              {metric.shortLabel}
+            </p>
+            <p className="mt-1 font-semibold tabular-nums text-slate-950">
+              {formatMetricValue(row.metrics[metric.key], metric.valueType)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {row.hasDrilldown ? (
+        <Button
+          className="mt-4 w-full gap-1 rounded-xl"
+          onClick={() => onDrilldown(row)}
+          type="button"
+          variant="outline"
+        >
+          Open next view
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
+function GroupIcon({ row }: { row: OrdersKpiPerformanceRow }) {
+  const isUnmapped =
+    row.groupType === "UNMAPPED_CHAIN" || row.groupType === "UNMAPPED_VENDOR";
+
+  return (
+    <span
+      className={cn(
+        "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+        isUnmapped ? "bg-amber-50 text-amber-700" : "bg-primary/10 text-primary"
+      )}
+    >
+      {isUnmapped ? <AlertTriangle className="h-4 w-4" /> : <Store className="h-4 w-4" />}
+    </span>
+  );
+}
+
+function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
+  return (
+    <Badge
+      className={cn(
+        "mt-2",
+        row.groupType.includes("UNMAPPED") &&
+          "border-amber-200 bg-amber-50 text-amber-800",
+        row.groupType.includes("UNKNOWN") &&
+          "border-slate-200 bg-slate-50 text-slate-600",
+        row.groupType.includes("UNMATCHED") &&
+          "border-orange-200 bg-orange-50 text-orange-800"
+      )}
+      variant="outline"
+    >
+      {getGroupTypeLabel(row.groupType)}
+    </Badge>
   );
 }
 
@@ -524,7 +843,7 @@ function ReportTableSkeleton() {
     <div className="mt-4 rounded-2xl border border-slate-200 p-4">
       <div className="space-y-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <Skeleton className="h-12 w-full" key={index} />
+          <Skeleton className="h-14 w-full" key={index} />
         ))}
       </div>
     </div>
@@ -535,7 +854,9 @@ function EmptyReport() {
   return (
     <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
       <BarChart3 className="mx-auto h-8 w-8 text-slate-400" />
-      <p className="mt-3 text-sm font-semibold text-slate-950">No confirmed Orders KPI rows</p>
+      <p className="mt-3 text-sm font-semibold text-slate-950">
+        No confirmed Orders KPI rows
+      </p>
       <p className="mt-2 text-sm text-slate-500">
         Change filters or import confirmed Orders KPI records for this date range.
       </p>
@@ -581,55 +902,6 @@ function PaginationControls({
   );
 }
 
-function ReportBreadcrumb({
-  filters,
-  onViewChange
-}: {
-  filters: ParsedReportFilters;
-  onViewChange: (view: OrdersKpiPerformanceReportView) => void;
-}) {
-  const chainLabel =
-    filters.chainLabel ?? (filters.unmappedOnly ? "Unmapped Chain" : null);
-  const vendorLabel =
-    filters.vendorLabel ??
-    (filters.sourceVendorId ? `Unmapped Vendor ${filters.sourceVendorId}` : null);
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-      <button
-        className="font-semibold text-primary hover:underline"
-        onClick={() => onViewChange("CHAIN")}
-        type="button"
-      >
-        All Chains
-      </button>
-      {filters.view !== "CHAIN" ? (
-        <>
-          <ChevronRight className="h-3 w-3" />
-          <button
-            className={cn(
-              "font-semibold",
-              filters.view === "VENDOR" ? "text-slate-700" : "text-primary hover:underline"
-            )}
-            onClick={() => onViewChange("VENDOR")}
-            type="button"
-          >
-            {chainLabel ?? "All Vendors"}
-          </button>
-        </>
-      ) : null}
-      {filters.view === "PICKER" ? (
-        <>
-          <ChevronRight className="h-3 w-3" />
-          <span className="font-semibold text-slate-700">
-            {vendorLabel ?? "Picker View"}
-          </span>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 function InlineNotice({
   message,
   title,
@@ -642,7 +914,7 @@ function InlineNotice({
   return (
     <div
       className={cn(
-        "mt-4 rounded-2xl border p-4 text-sm leading-6",
+        "rounded-2xl border p-4 text-sm leading-6",
         tone === "error"
           ? "border-red-200 bg-red-50 text-red-800"
           : "border-amber-200 bg-amber-50 text-amber-900"
@@ -655,25 +927,6 @@ function InlineNotice({
           <p className="mt-1">{message}</p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function MetricCell({ value }: { value: number | string }) {
-  return (
-    <td className="px-3 py-3 text-right font-medium text-slate-700">
-      {typeof value === "number" ? formatNumber(value) : value}
-    </td>
-  );
-}
-
-function MobileMetric({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 font-semibold text-slate-950">
-        {typeof value === "number" ? formatNumber(value) : value}
-      </p>
     </div>
   );
 }
@@ -730,7 +983,7 @@ function parseView(value: string | null): OrdersKpiPerformanceReportView {
 }
 
 function parseSortBy(value: string | null): OrdersKpiPerformanceReportSortKey {
-  return sortOptions.some((option) => option.value === value)
+  return metricDefinitions.some((metric) => metric.key === value)
     ? (value as OrdersKpiPerformanceReportSortKey)
     : "totalOrders";
 }
@@ -750,6 +1003,39 @@ function blankToNull(value: string | null) {
   return trimmed ? trimmed : null;
 }
 
+function activeReportContexts(filters: ParsedReportFilters): ActiveContext[] {
+  const contexts: ActiveContext[] = [];
+
+  if (filters.chainId || filters.unmappedOnly || filters.chainLabel) {
+    contexts.push({
+      label: "Chain",
+      value:
+        filters.chainLabel ??
+        (filters.unmappedOnly ? "Unmapped Chain" : filters.chainId ?? "Selected")
+    });
+  }
+
+  if (filters.vendorId || filters.sourceVendorId || filters.vendorLabel) {
+    contexts.push({
+      label: "Vendor",
+      value:
+        filters.vendorLabel ??
+        (filters.sourceVendorId
+          ? `Unmapped Vendor ${filters.sourceVendorId}`
+          : filters.vendorId ?? "Selected")
+    });
+  }
+
+  if (filters.pickerSearch) {
+    contexts.push({
+      label: "Picker search",
+      value: filters.pickerSearch
+    });
+  }
+
+  return contexts;
+}
+
 function getRowLabel(row: OrdersKpiPerformanceRow) {
   if (row.label?.trim()) {
     return row.label;
@@ -760,7 +1046,9 @@ function getRowLabel(row: OrdersKpiPerformanceRow) {
   }
 
   if (row.groupType === "UNMAPPED_VENDOR") {
-    return "Unmapped Vendor";
+    return row.sourceVendorId
+      ? `Unmapped Vendor ${row.sourceVendorId}`
+      : "Unmapped Vendor";
   }
 
   if (row.groupType === "UNKNOWN_PICKER") {
@@ -768,7 +1056,9 @@ function getRowLabel(row: OrdersKpiPerformanceRow) {
   }
 
   if (row.groupType === "UNMATCHED_SHOPPER") {
-    return "Unmatched Shopper";
+    return row.sourceShopperId
+      ? `Unmatched shopperId: ${row.sourceShopperId}`
+      : "Unmatched Shopper";
   }
 
   return "Unmapped";
@@ -794,7 +1084,7 @@ function getGroupTypeLabel(type: OrdersKpiPerformanceRow["groupType"]) {
   const labels: Record<OrdersKpiPerformanceRow["groupType"], string> = {
     MATCHED_CHAIN: "Matched Chain",
     MATCHED_PICKER: "Matched Picker",
-    MATCHED_USER_NOT_PICKER: "Matched User Not Picker",
+    MATCHED_USER_NOT_PICKER: "Non-Picker Shopper",
     MATCHED_VENDOR: "Matched Vendor",
     UNKNOWN_PICKER: "Unknown Picker",
     UNMATCHED_SHOPPER: "Unmatched Shopper",
@@ -805,9 +1095,24 @@ function getGroupTypeLabel(type: OrdersKpiPerformanceRow["groupType"]) {
   return labels[type];
 }
 
-function getViewLabel(view: OrdersKpiPerformanceReportView) {
-  const option = viewOptions.find((entry) => entry.value === view);
-  return option?.label ?? "Report";
+function metricToneClasses(tone: MetricTone) {
+  const classes: Record<MetricTone, string> = {
+    danger: "bg-rose-50 text-rose-700",
+    default: "bg-slate-100 text-slate-700",
+    info: "bg-sky-50 text-sky-700",
+    success: "bg-emerald-50 text-emerald-700",
+    warning: "bg-amber-50 text-amber-700"
+  };
+
+  return classes[tone];
+}
+
+function formatMetricValue(value: number, valueType: MetricDefinition["valueType"]) {
+  if (valueType === "percent") {
+    return `${percentFormatter.format(value)}%`;
+  }
+
+  return formatNumber(value);
 }
 
 function formatNumber(value: number) {

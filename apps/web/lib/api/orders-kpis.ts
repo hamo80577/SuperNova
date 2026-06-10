@@ -34,11 +34,11 @@ export type OrdersKpiPerformanceReportGroupType =
   | "MATCHED_USER_NOT_PICKER";
 
 export type OrdersKpiVendorMatchStatus =
-  | "MATCHED"
+  | "MATCHED_VENDOR"
   | "UNMAPPED_VENDOR_ID";
 
 export type OrdersKpiPickerMatchStatus =
-  | "MATCHED"
+  | "MATCHED_PICKER"
   | "UNMATCHED_SHOPPER_ID"
   | "UNKNOWN_PICKER"
   | "MATCHED_USER_NOT_PICKER";
