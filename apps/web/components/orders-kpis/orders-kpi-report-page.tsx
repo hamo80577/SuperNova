@@ -3,11 +3,12 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
   ArrowDown,
   ArrowUp,
-  ArrowUpDown,
   BarChart3,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
   Clock3,
@@ -45,8 +46,7 @@ import {
   type OrdersKpiPerformanceReportSortDirection,
   type OrdersKpiPerformanceReportSortKey,
   type OrdersKpiPerformanceReportView,
-  type OrdersKpiPerformanceRow,
-  type OrdersKpiPerformanceTrendPoint
+  type OrdersKpiPerformanceRow
 } from "@/lib/api/orders-kpis";
 import { cn } from "@/lib/utils";
 
@@ -329,39 +329,17 @@ export function OrdersKpiReportPage() {
   const isEmpty = status === "success" && !rows.length;
 
   return (
-    <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-slate-50/80 p-3 sm:p-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                <BarChart3 className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
-                  Orders KPI Performance
-                </h1>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Vendor-first operational KPI workspace
-                </p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-500">
-              Confirmed daily records from {formatDateLong(filters.dateFrom)} to{" "}
-              {formatDateLong(filters.dateTo)}.
-            </p>
-          </div>
-
-          <div className="w-full shrink-0 lg:w-auto">
-            <AttendanceDateRangeSelector
-              dateFrom={filters.dateFrom}
-              dateTo={filters.dateTo}
-              error={dateRangeError}
-              onChange={handleDateRangeChange}
-            />
-          </div>
+    <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-slate-50/60 p-3 sm:p-4">
+      <div className="flex w-full justify-end">
+        <div className="w-full sm:w-auto">
+          <AttendanceDateRangeSelector
+            dateFrom={filters.dateFrom}
+            dateTo={filters.dateTo}
+            error={dateRangeError}
+            onChange={handleDateRangeChange}
+          />
         </div>
-      </section>
+      </div>
 
       {queryError ? (
         <InlineNotice
@@ -379,7 +357,6 @@ export function OrdersKpiReportPage() {
         isLoading={isLoading}
         summary={summary}
         targetEvaluation={report?.targetEvaluation ?? null}
-        trend={report?.trend ?? []}
       />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
@@ -389,9 +366,9 @@ export function OrdersKpiReportPage() {
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               Report controls
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {activeContexts.length ? (
-                activeContexts.map((context) => (
+            {activeContexts.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {activeContexts.map((context) => (
                   <span
                     className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600"
                     key={`${context.label}:${context.value}`}
@@ -401,13 +378,9 @@ export function OrdersKpiReportPage() {
                       {context.value}
                     </span>
                   </span>
-                ))
-              ) : (
-                <span className="inline-flex min-h-9 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-500">
-                  All confirmed records
-                </span>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : null}
             <FilterControls
               filters={filters}
               options={report?.filterOptions ?? null}
@@ -507,14 +480,12 @@ function KpiCards({
   comparison,
   isLoading,
   summary,
-  targetEvaluation,
-  trend
+  targetEvaluation
 }: {
   comparison: OrdersKpiPerformanceReportResponse["comparison"]["summary"] | null;
   isLoading: boolean;
   summary: OrdersKpiPerformanceReportResponse["summary"] | null;
   targetEvaluation: OrdersKpiPerformanceReportResponse["targetEvaluation"] | null;
-  trend: OrdersKpiPerformanceTrendPoint[];
 }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -525,7 +496,6 @@ function KpiCards({
           key={metric.key}
           metric={metric}
           target={targetEvaluation?.metrics[metric.key] ?? null}
-          trend={trend}
           value={summary?.[metric.key] ?? 0}
         />
       ))}
@@ -538,75 +508,88 @@ function KpiCard({
   isLoading,
   metric,
   target,
-  trend,
   value
 }: {
   comparison: OrdersKpiMetricComparison | null;
   isLoading: boolean;
   metric: MetricDefinition;
   target: OrdersKpiMetricTargetEvaluation | null;
-  trend: OrdersKpiPerformanceTrendPoint[];
   value: number;
 }) {
   const Icon = metric.icon;
   const deltaTone = getDeltaTone(metric, comparison?.delta ?? 0);
+  const outOfTarget = target?.status === "OUT_OF_TARGET";
+  const isPrimary = metric.key === "unhealthyRate";
 
   return (
     <article
       className={cn(
-        "min-w-0 rounded-2xl border bg-white p-4 shadow-sm",
-        metric.key === "unhealthyRate"
-          ? "border-primary/30 ring-1 ring-primary/10"
-          : "border-slate-200"
+        "min-w-0 rounded-2xl border bg-white p-4",
+        isPrimary ? "border-primary/30 ring-1 ring-primary/10" : "border-slate-200"
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn(
+              "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+              metricToneClasses(metric.cardTone)
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <p className="truncate text-xs font-medium text-slate-500">
             {metric.label}
           </p>
-          {isLoading ? (
-            <Skeleton className="mt-3 h-8 w-28" />
-          ) : (
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950">
-              {formatMetricValue(value, metric.valueType)}
-            </p>
-          )}
         </div>
-        <span
+        {target && !isLoading ? (
+          <TargetIcon
+            inTarget={!outOfTarget}
+            title={formatTargetTooltip(target)}
+          />
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="mt-3 h-7 w-24" />
+      ) : (
+        <p
           className={cn(
-            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
-            metricToneClasses(metric.cardTone)
+            "mt-2 text-[26px] font-semibold leading-tight tabular-nums",
+            outOfTarget ? "text-rose-600" : "text-slate-950"
           )}
         >
-          <Icon className="h-5 w-5" />
-        </span>
-      </div>
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-500">vs previous period</p>
-            {isLoading ? (
-              <Skeleton className="mt-2 h-4 w-24" />
-            ) : (
-              <p className={cn("mt-1 text-xs font-semibold", deltaTone)}>
-                {formatDelta(comparison, metric.valueType)}
-              </p>
-            )}
-            {target && !isLoading ? (
-              <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
-                {formatTargetLine(target)}
-              </p>
-            ) : null}
-          </div>
-          <TrendSparkline
-            metric={metric}
-            points={trend}
-            valueType={metric.valueType}
-          />
-        </div>
-      </div>
+          {formatMetricValue(value, metric.valueType)}
+        </p>
+      )}
+
+      {isLoading ? (
+        <Skeleton className="mt-2 h-4 w-16" />
+      ) : (
+        <p className={cn("mt-1 text-xs font-medium tabular-nums", deltaTone)}>
+          {formatDeltaShort(comparison, metric.valueType)}
+        </p>
+      )}
     </article>
+  );
+}
+
+function TargetIcon({
+  inTarget,
+  title
+}: {
+  inTarget: boolean;
+  title?: string;
+}) {
+  const Icon = inTarget ? CheckCircle2 : AlertCircle;
+
+  return (
+    <span
+      className={cn("shrink-0", inTarget ? "text-emerald-500" : "text-rose-500")}
+      title={title}
+    >
+      <Icon className="h-[18px] w-[18px]" />
+    </span>
   );
 }
 
@@ -728,69 +711,6 @@ function FilterSelect({
   );
 }
 
-function TrendSparkline({
-  metric,
-  points,
-  valueType
-}: {
-  metric: MetricDefinition;
-  points: OrdersKpiPerformanceTrendPoint[];
-  valueType: MetricDefinition["valueType"];
-}) {
-  const values = points.map((point) => point.metrics[metric.key]);
-  const max = Math.max(...values, 0);
-  const min = Math.min(...values, 0);
-  const spread = max - min || 1;
-  const width = 88;
-  const height = 28;
-  const coordinates = values.length
-    ? values
-        .map((value, index) => {
-          const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
-          const y = height - ((value - min) / spread) * height;
-          return `${roundNumber(x, 2)},${roundNumber(y, 2)}`;
-        })
-        .join(" ")
-    : "";
-
-  return (
-    <div className="w-24 shrink-0 text-right">
-      {coordinates ? (
-        <svg
-          aria-label={`${metric.label} trend`}
-          className="h-7 w-full overflow-visible"
-          role="img"
-          viewBox={`0 0 ${width} ${height}`}
-        >
-          <polyline
-            fill="none"
-            points={coordinates}
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2.5"
-          />
-          {values.length === 1 ? (
-            <circle
-              cx={width / 2}
-              cy={height - (((values[0] ?? 0) - min) / spread) * height}
-              fill="currentColor"
-              r="3"
-            />
-          ) : null}
-        </svg>
-      ) : (
-        <div className="h-7" />
-      )}
-      <p className="mt-1 truncate text-[11px] font-medium text-slate-500">
-        {points.length
-          ? formatMetricValue(values.at(-1) ?? 0, valueType)
-          : "No trend"}
-      </p>
-    </div>
-  );
-}
-
 function ReportViewTabs({
   activeView,
   onViewChange
@@ -837,11 +757,17 @@ function ReportRows({
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
       <div className="overflow-x-auto">
-        <table className="hidden min-w-[1080px] divide-y divide-slate-200 text-sm lg:table">
+        <table className="hidden w-full min-w-[900px] table-fixed divide-y divide-slate-200 text-sm lg:table">
+          <colgroup>
+            <col className="w-[22%]" />
+            {metricDefinitions.map((metric) => (
+              <col className="w-[9%]" key={metric.key} />
+            ))}
+            <col className="w-[56px]" />
+          </colgroup>
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
               <th className="px-3 py-3">Name</th>
-              <th className="px-3 py-3">Target Status</th>
               {metricDefinitions.map((metric) => (
                 <SortableMetricHeader
                   direction={filters.sortDirection}
@@ -851,47 +777,56 @@ function ReportRows({
                   onSort={onSort}
                 />
               ))}
-              <th className="px-3 py-3">Action</th>
+              <th className="px-3 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {rows.map((row) => (
               <tr className="transition hover:bg-slate-50/70" key={row.groupKey}>
                 <td className="px-3 py-3">
-                  <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <GroupIcon row={row} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-950">
-                        {getRowLabel(row)}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {getRowSubLabel(row)}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate font-semibold text-slate-950">
+                          {getRowLabel(row)}
+                        </p>
+                        <TargetIcon
+                          inTarget={row.targetEvaluation.status === "IN_TARGET"}
+                          title={
+                            row.targetEvaluation.status === "IN_TARGET"
+                              ? "On target"
+                              : "Off target"
+                          }
+                        />
+                      </div>
+                      {getRowSubLabel(row) ? (
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {getRowSubLabel(row)}
+                        </p>
+                      ) : null}
                       <GroupBadge row={row} />
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3">
-                  <TargetStatusBadge evaluation={row.targetEvaluation} />
-                </td>
                 {metricDefinitions.map((metric) => (
                   <MetricCell key={metric.key} metric={metric} row={row} />
                 ))}
-                <td className="px-3 py-3">
+                <td className="px-2 py-3 text-center">
                   {row.hasDrilldown ? (
                     <Button
-                      className="h-9 gap-1 rounded-xl"
+                      aria-label={`Open ${getRowLabel(row)}`}
+                      className="h-8 w-8 rounded-lg p-0"
                       onClick={() => onDrilldown(row)}
                       size="sm"
                       type="button"
                       variant="outline"
                     >
-                      Open
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <span className="text-xs font-medium text-slate-400">
-                      Final view
+                    <span className="text-slate-300" aria-hidden>
+                      —
                     </span>
                   )}
                 </td>
@@ -921,7 +856,7 @@ function SortableMetricHeader({
   metric: MetricDefinition;
   onSort: (sortBy: OrdersKpiPerformanceReportSortKey) => void;
 }) {
-  const SortIcon = isActive ? (direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
 
   return (
     <th
@@ -929,12 +864,15 @@ function SortableMetricHeader({
       className="px-3 py-3 text-right"
     >
       <button
-        className="ml-auto inline-flex items-center justify-end gap-1 rounded-lg px-2 py-1 text-right transition hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+        className={cn(
+          "ml-auto inline-flex w-full items-center justify-end gap-1 rounded-lg px-2 py-1 text-right transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+          isActive ? "text-slate-900" : "text-slate-500"
+        )}
         onClick={() => onSort(metric.key)}
         type="button"
       >
-        <span>{metric.shortLabel}</span>
-        <SortIcon className="h-3.5 w-3.5" />
+        <span className="truncate">{metric.shortLabel}</span>
+        {isActive ? <SortIcon className="h-3.5 w-3.5 shrink-0" /> : null}
       </button>
     </th>
   );
@@ -948,28 +886,24 @@ function MetricCell({
   row: OrdersKpiPerformanceRow;
 }) {
   const value = row.metrics[metric.key];
-  const comparison = row.comparison[metric.key];
   const target = row.targetEvaluation.metrics[metric.key] ?? null;
   const isOutOfTarget = target?.status === "OUT_OF_TARGET";
 
   return (
-    <td className="px-3 py-3 text-right tabular-nums">
-      <p
-        className={cn(
-          "font-semibold",
-          isOutOfTarget ? "text-rose-700" : "text-slate-700"
-        )}
-      >
-        {formatMetricValue(value, metric.valueType)}
-      </p>
-      <p className={cn("mt-1 text-xs font-medium", getDeltaTone(metric, comparison.delta))}>
-        {formatDelta(comparison, metric.valueType)}
-      </p>
-      {target ? (
-        <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
-          {formatTargetLine(target)}
-        </p>
-      ) : null}
+    <td className="px-3 py-3 text-right tabular-nums" title={formatTargetTooltip(target)}>
+      <div className="flex items-center justify-end gap-1.5">
+        {isOutOfTarget ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+        ) : null}
+        <span
+          className={cn(
+            "font-semibold",
+            isOutOfTarget ? "text-rose-600" : "text-slate-700"
+          )}
+        >
+          {formatMetricValue(value, metric.valueType)}
+        </span>
+      </div>
     </td>
   );
 }
@@ -987,14 +921,25 @@ function MobileReportCard({
         <div className="flex min-w-0 items-start gap-3">
           <GroupIcon row={row} />
           <div className="min-w-0">
-            <p className="font-semibold text-slate-950">{getRowLabel(row)}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              {getRowSubLabel(row)}
-            </p>
-            <GroupBadge row={row} />
-            <div className="mt-2">
-              <TargetStatusBadge evaluation={row.targetEvaluation} />
+            <div className="flex items-center gap-1.5">
+              <p className="truncate font-semibold text-slate-950">
+                {getRowLabel(row)}
+              </p>
+              <TargetIcon
+                inTarget={row.targetEvaluation.status === "IN_TARGET"}
+                title={
+                  row.targetEvaluation.status === "IN_TARGET"
+                    ? "On target"
+                    : "Off target"
+                }
+              />
             </div>
+            {getRowSubLabel(row) ? (
+              <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                {getRowSubLabel(row)}
+              </p>
+            ) : null}
+            <GroupBadge row={row} />
           </div>
         </div>
       </div>
@@ -1002,31 +947,30 @@ function MobileReportCard({
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
         {metricDefinitions.map((metric) => {
           const target = row.targetEvaluation.metrics[metric.key] ?? null;
+          const isOutOfTarget = target?.status === "OUT_OF_TARGET";
 
           return (
             <div
               className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
               key={metric.key}
+              title={formatTargetTooltip(target)}
             >
-              <p className="text-xs font-semibold text-slate-500">
+              <p className="text-xs font-medium text-slate-500">
                 {metric.shortLabel}
               </p>
-              <p className="mt-1 font-semibold tabular-nums text-slate-950">
-                {formatMetricValue(row.metrics[metric.key], metric.valueType)}
-              </p>
-              <p
-                className={cn(
-                  "mt-1 text-xs font-medium tabular-nums",
-                  getDeltaTone(metric, row.comparison[metric.key].delta)
-                )}
-              >
-                {formatDelta(row.comparison[metric.key], metric.valueType)}
-              </p>
-              {target ? (
-                <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
-                  {formatTargetLine(target)}
-                </p>
-              ) : null}
+              <div className="mt-1 flex items-center gap-1.5">
+                {isOutOfTarget ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+                ) : null}
+                <span
+                  className={cn(
+                    "font-semibold tabular-nums",
+                    isOutOfTarget ? "text-rose-600" : "text-slate-950"
+                  )}
+                >
+                  {formatMetricValue(row.metrics[metric.key], metric.valueType)}
+                </span>
+              </div>
             </div>
           );
         })}
@@ -1063,11 +1007,21 @@ function GroupIcon({ row }: { row: OrdersKpiPerformanceRow }) {
   );
 }
 
+const MATCHED_GROUP_TYPES: ReadonlyArray<OrdersKpiPerformanceRow["groupType"]> = [
+  "MATCHED_CHAIN",
+  "MATCHED_VENDOR",
+  "MATCHED_PICKER"
+];
+
 function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
+  if (MATCHED_GROUP_TYPES.includes(row.groupType)) {
+    return null;
+  }
+
   return (
     <Badge
       className={cn(
-        "mt-2",
+        "mt-1.5",
         row.groupType.includes("UNMAPPED") &&
           "border-amber-200 bg-amber-50 text-amber-800",
         row.groupType.includes("UNKNOWN") &&
@@ -1078,28 +1032,6 @@ function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
       variant="outline"
     >
       {getGroupTypeLabel(row.groupType)}
-    </Badge>
-  );
-}
-
-function TargetStatusBadge({
-  evaluation
-}: {
-  evaluation: OrdersKpiPerformanceRow["targetEvaluation"];
-}) {
-  const inTarget = evaluation.status === "IN_TARGET";
-
-  return (
-    <Badge
-      className={cn(
-        "whitespace-nowrap rounded-xl px-2.5 py-1 text-xs font-semibold",
-        inTarget
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-          : "border-rose-200 bg-rose-50 text-rose-800"
-      )}
-      variant="outline"
-    >
-      {inTarget ? "In Target" : "Out of Target"}
     </Badge>
   );
 }
@@ -1412,7 +1344,7 @@ function getRowSubLabel(row: OrdersKpiPerformanceRow) {
     return `Picker key ${row.sourcePickerKey}`;
   }
 
-  return row.groupKey;
+  return null;
 }
 
 function getGroupTypeLabel(type: OrdersKpiPerformanceRow["groupType"]) {
@@ -1432,11 +1364,11 @@ function getGroupTypeLabel(type: OrdersKpiPerformanceRow["groupType"]) {
 
 function metricToneClasses(tone: MetricTone) {
   const classes: Record<MetricTone, string> = {
-    danger: "bg-rose-50 text-rose-700",
-    default: "bg-slate-100 text-slate-700",
-    info: "bg-sky-50 text-sky-700",
-    success: "bg-emerald-50 text-emerald-700",
-    warning: "bg-amber-50 text-amber-700"
+    danger: "bg-rose-50 text-rose-600",
+    default: "bg-slate-100 text-slate-600",
+    info: "bg-sky-50 text-sky-600",
+    success: "bg-emerald-50 text-emerald-600",
+    warning: "bg-amber-50 text-amber-600"
   };
 
   return classes[tone];
@@ -1452,44 +1384,38 @@ function getDeltaTone(metric: MetricDefinition, delta: number) {
   return isGood ? "text-emerald-700" : "text-rose-700";
 }
 
-function targetTone(target: OrdersKpiMetricTargetEvaluation | undefined | null) {
+function formatTargetTooltip(
+  target: OrdersKpiMetricTargetEvaluation | undefined | null
+) {
   if (!target) {
-    return "text-slate-500";
+    return undefined;
   }
 
-  return target.status === "OUT_OF_TARGET"
-    ? "text-rose-700"
-    : "text-emerald-700";
+  const status = target.status === "OUT_OF_TARGET" ? "Off target" : "On target";
+  return `${status} · ${percentFormatter.format(
+    target.rate
+  )}% (target ≤ ${percentFormatter.format(target.target)}%)`;
 }
 
-function formatTargetLine(target: OrdersKpiMetricTargetEvaluation) {
-  return `${percentFormatter.format(target.rate)}% / target <= ${percentFormatter.format(
-    target.target
-  )}%`;
-}
-
-function formatDelta(
+function formatDeltaShort(
   comparison: OrdersKpiMetricComparison | null,
   valueType: MetricDefinition["valueType"]
 ) {
   if (!comparison) {
-    return "No previous period";
+    return "—";
   }
 
   if (comparison.delta === 0) {
     return "No change";
   }
 
-  const value =
-    valueType === "percent"
-      ? `${formatSignedPercentagePoints(comparison.delta)} pp`
-      : formatSignedNumber(comparison.delta);
-  const percent =
-    comparison.deltaPercent === null
-      ? ""
-      : ` (${formatSignedPercent(comparison.deltaPercent)})`;
+  if (valueType === "percent") {
+    return `${formatSignedPercentagePoints(comparison.delta)} pp`;
+  }
 
-  return `${value}${percent}`;
+  return comparison.deltaPercent === null
+    ? formatSignedNumber(comparison.delta)
+    : formatSignedPercent(comparison.deltaPercent);
 }
 
 function formatMetricValue(value: number, valueType: MetricDefinition["valueType"]) {
@@ -1514,11 +1440,6 @@ function formatSignedPercent(value: number) {
 
 function formatSignedPercentagePoints(value: number) {
   return `${value > 0 ? "+" : ""}${percentFormatter.format(value)}`;
-}
-
-function roundNumber(value: number, digits: number) {
-  const factor = 10 ** digits;
-  return Math.round(value * factor) / factor;
 }
 
 function getErrorMessage(error: unknown) {
