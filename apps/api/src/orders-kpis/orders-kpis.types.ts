@@ -233,3 +233,110 @@ export interface OrdersKpiRejectImportResponse {
   rejectedAt: string;
   reason: string | null;
 }
+
+export const ORDERS_KPI_PERFORMANCE_REPORT_VIEWS = [
+  "CHAIN",
+  "VENDOR",
+  "PICKER"
+] as const;
+
+export type OrdersKpiPerformanceReportView =
+  (typeof ORDERS_KPI_PERFORMANCE_REPORT_VIEWS)[number];
+
+export const ORDERS_KPI_PERFORMANCE_REPORT_SORT_KEYS = [
+  "totalOrders",
+  "unhealthyOrders",
+  "unhealthyRate",
+  "orderNotOnTime",
+  "qcFailedOrders",
+  "partialRefund",
+  "outOfStock",
+  "priceModified"
+] as const;
+
+export type OrdersKpiPerformanceReportSortKey =
+  (typeof ORDERS_KPI_PERFORMANCE_REPORT_SORT_KEYS)[number];
+
+export type OrdersKpiPerformanceReportSortDirection = "asc" | "desc";
+
+export type OrdersKpiPerformanceReportGroupType =
+  | "MATCHED_CHAIN"
+  | "UNMAPPED_CHAIN"
+  | "MATCHED_VENDOR"
+  | "UNMAPPED_VENDOR"
+  | "MATCHED_PICKER"
+  | "UNMATCHED_SHOPPER"
+  | "UNKNOWN_PICKER"
+  | "MATCHED_USER_NOT_PICKER";
+
+export interface OrdersKpiPerformanceReportQuery {
+  dateFrom?: string;
+  dateTo?: string;
+  view?: string;
+  chainId?: string | null;
+  unmappedOnly?: string | boolean | null;
+  vendorId?: string | null;
+  sourceVendorId?: string | null;
+  pickerSearch?: string | null;
+  page?: string | number | null;
+  pageSize?: string | number | null;
+  sortBy?: string | null;
+  sortDirection?: string | null;
+}
+
+export interface OrdersKpiMetricSummary extends OrdersKpiIntegerMetrics {
+  unhealthyRate: number;
+  preparationTime: number | null;
+}
+
+export interface OrdersKpiPerformanceSummary {
+  totalOrders: number;
+  unhealthyOrders: number;
+  unhealthyRate: number;
+  orderNotOnTime: number;
+  qcFailedOrders: number;
+  partialRefund: number;
+  outOfStock: number;
+  priceModified: number;
+}
+
+export interface OrdersKpiPerformanceRow {
+  groupKey: string;
+  groupType: OrdersKpiPerformanceReportGroupType;
+  label: string;
+  matchedChainId: string | null;
+  matchedVendorId: string | null;
+  userId: string | null;
+  sourceVendorId: string | null;
+  sourceShopperId: string | null;
+  sourcePickerKey: string | null;
+  vendorMatchStatus: OrdersKpiVendorMatchStatus | null;
+  pickerMatchStatus: OrdersKpiPickerMatchStatus | null;
+  hasDrilldown: boolean;
+  nextView: "VENDOR" | "PICKER" | null;
+  drilldownParams: Record<string, string | boolean> | null;
+  metrics: OrdersKpiMetricSummary;
+}
+
+export interface OrdersKpiPerformanceReportResponse {
+  filters: {
+    dateFrom: string;
+    dateTo: string;
+    view: OrdersKpiPerformanceReportView;
+    chainId: string | null;
+    unmappedOnly: boolean;
+    vendorId: string | null;
+    sourceVendorId: string | null;
+    pickerSearch: string | null;
+    sortBy: OrdersKpiPerformanceReportSortKey;
+    sortDirection: OrdersKpiPerformanceReportSortDirection;
+  };
+  summary: OrdersKpiPerformanceSummary;
+  rows: OrdersKpiPerformanceRow[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalRows: number;
+    totalPages: number;
+  };
+}
