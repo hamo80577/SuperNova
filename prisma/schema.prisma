@@ -907,6 +907,21 @@ model OrdersKpiDailyRecord {
   @@index([pickerMatchStatus])
 }
 
+model OrdersKpiTargetSettings {
+  id                       String   @id @default("global")
+  uhoRateTarget            Decimal  @default(8.00) @db.Decimal(5, 2)
+  notOnTimeRateTarget      Decimal  @default(10.00) @db.Decimal(5, 2)
+  qcFailedRateTarget       Decimal  @default(5.00) @db.Decimal(5, 2)
+  partialRefundRateTarget  Decimal  @default(3.00) @db.Decimal(5, 2)
+  oosRateTarget            Decimal  @default(3.00) @db.Decimal(5, 2)
+  priceModifiedRateTarget  Decimal  @default(3.00) @db.Decimal(5, 2)
+  updatedByUserId          String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([updatedByUserId])
+}
+
 model OrdersKpiImportIssue {
   id              String                 @id @default(uuid())
   batchId         String

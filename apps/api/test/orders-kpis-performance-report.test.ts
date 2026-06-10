@@ -12,7 +12,8 @@ import { OrdersKpisReportService } from "../src/orders-kpis/orders-kpis-report.s
 import { OrdersKpisReportsController } from "../src/orders-kpis/orders-kpis-reports.controller";
 import type {
   OrdersKpiImportActor,
-  OrdersKpiPerformanceReportResponse
+  OrdersKpiPerformanceReportResponse,
+  OrdersKpiTargetSettingsValues
 } from "../src/orders-kpis/orders-kpis.types";
 
 interface StoredDailyRecord {
@@ -55,6 +56,15 @@ const adminActor: OrdersKpiImportActor = {
 const pickerActor: OrdersKpiImportActor = {
   id: "picker-user-1",
   role: UserRole.PICKER
+};
+
+const defaultTargets: OrdersKpiTargetSettingsValues = {
+  uhoRateTarget: 8,
+  notOnTimeRateTarget: 10,
+  qcFailedRateTarget: 5,
+  partialRefundRateTarget: 3,
+  oosRateTarget: 3,
+  priceModifiedRateTarget: 3
 };
 
 function dateOnly(value: string) {
@@ -252,7 +262,47 @@ function createReportRecords() {
       firNotOnTime: 1,
       priceModified: 3
     }),
+    createDailyRecord("previous-vendor-a", "2026-06-01", {
+      totalOrders: 80,
+      successfulOrders: 72,
+      qcFailedOrders: 2,
+      vendorFailedOrders: 6,
+      unhealthyOrders: 8,
+      orderNotOnTime: 4,
+      partialRefund: 1,
+      vendorDelay: 2,
+      preparationTime: 10,
+      outOfStock: 1,
+      firNotOnTime: 0,
+      priceModified: 1
+    }),
+    createDailyRecord("previous-vendor-b", "2026-06-02", {
+      sourceVendorId: "V-B",
+      matchedVendorId: "vendor-b",
+      vendorNameSnapshot: "Vendor B",
+      sourceShopperId: "S-2",
+      sourcePickerKey: "S-2",
+      userId: "user-picker-2",
+      pickerNameSnapshot: "Picker Two",
+      totalOrders: 40,
+      successfulOrders: 35,
+      qcFailedOrders: 1,
+      vendorFailedOrders: 4,
+      unhealthyOrders: 10,
+      orderNotOnTime: 5,
+      partialRefund: 0,
+      vendorDelay: 1,
+      preparationTime: 14,
+      outOfStock: 2,
+      firNotOnTime: 1,
+      priceModified: 0
+    }),
     createDailyRecord("before-range", "2026-06-02", {
+      sourceVendorId: "IGNORED-BEFORE",
+      matchedVendorId: "ignored-before",
+      matchedChainId: "ignored-chain",
+      vendorNameSnapshot: "Ignored Before",
+      chainNameSnapshot: "Ignored Chain",
       totalOrders: 999,
       unhealthyOrders: 999
     }),
@@ -263,7 +313,7 @@ function createReportRecords() {
   ];
 }
 
-function createStore() {
+function createStore(targets: OrdersKpiTargetSettingsValues = defaultTargets) {
   const store = {
     dailyRecords: createReportRecords(),
     forbiddenMutationCalls: [] as string[]
@@ -335,7 +385,16 @@ function createStore() {
 
   return {
     prisma,
-    service: new OrdersKpisReportService(prisma as never),
+    service: new OrdersKpisReportService(prisma as never, {
+      getTargetSettings: async () => ({
+        id: "global",
+        source: "SAVED",
+        targets,
+        updatedByUserId: "admin-user-1",
+        createdAt: "2026-06-10T10:00:00.000Z",
+        updatedAt: "2026-06-10T10:00:00.000Z"
+      })
+    } as never),
     store
   };
 }
@@ -349,6 +408,9 @@ function matchesRecordWhere(
     matchesScalarFilter(record.matchedChainId, where.matchedChainId) &&
     matchesScalarFilter(record.matchedVendorId, where.matchedVendorId) &&
     matchesScalarFilter(record.sourceVendorId, where.sourceVendorId) &&
+    matchesScalarFilter(record.userId, where.userId) &&
+    matchesScalarFilter(record.sourceShopperId, where.sourceShopperId) &&
+    matchesScalarFilter(record.sourcePickerKey, where.sourcePickerKey) &&
     matchesScalarFilter(record.vendorMatchStatus, where.vendorMatchStatus)
   );
 }
@@ -403,6 +465,9 @@ async function testChainViewSummaryAndPagination() {
   assert.equal(response.summary.partialRefund, 7);
   assert.equal(response.summary.outOfStock, 15);
   assert.equal(response.summary.priceModified, 12);
+  assert.equal(response.targets.targets.uhoRateTarget, 8);
+  assert.equal(response.targetEvaluation.status, "OUT_OF_TARGET");
+  assert.equal(response.targetEvaluation.primary.rate, 26.8421);
   assert.equal(response.rows.length, 1);
   assert.equal(response.pagination.totalRows, 3);
   assert.equal(response.pagination.totalPages, 3);
@@ -412,6 +477,12 @@ async function testChainViewSummaryAndPagination() {
   assert.equal(chainOne.groupKey, "chain-1");
   assert.equal(chainOne.label, "Chain One");
   assert.equal(chainOne.metrics.totalOrders, 210);
+  assert.equal(chainOne.targetEvaluation.status, "OUT_OF_TARGET");
+  assert.ok(
+    chainOne.targetEvaluation.secondaryWarnings.some(
+      (warning) => warning.metricKey === "outOfStock"
+    )
+  );
   assert.deepEqual(chainOne.drilldownParams, { chainId: "chain-1" });
   assert.equal(chainOne.hasDrilldown, true);
   assert.equal(chainOne.nextView, "VENDOR");
@@ -514,12 +585,21 @@ async function testPickerViewBucketsAndSearch() {
   assert.equal(unmappedPickerRows.summary.totalOrders, 60);
   assert.equal(unmappedPickerRows.rows[0].groupType, "UNKNOWN_PICKER");
 
-  await assert.rejects(
-    context.service.getPerformanceReport(reportQuery({ view: "PICKER" }), {
-      actor: adminActor
-    }),
-    BadRequestException
+  const chainPickerRows = await context.service.getPerformanceReport(
+    reportQuery({ view: "PICKER", chainId: "chain-1" }),
+    { actor: adminActor }
   );
+
+  assert.equal(chainPickerRows.summary.totalOrders, 210);
+  assert.ok(chainPickerRows.rows.some((row) => row.label === "Picker Two"));
+
+  const allPickerRows = await context.service.getPerformanceReport(
+    reportQuery({ view: "PICKER" }),
+    { actor: adminActor }
+  );
+
+  assert.equal(allPickerRows.summary.totalOrders, 380);
+  assert.ok(allPickerRows.rows.some((row) => row.groupType === "UNKNOWN_PICKER"));
   await assert.rejects(
     context.service.getPerformanceReport(
       reportQuery({ view: "PICKER", vendorId: "vendor-a", sourceVendorId: "U-10" }),
@@ -528,6 +608,68 @@ async function testPickerViewBucketsAndSearch() {
     BadRequestException
   );
   assert.equal(context.store.forbiddenMutationCalls.length, 0);
+}
+
+async function testComparisonTrendSearchAndFilterOptions() {
+  const context = createStore();
+  const response = await context.service.getPerformanceReport(
+    reportQuery({ search: "Vendor A", view: "VENDOR" }),
+    { actor: adminActor }
+  );
+
+  assert.equal(response.filters.search, "Vendor A");
+  assert.equal(response.summary.totalOrders, 160);
+  assert.equal(response.rows.length, 1);
+  assert.equal(response.rows[0].label, "Vendor A");
+  assert.deepEqual(response.comparison.previousPeriod, {
+    dateFrom: "2026-06-01",
+    dateTo: "2026-06-02"
+  });
+  assert.equal(response.comparison.summary.totalOrders.previous, 80);
+  assert.equal(response.comparison.summary.totalOrders.delta, 80);
+  assert.equal(response.comparison.summary.totalOrders.deltaPercent, 100);
+  assert.equal(response.rows[0].comparison.totalOrders.previous, 80);
+  assert.equal(response.rows[0].comparison.totalOrders.delta, 80);
+  assert.equal(response.trend.length, 2);
+  assert.deepEqual(
+    response.trend.map((point) => [point.date, point.metrics.totalOrders]),
+    [
+      ["2026-06-03", 160],
+      ["2026-06-04", 0]
+    ]
+  );
+  assert.deepEqual(
+    response.filterOptions.chains.map((option) => option.label),
+    ["Chain One"]
+  );
+  assert.deepEqual(
+    response.filterOptions.vendors.map((option) => option.label),
+    ["Vendor A"]
+  );
+  assert.ok(
+    response.filterOptions.pickers.some((option) => option.label === "Picker One")
+  );
+  assert.equal(context.store.forbiddenMutationCalls.length, 0);
+}
+
+async function testTargetEvaluationKeepsSecondaryWarningsSeparate() {
+  const context = createStore({
+    ...defaultTargets,
+    notOnTimeRateTarget: 1,
+    uhoRateTarget: 100
+  });
+  const response = await context.service.getPerformanceReport(
+    reportQuery({ search: "Vendor A", view: "VENDOR" }),
+    { actor: adminActor }
+  );
+
+  assert.equal(response.rows[0].targetEvaluation.status, "IN_TARGET");
+  assert.equal(response.rows[0].targetEvaluation.primary.status, "IN_TARGET");
+  assert.ok(
+    response.rows[0].targetEvaluation.secondaryWarnings.some(
+      (warning) => warning.metricKey === "orderNotOnTime"
+    )
+  );
 }
 
 async function testSortingAccessAndControllerRoles() {
@@ -572,6 +714,8 @@ async function main() {
   await testChainViewSummaryAndPagination();
   await testVendorViewsGroupMatchedAndUnmappedRows();
   await testPickerViewBucketsAndSearch();
+  await testComparisonTrendSearchAndFilterOptions();
+  await testTargetEvaluationKeepsSecondaryWarningsSeparate();
   await testSortingAccessAndControllerRoles();
 }
 

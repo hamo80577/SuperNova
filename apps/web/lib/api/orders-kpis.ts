@@ -153,6 +153,85 @@ export interface OrdersKpiPerformanceSummary {
   priceModified: number;
 }
 
+export interface OrdersKpiTargetSettingsValues {
+  uhoRateTarget: number;
+  notOnTimeRateTarget: number;
+  qcFailedRateTarget: number;
+  partialRefundRateTarget: number;
+  oosRateTarget: number;
+  priceModifiedRateTarget: number;
+}
+
+export type OrdersKpiTargetSettingsRequest =
+  Partial<OrdersKpiTargetSettingsValues>;
+
+export interface OrdersKpiTargetSettingsResponse {
+  id: string;
+  source: "DEFAULT" | "SAVED";
+  targets: OrdersKpiTargetSettingsValues;
+  updatedByUserId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export type OrdersKpiTargetStatus = "IN_TARGET" | "OUT_OF_TARGET";
+
+export type OrdersKpiTargetEvaluationMetricKey =
+  | "unhealthyRate"
+  | "orderNotOnTime"
+  | "qcFailedOrders"
+  | "partialRefund"
+  | "outOfStock"
+  | "priceModified";
+
+export interface OrdersKpiMetricTargetEvaluation {
+  metricKey: OrdersKpiTargetEvaluationMetricKey;
+  rate: number;
+  target: number;
+  status: OrdersKpiTargetStatus;
+}
+
+export interface OrdersKpiTargetEvaluation {
+  status: OrdersKpiTargetStatus;
+  primary: OrdersKpiMetricTargetEvaluation;
+  secondaryWarnings: OrdersKpiMetricTargetEvaluation[];
+  metrics: Partial<
+    Record<OrdersKpiPerformanceReportSortKey, OrdersKpiMetricTargetEvaluation>
+  >;
+}
+
+export interface OrdersKpiMetricComparison {
+  current: number;
+  previous: number;
+  delta: number;
+  deltaPercent: number | null;
+}
+
+export type OrdersKpiMetricComparisons = Record<
+  OrdersKpiPerformanceReportSortKey,
+  OrdersKpiMetricComparison
+>;
+
+export interface OrdersKpiPerformanceTrendPoint {
+  date: string;
+  metrics: OrdersKpiPerformanceSummary;
+}
+
+export interface OrdersKpiPerformanceFilterOption {
+  id: string | null;
+  label: string;
+  sourceVendorId?: string | null;
+  sourceShopperId?: string | null;
+  sourcePickerKey?: string | null;
+  unmappedOnly?: boolean;
+}
+
+export interface OrdersKpiPerformanceFilterOptions {
+  chains: OrdersKpiPerformanceFilterOption[];
+  vendors: OrdersKpiPerformanceFilterOption[];
+  pickers: OrdersKpiPerformanceFilterOption[];
+}
+
 export interface OrdersKpiPerformanceRow {
   groupKey: string;
   groupType: OrdersKpiPerformanceReportGroupType;
@@ -169,6 +248,8 @@ export interface OrdersKpiPerformanceRow {
   nextView: "VENDOR" | "PICKER" | null;
   drilldownParams: Record<string, string | boolean> | null;
   metrics: OrdersKpiMetricSummary;
+  comparison: OrdersKpiMetricComparisons;
+  targetEvaluation: OrdersKpiTargetEvaluation;
 }
 
 export interface OrdersKpiPerformanceReportQuery {
@@ -179,6 +260,10 @@ export interface OrdersKpiPerformanceReportQuery {
   unmappedOnly?: boolean | null;
   vendorId?: string | null;
   sourceVendorId?: string | null;
+  pickerId?: string | null;
+  sourceShopperId?: string | null;
+  sourcePickerKey?: string | null;
+  search?: string | null;
   pickerSearch?: string | null;
   page?: number | null;
   pageSize?: number | null;
@@ -195,11 +280,26 @@ export interface OrdersKpiPerformanceReportResponse {
     unmappedOnly: boolean;
     vendorId: string | null;
     sourceVendorId: string | null;
+    pickerId: string | null;
+    sourceShopperId: string | null;
+    sourcePickerKey: string | null;
+    search: string | null;
     pickerSearch: string | null;
     sortBy: OrdersKpiPerformanceReportSortKey;
     sortDirection: OrdersKpiPerformanceReportSortDirection;
   };
   summary: OrdersKpiPerformanceSummary;
+  targets: OrdersKpiTargetSettingsResponse;
+  targetEvaluation: OrdersKpiTargetEvaluation;
+  comparison: {
+    previousPeriod: {
+      dateFrom: string;
+      dateTo: string;
+    };
+    summary: OrdersKpiMetricComparisons;
+  };
+  trend: OrdersKpiPerformanceTrendPoint[];
+  filterOptions: OrdersKpiPerformanceFilterOptions;
   rows: OrdersKpiPerformanceRow[];
   pagination: {
     page: number;
@@ -235,6 +335,10 @@ export function buildOrdersKpiPerformanceReportPath(
   appendQueryParam(params, "unmappedOnly", query.unmappedOnly);
   appendQueryParam(params, "vendorId", query.vendorId);
   appendQueryParam(params, "sourceVendorId", query.sourceVendorId);
+  appendQueryParam(params, "pickerId", query.pickerId);
+  appendQueryParam(params, "sourceShopperId", query.sourceShopperId);
+  appendQueryParam(params, "sourcePickerKey", query.sourcePickerKey);
+  appendQueryParam(params, "search", query.search);
   appendQueryParam(params, "pickerSearch", query.pickerSearch);
   appendQueryParam(params, "page", query.page);
   appendQueryParam(params, "pageSize", query.pageSize);
@@ -243,6 +347,10 @@ export function buildOrdersKpiPerformanceReportPath(
 
   const search = params.toString();
   return `/orders-kpis/reports/performance${search ? `?${search}` : ""}`;
+}
+
+export function buildOrdersKpiTargetSettingsPath() {
+  return "/orders-kpis/settings/targets";
 }
 
 export function clearOrdersKpiPerformanceReportCache() {
@@ -266,6 +374,23 @@ export const ordersKpisApi = {
     return apiGet<OrdersKpiPerformanceReportResponse>(
       buildOrdersKpiPerformanceReportPath(query)
     );
+  },
+  targetSettings() {
+    return apiGet<OrdersKpiTargetSettingsResponse>(
+      buildOrdersKpiTargetSettingsPath()
+    );
+  },
+  updateTargetSettings(request: OrdersKpiTargetSettingsRequest) {
+    return apiRequest<OrdersKpiTargetSettingsResponse>(
+      buildOrdersKpiTargetSettingsPath(),
+      {
+        body: JSON.stringify(request),
+        method: "PUT"
+      }
+    ).then((response) => {
+      clearOrdersKpiPerformanceReportCache();
+      return response;
+    });
   },
   previewImport(file: File) {
     return apiRequest<OrdersKpiPreviewResponse>("/orders-kpis/imports/preview", {

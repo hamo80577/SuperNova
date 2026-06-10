@@ -12,6 +12,9 @@ export const ORDERS_KPI_PREVIEW_ACTION = "ORDERS_KPI_IMPORT_PREVIEWED";
 export const ORDERS_KPI_CONFIRM_REPLACE_ACTION =
   "ORDERS_KPI_IMPORT_CONFIRMED_REPLACE";
 export const ORDERS_KPI_REJECT_ACTION = "ORDERS_KPI_IMPORT_REJECTED";
+export const ORDERS_KPI_TARGET_SETTINGS_ID = "global";
+export const ORDERS_KPI_TARGET_SETTINGS_UPDATED_ACTION =
+  "ORDERS_KPI_TARGET_SETTINGS_UPDATED";
 export const ORDERS_KPI_UPLOAD_MODE = "FULL_DAILY_SNAPSHOT";
 
 export const ORDERS_KPI_INTEGER_METRIC_KEYS = [
@@ -259,6 +262,53 @@ export type OrdersKpiPerformanceReportSortKey =
 
 export type OrdersKpiPerformanceReportSortDirection = "asc" | "desc";
 
+export interface OrdersKpiTargetSettingsValues {
+  uhoRateTarget: number;
+  notOnTimeRateTarget: number;
+  qcFailedRateTarget: number;
+  partialRefundRateTarget: number;
+  oosRateTarget: number;
+  priceModifiedRateTarget: number;
+}
+
+export type OrdersKpiTargetSettingsRequest =
+  Partial<OrdersKpiTargetSettingsValues>;
+
+export interface OrdersKpiTargetSettingsResponse {
+  id: string;
+  source: "DEFAULT" | "SAVED";
+  targets: OrdersKpiTargetSettingsValues;
+  updatedByUserId: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export type OrdersKpiTargetStatus = "IN_TARGET" | "OUT_OF_TARGET";
+
+export type OrdersKpiTargetEvaluationMetricKey =
+  | "unhealthyRate"
+  | "orderNotOnTime"
+  | "qcFailedOrders"
+  | "partialRefund"
+  | "outOfStock"
+  | "priceModified";
+
+export interface OrdersKpiMetricTargetEvaluation {
+  metricKey: OrdersKpiTargetEvaluationMetricKey;
+  rate: number;
+  target: number;
+  status: OrdersKpiTargetStatus;
+}
+
+export interface OrdersKpiTargetEvaluation {
+  status: OrdersKpiTargetStatus;
+  primary: OrdersKpiMetricTargetEvaluation;
+  secondaryWarnings: OrdersKpiMetricTargetEvaluation[];
+  metrics: Partial<
+    Record<OrdersKpiPerformanceReportSortKey, OrdersKpiMetricTargetEvaluation>
+  >;
+}
+
 export type OrdersKpiPerformanceReportGroupType =
   | "MATCHED_CHAIN"
   | "UNMAPPED_CHAIN"
@@ -277,6 +327,10 @@ export interface OrdersKpiPerformanceReportQuery {
   unmappedOnly?: string | boolean | null;
   vendorId?: string | null;
   sourceVendorId?: string | null;
+  pickerId?: string | null;
+  sourceShopperId?: string | null;
+  sourcePickerKey?: string | null;
+  search?: string | null;
   pickerSearch?: string | null;
   page?: string | number | null;
   pageSize?: string | number | null;
@@ -300,6 +354,38 @@ export interface OrdersKpiPerformanceSummary {
   priceModified: number;
 }
 
+export interface OrdersKpiMetricComparison {
+  current: number;
+  previous: number;
+  delta: number;
+  deltaPercent: number | null;
+}
+
+export type OrdersKpiMetricComparisons = Record<
+  OrdersKpiPerformanceReportSortKey,
+  OrdersKpiMetricComparison
+>;
+
+export interface OrdersKpiPerformanceTrendPoint {
+  date: string;
+  metrics: OrdersKpiPerformanceSummary;
+}
+
+export interface OrdersKpiPerformanceFilterOption {
+  id: string | null;
+  label: string;
+  sourceVendorId?: string | null;
+  sourceShopperId?: string | null;
+  sourcePickerKey?: string | null;
+  unmappedOnly?: boolean;
+}
+
+export interface OrdersKpiPerformanceFilterOptions {
+  chains: OrdersKpiPerformanceFilterOption[];
+  vendors: OrdersKpiPerformanceFilterOption[];
+  pickers: OrdersKpiPerformanceFilterOption[];
+}
+
 export interface OrdersKpiPerformanceRow {
   groupKey: string;
   groupType: OrdersKpiPerformanceReportGroupType;
@@ -316,6 +402,8 @@ export interface OrdersKpiPerformanceRow {
   nextView: "VENDOR" | "PICKER" | null;
   drilldownParams: Record<string, string | boolean> | null;
   metrics: OrdersKpiMetricSummary;
+  comparison: OrdersKpiMetricComparisons;
+  targetEvaluation: OrdersKpiTargetEvaluation;
 }
 
 export interface OrdersKpiPerformanceReportResponse {
@@ -327,11 +415,26 @@ export interface OrdersKpiPerformanceReportResponse {
     unmappedOnly: boolean;
     vendorId: string | null;
     sourceVendorId: string | null;
+    pickerId: string | null;
+    sourceShopperId: string | null;
+    sourcePickerKey: string | null;
+    search: string | null;
     pickerSearch: string | null;
     sortBy: OrdersKpiPerformanceReportSortKey;
     sortDirection: OrdersKpiPerformanceReportSortDirection;
   };
   summary: OrdersKpiPerformanceSummary;
+  targets: OrdersKpiTargetSettingsResponse;
+  targetEvaluation: OrdersKpiTargetEvaluation;
+  comparison: {
+    previousPeriod: {
+      dateFrom: string;
+      dateTo: string;
+    };
+    summary: OrdersKpiMetricComparisons;
+  };
+  trend: OrdersKpiPerformanceTrendPoint[];
+  filterOptions: OrdersKpiPerformanceFilterOptions;
   rows: OrdersKpiPerformanceRow[];
   pagination: {
     page: number;

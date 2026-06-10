@@ -19,18 +19,30 @@ import {
   ORDERS_KPI_UNKNOWN_PICKER_KEY,
   type OrdersKpiImportActor,
   type OrdersKpiIntegerMetrics,
+  type OrdersKpiMetricComparisons,
   type OrdersKpiMetricSummary,
+  type OrdersKpiPerformanceFilterOption,
+  type OrdersKpiPerformanceFilterOptions,
   type OrdersKpiPerformanceReportQuery,
   type OrdersKpiPerformanceReportResponse,
   type OrdersKpiPerformanceReportSortDirection,
   type OrdersKpiPerformanceReportSortKey,
   type OrdersKpiPerformanceReportView,
-  type OrdersKpiPerformanceRow
+  type OrdersKpiPerformanceRow,
+  type OrdersKpiPerformanceSummary,
+  type OrdersKpiPerformanceTrendPoint,
+  type OrdersKpiTargetEvaluation,
+  type OrdersKpiTargetSettingsValues
 } from "./orders-kpis.types";
+import {
+  DEFAULT_ORDERS_KPI_TARGET_SETTINGS,
+  OrdersKpisTargetSettingsService
+} from "./orders-kpis-target-settings.service";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+const DAY_IN_MS = 86_400_000;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const reportRecordSelect = {
@@ -79,6 +91,10 @@ interface ParsedPerformanceReportQuery {
   unmappedOnly: boolean;
   vendorId: string | null;
   sourceVendorId: string | null;
+  pickerId: string | null;
+  sourceShopperId: string | null;
+  sourcePickerKey: string | null;
+  search: string | null;
   pickerSearch: string | null;
   page: number;
   pageSize: number;
@@ -92,13 +108,21 @@ interface MetricAccumulator extends OrdersKpiIntegerMetrics {
 }
 
 interface RowAccumulator
-  extends Omit<OrdersKpiPerformanceRow, "metrics"> {
+  extends Omit<
+    OrdersKpiPerformanceRow,
+    "comparison" | "metrics" | "targetEvaluation"
+  > {
   metrics: MetricAccumulator;
 }
 
 @Injectable()
 export class OrdersKpisReportService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+    @Inject(OrdersKpisTargetSettingsService)
+    private readonly targetSettingsService: OrdersKpisTargetSettingsService
+  ) {}
 
   async getPerformanceReport(
     query: OrdersKpiPerformanceReportQuery,
@@ -107,18 +131,56 @@ export class OrdersKpisReportService {
     assertOrdersKpiReportActor(options.actor);
 
     const filters = parsePerformanceReportQuery(query);
-    const records = await this.prisma.ordersKpiDailyRecord.findMany({
-      where: buildReportWhere(filters),
-      select: reportRecordSelect
-    });
-    const filteredRecords = applyPickerSearch(records, filters);
-    const rows = sortRows(groupRows(filteredRecords, filters.view), filters);
+    const previousPeriod = previousEquivalentPeriod(filters);
+    const previousFilters = {
+      ...filters,
+      dateFrom: previousPeriod.dateFrom,
+      dateTo: previousPeriod.dateTo,
+      dateFromValue: previousPeriod.dateFromValue,
+      dateToExclusiveValue: previousPeriod.dateToExclusiveValue
+    };
+    const [records, previousRecords, targetSettings] = await Promise.all([
+      this.prisma.ordersKpiDailyRecord.findMany({
+        where: buildReportWhere(filters),
+        select: reportRecordSelect
+      }),
+      this.prisma.ordersKpiDailyRecord.findMany({
+        where: buildReportWhere(previousFilters),
+        select: reportRecordSelect
+      }),
+      this.targetSettingsService.getTargetSettings(options)
+    ]);
+    const filteredRecords = applyReportSearch(records, filters);
+    const filteredPreviousRecords = applyReportSearch(previousRecords, filters);
+    const currentSummary = summaryCards(summarizeRecords(filteredRecords));
+    const previousSummary = summaryCards(summarizeRecords(filteredPreviousRecords));
+    const rows = sortRows(
+      attachRowComparisons(
+        groupRows(filteredRecords, filters.view),
+        groupRows(filteredPreviousRecords, filters.view)
+      ).map((row) => attachTargetEvaluation(row, targetSettings.targets)),
+      filters
+    );
     const totalRows = rows.length;
     const totalPages = Math.max(1, Math.ceil(totalRows / filters.pageSize));
 
     return {
       filters: responseFilters(filters),
-      summary: summaryCards(summarizeRecords(filteredRecords)),
+      summary: currentSummary,
+      targets: targetSettings,
+      targetEvaluation: buildTargetEvaluation(
+        currentSummary,
+        targetSettings.targets
+      ),
+      comparison: {
+        previousPeriod: {
+          dateFrom: previousPeriod.dateFrom,
+          dateTo: previousPeriod.dateTo
+        },
+        summary: compareMetricSummaries(currentSummary, previousSummary)
+      },
+      trend: buildTrendPoints(filteredRecords, filters),
+      filterOptions: buildFilterOptions(filteredRecords),
       rows: paginateRows(rows, filters),
       pagination: {
         page: filters.page,
@@ -152,6 +214,10 @@ function parsePerformanceReportQuery(
     unmappedOnly: parseBoolean(query.unmappedOnly),
     vendorId: normalizeOptionalText(query.vendorId),
     sourceVendorId: normalizeOptionalText(query.sourceVendorId),
+    pickerId: normalizeOptionalText(query.pickerId),
+    sourceShopperId: normalizeOptionalText(query.sourceShopperId),
+    sourcePickerKey: normalizeOptionalText(query.sourcePickerKey),
+    search: normalizeOptionalText(query.search),
     pickerSearch: normalizeOptionalText(query.pickerSearch),
     page: parsePositiveInteger(query.page, DEFAULT_PAGE, "page"),
     pageSize: Math.min(
@@ -273,23 +339,25 @@ function assertReportFilters(filters: ParsedPerformanceReportQuery) {
     throw new BadRequestException("vendorId cannot be combined with unmappedOnly.");
   }
 
+  if (filters.vendorId && filters.sourceVendorId) {
+    throw new BadRequestException(
+      "vendorId cannot be combined with sourceVendorId."
+    );
+  }
+
+  const pickerIdentityCount =
+    Number(Boolean(filters.pickerId)) +
+    Number(Boolean(filters.sourceShopperId)) +
+    Number(Boolean(filters.sourcePickerKey));
+
+  if (pickerIdentityCount > 1) {
+    throw new BadRequestException(
+      "Only one picker identity filter can be used at a time."
+    );
+  }
+
   if (filters.view !== "PICKER" && filters.pickerSearch) {
     throw new BadRequestException("pickerSearch is only supported in Picker View.");
-  }
-
-  if (filters.view === "PICKER") {
-    assertPickerIdentityFilter(filters);
-  }
-}
-
-function assertPickerIdentityFilter(filters: ParsedPerformanceReportQuery) {
-  const identityCount = Number(Boolean(filters.vendorId)) +
-    Number(Boolean(filters.sourceVendorId));
-
-  if (identityCount !== 1) {
-    throw new BadRequestException(
-      "Picker View requires exactly one vendorId or sourceVendorId."
-    );
   }
 }
 
@@ -306,22 +374,38 @@ function buildReportWhere(
       ? { vendorMatchStatus: OrdersKpiVendorMatchStatus.UNMAPPED_VENDOR_ID }
       : {}),
     ...(filters.vendorId ? { matchedVendorId: filters.vendorId } : {}),
-    ...(filters.sourceVendorId ? { sourceVendorId: filters.sourceVendorId } : {})
+    ...(filters.sourceVendorId ? { sourceVendorId: filters.sourceVendorId } : {}),
+    ...(filters.pickerId ? { userId: filters.pickerId } : {}),
+    ...(filters.sourceShopperId
+      ? { sourceShopperId: filters.sourceShopperId }
+      : {}),
+    ...(filters.sourcePickerKey
+      ? { sourcePickerKey: filters.sourcePickerKey }
+      : {})
   };
 }
 
-function applyPickerSearch(
+function applyReportSearch(
   records: OrdersKpiReportRecord[],
   filters: ParsedPerformanceReportQuery
 ) {
-  if (filters.view !== "PICKER" || !filters.pickerSearch) {
-    return records;
+  let filteredRecords = records;
+
+  if (filters.search) {
+    const searchText = normalizeSearchText(filters.search);
+    filteredRecords = filteredRecords.filter((record) =>
+      normalizeSearchText(reportSearchText(record)).includes(searchText)
+    );
   }
 
-  const searchText = normalizeSearchText(filters.pickerSearch);
-  return records.filter((record) =>
-    normalizeSearchText(pickerDisplayText(record)).includes(searchText)
-  );
+  if (filters.view === "PICKER" && filters.pickerSearch) {
+    const searchText = normalizeSearchText(filters.pickerSearch);
+    filteredRecords = filteredRecords.filter((record) =>
+      normalizeSearchText(pickerDisplayText(record)).includes(searchText)
+    );
+  }
+
+  return filteredRecords;
 }
 
 function groupRows(
@@ -578,7 +662,9 @@ function finalizeMetrics(metrics: MetricAccumulator): OrdersKpiMetricSummary {
   };
 }
 
-function summaryCards(metrics: OrdersKpiMetricSummary) {
+function summaryCards(
+  metrics: OrdersKpiMetricSummary
+): OrdersKpiPerformanceSummary {
   return {
     totalOrders: metrics.totalOrders,
     unhealthyOrders: metrics.unhealthyOrders,
@@ -591,10 +677,323 @@ function summaryCards(metrics: OrdersKpiMetricSummary) {
   };
 }
 
+function emptyMetricSummary(): OrdersKpiMetricSummary {
+  return finalizeMetrics(createMetricAccumulator());
+}
+
+function compareMetricSummaries(
+  currentMetrics: OrdersKpiMetricSummary | OrdersKpiPerformanceSummary,
+  previousMetrics: OrdersKpiMetricSummary | OrdersKpiPerformanceSummary
+): OrdersKpiMetricComparisons {
+  return ORDERS_KPI_PERFORMANCE_REPORT_SORT_KEYS.reduce(
+    (comparisons, metricKey) => ({
+      ...comparisons,
+      [metricKey]: compareMetric(metricKey, currentMetrics, previousMetrics)
+    }),
+    {} as OrdersKpiMetricComparisons
+  );
+}
+
+function compareMetric(
+  metricKey: OrdersKpiPerformanceReportSortKey,
+  currentMetrics: OrdersKpiMetricSummary | OrdersKpiPerformanceSummary,
+  previousMetrics: OrdersKpiMetricSummary | OrdersKpiPerformanceSummary
+) {
+  const current = currentMetrics[metricKey];
+  const previous = previousMetrics[metricKey];
+  const delta = roundFourDecimals(current - previous);
+
+  return {
+    current,
+    previous,
+    delta,
+    deltaPercent:
+      metricKey === "unhealthyRate" || previous === 0
+        ? null
+        : roundFourDecimals((delta / previous) * 100)
+  };
+}
+
+function buildTargetEvaluation(
+  metrics: OrdersKpiMetricSummary | OrdersKpiPerformanceSummary,
+  targets: OrdersKpiTargetSettingsValues
+): OrdersKpiTargetEvaluation {
+  const primary = metricTargetEvaluation(
+    "unhealthyRate",
+    metrics.unhealthyRate,
+    targets.uhoRateTarget
+  );
+  const secondaryMetrics = [
+    metricTargetEvaluation(
+      "orderNotOnTime",
+      rate(metrics.orderNotOnTime, metrics.totalOrders),
+      targets.notOnTimeRateTarget
+    ),
+    metricTargetEvaluation(
+      "qcFailedOrders",
+      rate(metrics.qcFailedOrders, metrics.totalOrders),
+      targets.qcFailedRateTarget
+    ),
+    metricTargetEvaluation(
+      "partialRefund",
+      rate(metrics.partialRefund, metrics.totalOrders),
+      targets.partialRefundRateTarget
+    ),
+    metricTargetEvaluation(
+      "outOfStock",
+      rate(metrics.outOfStock, metrics.totalOrders),
+      targets.oosRateTarget
+    ),
+    metricTargetEvaluation(
+      "priceModified",
+      rate(metrics.priceModified, metrics.totalOrders),
+      targets.priceModifiedRateTarget
+    )
+  ];
+
+  return {
+    status: primary.status,
+    primary,
+    secondaryWarnings: secondaryMetrics.filter(
+      (metric) => metric.status === "OUT_OF_TARGET"
+    ),
+    metrics: {
+      unhealthyRate: primary,
+      orderNotOnTime: secondaryMetrics[0],
+      qcFailedOrders: secondaryMetrics[1],
+      partialRefund: secondaryMetrics[2],
+      outOfStock: secondaryMetrics[3],
+      priceModified: secondaryMetrics[4]
+    }
+  };
+}
+
+function metricTargetEvaluation(
+  metricKey: OrdersKpiTargetEvaluation["primary"]["metricKey"],
+  metricRate: number,
+  target: number
+) {
+  const rateValue = roundFourDecimals(metricRate);
+
+  return {
+    metricKey,
+    rate: rateValue,
+    target,
+    status: rateValue > target ? "OUT_OF_TARGET" : "IN_TARGET"
+  } satisfies OrdersKpiTargetEvaluation["primary"];
+}
+
+function rate(value: number, total: number) {
+  return total > 0 ? (value / total) * 100 : 0;
+}
+
+function previousEquivalentPeriod(filters: ParsedPerformanceReportQuery) {
+  const periodDays = Math.max(
+    1,
+    Math.round(
+      (filters.dateToExclusiveValue.getTime() - filters.dateFromValue.getTime()) /
+        DAY_IN_MS
+    )
+  );
+  const dateToExclusiveValue = filters.dateFromValue;
+  const dateFromValue = addDays(filters.dateFromValue, -periodDays);
+  const dateToValue = addDays(dateToExclusiveValue, -1);
+
+  return {
+    dateFrom: formatUtcDate(dateFromValue),
+    dateTo: formatUtcDate(dateToValue),
+    dateFromValue,
+    dateToExclusiveValue
+  };
+}
+
+function buildTrendPoints(
+  records: OrdersKpiReportRecord[],
+  filters: ParsedPerformanceReportQuery
+): OrdersKpiPerformanceTrendPoint[] {
+  const metricsByDate = new Map<string, MetricAccumulator>();
+
+  for (
+    let cursor = filters.dateFromValue;
+    cursor.getTime() < filters.dateToExclusiveValue.getTime();
+    cursor = addDays(cursor, 1)
+  ) {
+    metricsByDate.set(formatUtcDate(cursor), createMetricAccumulator());
+  }
+
+  for (const record of records) {
+    const dateKey = formatUtcDate(record.kpiDate);
+    const metrics = metricsByDate.get(dateKey);
+
+    if (metrics) {
+      addRecordMetrics(metrics, record);
+    }
+  }
+
+  return Array.from(metricsByDate.entries()).map(([date, metrics]) => ({
+    date,
+    metrics: summaryCards(finalizeMetrics(metrics))
+  }));
+}
+
+function buildFilterOptions(
+  records: OrdersKpiReportRecord[]
+): OrdersKpiPerformanceFilterOptions {
+  const chainOptions = new Map<string, OrdersKpiPerformanceFilterOption>();
+  const vendorOptions = new Map<string, OrdersKpiPerformanceFilterOption>();
+  const pickerOptions = new Map<string, OrdersKpiPerformanceFilterOption>();
+
+  for (const record of records) {
+    addChainFilterOption(chainOptions, record);
+    addVendorFilterOption(vendorOptions, record);
+    addPickerFilterOption(pickerOptions, record);
+  }
+
+  return {
+    chains: sortFilterOptions(chainOptions),
+    vendors: sortFilterOptions(vendorOptions),
+    pickers: sortFilterOptions(pickerOptions)
+  };
+}
+
+function addChainFilterOption(
+  options: Map<string, OrdersKpiPerformanceFilterOption>,
+  record: OrdersKpiReportRecord
+) {
+  if (record.vendorMatchStatus === OrdersKpiVendorMatchStatus.UNMAPPED_VENDOR_ID) {
+    options.set("UNMAPPED_CHAIN", {
+      id: null,
+      label: "Unmapped Chain",
+      unmappedOnly: true
+    });
+    return;
+  }
+
+  const key = record.matchedChainId ?? "UNMAPPED_CHAIN";
+  if (!options.has(key)) {
+    options.set(key, {
+      id: record.matchedChainId,
+      label: chainLabel(record),
+      unmappedOnly: false
+    });
+  }
+}
+
+function addVendorFilterOption(
+  options: Map<string, OrdersKpiPerformanceFilterOption>,
+  record: OrdersKpiReportRecord
+) {
+  if (record.vendorMatchStatus === OrdersKpiVendorMatchStatus.UNMAPPED_VENDOR_ID) {
+    const key = `SOURCE_VENDOR:${record.sourceVendorId}`;
+    if (!options.has(key)) {
+      options.set(key, {
+        id: null,
+        label: `Unmapped Vendor ${record.sourceVendorId}`,
+        sourceVendorId: record.sourceVendorId
+      });
+    }
+    return;
+  }
+
+  const key = record.matchedVendorId ?? `SOURCE_VENDOR:${record.sourceVendorId}`;
+  if (!options.has(key)) {
+    options.set(key, {
+      id: record.matchedVendorId,
+      label: vendorLabel(record),
+      sourceVendorId: record.sourceVendorId
+    });
+  }
+}
+
+function addPickerFilterOption(
+  options: Map<string, OrdersKpiPerformanceFilterOption>,
+  record: OrdersKpiReportRecord
+) {
+  if (record.pickerMatchStatus === OrdersKpiPickerMatchStatus.MATCHED_PICKER) {
+    const key = record.userId ?? `PICKER_KEY:${record.sourcePickerKey}`;
+    if (!options.has(key)) {
+      options.set(key, {
+        id: record.userId,
+        label: matchedPickerLabel(record),
+        sourceShopperId: record.sourceShopperId,
+        sourcePickerKey: record.sourcePickerKey
+      });
+    }
+    return;
+  }
+
+  if (record.pickerMatchStatus === OrdersKpiPickerMatchStatus.UNKNOWN_PICKER) {
+    options.set("UNKNOWN_PICKER", {
+      id: null,
+      label: "Unknown Picker",
+      sourcePickerKey: ORDERS_KPI_UNKNOWN_PICKER_KEY
+    });
+    return;
+  }
+
+  const shopperId = record.sourceShopperId ?? record.sourcePickerKey;
+  const key = `${record.pickerMatchStatus}:${shopperId}`;
+  if (!options.has(key)) {
+    options.set(key, {
+      id: null,
+      label: pickerDisplayText(record),
+      sourceShopperId: record.sourceShopperId,
+      sourcePickerKey: record.sourcePickerKey
+    });
+  }
+}
+
+function sortFilterOptions(
+  options: Map<string, OrdersKpiPerformanceFilterOption>
+) {
+  return Array.from(options.values()).sort(
+    (leftOption, rightOption) =>
+      leftOption.label.localeCompare(rightOption.label) ||
+      String(leftOption.id ?? "").localeCompare(String(rightOption.id ?? ""))
+  );
+}
+
 function finalizeRow(group: RowAccumulator): OrdersKpiPerformanceRow {
+  const metrics = finalizeMetrics(group.metrics);
+
   return {
     ...group,
-    metrics: finalizeMetrics(group.metrics)
+    metrics,
+    comparison: compareMetricSummaries(metrics, emptyMetricSummary()),
+    targetEvaluation: buildTargetEvaluation(
+      metrics,
+      DEFAULT_ORDERS_KPI_TARGET_SETTINGS
+    )
+  };
+}
+
+function attachRowComparisons(
+  currentRows: OrdersKpiPerformanceRow[],
+  previousRows: OrdersKpiPerformanceRow[]
+) {
+  const previousRowsByKey = new Map(
+    previousRows.map((row) => [row.groupKey, row])
+  );
+
+  return currentRows.map((row) => {
+    const previousRow = previousRowsByKey.get(row.groupKey);
+    return {
+      ...row,
+      comparison: compareMetricSummaries(
+        row.metrics,
+        previousRow?.metrics ?? emptyMetricSummary()
+      )
+    };
+  });
+}
+
+function attachTargetEvaluation(
+  row: OrdersKpiPerformanceRow,
+  targets: OrdersKpiTargetSettingsValues
+): OrdersKpiPerformanceRow {
+  return {
+    ...row,
+    targetEvaluation: buildTargetEvaluation(row.metrics, targets)
   };
 }
 
@@ -636,6 +1035,10 @@ function responseFilters(filters: ParsedPerformanceReportQuery) {
     unmappedOnly: filters.unmappedOnly,
     vendorId: filters.vendorId,
     sourceVendorId: filters.sourceVendorId,
+    pickerId: filters.pickerId,
+    sourceShopperId: filters.sourceShopperId,
+    sourcePickerKey: filters.sourcePickerKey,
+    search: filters.search,
     pickerSearch: filters.pickerSearch,
     sortBy: filters.sortBy,
     sortDirection: filters.sortDirection
@@ -677,6 +1080,22 @@ function pickerDisplayText(record: OrdersKpiReportRecord) {
   }
 
   return "Unknown Picker";
+}
+
+function reportSearchText(record: OrdersKpiReportRecord) {
+  return [
+    chainLabel(record),
+    record.matchedChainId,
+    vendorLabel(record),
+    record.matchedVendorId,
+    record.sourceVendorId,
+    pickerDisplayText(record),
+    record.userId,
+    record.sourceShopperId,
+    record.sourcePickerKey
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function normalizeOptionalText(value: unknown) {
@@ -738,6 +1157,10 @@ function addDays(dateValue: Date, days: number) {
   const nextDate = new Date(dateValue);
   nextDate.setUTCDate(nextDate.getUTCDate() + days);
   return nextDate;
+}
+
+function formatUtcDate(dateValue: Date) {
+  return dateValue.toISOString().slice(0, 10);
 }
 
 function roundFourDecimals(value: number) {

@@ -8,21 +8,29 @@ import { OrdersKpisImportsController } from "./orders-kpis-imports.controller";
 import { OrdersKpisParserService } from "./orders-kpis-parser.service";
 import { OrdersKpisReportService } from "./orders-kpis-report.service";
 import { OrdersKpisReportsController } from "./orders-kpis-reports.controller";
+import { OrdersKpisTargetSettingsController } from "./orders-kpis-target-settings.controller";
+import { OrdersKpisTargetSettingsService } from "./orders-kpis-target-settings.service";
 import { OrdersKpisValidatorService } from "./orders-kpis-validator.service";
 
 @Module({
   imports: [AuditModule, JwtModule.register({}), UsersModule],
-  controllers: [OrdersKpisImportsController, OrdersKpisReportsController],
+  controllers: [
+    OrdersKpisImportsController,
+    OrdersKpisReportsController,
+    OrdersKpisTargetSettingsController
+  ],
   providers: [
     OrdersKpisImportService,
     OrdersKpisParserService,
     OrdersKpisReportService,
+    OrdersKpisTargetSettingsService,
     OrdersKpisValidatorService
   ],
   exports: [
     OrdersKpisImportService,
     OrdersKpisParserService,
     OrdersKpisReportService,
+    OrdersKpisTargetSettingsService,
     OrdersKpisValidatorService
   ]
 })

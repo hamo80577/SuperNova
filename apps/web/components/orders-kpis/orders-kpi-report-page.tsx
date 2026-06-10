@@ -37,12 +37,16 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ordersKpisApi,
+  type OrdersKpiMetricComparison,
+  type OrdersKpiMetricTargetEvaluation,
+  type OrdersKpiPerformanceFilterOption,
   type OrdersKpiPerformanceReportQuery,
   type OrdersKpiPerformanceReportResponse,
   type OrdersKpiPerformanceReportSortDirection,
   type OrdersKpiPerformanceReportSortKey,
   type OrdersKpiPerformanceReportView,
-  type OrdersKpiPerformanceRow
+  type OrdersKpiPerformanceRow,
+  type OrdersKpiPerformanceTrendPoint
 } from "@/lib/api/orders-kpis";
 import { cn } from "@/lib/utils";
 
@@ -164,9 +168,7 @@ export function OrdersKpiReportPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const filters = useMemo(() => parseReportFilters(searchParams), [searchParams]);
-  const [pickerSearchDraft, setPickerSearchDraft] = useState(
-    filters.pickerSearch ?? ""
-  );
+  const [searchDraft, setSearchDraft] = useState(filters.search ?? "");
   const [report, setReport] =
     useState<OrdersKpiPerformanceReportResponse | null>(null);
   const [status, setStatus] = useState<ReportStatus>("idle");
@@ -176,11 +178,7 @@ export function OrdersKpiReportPage() {
     filters.dateFrom,
     filters.dateTo
   );
-  const pickerScopeError =
-    filters.view === "PICKER" && !filters.vendorId && !filters.sourceVendorId
-      ? "Picker View requires one Vendor or Unmapped Vendor context."
-      : null;
-  const queryError = dateRangeError ?? pickerScopeError;
+  const queryError = dateRangeError;
   const query = useMemo<OrdersKpiPerformanceReportQuery>(
     () => ({
       chainId: filters.chainId,
@@ -188,9 +186,13 @@ export function OrdersKpiReportPage() {
       dateTo: filters.dateTo,
       page: filters.page,
       pageSize: filters.pageSize,
+      pickerId: filters.pickerId,
       pickerSearch: filters.pickerSearch,
+      search: filters.search,
       sortBy: filters.sortBy,
       sortDirection: filters.sortDirection,
+      sourcePickerKey: filters.sourcePickerKey,
+      sourceShopperId: filters.sourceShopperId,
       sourceVendorId: filters.sourceVendorId,
       unmappedOnly: filters.unmappedOnly,
       vendorId: filters.vendorId,
@@ -201,8 +203,8 @@ export function OrdersKpiReportPage() {
   const queryKey = JSON.stringify(query);
 
   useEffect(() => {
-    setPickerSearchDraft(filters.pickerSearch ?? "");
-  }, [filters.pickerSearch]);
+    setSearchDraft(filters.search ?? "");
+  }, [filters.search]);
 
   useEffect(() => {
     if (queryError) {
@@ -266,39 +268,16 @@ export function OrdersKpiReportPage() {
   }
 
   function handleViewChange(view: OrdersKpiPerformanceReportView) {
-    if (view === "CHAIN") {
-      updateFilters({
-        chainId: null,
-        chainLabel: null,
-        page: 1,
-        pickerSearch: null,
-        sourceVendorId: null,
-        unmappedOnly: null,
-        vendorId: null,
-        vendorLabel: null,
-        view
-      });
-      return;
-    }
-
-    if (view === "VENDOR") {
-      updateFilters({
-        page: 1,
-        pickerSearch: null,
-        sourceVendorId: null,
-        vendorId: null,
-        vendorLabel: null,
-        view
-      });
-      return;
-    }
-
     updateFilters({ page: 1, pickerSearch: null, view });
   }
 
-  function handlePickerSearchSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    updateFilters({ page: 1, pickerSearch: pickerSearchDraft.trim() || null });
+    updateFilters({
+      page: 1,
+      pickerSearch: null,
+      search: searchDraft.trim() || null
+    });
   }
 
   function handleSort(sortBy: OrdersKpiPerformanceReportSortKey) {
@@ -317,6 +296,10 @@ export function OrdersKpiReportPage() {
     nextParams.set("view", row.nextView);
     nextParams.set("page", "1");
     nextParams.delete("pickerSearch");
+    nextParams.delete("pickerId");
+    nextParams.delete("pickerLabel");
+    nextParams.delete("sourcePickerKey");
+    nextParams.delete("sourceShopperId");
     nextParams.delete("vendorId");
     nextParams.delete("sourceVendorId");
 
@@ -391,7 +374,13 @@ export function OrdersKpiReportPage() {
         <InlineNotice message={error} tone="error" title="Report failed" />
       ) : null}
 
-      <KpiCards isLoading={isLoading} summary={summary} />
+      <KpiCards
+        comparison={report?.comparison.summary ?? null}
+        isLoading={isLoading}
+        summary={summary}
+        targetEvaluation={report?.targetEvaluation ?? null}
+        trend={report?.trend ?? []}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -419,28 +408,29 @@ export function OrdersKpiReportPage() {
                 </span>
               )}
             </div>
+            <FilterControls
+              filters={filters}
+              options={report?.filterOptions ?? null}
+              updateFilters={updateFilters}
+            />
           </div>
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,18rem)_auto]">
             <form
               className="flex min-w-0 gap-2"
-              onSubmit={handlePickerSearchSubmit}
+              onSubmit={handleSearchSubmit}
             >
               <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                 <Input
                   className="h-11 rounded-xl pl-9"
-                  disabled={filters.view !== "PICKER" || Boolean(pickerScopeError)}
-                  onChange={(event) => setPickerSearchDraft(event.target.value)}
-                  placeholder={
-                    filters.view === "PICKER" ? "Search picker" : "Picker search"
-                  }
-                  value={pickerSearchDraft}
+                  onChange={(event) => setSearchDraft(event.target.value)}
+                  placeholder="Search chain, vendor, or picker"
+                  value={searchDraft}
                 />
               </div>
               <Button
                 className="h-11 rounded-xl"
-                disabled={filters.view !== "PICKER" || Boolean(pickerScopeError)}
                 type="submit"
                 variant="outline"
               >
@@ -514,19 +504,28 @@ export function OrdersKpiReportPage() {
 }
 
 function KpiCards({
+  comparison,
   isLoading,
-  summary
+  summary,
+  targetEvaluation,
+  trend
 }: {
+  comparison: OrdersKpiPerformanceReportResponse["comparison"]["summary"] | null;
   isLoading: boolean;
   summary: OrdersKpiPerformanceReportResponse["summary"] | null;
+  targetEvaluation: OrdersKpiPerformanceReportResponse["targetEvaluation"] | null;
+  trend: OrdersKpiPerformanceTrendPoint[];
 }) {
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {metricDefinitions.map((metric) => (
         <KpiCard
+          comparison={comparison?.[metric.key] ?? null}
           isLoading={isLoading}
           key={metric.key}
           metric={metric}
+          target={targetEvaluation?.metrics[metric.key] ?? null}
+          trend={trend}
           value={summary?.[metric.key] ?? 0}
         />
       ))}
@@ -535,15 +534,22 @@ function KpiCards({
 }
 
 function KpiCard({
+  comparison,
   isLoading,
   metric,
+  target,
+  trend,
   value
 }: {
+  comparison: OrdersKpiMetricComparison | null;
   isLoading: boolean;
   metric: MetricDefinition;
+  target: OrdersKpiMetricTargetEvaluation | null;
+  trend: OrdersKpiPerformanceTrendPoint[];
   value: number;
 }) {
   const Icon = metric.icon;
+  const deltaTone = getDeltaTone(metric, comparison?.delta ?? 0);
 
   return (
     <article
@@ -576,16 +582,212 @@ function KpiCard({
           <Icon className="h-5 w-5" />
         </span>
       </div>
-      <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2">
-        <p className="text-xs font-medium text-slate-500">Comparison unavailable</p>
-        <div className="mt-2 flex h-7 items-end gap-1" aria-hidden="true">
-          <span className="h-3 flex-1 rounded-full bg-slate-200" />
-          <span className="h-5 flex-1 rounded-full bg-slate-200" />
-          <span className="h-4 flex-1 rounded-full bg-slate-200" />
-          <span className="h-6 flex-1 rounded-full bg-slate-200" />
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-500">vs previous period</p>
+            {isLoading ? (
+              <Skeleton className="mt-2 h-4 w-24" />
+            ) : (
+              <p className={cn("mt-1 text-xs font-semibold", deltaTone)}>
+                {formatDelta(comparison, metric.valueType)}
+              </p>
+            )}
+            {target && !isLoading ? (
+              <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
+                {formatTargetLine(target)}
+              </p>
+            ) : null}
+          </div>
+          <TrendSparkline
+            metric={metric}
+            points={trend}
+            valueType={metric.valueType}
+          />
         </div>
       </div>
     </article>
+  );
+}
+
+function FilterControls({
+  filters,
+  options,
+  updateFilters
+}: {
+  filters: ParsedReportFilters;
+  options: OrdersKpiPerformanceReportResponse["filterOptions"] | null;
+  updateFilters: (updates: Record<string, string | number | boolean | null>) => void;
+}) {
+  return (
+    <div className="mt-3 grid gap-2 md:grid-cols-3">
+      <FilterSelect
+        label="Chain"
+        onChange={(value) => {
+          updateFilters({
+            chainId: value.startsWith("chain:") ? value.slice(6) : null,
+            chainLabel: null,
+            page: 1,
+            pickerId: null,
+            pickerLabel: null,
+            sourcePickerKey: null,
+            sourceShopperId: null,
+            sourceVendorId: null,
+            unmappedOnly: value === "unmapped" ? true : null,
+            vendorId: null,
+            vendorLabel: null
+          });
+        }}
+        options={(options?.chains ?? []).map((option) => ({
+          label: option.label,
+          value: option.unmappedOnly ? "unmapped" : `chain:${option.id}`
+        }))}
+        placeholder="All chains"
+        value={chainSelectValue(filters)}
+      />
+      <FilterSelect
+        label="Vendor"
+        onChange={(value) => {
+          updateFilters({
+            page: 1,
+            pickerId: null,
+            pickerLabel: null,
+            sourcePickerKey: null,
+            sourceShopperId: null,
+            sourceVendorId: value.startsWith("source:") ? value.slice(7) : null,
+            vendorId: value.startsWith("vendor:") ? value.slice(7) : null,
+            vendorLabel: null
+          });
+        }}
+        options={(options?.vendors ?? []).map((option) => ({
+          label: option.label,
+          value: option.id
+            ? `vendor:${option.id}`
+            : `source:${option.sourceVendorId ?? ""}`
+        }))}
+        placeholder="All vendors"
+        value={vendorSelectValue(filters)}
+      />
+      <FilterSelect
+        label="Picker"
+        onChange={(value) => {
+          updateFilters({
+            page: 1,
+            pickerId: value.startsWith("picker:") ? value.slice(7) : null,
+            pickerLabel: null,
+            sourcePickerKey: value.startsWith("key:") ? value.slice(4) : null,
+            sourceShopperId: value.startsWith("shopper:") ? value.slice(8) : null
+          });
+        }}
+        options={(options?.pickers ?? []).map((option) => ({
+          label: option.label,
+          value: pickerOptionValue(option)
+        }))}
+        placeholder="All pickers"
+        value={pickerSelectValue(filters)}
+      />
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  onChange,
+  options,
+  placeholder,
+  value
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  placeholder: string;
+  value: string;
+}) {
+  const hasSelectedOption =
+    value === "all" || options.some((option) => option.value === value);
+
+  return (
+    <label className="min-w-0">
+      <span className="mb-1 block text-xs font-semibold text-slate-500">
+        {label}
+      </span>
+      <Select
+        className="h-11 rounded-xl"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        <option value="all">{placeholder}</option>
+        {!hasSelectedOption ? <option value={value}>Selected {label}</option> : null}
+        {options.map((option) => (
+          <option key={`${label}:${option.value}`} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+}
+
+function TrendSparkline({
+  metric,
+  points,
+  valueType
+}: {
+  metric: MetricDefinition;
+  points: OrdersKpiPerformanceTrendPoint[];
+  valueType: MetricDefinition["valueType"];
+}) {
+  const values = points.map((point) => point.metrics[metric.key]);
+  const max = Math.max(...values, 0);
+  const min = Math.min(...values, 0);
+  const spread = max - min || 1;
+  const width = 88;
+  const height = 28;
+  const coordinates = values.length
+    ? values
+        .map((value, index) => {
+          const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
+          const y = height - ((value - min) / spread) * height;
+          return `${roundNumber(x, 2)},${roundNumber(y, 2)}`;
+        })
+        .join(" ")
+    : "";
+
+  return (
+    <div className="w-24 shrink-0 text-right">
+      {coordinates ? (
+        <svg
+          aria-label={`${metric.label} trend`}
+          className="h-7 w-full overflow-visible"
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <polyline
+            fill="none"
+            points={coordinates}
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.5"
+          />
+          {values.length === 1 ? (
+            <circle
+              cx={width / 2}
+              cy={height - (((values[0] ?? 0) - min) / spread) * height}
+              fill="currentColor"
+              r="3"
+            />
+          ) : null}
+        </svg>
+      ) : (
+        <div className="h-7" />
+      )}
+      <p className="mt-1 truncate text-[11px] font-medium text-slate-500">
+        {points.length
+          ? formatMetricValue(values.at(-1) ?? 0, valueType)
+          : "No trend"}
+      </p>
+    </div>
   );
 }
 
@@ -639,6 +841,7 @@ function ReportRows({
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
             <tr>
               <th className="px-3 py-3">Name</th>
+              <th className="px-3 py-3">Target Status</th>
               {metricDefinitions.map((metric) => (
                 <SortableMetricHeader
                   direction={filters.sortDirection}
@@ -667,6 +870,9 @@ function ReportRows({
                       <GroupBadge row={row} />
                     </div>
                   </div>
+                </td>
+                <td className="px-3 py-3">
+                  <TargetStatusBadge evaluation={row.targetEvaluation} />
                 </td>
                 {metricDefinitions.map((metric) => (
                   <MetricCell key={metric.key} metric={metric} row={row} />
@@ -742,10 +948,28 @@ function MetricCell({
   row: OrdersKpiPerformanceRow;
 }) {
   const value = row.metrics[metric.key];
+  const comparison = row.comparison[metric.key];
+  const target = row.targetEvaluation.metrics[metric.key] ?? null;
+  const isOutOfTarget = target?.status === "OUT_OF_TARGET";
 
   return (
-    <td className="px-3 py-3 text-right font-semibold tabular-nums text-slate-700">
-      {formatMetricValue(value, metric.valueType)}
+    <td className="px-3 py-3 text-right tabular-nums">
+      <p
+        className={cn(
+          "font-semibold",
+          isOutOfTarget ? "text-rose-700" : "text-slate-700"
+        )}
+      >
+        {formatMetricValue(value, metric.valueType)}
+      </p>
+      <p className={cn("mt-1 text-xs font-medium", getDeltaTone(metric, comparison.delta))}>
+        {formatDelta(comparison, metric.valueType)}
+      </p>
+      {target ? (
+        <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
+          {formatTargetLine(target)}
+        </p>
+      ) : null}
     </td>
   );
 }
@@ -768,24 +992,44 @@ function MobileReportCard({
               {getRowSubLabel(row)}
             </p>
             <GroupBadge row={row} />
+            <div className="mt-2">
+              <TargetStatusBadge evaluation={row.targetEvaluation} />
+            </div>
           </div>
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-        {metricDefinitions.map((metric) => (
-          <div
-            className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
-            key={metric.key}
-          >
-            <p className="text-xs font-semibold text-slate-500">
-              {metric.shortLabel}
-            </p>
-            <p className="mt-1 font-semibold tabular-nums text-slate-950">
-              {formatMetricValue(row.metrics[metric.key], metric.valueType)}
-            </p>
-          </div>
-        ))}
+        {metricDefinitions.map((metric) => {
+          const target = row.targetEvaluation.metrics[metric.key] ?? null;
+
+          return (
+            <div
+              className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+              key={metric.key}
+            >
+              <p className="text-xs font-semibold text-slate-500">
+                {metric.shortLabel}
+              </p>
+              <p className="mt-1 font-semibold tabular-nums text-slate-950">
+                {formatMetricValue(row.metrics[metric.key], metric.valueType)}
+              </p>
+              <p
+                className={cn(
+                  "mt-1 text-xs font-medium tabular-nums",
+                  getDeltaTone(metric, row.comparison[metric.key].delta)
+                )}
+              >
+                {formatDelta(row.comparison[metric.key], metric.valueType)}
+              </p>
+              {target ? (
+                <p className={cn("mt-1 text-[11px] font-semibold", targetTone(target))}>
+                  {formatTargetLine(target)}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       {row.hasDrilldown ? (
@@ -834,6 +1078,28 @@ function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
       variant="outline"
     >
       {getGroupTypeLabel(row.groupType)}
+    </Badge>
+  );
+}
+
+function TargetStatusBadge({
+  evaluation
+}: {
+  evaluation: OrdersKpiPerformanceRow["targetEvaluation"];
+}) {
+  const inTarget = evaluation.status === "IN_TARGET";
+
+  return (
+    <Badge
+      className={cn(
+        "whitespace-nowrap rounded-xl px-2.5 py-1 text-xs font-semibold",
+        inTarget
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-rose-200 bg-rose-50 text-rose-800"
+      )}
+      variant="outline"
+    >
+      {inTarget ? "In Target" : "Out of Target"}
     </Badge>
   );
 }
@@ -938,9 +1204,14 @@ interface ParsedReportFilters {
   dateTo: string;
   page: number;
   pageSize: number;
+  pickerId: string | null;
+  pickerLabel: string | null;
   pickerSearch: string | null;
+  search: string | null;
   sortBy: OrdersKpiPerformanceReportSortKey;
   sortDirection: OrdersKpiPerformanceReportSortDirection;
+  sourcePickerKey: string | null;
+  sourceShopperId: string | null;
   sourceVendorId: string | null;
   unmappedOnly: boolean;
   vendorId: string | null;
@@ -963,9 +1234,14 @@ function parseReportFilters(searchParams: URLSearchParams): ParsedReportFilters 
     dateTo: normalizedRange.dateTo,
     page: parsePositiveInt(searchParams.get("page"), 1),
     pageSize: parsePageSize(searchParams.get("pageSize")),
+    pickerId: searchParams.get("pickerId"),
+    pickerLabel: searchParams.get("pickerLabel"),
     pickerSearch: blankToNull(searchParams.get("pickerSearch")),
+    search: blankToNull(searchParams.get("search")),
     sortBy: parseSortBy(searchParams.get("sortBy")),
     sortDirection: searchParams.get("sortDirection") === "asc" ? "asc" : "desc",
+    sourcePickerKey: searchParams.get("sourcePickerKey"),
+    sourceShopperId: searchParams.get("sourceShopperId"),
     sourceVendorId: searchParams.get("sourceVendorId"),
     unmappedOnly: searchParams.get("unmappedOnly") === "true",
     vendorId: searchParams.get("vendorId"),
@@ -1026,6 +1302,25 @@ function activeReportContexts(filters: ParsedReportFilters): ActiveContext[] {
     });
   }
 
+  if (filters.pickerId || filters.sourceShopperId || filters.sourcePickerKey || filters.pickerLabel) {
+    contexts.push({
+      label: "Picker",
+      value:
+        filters.pickerLabel ??
+        filters.sourceShopperId ??
+        filters.sourcePickerKey ??
+        filters.pickerId ??
+        "Selected"
+    });
+  }
+
+  if (filters.search) {
+    contexts.push({
+      label: "Search",
+      value: filters.search
+    });
+  }
+
   if (filters.pickerSearch) {
     contexts.push({
       label: "Picker search",
@@ -1034,6 +1329,46 @@ function activeReportContexts(filters: ParsedReportFilters): ActiveContext[] {
   }
 
   return contexts;
+}
+
+function chainSelectValue(filters: ParsedReportFilters) {
+  if (filters.unmappedOnly) {
+    return "unmapped";
+  }
+
+  return filters.chainId ? `chain:${filters.chainId}` : "all";
+}
+
+function vendorSelectValue(filters: ParsedReportFilters) {
+  if (filters.vendorId) {
+    return `vendor:${filters.vendorId}`;
+  }
+
+  return filters.sourceVendorId ? `source:${filters.sourceVendorId}` : "all";
+}
+
+function pickerSelectValue(filters: ParsedReportFilters) {
+  if (filters.pickerId) {
+    return `picker:${filters.pickerId}`;
+  }
+
+  if (filters.sourceShopperId) {
+    return `shopper:${filters.sourceShopperId}`;
+  }
+
+  return filters.sourcePickerKey ? `key:${filters.sourcePickerKey}` : "all";
+}
+
+function pickerOptionValue(option: OrdersKpiPerformanceFilterOption) {
+  if (option.id) {
+    return `picker:${option.id}`;
+  }
+
+  if (option.sourceShopperId) {
+    return `shopper:${option.sourceShopperId}`;
+  }
+
+  return option.sourcePickerKey ? `key:${option.sourcePickerKey}` : "all";
 }
 
 function getRowLabel(row: OrdersKpiPerformanceRow) {
@@ -1107,6 +1442,56 @@ function metricToneClasses(tone: MetricTone) {
   return classes[tone];
 }
 
+function getDeltaTone(metric: MetricDefinition, delta: number) {
+  if (delta === 0) {
+    return "text-slate-500";
+  }
+
+  const lowerIsBetter = metric.key !== "totalOrders";
+  const isGood = lowerIsBetter ? delta < 0 : delta > 0;
+  return isGood ? "text-emerald-700" : "text-rose-700";
+}
+
+function targetTone(target: OrdersKpiMetricTargetEvaluation | undefined | null) {
+  if (!target) {
+    return "text-slate-500";
+  }
+
+  return target.status === "OUT_OF_TARGET"
+    ? "text-rose-700"
+    : "text-emerald-700";
+}
+
+function formatTargetLine(target: OrdersKpiMetricTargetEvaluation) {
+  return `${percentFormatter.format(target.rate)}% / target <= ${percentFormatter.format(
+    target.target
+  )}%`;
+}
+
+function formatDelta(
+  comparison: OrdersKpiMetricComparison | null,
+  valueType: MetricDefinition["valueType"]
+) {
+  if (!comparison) {
+    return "No previous period";
+  }
+
+  if (comparison.delta === 0) {
+    return "No change";
+  }
+
+  const value =
+    valueType === "percent"
+      ? `${formatSignedPercentagePoints(comparison.delta)} pp`
+      : formatSignedNumber(comparison.delta);
+  const percent =
+    comparison.deltaPercent === null
+      ? ""
+      : ` (${formatSignedPercent(comparison.deltaPercent)})`;
+
+  return `${value}${percent}`;
+}
+
 function formatMetricValue(value: number, valueType: MetricDefinition["valueType"]) {
   if (valueType === "percent") {
     return `${percentFormatter.format(value)}%`;
@@ -1117,6 +1502,23 @@ function formatMetricValue(value: number, valueType: MetricDefinition["valueType
 
 function formatNumber(value: number) {
   return numberFormatter.format(value);
+}
+
+function formatSignedNumber(value: number) {
+  return `${value > 0 ? "+" : ""}${formatNumber(value)}`;
+}
+
+function formatSignedPercent(value: number) {
+  return `${value > 0 ? "+" : ""}${percentFormatter.format(value)}%`;
+}
+
+function formatSignedPercentagePoints(value: number) {
+  return `${value > 0 ? "+" : ""}${percentFormatter.format(value)}`;
+}
+
+function roundNumber(value: number, digits: number) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
 }
 
 function getErrorMessage(error: unknown) {
