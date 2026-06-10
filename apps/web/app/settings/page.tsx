@@ -1,14 +1,14 @@
 import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
-import { AppearanceSettingsPage } from "@/components/settings/appearance-settings-page";
+import { SettingsHubPage } from "@/components/settings/settings-hub-page";
 
 export default function SettingsPage() {
   return (
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
-      description="Personal appearance controls for your SuperNova workspace."
+      description="Workspace preferences and system configuration."
       title="Settings"
     >
-      <AppearanceSettingsPage />
+      <SettingsHubPage />
     </DashboardFrame>
   );
 }

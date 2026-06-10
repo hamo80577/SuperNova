@@ -1,5 +1,6 @@
 import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
 import { OrdersKpiTargetSettingsPage } from "@/components/orders-kpis/orders-kpi-target-settings-page";
+import { SettingsBackLink } from "@/components/settings/settings-back-link";
 
 export default function AdminOrdersKpiTargetsSettingsPage() {
   return (
@@ -8,6 +9,7 @@ export default function AdminOrdersKpiTargetsSettingsPage() {
       description="Global Orders KPI target thresholds."
       title="Orders KPI Targets"
     >
+      <SettingsBackLink />
       <OrdersKpiTargetSettingsPage />
     </DashboardFrame>
   );
