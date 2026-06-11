@@ -44,6 +44,10 @@ export const PermissionKeys = {
   REQUESTS_CREATE_RESIGNATION_AREA_MANAGER:
     "requests.resignation.area_manager.create",
   REQUESTS_CREATE_TRANSFER_PICKER: "requests.transfer.picker.create",
+  REQUESTS_CREATE_DEDUCTION_PICKER: "requests.deduction.picker.create",
+  REQUESTS_CREATE_DEDUCTION_CHAMP: "requests.deduction.champ.create",
+  DEDUCTIONS_VIEW: "deductions.view",
+  DEDUCTIONS_POLICY_MANAGE: "deductions.policy.manage",
   REQUESTS_CANCEL: "requests.cancel",
   APPROVALS_VIEW_PENDING: "approvals.pending.view",
   APPROVALS_DECIDE_CHAIN: "approvals.chain.decide",
@@ -184,6 +188,46 @@ export const PERMISSION_DEFINITIONS = [
     label: "Create Picker Transfer requests",
     description: "Create Picker Transfer workflow requests within allowed scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.HIGH,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_DEDUCTION_PICKER,
+    label: "Create Picker Deduction tickets",
+    description:
+      "Create Deduction tickets for Pickers within allowed branch or chain scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.MEDIUM,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.REQUESTS_CREATE_DEDUCTION_CHAMP,
+    label: "Create Champ Deduction tickets",
+    description:
+      "Create Deduction tickets for Champs within allowed chain scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.MEDIUM,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.DEDUCTIONS_VIEW,
+    label: "View deductions",
+    description:
+      "View deduction cases within the actor's allowed scope (own records for Pickers).",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.LOW,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.DEDUCTIONS_POLICY_MANAGE,
+    label: "Manage deduction policy",
+    description:
+      "Manage deduction policy versions, actions, and occurrence rules.",
+    group: PermissionGroups.SYSTEM_SETTINGS,
     riskLevel: PermissionRiskLevels.HIGH,
     assignable: true,
     systemOnly: false

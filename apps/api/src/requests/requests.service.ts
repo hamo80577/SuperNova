@@ -10,6 +10,7 @@ import {
   ApprovalStatus,
   AssignmentStatus,
   Chain,
+  DeductionCaseStatus,
   Prisma,
   Request,
   RequestStatus,
@@ -154,6 +155,20 @@ export class RequestsService {
       throw new ForbiddenException("Pickers cannot create lifecycle requests.");
     }
 
+    // Every live request type routes to a dedicated Branch-first endpoint; the
+    // four known types throw with a redirect below and no other type uses the
+    // generic DRAFT path. Reject anything outside that set explicitly so an
+    // unsupported value can never reach an unvalidated DB insert.
+    const supportedTypes: RequestType[] = [
+      RequestType.NEW_HIRE,
+      RequestType.RESIGNATION,
+      RequestType.TRANSFER,
+      RequestType.DEDUCTION
+    ];
+    if (!supportedTypes.includes(dto.type)) {
+      throw new BadRequestException("Unsupported request type.");
+    }
+
     if (dto.type === RequestType.NEW_HIRE) {
       throw new BadRequestException(
         "Use the Branch-first New Hire workflow endpoint."
@@ -169,6 +184,12 @@ export class RequestsService {
     if (dto.type === RequestType.TRANSFER) {
       throw new BadRequestException(
         "Use the Branch-first Transfer workflow endpoint."
+      );
+    }
+
+    if (dto.type === RequestType.DEDUCTION) {
+      throw new BadRequestException(
+        "Use the Deduction ticket workflow endpoint."
       );
     }
 
@@ -395,6 +416,21 @@ export class RequestsService {
         data: { status: ApprovalStatus.SKIPPED }
       });
 
+      if (request.type === RequestType.DEDUCTION) {
+        // Mirror of DeductionsService.markCaseTerminalInTransaction. RequestsModule
+        // cannot import DeductionsModule (DeductionsModule depends on
+        // RequestApprovalRoutingService here, which would create a cycle), so the
+        // PENDING_APPROVAL -> CANCELLED transition is inlined. Keep it in sync
+        // with that method if the open-status rule ever changes.
+        await tx.deductionCase.updateMany({
+          where: {
+            requestId: request.id,
+            status: DeductionCaseStatus.PENDING_APPROVAL
+          },
+          data: { status: DeductionCaseStatus.CANCELLED }
+        });
+      }
+
       return tx.request.update({
         where: { id: request.id },
         data: {
@@ -462,11 +498,24 @@ export class RequestsService {
       return true;
     }
 
-    if (request.createdById === user.id || request.targetUserId === user.id) {
+    if (request.createdById === user.id) {
       return true;
     }
 
-    if (await this.userCanViewRequestByOperationalScope(request, user)) {
+    // Deduction requests stay hidden from the target and from operational
+    // supervisors in the generic requests view; they read EFFECTIVE records
+    // through the deductions module (which hides pending cases from targets).
+    // Only the creator, the step approvers, and admins can open them here.
+    const isDeduction = request.type === RequestType.DEDUCTION;
+
+    if (!isDeduction && request.targetUserId === user.id) {
+      return true;
+    }
+
+    if (
+      !isDeduction &&
+      (await this.userCanViewRequestByOperationalScope(request, user))
+    ) {
       return true;
     }
 
@@ -625,9 +674,16 @@ export class RequestsService {
       return { createdById: currentUser.id };
     }
 
+    // Deduction requests are excluded from target-based and operational-scope
+    // visibility here; targets/supervisors read them through /deductions, while
+    // the creator and step approvers still match via the branches below.
+    const notDeduction: Prisma.RequestWhereInput = {
+      type: { not: RequestType.DEDUCTION }
+    };
+
     const baseVisibility: Prisma.RequestWhereInput[] = [
       { createdById: currentUser.id },
-      { targetUserId: currentUser.id },
+      { targetUserId: currentUser.id, ...notDeduction },
       { approvals: { some: { approverId: currentUser.id } } }
     ];
 
@@ -642,8 +698,8 @@ export class RequestsService {
       const vendorIds = scopedVendors.map((assignment) => assignment.vendorId);
       if (vendorIds.length) {
         baseVisibility.push(
-          { sourceVendorId: { in: vendorIds } },
-          { destinationVendorId: { in: vendorIds } }
+          { sourceVendorId: { in: vendorIds }, ...notDeduction },
+          { destinationVendorId: { in: vendorIds }, ...notDeduction }
         );
       }
     }
@@ -659,8 +715,8 @@ export class RequestsService {
       const chainIds = scopedChains.map((assignment) => assignment.chainId);
       if (chainIds.length) {
         baseVisibility.push(
-          { sourceChainId: { in: chainIds } },
-          { destinationChainId: { in: chainIds } }
+          { sourceChainId: { in: chainIds }, ...notDeduction },
+          { destinationChainId: { in: chainIds }, ...notDeduction }
         );
       }
     }

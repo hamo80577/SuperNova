@@ -12,6 +12,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 
 import { syncSystemAccessRoles } from "./access-role-seed";
+import { seedDeductionPolicy } from "./seed-deduction-policy";
 
 const prisma = new PrismaClient();
 const PASSWORD_HASH_ROUNDS = 12;
@@ -63,6 +64,7 @@ async function main() {
 
   await removeLocalDemoData();
   await seedBranchData();
+  await seedDeductionPolicy(prisma);
 }
 
 async function removeLocalDemoData() {

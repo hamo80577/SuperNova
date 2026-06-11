@@ -52,7 +52,9 @@ import { cn } from "@/lib/utils";
 import { OperationalUserProfileModal } from "./operational-user-profile-modal";
 import { UserAvatar } from "./user-avatar";
 import {
+  getAllowedDeductionTargetRoles,
   getAllowedResignationTargetRoles,
+  isDeductionTargetRole,
   isResignationTargetRole,
   UsersActionsMenu,
   type UsersActionHandlers
@@ -406,6 +408,7 @@ export function UsersAreaPage() {
     ) ?? null;
   const selectedUser = selectedItem?.user ?? null;
   const allowedResignationRoles = getAllowedResignationTargetRoles(user?.role);
+  const allowedDeductionRoles = getAllowedDeductionTargetRoles(user?.role);
   const showAdminFilters = viewerIsAdmin;
 
   useEffect(() => {
@@ -520,6 +523,33 @@ export function UsersAreaPage() {
     });
   }
 
+  function openDeduction(target: UsersAreaItem) {
+    setRequestError(null);
+
+    if (!isDeductionTargetRole(target.user.role)) {
+      return;
+    }
+
+    const activeAssignment =
+      target.assignment?.status === "ACTIVE" ? target.assignment : null;
+
+    setRequestDraft({
+      initialTarget: {
+        chainId: activeAssignment ? target.chain?.id : undefined,
+        chainName: activeAssignment ? target.chain?.chainName : undefined,
+        ibsId: "ibsId" in target.user ? target.user.ibsId : null,
+        name: target.user.nameEn,
+        role: target.user.role,
+        shopperId: "shopperId" in target.user ? target.user.shopperId : null,
+        userId: target.user.id,
+        vendorId: activeAssignment ? target.vendor?.id : undefined,
+        vendorName: activeAssignment ? target.vendor?.vendorName : undefined
+      },
+      targetRole: target.user.role,
+      type: "DEDUCTION"
+    });
+  }
+
   function handleCreated() {
     setRequestDraft(null);
     refreshUsersArea();
@@ -527,6 +557,7 @@ export function UsersAreaPage() {
 
   const userActions: UsersActionHandlers = {
     activeMenuKey: openActionMenu,
+    onOpenDeduction: openDeduction,
     onOpenResignation: openResignation,
     onOpenTransfer: (item) => void openTransfer(item),
     onToggleMenu: (key) =>
@@ -588,6 +619,22 @@ export function UsersAreaPage() {
       {selectedUserId ? (
         <OperationalUserProfileModal
           actions={{
+            onDeduction: allowedDeductionRoles.length
+              ? (profileUser, profile) => {
+                  if (
+                    !isDeductionTargetRole(profileUser.role) ||
+                    !allowedDeductionRoles.includes(profileUser.role)
+                  ) {
+                    return;
+                  }
+
+                  if (profile) {
+                    openDeduction(toUsersAreaItemFromProfile(profile));
+                  } else if (selectedItem) {
+                    openDeduction(selectedItem);
+                  }
+                }
+              : undefined,
             onResignation:
               selectedUser &&
               isResignationTargetRole(selectedUser.role) &&

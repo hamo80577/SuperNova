@@ -10,7 +10,7 @@ import { RequestStatusBadge } from "../shared/request-badges";
 import { EmptyState } from "../shared/request-empty-state";
 import { Definition } from "../shared/request-field";
 import { InfoCard } from "../shared/request-info-card";
-import { formatEnum, formatOffboardingBlockDecision, parseNewHirePayload, parseOffboardingPayload, parseTransferPayload } from "../shared/request-utils";
+import { formatEnum, formatOffboardingBlockDecision, parseDeductionPayload, parseNewHirePayload, parseOffboardingPayload, parseTransferPayload } from "../shared/request-utils";
 
 export function RequestTypePanel({ request }: { request: RequestDetail }) {
   if (request.type === "NEW_HIRE") {
@@ -25,8 +25,86 @@ export function RequestTypePanel({ request }: { request: RequestDetail }) {
     );
   }
 
+  if (request.type === "DEDUCTION") {
+    return <DeductionRequestDetailPanel request={request} />;
+  }
+
   return (
     <ResignationRequestDetailPanel request={request} />
+  );
+}
+
+export function DeductionRequestDetailPanel({ request }: { request: RequestDetail }) {
+  const context = parseDeductionPayload(request.payload);
+
+  if (!context) {
+    return (
+      <InfoCard title="Deduction">
+        <EmptyState message="No Deduction context is available." compact />
+      </InfoCard>
+    );
+  }
+
+  return (
+    <InfoCard title="Deduction">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <PickerAvatar name={request.targetUser?.nameEn ?? context.targetName} />
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-slate-950">
+                {request.targetUser?.nameEn ?? context.targetName}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {request.sourceVendor?.vendorName ?? context.sourceVendorName} ·{" "}
+                {request.sourceChain?.chainName ?? context.sourceChainName}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+              {formatEnum(context.targetRole)}
+            </Badge>
+            <RequestStatusBadge status={request.status} />
+          </div>
+        </div>
+
+        <div className="grid gap-0 p-4">
+          <ProfileRow label="Action" value={context.actionName} />
+          <ProfileRow label="Incident date" value={formatDateValue(context.incidentDate)} />
+          <ProfileRow label="Incident month" value={context.incidentMonth} />
+          <ProfileRow
+            label="Occurrence"
+            value={`Occurrence ${context.occurrenceNumber} in ${context.incidentMonth}`}
+          />
+          <ProfileRow label="Penalty" value={context.penaltyLabel} />
+          <ProfileRow label="Penalty type" value={formatEnum(context.penaltyType)} />
+          {context.deductionDays !== null ? (
+            <ProfileRow
+              label="Deduction days"
+              value={String(context.deductionDays)}
+            />
+          ) : null}
+          <ProfileRow
+            label="Policy version"
+            value={
+              context.policyVersionNumber !== null
+                ? `Version ${context.policyVersionNumber}`
+                : "Not available"
+            }
+          />
+          <ProfileRow
+            copyValue={request.targetUser?.shopperId ?? context.targetShopperId}
+            label="Shopper ID"
+            value={
+              request.targetUser?.shopperId ?? context.targetShopperId ?? "Not available"
+            }
+          />
+          <ProfileRow label="Reason" value={context.reason ?? "Not provided"} />
+          <ProfileRow label="Notes" value={context.notes ?? "None"} />
+        </div>
+      </div>
+    </InfoCard>
   );
 }
 

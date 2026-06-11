@@ -1,4 +1,4 @@
-import { MoveRight, ShieldAlert, UserPlus } from "lucide-react";
+import { MinusCircle, MoveRight, ShieldAlert, UserPlus } from "lucide-react";
 import { type NewHireTargetRole, type OffboardingBlockDecision, type RequestSummary, type RequestType, offboardingBlockDecisionLabels } from "@/lib/api/requests";
 
 export type DisplayOffboardingBlockDecision =
@@ -23,6 +23,7 @@ export function getRequestIcon(type: RequestType) {
   if (type === "NEW_HIRE") return UserPlus;
   if (type === "TRANSFER") return MoveRight;
   if (type === "RESIGNATION") return ShieldAlert;
+  if (type === "DEDUCTION") return MinusCircle;
   return ShieldAlert;
 }
 
@@ -48,6 +49,20 @@ export function getRequestPrimaryContext(request: RequestSummary) {
     };
   }
 
+  if (request.type === "DEDUCTION") {
+    const context = parseDeductionPayload(request.payload);
+    return {
+      title: request.targetUser?.nameEn ?? "Deduction ticket",
+      subtitle: context
+        ? `${context.actionName} · Occurrence ${context.occurrenceNumber} · ${context.penaltyLabel}`
+        : `Deduction · ${
+            request.sourceVendor?.vendorName ??
+            request.sourceChain?.chainName ??
+            "No assignment context"
+          }`
+    };
+  }
+
   return {
     title: request.targetUser?.nameEn ?? formatEnum(request.type),
     subtitle: `Last working day request · ${
@@ -55,6 +70,102 @@ export function getRequestPrimaryContext(request: RequestSummary) {
       request.sourceChain?.chainName ??
       "No assignment context"
     }`
+  };
+}
+
+export function parseDeductionPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null;
+  }
+
+  const objectPayload = payload as Record<string, unknown>;
+  const deduction = objectPayload.deduction;
+  const source = objectPayload.source;
+  const target = objectPayload.target;
+
+  if (
+    !deduction ||
+    typeof deduction !== "object" ||
+    Array.isArray(deduction) ||
+    !source ||
+    typeof source !== "object" ||
+    Array.isArray(source) ||
+    !target ||
+    typeof target !== "object" ||
+    Array.isArray(target)
+  ) {
+    return null;
+  }
+
+  const deductionPayload = deduction as Record<string, unknown>;
+  const sourcePayload = source as Record<string, unknown>;
+  const targetPayload = target as Record<string, unknown>;
+
+  if (deductionPayload.type !== "DEDUCTION") {
+    return null;
+  }
+
+  return {
+    actionName:
+      typeof deductionPayload.actionName === "string"
+        ? deductionPayload.actionName
+        : "Deduction",
+    actionCode:
+      typeof deductionPayload.actionCode === "string"
+        ? deductionPayload.actionCode
+        : "UNKNOWN",
+    policyVersionNumber:
+      typeof deductionPayload.policyVersionNumber === "number"
+        ? deductionPayload.policyVersionNumber
+        : null,
+    incidentDate:
+      typeof deductionPayload.incidentDate === "string"
+        ? deductionPayload.incidentDate
+        : "Not set",
+    incidentMonth:
+      typeof deductionPayload.incidentMonth === "string"
+        ? deductionPayload.incidentMonth
+        : "Not set",
+    occurrenceNumber:
+      typeof deductionPayload.occurrenceNumber === "number"
+        ? deductionPayload.occurrenceNumber
+        : 1,
+    penaltyType:
+      deductionPayload.penaltyType === "WARNING" ||
+      deductionPayload.penaltyType === "DEDUCTION_DAYS" ||
+      deductionPayload.penaltyType === "LIFECYCLE_REVIEW_REQUIRED"
+        ? deductionPayload.penaltyType
+        : "WARNING",
+    deductionDays:
+      typeof deductionPayload.deductionDays === "number"
+        ? deductionPayload.deductionDays
+        : null,
+    penaltyLabel:
+      typeof deductionPayload.penaltyLabel === "string"
+        ? deductionPayload.penaltyLabel
+        : "Not set",
+    reason:
+      typeof deductionPayload.reason === "string"
+        ? deductionPayload.reason
+        : undefined,
+    notes:
+      typeof deductionPayload.notes === "string"
+        ? deductionPayload.notes
+        : undefined,
+    sourceVendorName:
+      typeof sourcePayload.vendorName === "string"
+        ? sourcePayload.vendorName
+        : "Not available",
+    sourceChainName:
+      typeof sourcePayload.chainName === "string"
+        ? sourcePayload.chainName
+        : "Not available",
+    targetName:
+      typeof targetPayload.name === "string" ? targetPayload.name : "Not available",
+    targetRole:
+      targetPayload.targetRole === "CHAMP" ? "CHAMP" : "PICKER",
+    targetShopperId:
+      typeof targetPayload.shopperId === "string" ? targetPayload.shopperId : null
   };
 }
 

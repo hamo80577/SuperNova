@@ -9,6 +9,7 @@ import {
   Home,
   KeyRound,
   Map,
+  MinusCircle,
   Settings,
   ShieldCheck,
   Store,
@@ -41,6 +42,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Tickets",
       href: "/tickets",
       icon: ClipboardList,
+      section: "Operations"
+    },
+    {
+      label: "Deductions",
+      href: "/deductions",
+      icon: MinusCircle,
       section: "Operations"
     },
     {
@@ -95,6 +102,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Requests & Approvals"
     },
     {
+      label: "Deductions",
+      href: "/deductions",
+      icon: MinusCircle,
+      section: "Requests & Approvals"
+    },
+    {
       label: "Reports",
       href: "/champ/reports",
       icon: BarChart3,
@@ -146,6 +159,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Requests & Approvals"
     },
     {
+      label: "Deductions",
+      href: "/deductions",
+      icon: MinusCircle,
+      section: "Requests & Approvals"
+    },
+    {
       label: "Reports",
       href: "/area-manager/reports",
       icon: BarChart3,
@@ -187,6 +206,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Tickets",
       href: "/tickets",
       icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Deductions",
+      href: "/deductions",
+      icon: MinusCircle,
       section: "Requests & Approvals"
     },
     {
@@ -249,6 +274,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "Tickets",
       href: "/tickets",
       icon: ClipboardList,
+      section: "Requests & Approvals"
+    },
+    {
+      label: "Deductions",
+      href: "/deductions",
+      icon: MinusCircle,
       section: "Requests & Approvals"
     },
     {

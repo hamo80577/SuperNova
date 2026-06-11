@@ -12,6 +12,7 @@ import {
   KeyRound,
   Loader2,
   MessageCircle,
+  MinusCircle,
   MoreHorizontal,
   Plus,
   Search,
@@ -35,7 +36,12 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
-import { DetailPanelSkeleton } from "@/components/ui/skeleton";
+import { DetailPanelSkeleton, Skeleton } from "@/components/ui/skeleton";
+import {
+  deductionsApi,
+  isDeductionTargetRole,
+  type DeductionListResponse
+} from "@/lib/api/deductions";
 import { organizationApi, type Chain } from "@/lib/api/organization";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import {
@@ -46,6 +52,12 @@ import {
 } from "@/lib/api/users";
 import type { SafeUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
+import {
+  currentMonthValue,
+  DeductionStatusBadge,
+  formatDeductionDays,
+  formatOrdinal
+} from "@/components/deductions/deduction-format";
 import { AdminProfileEditDialog } from "./admin-profile-edit-dialog";
 import { PasswordAccessDialog } from "./password-access-dialog";
 import { PickerProfileOverview } from "./picker-profile-overview";
@@ -69,6 +81,7 @@ type LoadState =
 export interface OperationalUserProfileActions {
   onTransfer?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
   onResignation?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
+  onDeduction?: (user: SafeUser, profile?: OperationalProfileResponse) => void;
 }
 
 export function OperationalUserProfileModal({
@@ -278,6 +291,8 @@ function ProfileHeaderActions({
       user.role === "CHAMP" ||
       user.role === "AREA_MANAGER") &&
     Boolean(actions?.onResignation);
+  const canDeduct =
+    isDeductionTargetRole(user.role) && Boolean(actions?.onDeduction);
   const canEdit =
     allowDirectProfileMutation &&
     profile.permissions.canEditProfile &&
@@ -285,7 +300,7 @@ function ProfileHeaderActions({
   const canPassword =
     allowDirectProfileMutation && hasPasswordAccess(profile);
 
-  if (!canTransfer && !canResign && !canEdit && !canPassword) {
+  if (!canTransfer && !canResign && !canDeduct && !canEdit && !canPassword) {
     return null;
   }
 
@@ -325,6 +340,17 @@ function ProfileHeaderActions({
               tone="blue"
             />
           ) : null}
+          {canDeduct ? (
+            <HeaderMenuAction
+              icon={<MinusCircle className="h-4 w-4" />}
+              label="Add deduction"
+              onClick={() => {
+                setOpen(false);
+                actions?.onDeduction?.(user, profile);
+              }}
+              tone="amber"
+            />
+          ) : null}
           {canResign ? (
             <HeaderMenuAction
               icon={<UserMinus className="h-4 w-4" />}
@@ -362,12 +388,13 @@ function HeaderMenuAction({
   icon: ReactNode;
   label: string;
   onClick: () => void;
-  tone: "blue" | "red" | "slate";
+  tone: "amber" | "blue" | "red" | "slate";
 }) {
   return (
     <button
       className={cn(
         "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+        tone === "amber" && "text-amber-700 hover:bg-amber-50",
         tone === "blue" && "text-blue-700 hover:bg-blue-50",
         tone === "red" && "text-red-700 hover:bg-red-50",
         tone === "slate" && "text-slate-700 hover:bg-slate-50"
@@ -411,7 +438,9 @@ function PickerProfileCard({
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
-  const [tab, setTab] = useState<"overview" | "requests" | "activity">("overview");
+  const [tab, setTab] = useState<
+    "overview" | "requests" | "deductions" | "activity"
+  >("overview");
 
   return (
     <div className="grid gap-4">
@@ -421,6 +450,7 @@ function PickerProfileCard({
         tabs={[
           { id: "overview", label: "Overview" },
           { id: "requests", label: "Related Requests" },
+          { id: "deductions", label: "Deductions" },
           { id: "activity", label: "Recent Activity" }
         ]}
       />
@@ -433,6 +463,8 @@ function PickerProfileCard({
         </div>
       ) : tab === "requests" ? (
         <RelatedRequestsPanel profile={profile} />
+      ) : tab === "deductions" ? (
+        <UserDeductionsPanel userId={profile.user.id} />
       ) : (
         <ActivityPanel profile={profile} />
       )}
@@ -447,7 +479,9 @@ function ChampProfileCard({
   profile: OperationalProfileResponse;
   whatsappHref: string;
 }) {
-  const [tab, setTab] = useState<"overview" | "branches" | "log">("overview");
+  const [tab, setTab] = useState<
+    "overview" | "branches" | "deductions" | "log"
+  >("overview");
 
   return (
     <div className="grid gap-4">
@@ -457,6 +491,7 @@ function ChampProfileCard({
         tabs={[
           { id: "overview", label: "Overview" },
           { id: "branches", label: "Branches" },
+          { id: "deductions", label: "Deductions" },
           { id: "log", label: "Champ Log" }
         ]}
       />
@@ -471,6 +506,8 @@ function ChampProfileCard({
           emptyLabel="No active or historical Branch assignments found."
           title="Branch assignments"
         />
+      ) : tab === "deductions" ? (
+        <UserDeductionsPanel userId={profile.user.id} />
       ) : (
         <ActivityPanel profile={profile} title="Champ Log" />
       )}
@@ -985,7 +1022,11 @@ function ProfileTabs<TabId extends string>({
     <div
       className={cn(
         "grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1",
-        tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"
+        tabs.length === 4
+          ? "grid-cols-2 sm:grid-cols-4"
+          : tabs.length === 3
+            ? "grid-cols-3"
+            : "grid-cols-2"
       )}
     >
       {tabs.map((tab) => (
@@ -1240,6 +1281,121 @@ function RelatedRequestsPanel({
           requestId={selectedRequestId}
         />
       ) : null}
+    </section>
+  );
+}
+
+type UserDeductionsState =
+  | { status: "loading"; data?: never; error?: never }
+  | { status: "error"; error: string; data?: never }
+  | { status: "ready"; data: DeductionListResponse; error?: never };
+
+function UserDeductionsPanel({ userId }: { userId: string }) {
+  const [month, setMonth] = useState(currentMonthValue);
+  const [state, setState] = useState<UserDeductionsState>({
+    status: "loading"
+  });
+
+  useEffect(() => {
+    let alive = true;
+    setState({ status: "loading" });
+
+    deductionsApi
+      .list({ month, pageSize: 50, targetUserId: userId })
+      .then((data) => {
+        if (alive) {
+          setState({ data, status: "ready" });
+        }
+      })
+      .catch((caughtError) => {
+        if (alive) {
+          setState({
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load deductions.",
+            status: "error"
+          });
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [month, userId]);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-slate-950">Deductions</h3>
+          {state.status === "ready" ? (
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              {state.data.summary.effectiveCount} effective ·{" "}
+              {formatDeductionDays(Number(state.data.summary.deductionDaysTotal))}{" "}
+              days
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              Deduction records for the selected month.
+            </p>
+          )}
+        </div>
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:w-44">
+          <span className="sr-only">Month</span>
+          <Input
+            aria-label="Deductions month"
+            className="h-11 rounded-xl"
+            onChange={(event) => setMonth(event.target.value)}
+            type="month"
+            value={month}
+          />
+        </label>
+      </div>
+
+      <div className="mt-3">
+        {state.status === "loading" ? (
+          <div aria-busy="true" className="grid gap-2" role="status">
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </div>
+        ) : state.status === "error" ? (
+          <p className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            {state.error}
+          </p>
+        ) : state.data.items.length ? (
+          <ul className="divide-y divide-slate-100">
+            {state.data.items.map((item) => (
+              <li
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3"
+                key={item.id}
+              >
+                <span className="text-sm font-semibold text-slate-950">
+                  {item.actionName}
+                </span>
+                <Badge
+                  className="border-slate-200 bg-slate-50 text-slate-600"
+                  variant="outline"
+                >
+                  {formatOrdinal(item.occurrenceNumber)}
+                </Badge>
+                <span className="text-sm text-slate-600">
+                  {item.penaltyLabel}
+                </span>
+                <DeductionStatusBadge status={item.status} />
+                <span className="text-xs font-medium text-slate-500">
+                  {formatDate(item.incidentDate)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+            No deductions for this month.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import {
 import {
   ApprovalStatus,
   ApprovalStep,
+  DeductionCaseStatus,
   Prisma,
   RequestApproval,
   RequestStatus,
@@ -23,6 +24,7 @@ import {
 import { PermissionKeys } from "../access-control/permissions";
 import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { DeductionsService } from "../deductions/deductions.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -61,6 +63,8 @@ export class ApprovalsService {
     private readonly prisma: PrismaService,
     @Inject(RequestsService)
     private readonly requestsService: RequestsService,
+    @Inject(DeductionsService)
+    private readonly deductionsService: DeductionsService,
     @Inject(AccessPolicyService)
     private readonly accessPolicy: AccessPolicyService
   ) {}
@@ -169,6 +173,16 @@ export class ApprovalsService {
       return this.requestsService.approveTransferApproval(
         approval.id,
         dto.notes,
+        context
+      );
+    }
+
+    if (
+      approval.request.type === RequestType.DEDUCTION &&
+      approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
+    ) {
+      return this.deductionsService.finalizeFromAdminApproval(
+        approval.id,
         context
       );
     }
@@ -287,6 +301,14 @@ export class ApprovalsService {
         },
         data: { status: ApprovalStatus.SKIPPED }
       });
+
+      if (approval.request.type === RequestType.DEDUCTION) {
+        await this.deductionsService.markCaseTerminalInTransaction(
+          tx,
+          approval.requestId,
+          DeductionCaseStatus.REJECTED
+        );
+      }
 
       return tx.request.update({
         where: { id: approval.requestId },

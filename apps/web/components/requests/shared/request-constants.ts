@@ -3,7 +3,8 @@ import { type OffboardingBlockDecision, type OffboardingReasonCode, type Request
 export const requestTypes: RequestType[] = [
   "NEW_HIRE",
   "RESIGNATION",
-  "TRANSFER"
+  "TRANSFER",
+  "DEDUCTION"
 ];
 
 export const offboardingReasonCodes: OffboardingReasonCode[] = [

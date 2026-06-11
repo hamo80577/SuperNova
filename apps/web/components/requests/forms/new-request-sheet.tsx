@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { DeductionRequestForm } from "@/components/deductions/deduction-request-form";
 import { type RequestSummary } from "@/lib/api/requests";
 import { NewHireRequestModal } from "./new-hire/new-hire-request-modal";
 import { RequestDiscardDialog } from "./request-discard-dialog";
@@ -31,13 +32,17 @@ export function NewRequestSheet({
         : "New Hire request"
       : draft.type === "RESIGNATION" && draft.targetRole
         ? `${formatEnum(draft.targetRole)} Resignation`
-        : `${formatEnum(draft.type)} request`;
+        : draft.type === "DEDUCTION"
+          ? "New Deduction Ticket"
+          : `${formatEnum(draft.type)} request`;
   const draftKey =
     draft.type === "NEW_HIRE"
       ? `${draft.type}:${draft.targetRole ?? "select"}`
       : draft.type === "RESIGNATION"
         ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialUser?.id ?? ""}`
-        : `${draft.type}:${draft.initialPicker?.user.id ?? ""}:${draft.initialPicker?.assignment?.id ?? ""}`;
+        : draft.type === "DEDUCTION"
+          ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialTarget?.userId ?? ""}`
+          : `${draft.type}:${draft.initialPicker?.user.id ?? ""}:${draft.initialPicker?.assignment?.id ?? ""}`;
 
   if (draft.type === "NEW_HIRE") {
     return (
@@ -96,7 +101,7 @@ export function NewRequestSheet({
               New request
             </Badge>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">
-              Create {title}
+              {draft.type === "DEDUCTION" ? title : `Create ${title}`}
             </h2>
           </div>
           <Button
@@ -124,6 +129,14 @@ export function NewRequestSheet({
             onCreated={onCreated}
             onDirtyChange={setIsDirty}
             type={draft.type}
+          />
+        ) : draft.type === "DEDUCTION" ? (
+          <DeductionRequestForm
+            initialTarget={draft.initialTarget}
+            initialTargetRole={draft.targetRole}
+            onCancel={requestClose}
+            onCreated={onCreated}
+            onDirtyChange={setIsDirty}
           />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">

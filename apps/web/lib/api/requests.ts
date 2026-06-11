@@ -2,7 +2,7 @@ import type { ChainSummary, UserSummary, VendorSummary } from "@/lib/api/workspa
 import { apiGet, apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 
-export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TRANSFER";
+export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TRANSFER" | "DEDUCTION";
 export type RequestStatus =
   | "DRAFT"
   | "PENDING_AREA_MANAGER"
@@ -528,6 +528,7 @@ export const requestsApi = {
     clearApiCache("/requests");
     clearApiCache("/approvals");
     clearApiCache("/workspaces");
+    clearApiCache("/deductions");
     return cancelled;
   }
 };

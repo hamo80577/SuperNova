@@ -53,7 +53,26 @@ export type NewRequestDraft =
   | {
       type: "TRANSFER";
       initialPicker?: InitialTransferPicker | null;
+    }
+  | {
+      type: "DEDUCTION";
+      targetRole?: DeductionDraftTargetRole;
+      initialTarget?: InitialDeductionTarget | null;
     };
+
+export type DeductionDraftTargetRole = "PICKER" | "CHAMP";
+
+export type InitialDeductionTarget = {
+  userId: string;
+  name: string;
+  role: DeductionDraftTargetRole;
+  shopperId: string | null;
+  ibsId: string | null;
+  vendorId?: string;
+  vendorName?: string;
+  chainId?: string;
+  chainName?: string;
+};
 
 export type InitialResignationUser = {
   id: string;

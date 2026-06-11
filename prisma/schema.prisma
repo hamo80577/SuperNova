@@ -90,6 +90,31 @@ enum RequestType {
   NEW_HIRE
   RESIGNATION
   TRANSFER
+  DEDUCTION
+}
+
+enum DeductionPolicyStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum DeductionActionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DeductionPenaltyType {
+  WARNING
+  DEDUCTION_DAYS
+  LIFECYCLE_REVIEW_REQUIRED
+}
+
+enum DeductionCaseStatus {
+  PENDING_APPROVAL
+  EFFECTIVE
+  REJECTED
+  CANCELLED
 }
 
 enum RequestStatus {
@@ -330,6 +355,10 @@ model User {
   rejectedOrdersKpiBatches    OrdersKpiImportBatch[]           @relation("OrdersKpiImportRejectedBy")
   ordersKpiStagingMatchedRows OrdersKpiImportStagingRow[]      @relation("OrdersKpiStagingMatchedUser")
   ordersKpiDailyMatchedRows   OrdersKpiDailyRecord[]           @relation("OrdersKpiDailyMatchedUser")
+  createdDeductionPolicies    DeductionPolicyVersion[]         @relation("DeductionPolicyCreatedBy")
+  createdDeductionCases       DeductionCase[]                  @relation("DeductionCaseCreatedBy")
+  targetedDeductionCases      DeductionCase[]                  @relation("DeductionCaseTargetUser")
+  finalApprovedDeductionCases DeductionCase[]                  @relation("DeductionCaseFinalApprovedBy")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -499,6 +528,7 @@ model Request {
   approvals           RequestApproval[]
   createdAssignments  PickerBranchAssignment[] @relation("RequestCreatedAssignments")
   hrSyncLogs          HrSyncLog[]
+  deductionCase       DeductionCase?
 
   @@index([status])
   @@index([status, currentStep])
@@ -532,6 +562,97 @@ model RequestApproval {
   @@index([status, step])
   @@index([requestId, step])
   @@index([requestId, status])
+}
+
+model DeductionPolicyVersion {
+  id            String                @id @default(uuid())
+  versionNumber Int                   @unique
+  status        DeductionPolicyStatus @default(DRAFT)
+  effectiveFrom DateTime?
+  createdById   String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  createdBy     User                  @relation("DeductionPolicyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  actions       DeductionAction[]
+  cases         DeductionCase[]
+
+  @@index([status])
+}
+
+model DeductionAction {
+  id              String                 @id @default(uuid())
+  policyVersionId String
+  code            String
+  name            String
+  description     String?
+  status          DeductionActionStatus  @default(ACTIVE)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  policyVersion   DeductionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  ruleSteps       DeductionRuleStep[]
+  cases           DeductionCase[]
+
+  @@unique([policyVersionId, code])
+  @@index([policyVersionId, status])
+}
+
+model DeductionRuleStep {
+  id                    String               @id @default(uuid())
+  actionId              String
+  occurrenceNumber      Int
+  appliesFromOccurrence Int?
+  penaltyType           DeductionPenaltyType
+  deductionDays         Decimal?             @db.Decimal(6, 2)
+  label                 String
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  action                DeductionAction      @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([actionId, occurrenceNumber])
+  @@index([actionId])
+}
+
+model DeductionCase {
+  id                 String               @id @default(uuid())
+  requestId          String               @unique
+  targetUserId       String
+  createdById        String
+  actionId           String?
+  policyVersionId    String
+  incidentDate       DateTime
+  incidentMonth      String
+  occurrenceNumber   Int
+  penaltyType        DeductionPenaltyType
+  deductionDays      Decimal?             @db.Decimal(6, 2)
+  penaltyLabel       String
+  actionNameSnapshot String
+  policySnapshot     Json
+  targetSnapshot     Json
+  scopeSnapshot      Json
+  reason             String?
+  notes              String?
+  status             DeductionCaseStatus  @default(PENDING_APPROVAL)
+  finalApprovedById  String?
+  finalApprovedAt    DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  request            Request              @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  targetUser         User                 @relation("DeductionCaseTargetUser", fields: [targetUserId], references: [id], onDelete: Restrict)
+  createdBy          User                 @relation("DeductionCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  action             DeductionAction?     @relation(fields: [actionId], references: [id], onDelete: SetNull)
+  policyVersion      DeductionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  finalApprovedBy    User?                @relation("DeductionCaseFinalApprovedBy", fields: [finalApprovedById], references: [id], onDelete: SetNull)
+
+  @@index([targetUserId, incidentMonth])
+  @@index([targetUserId, actionId, incidentMonth])
+  @@index([status])
+  @@index([status, incidentMonth])
+  @@index([createdById])
+  @@index([actionId, incidentMonth])
+  // A partial UNIQUE index on (targetUserId, actionId, incidentMonth,
+  // occurrenceNumber) WHERE status IN (PENDING_APPROVAL, EFFECTIVE) is created
+  // in migration 20260611090000_deduction_open_occurrence_unique. Prisma
+  // cannot express filtered unique indexes, so it lives in raw SQL only.
 }
 
 model HrSyncLog {

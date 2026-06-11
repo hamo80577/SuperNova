@@ -334,7 +334,11 @@ function buildStepDefinitions(request: RequestSummary): ProgressStepDefinition[]
     ];
   }
 
-  if (requestType === "NEW_HIRE" || requestType === "RESIGNATION") {
+  if (
+    requestType === "NEW_HIRE" ||
+    requestType === "RESIGNATION" ||
+    requestType === "DEDUCTION"
+  ) {
     const newHireContext =
       requestType === "NEW_HIRE" ? parseNewHirePayload(request.payload) : null;
     const resignationContext =

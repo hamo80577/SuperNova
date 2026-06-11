@@ -11,6 +11,7 @@ import { AccessControlModule } from "./access-control/access-control.module";
 import configuration from "./config/configuration";
 import { validateEnvironment } from "./config/env.validation";
 import { ChainsModule } from "./chains/chains.module";
+import { DeductionsModule } from "./deductions/deductions.module";
 import { HealthModule } from "./health/health.module";
 import { HrSyncModule } from "./hr-sync/hr-sync.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -40,6 +41,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     AssignmentsModule,
     RequestsModule,
     ApprovalsModule,
+    DeductionsModule,
     AccessControlModule,
     HrSyncModule,
     AttendanceModule,

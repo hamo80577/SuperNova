@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronRight, Palette, Target, type LucideIcon } from "lucide-react";
+import {
+  ChevronRight,
+  MinusCircle,
+  Palette,
+  Target,
+  type LucideIcon
+} from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "@/components/auth/auth-provider";
@@ -29,6 +35,14 @@ const systemSettingsLinks: SettingsLink[] = [
     href: "/admin/settings/orders-kpi-targets",
     icon: Target,
     label: "Orders KPI Targets",
+    roles: ["ADMIN", "SUPER_ADMIN"]
+  },
+  {
+    description:
+      "Occurrence rules and penalties applied by Deduction tickets.",
+    href: "/settings/deductions",
+    icon: MinusCircle,
+    label: "Deduction Policy",
     roles: ["ADMIN", "SUPER_ADMIN"]
   }
 ];

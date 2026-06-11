@@ -1,16 +1,23 @@
 "use client";
 
-import { ArrowRightLeft, MoreHorizontal, UserMinus } from "lucide-react";
+import { ArrowRightLeft, MinusCircle, MoreHorizontal, UserMinus } from "lucide-react";
 import type { ReactNode } from "react";
 
+import {
+  getAllowedDeductionTargetRoles,
+  isDeductionTargetRole
+} from "@/lib/api/deductions";
 import type { ResignationTargetRole } from "@/lib/api/requests";
 import type { UserSummary } from "@/lib/api/workspaces";
 import type { SafeUser, UserRole } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import type { UsersAreaItem } from "./users-area-types";
 
+export { getAllowedDeductionTargetRoles, isDeductionTargetRole };
+
 export type UsersActionHandlers = {
   activeMenuKey: string | null;
+  onOpenDeduction: (item: UsersAreaItem) => void;
   onOpenResignation: (user: UserSummary | SafeUser) => void;
   onOpenTransfer: (item: UsersAreaItem) => void;
   onToggleMenu: (key: string) => void;
@@ -21,6 +28,7 @@ export function UsersActionsMenu({
   activeMenuKey,
   align = "right",
   item,
+  onOpenDeduction,
   onOpenResignation,
   onOpenTransfer,
   onToggleMenu,
@@ -30,13 +38,17 @@ export function UsersActionsMenu({
   item: UsersAreaItem;
 }) {
   const allowedResignationRoles = getAllowedResignationTargetRoles(viewerRole);
+  const allowedDeductionRoles = getAllowedDeductionTargetRoles(viewerRole);
   const canTransfer = item.user.role === "PICKER";
   const canResign =
     isResignationTargetRole(item.user.role) &&
     allowedResignationRoles.includes(item.user.role);
+  const canDeduct =
+    isDeductionTargetRole(item.user.role) &&
+    allowedDeductionRoles.includes(item.user.role);
   const menuOpen = activeMenuKey === item.key;
 
-  if (!canTransfer && !canResign) {
+  if (!canTransfer && !canResign && !canDeduct) {
     return null;
   }
 
@@ -81,6 +93,17 @@ export function UsersActionsMenu({
               tone="blue"
             />
           ) : null}
+          {canDeduct ? (
+            <MenuAction
+              icon={<MinusCircle className="h-4 w-4" />}
+              label="Add deduction"
+              onClick={() => {
+                closeMenu();
+                onOpenDeduction(item);
+              }}
+              tone="amber"
+            />
+          ) : null}
           {canResign ? (
             <MenuAction
               icon={<UserMinus className="h-4 w-4" />}
@@ -107,12 +130,13 @@ function MenuAction({
   icon: ReactNode;
   label: string;
   onClick: () => void;
-  tone: "blue" | "red";
+  tone: "amber" | "blue" | "red";
 }) {
   return (
     <button
       className={cn(
         "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+        tone === "amber" && "text-amber-700 hover:bg-amber-50",
         tone === "blue" && "text-blue-700 hover:bg-blue-50",
         tone === "red" && "text-red-700 hover:bg-red-50"
       )}

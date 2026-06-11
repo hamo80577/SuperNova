@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { AccessControlModule } from "../access-control/access-control.module";
 import { AuditModule } from "../audit/audit.module";
+import { DeductionsModule } from "../deductions/deductions.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { RequestsModule } from "../requests/requests.module";
 import { UsersModule } from "../users/users.module";
@@ -14,6 +15,7 @@ import { ApprovalsService } from "./approvals.service";
   imports: [
     AccessControlModule,
     AuditModule,
+    DeductionsModule,
     JwtModule.register({}),
     NotificationsModule,
     RequestsModule,
