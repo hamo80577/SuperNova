@@ -26,7 +26,6 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { AttendanceDateRangeSelector } from "@/components/reports/attendance-date-range-selector";
 import {
-  formatDateLong,
   normalizeAttendanceDateRange,
   validateAttendanceDateRange,
   yesterdayIsoDate
@@ -163,7 +162,24 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2
 });
 
-export function OrdersKpiReportPage() {
+export type OrdersKpiReportWorkspaceVariant =
+  | "admin"
+  | "area-manager"
+  | "champ";
+
+const workspaceScopeNotes: Record<OrdersKpiReportWorkspaceVariant, string | null> = {
+  admin: null,
+  "area-manager":
+    "Showing Orders KPI records within your assigned chains.",
+  champ: "Showing Orders KPI records within your assigned vendors."
+};
+
+export function OrdersKpiReportPage({
+  variant = "admin"
+}: {
+  variant?: OrdersKpiReportWorkspaceVariant;
+} = {}) {
+  const scopeNote = workspaceScopeNotes[variant];
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -330,8 +346,16 @@ export function OrdersKpiReportPage() {
 
   return (
     <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-slate-50/60 p-3 sm:p-4">
-      <div className="flex w-full justify-end">
-        <div className="w-full sm:w-auto">
+      <div
+        className={cn(
+          "flex w-full flex-col gap-3 sm:flex-row sm:items-center",
+          scopeNote ? "sm:justify-between" : "sm:justify-end"
+        )}
+      >
+        {scopeNote ? (
+          <p className="text-xs leading-5 text-slate-500">{scopeNote}</p>
+        ) : null}
+        <div className="w-full shrink-0 sm:w-auto">
           <AttendanceDateRangeSelector
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}

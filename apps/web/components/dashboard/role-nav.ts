@@ -4,7 +4,6 @@ import {
   Bell,
   BarChart3,
   CalendarDays,
-  FileSpreadsheet,
   FileSearch,
   GitBranch,
   Home,
@@ -102,12 +101,6 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Attendance",
-      href: "/champ/reports/attendance",
-      icon: CalendarDays,
-      section: "Reports"
-    },
-    {
       label: "Notifications",
       href: "/notifications",
       icon: Bell,
@@ -159,12 +152,6 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Attendance",
-      href: "/area-manager/reports/attendance",
-      icon: CalendarDays,
-      section: "Reports"
-    },
-    {
       label: "Settings",
       href: "/settings",
       icon: Settings,
@@ -209,32 +196,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Orders KPI Report",
-      href: "/admin/reports/orders-kpi",
-      icon: FileSpreadsheet,
-      section: "Reports"
-    },
-    {
       label: "Imports",
       href: "/admin/imports",
-      icon: UploadCloud,
-      section: "Reports"
-    },
-    {
-      label: "Orders KPI Import",
-      href: "/admin/imports/orders-kpi",
-      icon: FileSpreadsheet,
-      section: "Reports"
-    },
-    {
-      label: "Attendance",
-      href: "/admin/reports/attendance",
-      icon: CalendarDays,
-      section: "Reports"
-    },
-    {
-      label: "Attendance Imports",
-      href: "/admin/attendance/imports",
       icon: UploadCloud,
       section: "Reports"
     },
@@ -295,32 +258,8 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Reports"
     },
     {
-      label: "Orders KPI Report",
-      href: "/admin/reports/orders-kpi",
-      icon: FileSpreadsheet,
-      section: "Reports"
-    },
-    {
       label: "Imports",
       href: "/admin/imports",
-      icon: UploadCloud,
-      section: "Reports"
-    },
-    {
-      label: "Orders KPI Import",
-      href: "/admin/imports/orders-kpi",
-      icon: FileSpreadsheet,
-      section: "Reports"
-    },
-    {
-      label: "Attendance",
-      href: "/admin/reports/attendance",
-      icon: CalendarDays,
-      section: "Reports"
-    },
-    {
-      label: "Attendance Imports",
-      href: "/admin/attendance/imports",
       icon: UploadCloud,
       section: "Reports"
     },
