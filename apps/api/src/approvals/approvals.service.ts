@@ -183,7 +183,8 @@ export class ApprovalsService {
     ) {
       return this.deductionsService.finalizeFromAdminApproval(
         approval.id,
-        context
+        context,
+        dto.notes
       );
     }
 

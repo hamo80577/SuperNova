@@ -1439,6 +1439,132 @@ async function testPolicyManagementValidationAndImmutability() {
   );
 }
 
+function seedCase(
+  context: ReturnType<typeof createStore>,
+  status: DeductionCaseStatus,
+  overrides: Partial<StoredCase> = {}
+) {
+  context.store.cases.push({
+    id: `seed-${context.store.cases.length + 1}`,
+    requestId: `seed-req-${context.store.cases.length + 1}`,
+    targetUserId: "picker-1",
+    actionId: "action-attitude",
+    incidentMonth: CURRENT_MONTH,
+    status,
+    ...overrides
+  } as StoredCase);
+}
+
+async function testDuplicatePendingDeductionBlocked() {
+  const context = createStore();
+  await context.deductionsService.createDeductionRequest(createDto(), {
+    actor: champActor
+  });
+
+  await assert.rejects(
+    context.deductionsService.createDeductionRequest(createDto(), {
+      actor: champActor
+    }),
+    ConflictException,
+    "a second pending ticket for the same target/action/month must be blocked"
+  );
+
+  const persisted = context.store.cases.filter(
+    (c) =>
+      c.targetUserId === "picker-1" &&
+      c.actionId === "action-attitude" &&
+      c.incidentMonth === CURRENT_MONTH
+  );
+  assert.equal(persisted.length, 1, "only the first ticket should persist");
+  assert.equal(context.store.forbiddenMutationCalls.length, 0);
+}
+
+async function testEffectivePreviousDoesNotBlockAndIncrements() {
+  const context = createStore();
+  seedCase(context, DeductionCaseStatus.EFFECTIVE);
+
+  const summary = await context.deductionsService.createDeductionRequest(
+    createDto(),
+    { actor: champActor }
+  );
+  const created = context.store.cases.find((c) => c.requestId === summary.id);
+
+  assert.equal(created?.status, DeductionCaseStatus.PENDING_APPROVAL);
+  assert.equal(
+    created?.occurrenceNumber,
+    2,
+    "an effective prior case must count toward the next occurrence"
+  );
+  assert.equal(created?.penaltyLabel, "1 day");
+}
+
+async function testRejectedPreviousDoesNotBlock() {
+  const context = createStore();
+  seedCase(context, DeductionCaseStatus.REJECTED);
+
+  const summary = await context.deductionsService.createDeductionRequest(
+    createDto(),
+    { actor: champActor }
+  );
+  const created = context.store.cases.find((c) => c.requestId === summary.id);
+
+  assert.equal(created?.status, DeductionCaseStatus.PENDING_APPROVAL);
+  assert.equal(
+    created?.occurrenceNumber,
+    1,
+    "a rejected prior case must neither block nor count"
+  );
+}
+
+async function testCancelledPreviousDoesNotBlock() {
+  const context = createStore();
+  seedCase(context, DeductionCaseStatus.CANCELLED);
+
+  const summary = await context.deductionsService.createDeductionRequest(
+    createDto(),
+    { actor: champActor }
+  );
+  const created = context.store.cases.find((c) => c.requestId === summary.id);
+
+  assert.equal(created?.status, DeductionCaseStatus.PENDING_APPROVAL);
+  assert.equal(
+    created?.occurrenceNumber,
+    1,
+    "a cancelled prior case must neither block nor count"
+  );
+}
+
+async function testAdminFinalApprovalSavesNotes() {
+  const context = createStore();
+  const summary = await context.deductionsService.createDeductionRequest(
+    createDto(),
+    { actor: areaManagerActor }
+  );
+  const adminApproval = context.store.approvals.find(
+    (approval) =>
+      approval.requestId === summary.id &&
+      approval.step === ApprovalStep.ADMIN_FINAL_APPROVAL
+  );
+  assert.ok(adminApproval);
+
+  const result = await context.approvalsService.approve(
+    adminApproval.id,
+    { notes: "Confirmed with branch evidence." } as never,
+    { actor: adminActor }
+  );
+
+  assert.equal(result.status, RequestStatus.COMPLETED);
+  assert.equal(
+    context.store.approvals.find((a) => a.id === adminApproval.id)?.notes,
+    "Confirmed with branch evidence.",
+    "Admin final approval notes must be saved on the approval step"
+  );
+  assert.equal(
+    context.store.cases.find((c) => c.requestId === summary.id)?.status,
+    DeductionCaseStatus.EFFECTIVE
+  );
+}
+
 async function main() {
   await testChampCreatesScopedPickerDeduction();
   await testChampCannotCreateOutsideBranchScope();
@@ -1454,6 +1580,11 @@ async function main() {
   await testListAndGetByIdScoping();
   await testAdminRejectAfterAreaManagerApproval();
   await testPolicyManagementValidationAndImmutability();
+  await testDuplicatePendingDeductionBlocked();
+  await testEffectivePreviousDoesNotBlockAndIncrements();
+  await testRejectedPreviousDoesNotBlock();
+  await testCancelledPreviousDoesNotBlock();
+  await testAdminFinalApprovalSavesNotes();
   console.log("deductions workflow tests passed");
 }
 

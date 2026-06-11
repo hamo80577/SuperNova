@@ -187,15 +187,10 @@ export function DeductionPolicySettingsPage() {
       ))}
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        Publishing a new policy version never changes historical deduction
-        records — they keep their snapshots.
+        Editing active deduction rules affects future tickets only. Historical
+        deduction records keep the rule snapshot captured when the ticket was
+        submitted and approved.
       </div>
-
-      <p className="text-sm text-slate-500">
-        Editing an action applies immediately to new Deduction tickets only.
-        Historical records keep the policy snapshot captured when they were
-        created.
-      </p>
     </div>
   );
 }

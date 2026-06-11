@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -145,6 +146,17 @@ export class DeductionsService {
         );
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Block a second open ticket for the same target+action+month. Only a
+      // PENDING_APPROVAL case blocks (EFFECTIVE counts toward the next
+      // occurrence; REJECTED/CANCELLED free the slot). Runs inside the
+      // transaction so concurrent submissions can't both pass the check.
+      await this.assertNoPendingDeduction(
+        tx,
+        preview.target.targetUser.id,
+        preview.action.id,
+        preview.incidentMonth
+      );
+
       // Recompute occurrence + penalty inside the transaction so two
       // concurrent submissions for the same target+action+month can't both
       // settle on the same number; the partial unique index on
@@ -430,8 +442,10 @@ export class DeductionsService {
 
   async finalizeFromAdminApproval(
     approvalId: string,
-    context: DeductionRequestContext
+    context: DeductionRequestContext,
+    notes?: string | null
   ) {
+    const trimmedNotes = notes?.trim() || null;
     const approval = await this.prisma.requestApproval.findUnique({
       where: { id: approvalId },
       include: { request: { include: requestInclude } }
@@ -472,7 +486,8 @@ export class DeductionsService {
         data: {
           status: ApprovalStatus.APPROVED,
           decisionAt: completedAt,
-          approverId: approval.approverId ?? context.actor.id
+          approverId: approval.approverId ?? context.actor.id,
+          ...(trimmedNotes ? { notes: trimmedNotes } : {})
         }
       });
 
@@ -725,6 +740,28 @@ export class DeductionsService {
       incidentDate: value,
       incidentMonth
     };
+  }
+
+  private async assertNoPendingDeduction(
+    tx: Prisma.TransactionClient,
+    targetUserId: string,
+    actionId: string,
+    incidentMonth: string
+  ) {
+    const pending = await tx.deductionCase.count({
+      where: {
+        targetUserId,
+        actionId,
+        incidentMonth,
+        status: DeductionCaseStatus.PENDING_APPROVAL
+      }
+    });
+
+    if (pending > 0) {
+      throw new ConflictException(
+        "There is already a pending deduction ticket for this action and month."
+      );
+    }
   }
 
   private async nextOccurrenceNumber(
