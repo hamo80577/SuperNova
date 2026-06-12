@@ -187,7 +187,7 @@ export function AreaManagerCalmDashboard() {
 
   const stats: Array<{ label: string; value: number; hot?: boolean }> = [
     { label: "Pending approvals", value: pending.length, hot: true },
-    { label: "Open requests", value: openCount },
+    { label: "Open requests in latest 60", value: openCount },
     { label: "Active pickers", value: workspace.totals.activePickers },
     { label: "Branches", value: workspace.totals.vendors }
   ];
@@ -239,6 +239,10 @@ export function AreaManagerCalmDashboard() {
           </div>
         ))}
       </div>
+      <p className="text-[11px] text-[color:var(--sn-muted)]">
+        Open requests and this-week counts are based on the latest 60 scoped
+        requests.
+      </p>
 
       {/* Mobile quick actions */}
       <div className="grid gap-2 lg:hidden">
@@ -317,7 +321,7 @@ export function AreaManagerCalmDashboard() {
         <div className="grid gap-3">
           <div className="sn-card grid gap-2.5" style={{ padding: "13px 16px" }}>
             <span className="sn-h2" style={{ fontSize: 13 }}>
-              This week&apos;s cycle
+              This week in latest 60
             </span>
             {CYCLE_ROWS.map((row) => (
               <div className="flex items-center justify-between" key={row.type}>

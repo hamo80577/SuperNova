@@ -23,3 +23,18 @@ pnpm-debug.log*
 *.log
 .DS_Store
 Thumbs.db
+
+# Design handoff / prototype bundles (not production source)
+.handoff-extract/
+supernova-handoff.zip
+
+# Generated output artifacts
+.codex-screenshots/
+
+# Database dumps / backups (never commit; may contain data)
+backups/
+*.dump
+*.backup
+
+# Archive bundles
+*.zip
