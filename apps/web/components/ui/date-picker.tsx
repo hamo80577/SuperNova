@@ -210,7 +210,7 @@ export function DatePicker({
     open && position && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl"
+            className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-3 shadow-2xl"
             ref={popoverRef}
             style={{
               left: position.left,
@@ -223,7 +223,7 @@ export function DatePicker({
             <div className="flex items-center justify-between gap-2">
               <button
                 aria-label="Previous month"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
                 onClick={() => moveMonth(-1)}
                 type="button"
               >
@@ -232,7 +232,7 @@ export function DatePicker({
               <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_6.25rem] gap-2">
                 <Select
                   aria-label="Month"
-                  className="h-9 min-w-0 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium text-slate-950"
+                  className="h-9 min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white px-2 text-sm font-medium text-[color:var(--sn-ink)]"
                   onChange={(event) => setViewMonth(Number(event.target.value))}
                   value={viewMonth}
                   wrapperClassName="min-w-0"
@@ -245,7 +245,7 @@ export function DatePicker({
                 </Select>
                 <Select
                   aria-label="Year"
-                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-sm font-medium tabular-nums text-slate-950"
+                  className="h-9 rounded-xl border border-[color:var(--sn-border)] bg-white px-2 text-sm font-medium tabular-nums text-[color:var(--sn-ink)]"
                   menuClassName="min-w-[6.25rem]"
                   onChange={(event) => setViewYear(Number(event.target.value))}
                   value={viewYear}
@@ -260,7 +260,7 @@ export function DatePicker({
               </div>
               <button
                 aria-label="Next month"
-                className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
                 onClick={() => moveMonth(1)}
                 type="button"
               >
@@ -268,7 +268,7 @@ export function DatePicker({
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-slate-400">
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-[color:var(--sn-muted)]">
               {weekdayNames.map((day) => (
                 <span key={day}>{day}</span>
               ))}
@@ -286,12 +286,12 @@ export function DatePicker({
                   <button
                     className={cn(
                       "grid h-9 place-items-center rounded-xl text-sm transition",
-                      inMonth ? "text-slate-800" : "text-slate-300",
+                      inMonth ? "text-[color:var(--sn-ink)]" : "text-[color:var(--sn-faint)]",
                       selected
                         ? "bg-primary font-semibold text-primary-foreground"
                         : "hover:bg-primary/10 hover:text-primary",
                       dayDisabled &&
-                        "cursor-not-allowed bg-transparent text-slate-300 opacity-45 hover:bg-transparent hover:text-slate-300"
+                        "cursor-not-allowed bg-transparent text-[color:var(--sn-faint)] opacity-45 hover:bg-transparent hover:text-[color:var(--sn-faint)]"
                     )}
                     disabled={dayDisabled}
                     key={day.key}
@@ -304,11 +304,11 @@ export function DatePicker({
               })}
             </div>
 
-            <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-slate-100 pt-3">
+            <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-[color:var(--sn-border)] pt-3">
               <div className="flex flex-wrap gap-2">
                 {quickActions.includes("yesterday") ? (
                   <button
-                    className="h-8 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                    className="h-8 rounded-xl border border-[color:var(--sn-border)] px-3 text-xs font-medium text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
                     onClick={() => runQuickAction("yesterday")}
                     type="button"
                   >
@@ -327,7 +327,7 @@ export function DatePicker({
               </div>
               {value ? (
                 <button
-                  className="h-8 rounded-xl px-3 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                  className="h-8 rounded-xl px-3 text-xs font-medium text-[color:var(--sn-muted)] hover:bg-[color:var(--sn-sunken)]"
                   onClick={() => {
                     onChange("");
                     setOpen(false);
@@ -348,7 +348,7 @@ export function DatePicker({
       <button
         className={cn(
           "flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-input bg-white px-3 text-left text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60",
-          value ? "text-slate-950" : "text-slate-500",
+          value ? "text-[color:var(--sn-ink)]" : "text-[color:var(--sn-muted)]",
           className
         )}
         disabled={disabled}
@@ -357,7 +357,7 @@ export function DatePicker({
         type="button"
       >
         <span className="truncate">{displayValue || placeholder}</span>
-        <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
+        <CalendarDays className="h-4 w-4 shrink-0 text-[color:var(--sn-muted)]" />
       </button>
       {popover}
     </div>

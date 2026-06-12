@@ -39,6 +39,12 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       section: "Workspace"
     },
     {
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      section: "Workspace"
+    },
+    {
       label: "Tickets",
       href: "/tickets",
       icon: ClipboardList,

@@ -140,17 +140,17 @@ export function OrdersKpiTargetSettingsPage() {
 
   return (
     <div className="min-w-0 space-y-4 overflow-hidden">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+      <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
               <Target className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
+              <h1 className="text-xl font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-2xl">
                 Orders KPI Targets
               </h1>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
+              <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
                 Global percentage thresholds for Orders KPI performance status.
               </p>
             </div>
@@ -159,8 +159,8 @@ export function OrdersKpiTargetSettingsPage() {
             className={cn(
               "w-fit rounded-xl px-3 py-1",
               settings?.source === "SAVED"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-slate-200 bg-slate-50 text-slate-600"
+                ? "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
+                : "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
             )}
             variant="outline"
           >
@@ -173,7 +173,7 @@ export function OrdersKpiTargetSettingsPage() {
       {validationError ? <Notice message={validationError} tone="warning" /> : null}
       {message ? <Notice message={message} tone="success" /> : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+      <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {targetFields.map((field) =>
             isLoading ? (
@@ -181,18 +181,18 @@ export function OrdersKpiTargetSettingsPage() {
             ) : (
               <label
                 className={cn(
-                  "min-w-0 rounded-2xl border bg-slate-50 p-4",
+                  "min-w-0 rounded-2xl border bg-[color:var(--sn-sunken)] p-4",
                   field.key === "uhoRateTarget"
                     ? "border-primary/30 ring-1 ring-primary/10"
-                    : "border-slate-200"
+                    : "border-[color:var(--sn-border)]"
                 )}
                 key={field.key}
               >
                 <span className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-slate-950">
+                  <span className="text-sm font-semibold text-[color:var(--sn-ink)]">
                     {field.label}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">
+                  <span className="text-xs font-semibold text-[color:var(--sn-muted)]">
                     Target &lt;=
                   </span>
                 </span>
@@ -207,11 +207,11 @@ export function OrdersKpiTargetSettingsPage() {
                     type="number"
                     value={draft[field.key]}
                   />
-                  <span className="pointer-events-none absolute right-3 top-3 text-sm font-semibold text-slate-500">
+                  <span className="pointer-events-none absolute right-3 top-3 text-sm font-semibold text-[color:var(--sn-muted)]">
                     %
                   </span>
                 </div>
-                <span className="mt-3 block text-sm leading-6 text-slate-500">
+                <span className="mt-3 block text-sm leading-6 text-[color:var(--sn-muted)]">
                   {field.description}
                 </span>
               </label>
@@ -219,8 +219,8 @@ export function OrdersKpiTargetSettingsPage() {
           )}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-h-5 text-sm text-slate-500">
+        <div className="mt-5 flex flex-col gap-3 border-t border-[color:var(--sn-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-h-5 text-sm text-[color:var(--sn-muted)]">
             {settings?.updatedAt
               ? `Last saved ${new Date(settings.updatedAt).toLocaleString()}`
               : "Defaults are used until an admin saves target settings."}
@@ -253,9 +253,9 @@ function Notice({
     <div
       className={cn(
         "rounded-2xl border p-4 text-sm leading-6",
-        tone === "success" && "border-emerald-200 bg-emerald-50 text-emerald-800",
-        tone === "warning" && "border-amber-200 bg-amber-50 text-amber-900",
-        tone === "error" && "border-red-200 bg-red-50 text-red-800"
+        tone === "success" && "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+        tone === "warning" && "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+        tone === "error" && "border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       )}
     >
       <div className="flex items-start gap-3">

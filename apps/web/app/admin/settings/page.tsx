@@ -6,6 +6,7 @@ export default function AdminSettingsPage() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Workspace preferences and system configuration."
+      showPageTitle
       title="Settings"
     >
       <SettingsHubPage />

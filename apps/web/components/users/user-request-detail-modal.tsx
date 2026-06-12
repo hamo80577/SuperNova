@@ -52,17 +52,17 @@ export function UserRequestDetailModal({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[260] grid place-items-center bg-slate-950/55 p-3 sn-dialog-overlay-in"
+        className="fixed inset-0 z-[260] grid place-items-center bg-[rgba(65,21,23,0.45)] p-3 sn-dialog-overlay-in"
         role="dialog"
       >
-        <section className="flex max-h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl sn-dialog-panel-in">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+        <section className="flex max-h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-2xl sn-dialog-panel-in">
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase text-slate-400">
+              <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
                 Request detail
               </p>
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                <h3 className="truncate text-base font-semibold text-slate-950">
+                <h3 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
                   {requestId}
                 </h3>
                 <CopyButton
@@ -89,8 +89,8 @@ export function UserRequestDetailModal({
             {state.status === "loading" ? (
               <DetailPanelSkeleton label="Loading request" />
             ) : state.status === "error" ? (
-              <div className="grid min-h-48 place-items-center rounded-2xl bg-slate-50 p-6 text-center">
-                <p className="text-sm font-medium text-slate-700">
+              <div className="grid min-h-48 place-items-center rounded-2xl bg-[color:var(--sn-sunken)] p-6 text-center">
+                <p className="text-sm font-medium text-[color:var(--sn-body)]">
                   {state.error}
                 </p>
               </div>

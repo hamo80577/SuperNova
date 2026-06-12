@@ -14,11 +14,11 @@ export function BranchPickers({
   pickers: ScopedPicker[];
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-950">Pickers</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-lg font-semibold text-[color:var(--sn-ink)]">Pickers</h2>
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
             Active Picker assignments in this Branch.
           </p>
         </div>
@@ -27,7 +27,7 @@ export function BranchPickers({
       {pickers.length ? (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs uppercase text-slate-400">
+            <thead className="border-b border-[color:var(--sn-border)] text-xs uppercase text-[color:var(--sn-faint)]">
               <tr>
                 <th className="py-3 pr-4">Picker</th>
                 <th className="py-3 pr-4">Phone</th>
@@ -42,7 +42,7 @@ export function BranchPickers({
                 const picker = scopedPicker.picker;
                 return (
                   <tr
-                    className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-orange-50/40"
+                    className="cursor-pointer border-b border-[color:var(--sn-border)] last:border-0 hover:bg-[#FFE8D9]/40"
                     key={picker.id}
                     onClick={() => onOpenPicker(scopedPicker)}
                     onKeyDown={(event) => {
@@ -53,14 +53,14 @@ export function BranchPickers({
                     tabIndex={0}
                   >
                     <td className="py-3 pr-4">
-                      <p className="font-semibold text-slate-950">{picker.nameEn}</p>
+                      <p className="font-semibold text-[color:var(--sn-ink)]">{picker.nameEn}</p>
                       {picker.nameAr ? (
-                        <p className="mt-0.5 text-xs text-slate-500">
+                        <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
                           {picker.nameAr}
                         </p>
                       ) : null}
                     </td>
-                    <td className="py-3 pr-4 text-slate-600">
+                    <td className="py-3 pr-4 text-[color:var(--sn-body)]">
                       {picker.phoneNumber}
                     </td>
                     <td className="py-3 pr-4">

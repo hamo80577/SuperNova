@@ -34,25 +34,25 @@ const statusConfig: Record<
 > = {
   SENT: {
     Icon: CheckCircle2,
-    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    className: "border-[oklch(0.82_0.08_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.40_0.13_150)]",
     label: "Sent to HR",
     fallbackDetail: "Recorded in the HR sheet."
   },
   FAILED: {
     Icon: AlertTriangle,
-    className: "border-red-200 bg-red-50 text-red-800",
+    className: "border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.45_0.19_27)]",
     label: "HR Sync failed",
     fallbackDetail: "The workflow is complete. HR sync can be retried later."
   },
   SKIPPED: {
     Icon: MinusCircle,
-    className: "border-amber-200 bg-amber-50 text-amber-800",
+    className: "border-[oklch(0.84_0.07_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.50_0.13_70)]",
     label: "HR Sync skipped",
     fallbackDetail: "HR sync is disabled."
   },
   NOT_SENT: {
     Icon: Clock3,
-    className: "border-slate-200 bg-slate-50 text-slate-700",
+    className: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
     label: "HR Sync pending",
     fallbackDetail: "Waiting to send to HR."
   }

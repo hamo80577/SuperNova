@@ -615,7 +615,7 @@ function GenericStatusBadge({ status }: { status: string }) {
   const className = destructive.includes(status)
     ? "border-destructive/40 text-destructive"
     : caution.includes(status)
-      ? "border-amber-400/60 text-amber-700"
+      ? "border-[oklch(0.62_0.13_70)]/60 text-[oklch(0.62_0.13_70)]"
       : undefined;
 
   return (

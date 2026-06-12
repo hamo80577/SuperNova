@@ -6,6 +6,7 @@ export default function AdminOrdersKpiReportPage() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Vendor-first operational KPI workspace."
+      showPageTitle
       title="Orders KPI Performance"
     >
       <OrdersKpiReportPage />

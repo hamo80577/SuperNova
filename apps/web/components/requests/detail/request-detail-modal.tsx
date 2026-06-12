@@ -63,19 +63,19 @@ export function RequestDetailModal({
     <ModalPortal>
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
+      className="fixed inset-0 z-[120] grid place-items-end bg-[color:var(--tlb-burgundy)]/30 p-0 sm:place-items-center sm:p-4"
       role="dialog"
     >
-      <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-[1.75rem] border border-slate-200 bg-white shadow-2xl sm:max-w-4xl sm:rounded-[1.75rem]">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
+      <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-[1.75rem] border border-[color:var(--sn-border)] bg-white shadow-[0_8px_32px_rgba(65,21,23,0.14)] sm:max-w-4xl sm:rounded-[1.75rem]">
+        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4 sm:p-5">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+              <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
                 Request profile
               </Badge>
               {request ? <RequestStatusBadge status={request.status} /> : null}
             </div>
-            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+            <h2 className="mt-2 text-lg font-semibold text-[color:var(--sn-ink)]">
               {request ? formatEnum(request.type) : "Loading request"}
             </h2>
           </div>

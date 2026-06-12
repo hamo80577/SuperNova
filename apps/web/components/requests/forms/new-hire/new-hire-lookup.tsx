@@ -40,21 +40,21 @@ export function NewHireLookupResultCard({
       className={cn(
         "rounded-2xl border p-4 text-sm",
         isRehire
-          ? "border-orange-200 bg-orange-50 text-orange-950"
-          : "border-red-200 bg-red-50 text-red-800"
+          ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-burgundy)]"
+          : "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       )}
     >
       <div className="flex items-start gap-3">
         {isRehire ? (
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--tlb-orange)]" />
         ) : (
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[oklch(0.55_0.19_27)]" />
         )}
         <div className="min-w-0">
-          <h3 className="font-semibold text-slate-950">{title}</h3>
+          <h3 className="font-semibold text-[color:var(--sn-ink)]">{title}</h3>
           <p className="mt-1 leading-6">{candidate?.reason ?? body}</p>
           {candidate ? (
-            <div className="mt-3 grid gap-2 rounded-xl bg-white/75 p-3 text-slate-700">
+            <div className="mt-3 grid gap-2 rounded-xl bg-white/75 p-3 text-[color:var(--sn-body)]">
               <Definition label="User" value={candidate.user.nameEn} />
               <Definition label="Role" value={formatEnum(candidate.role)} />
               <Definition label="Status" value={formatEnum(candidate.employmentStatus)} />
@@ -100,7 +100,7 @@ export function PreviousUserCard({
   }
 
   return (
-    <div className="grid gap-2 rounded-2xl border border-orange-200 bg-white p-3 text-sm">
+    <div className="grid gap-2 rounded-2xl border border-[#FFD8BD] bg-white p-3 text-sm">
       <Definition label="Name" value={candidate.user.nameEn} />
       <Definition label="Phone" value={candidate.user.phoneNumber} />
       <Definition

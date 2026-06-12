@@ -138,12 +138,12 @@ export function DeductionsPage() {
 
   return (
     <main className="grid min-w-0 gap-4">
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-950">
+          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
             Deduction records
           </p>
-          <p className="mt-0.5 text-xs leading-5 text-slate-500">
+          <p className="mt-0.5 text-xs leading-5 text-[color:var(--sn-muted)]">
             Occurrences are counted per calendar month from the active policy.
           </p>
         </div>
@@ -159,8 +159,8 @@ export function DeductionsPage() {
         ) : null}
       </section>
 
-      <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+      <section className="grid gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:grid-cols-2 xl:grid-cols-4">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Month
           <Input
             className="h-11 rounded-xl"
@@ -172,7 +172,7 @@ export function DeductionsPage() {
             value={month}
           />
         </label>
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Search
           <Input
             className="h-11 rounded-xl"
@@ -186,7 +186,7 @@ export function DeductionsPage() {
           />
         </label>
         {policy ? (
-          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+          <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Action
             <Select
               aria-label="Action filter"
@@ -205,7 +205,7 @@ export function DeductionsPage() {
             </Select>
           </label>
         ) : null}
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Status
           <Select
             aria-label="Status filter"
@@ -227,7 +227,7 @@ export function DeductionsPage() {
       {state.status === "loading" ? (
         <DeductionsLoadingSkeleton />
       ) : state.status === "error" ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+        <div className="rounded-[16px] border border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm font-medium text-[oklch(0.55_0.19_27)]">
           {state.error}
         </div>
       ) : (
@@ -259,11 +259,11 @@ export function DeductionsPage() {
               ))}
             </section>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-              <p className="text-sm font-semibold text-slate-900">
+            <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-6 text-center shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+              <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
                 No deduction records found.
               </p>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
+              <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
                 Records appear here once Deduction tickets are created for this
                 month and scope.
               </p>
@@ -336,31 +336,31 @@ function TargetGroupCard({
   onSelect: (item: DeductionCaseSummary) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--sn-border)] pb-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-slate-950">
+          <h3 className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
             {group.target.nameEn}
           </h3>
           <Badge
-            className="border-orange-200 bg-orange-50 text-orange-700"
+            className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
             variant="outline"
           >
             {formatEnum(group.target.role)}
           </Badge>
           {group.target.shopperId ? (
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-[color:var(--sn-muted)]">
               Shopper {group.target.shopperId}
             </span>
           ) : null}
         </div>
-        <p className="shrink-0 text-xs font-semibold text-slate-500">
+        <p className="shrink-0 text-xs font-semibold text-[color:var(--sn-muted)]">
           {group.items.length}{" "}
           {group.items.length === 1 ? "record" : "records"} ·{" "}
           {formatDeductionDays(group.effectiveDays)} days
         </p>
       </header>
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-[color:var(--sn-border)]">
         {group.items.map((item) => (
           <DeductionRow item={item} key={item.id} onSelect={onSelect} />
         ))}
@@ -378,7 +378,7 @@ function DeductionRow({
 }) {
   return (
     <li
-      className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-1 py-3 transition hover:bg-orange-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-1 py-3 transition hover:bg-[#FFE8D9]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
       onClick={() => onSelect(item)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -389,18 +389,18 @@ function DeductionRow({
       role="button"
       tabIndex={0}
     >
-      <span className="text-sm font-semibold text-slate-950">
+      <span className="text-sm font-semibold text-[color:var(--sn-ink)]">
         {item.actionName}
       </span>
       <Badge
-        className="border-slate-200 bg-slate-50 text-slate-600"
+        className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
         variant="outline"
       >
         {formatOrdinal(item.occurrenceNumber)}
       </Badge>
-      <span className="text-sm text-slate-600">{item.penaltyLabel}</span>
+      <span className="text-sm text-[color:var(--sn-body)]">{item.penaltyLabel}</span>
       <DeductionStatusBadge status={item.status} />
-      <span className="text-xs font-medium text-slate-500">
+      <span className="text-xs font-medium text-[color:var(--sn-muted)]">
         {formatDate(item.incidentDate)}
       </span>
       <span className="ml-auto shrink-0 text-sm font-semibold text-primary">
@@ -432,7 +432,7 @@ function DeductionDetailModal({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[120] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
+        className="fixed inset-0 z-[120] grid place-items-end bg-[rgba(65,21,23,0.35)] p-0 sm:place-items-center sm:p-4"
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             onClose();
@@ -440,19 +440,19 @@ function DeductionDetailModal({
         }}
         role="dialog"
       >
-        <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-[1.75rem] border border-slate-200 bg-white shadow-2xl sm:max-w-2xl sm:rounded-[1.75rem]">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5">
+        <section className="max-h-[94dvh] w-full overflow-hidden rounded-t-[1.75rem] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-2xl sm:max-w-2xl sm:rounded-[1.75rem]">
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4 sm:p-5">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
-                  className="border-orange-200 bg-orange-50 text-orange-700"
+                  className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                   variant="outline"
                 >
                   {formatEnum(item.target.role)}
                 </Badge>
                 <DeductionStatusBadge status={item.status} />
               </div>
-              <h2 className="mt-2 truncate text-lg font-semibold text-slate-950">
+              <h2 className="mt-2 truncate text-lg font-semibold text-[color:var(--sn-ink)]">
                 {item.target.nameEn}
               </h2>
             </div>
@@ -478,7 +478,7 @@ function DeductionDetailModal({
                       Occurrence {item.occurrenceNumber} in {item.incidentMonth}
                     </span>
                     <Badge
-                      className="border-slate-200 bg-slate-50 text-slate-600"
+                      className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
                       variant="outline"
                     >
                       {formatOrdinal(item.occurrenceNumber)}
@@ -492,13 +492,13 @@ function DeductionDetailModal({
                   <span className="flex flex-wrap items-center gap-2">
                     <span>{item.penaltyLabel}</span>
                     <Badge
-                      className="border-slate-200 bg-slate-50 text-slate-600"
+                      className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
                       variant="outline"
                     >
                       {deductionPenaltyTypeLabels[item.penaltyType]}
                     </Badge>
                     {item.deductionDays !== null ? (
-                      <span className="text-slate-600">
+                      <span className="text-[color:var(--sn-body)]">
                         {formatDeductionDays(Number(item.deductionDays))}{" "}
                         {Number(item.deductionDays) === 1 ? "day" : "days"}
                       </span>
@@ -568,10 +568,10 @@ function DeductionDetailRow({
   value: ReactNode;
 }) {
   return (
-    <div className="grid gap-1 border-b border-slate-100 py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr] sm:gap-4">
-      <span className="text-xs font-medium text-slate-500">{label}</span>
+    <div className="grid gap-1 border-b border-[color:var(--sn-border)] py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr] sm:gap-4">
+      <span className="text-xs font-medium text-[color:var(--sn-muted)]">{label}</span>
       <span className="flex min-w-0 items-center justify-between gap-2">
-        <span className="min-w-0 break-words text-sm font-medium text-slate-950">
+        <span className="min-w-0 break-words text-sm font-medium text-[color:var(--sn-ink)]">
           {value}
         </span>
         {copyValue ? (
@@ -589,9 +589,9 @@ function DeductionDetailRow({
 
 function KpiCard({ label, value }: { label: string; value: number }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-950">
+    <article className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <p className="text-xs font-medium text-[color:var(--sn-muted)]">{label}</p>
+      <p className="mt-1 font-[family-name:var(--font-data)] text-2xl font-semibold text-[color:var(--sn-ink)]">
         {formatDeductionDays(value)}
       </p>
     </article>
@@ -608,8 +608,8 @@ function DeductionsPagination({
   const totalPages = Math.max(1, meta.totalPages);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-sm font-medium text-slate-500">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <p className="text-sm font-medium text-[color:var(--sn-muted)]">
         Page {meta.page} of {totalPages}
       </p>
       <div className="flex gap-2">
@@ -642,7 +642,7 @@ function DeductionsLoadingSkeleton() {
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div
-            className="rounded-2xl border border-slate-200 bg-white p-4"
+            className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]"
             key={index}
           >
             <Skeleton className="h-3.5 w-24" />
@@ -650,7 +650,7 @@ function DeductionsLoadingSkeleton() {
           </div>
         ))}
       </div>
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="grid gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-12" />
         <Skeleton className="h-12" />

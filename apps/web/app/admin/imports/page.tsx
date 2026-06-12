@@ -6,6 +6,7 @@ export default function AdminImportsPage() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Admin import workflows for operational files."
+      showPageTitle
       title="Imports"
     >
       <ImportsCenterPage />

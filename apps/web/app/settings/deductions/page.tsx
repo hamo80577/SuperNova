@@ -7,6 +7,7 @@ export default function DeductionPolicySettingsRoute() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Occurrence rules applied by Deduction tickets."
+      showPageTitle
       title="Deduction Policy"
     >
       <SettingsBackLink />

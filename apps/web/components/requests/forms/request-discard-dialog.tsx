@@ -26,20 +26,20 @@ export function RequestDiscardDialog({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="sn-dialog-overlay-in fixed inset-0 z-[240] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
+        className="sn-dialog-overlay-in fixed inset-0 z-[240] grid place-items-center bg-[color:var(--tlb-burgundy)]/40 p-4 backdrop-blur-[2px]"
         role="alertdialog"
       >
-        <section className="sn-dialog-panel-in w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-5">
+        <section className="sn-dialog-panel-in w-full max-w-md rounded-2xl border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-700">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]">
                 <AlertTriangle className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-slate-950">
+                <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
                   {title}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
                   {description}
                 </p>
               </div>
@@ -65,7 +65,7 @@ export function RequestDiscardDialog({
               Keep editing
             </Button>
             <Button
-              className="min-h-11 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+              className="min-h-11 rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
               onClick={onConfirm}
               type="button"
             >

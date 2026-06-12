@@ -65,9 +65,9 @@ export function FinalizeOffboardingPanel({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       {result ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <div className="rounded-xl border border-[oklch(0.80_0.08_150)] bg-[oklch(0.95_0.045_150)] px-3 py-2 text-sm text-[oklch(0.58_0.13_150)]">
           <p className="font-medium">{formatEnum(type)} completed.</p>
           <p className="mt-1">
             {formatEnum(result.user.role)} {result.user.nameEn} is now{" "}
@@ -79,9 +79,9 @@ export function FinalizeOffboardingPanel({
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <div className="grid gap-2 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2 text-sm text-[color:var(--sn-body)]">
             <p>
-              <span className="font-medium text-slate-950">
+              <span className="font-medium text-[color:var(--sn-ink)]">
                 Block decision:
               </span>{" "}
               {forcedNoBlock
@@ -92,17 +92,17 @@ export function FinalizeOffboardingPanel({
             </p>
             {areaManagerDecision?.blockReason ? (
               <p>
-                <span className="font-medium text-slate-950">Reason:</span>{" "}
+                <span className="font-medium text-[color:var(--sn-ink)]">Reason:</span>{" "}
                 {areaManagerDecision.blockReason}
               </p>
             ) : null}
             {requiresAreaManagerDecision && !areaManagerDecision ? (
-              <p className="text-red-700">
+              <p className="text-[oklch(0.55_0.19_27)]">
                 Area Manager block decision is required before confirmation.
               </p>
             ) : null}
             {hasLegacyTemporaryDecision ? (
-              <p className="text-red-700">
+              <p className="text-[oklch(0.55_0.19_27)]">
                 This request contains a legacy temporary block decision and cannot
                 be confirmed under the current Resignation rules.
               </p>

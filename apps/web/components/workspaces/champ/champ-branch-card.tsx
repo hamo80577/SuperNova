@@ -86,9 +86,9 @@ export function BranchCard({ branch }: { branch: ChampBranch }) {
       <Link
         aria-label={`Open ${branch.vendor.vendorName} Branch workspace`}
         className={cn(
-          "group block h-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm outline-none transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50/20 hover:shadow-[0_18px_45px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-orange-200 motion-reduce:transform-none motion-reduce:transition-none sm:p-5",
+          "group block h-full rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] outline-none transition-[transform,border-color,background-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/20 hover:shadow-[0_8px_28px_rgba(65,21,23,0.1)] focus-visible:ring-2 focus-visible:ring-[#FFD8BD] motion-reduce:transform-none motion-reduce:transition-none sm:p-5",
           isNavigating &&
-            "scale-[1.015] border-orange-300 bg-orange-50/40 shadow-[0_20px_50px_rgba(15,23,42,0.1)]"
+            "scale-[1.015] border-[#FFD8BD] bg-[#FFE8D9]/40 shadow-[0_12px_36px_rgba(65,21,23,0.12)]"
         )}
         href={href}
         onClick={handleClick}
@@ -97,14 +97,14 @@ export function BranchCard({ branch }: { branch: ChampBranch }) {
       >
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-base font-semibold leading-6 text-slate-950 sm:text-lg">
+            <p className="text-base font-semibold leading-6 text-[color:var(--sn-ink)] sm:text-lg">
               {branch.vendor.vendorName}
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-500">
+            <p className="mt-1 text-sm font-medium text-[color:var(--sn-muted)]">
               {branch.chain.chainName}
             </p>
           </div>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-orange-50 text-orange-600 transition group-hover:translate-x-0.5 group-hover:bg-orange-100">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#FFE8D9] text-[color:var(--tlb-orange)] transition group-hover:translate-x-0.5 group-hover:bg-[#FFD8BD]">
             <ArrowRight className="h-4 w-4" />
           </span>
         </div>
@@ -132,14 +132,14 @@ function MiniMetric({
   value: number | string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3 transition-colors group-hover:border-orange-100 group-hover:bg-white">
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-50 text-orange-600">
+    <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 transition-colors group-hover:border-[#FFD8BD] group-hover:bg-white">
+      <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#FFE8D9] text-[color:var(--tlb-orange)]">
         <Icon className="h-4 w-4" />
       </span>
-      <p className="mt-2 text-lg font-semibold tabular-nums text-slate-950">
+      <p className="mt-2 text-lg font-[family-name:var(--font-data)] font-semibold tabular-nums text-[color:var(--sn-ink)]">
         {value}
       </p>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-[color:var(--sn-muted)]">{label}</p>
     </div>
   );
 }

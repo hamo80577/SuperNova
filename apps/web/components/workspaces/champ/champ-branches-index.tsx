@@ -88,9 +88,9 @@ export function ChampBranchesIndex() {
         <div className="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:items-center md:justify-end md:gap-3">
           <label className="relative min-w-0 md:flex-1">
             <span className="sr-only">Search branches</span>
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-orange-500" />
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--tlb-orange)]" />
             <Input
-              className="h-11 rounded-xl border-slate-200 bg-white/80 pl-9 shadow-sm placeholder:text-slate-400 focus-visible:border-orange-200 focus-visible:ring-orange-100"
+              className="h-11 rounded-xl border-[color:var(--sn-border)] bg-white/80 pl-9 shadow-sm placeholder:text-[color:var(--sn-faint)] focus-visible:border-[#FFD8BD] focus-visible:ring-[#FFE8D9]"
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search branches"
               value={query}

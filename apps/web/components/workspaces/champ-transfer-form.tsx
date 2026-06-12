@@ -230,7 +230,7 @@ export function ChampTransferForm({
         </p>
 
         {createdRequest ? (
-          <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <div className="mt-5 rounded-lg border border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm text-[oklch(0.58_0.13_150)]">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5" />
               <div>
@@ -244,7 +244,7 @@ export function ChampTransferForm({
                 <Link
                   className={cn(
                     buttonVariants({ size: "sm", variant: "outline" }),
-                    "mt-3 bg-white"
+                    "mt-3 bg-white border-[color:var(--sn-border)]"
                   )}
                   href={`/tickets?requestId=${createdRequest.id}`}
                   prefetch
@@ -257,12 +257,12 @@ export function ChampTransferForm({
         ) : branch.pickers.length && vendors.length ? (
           <form className="mt-5 grid gap-4" onSubmit={handleSubmit(onSubmit)}>
             {preselectedPickerId && selectedPicker ? (
-              <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm">
+              <div className="rounded-lg border border-[#FFD8BD] bg-[#FFE8D9] p-4 text-sm">
                 <input type="hidden" {...register("targetUserId")} />
-                <p className="font-medium text-orange-950">
+                <p className="font-medium text-[color:var(--tlb-orange-900)]">
                   Picker selected from Branch profile
                 </p>
-                <p className="mt-1 text-orange-800">
+                <p className="mt-1 text-[color:var(--tlb-orange-900)]">
                   {selectedPicker.nameEn} · {selectedPicker.phoneNumber}
                 </p>
               </div>

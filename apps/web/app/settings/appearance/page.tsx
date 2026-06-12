@@ -7,6 +7,7 @@ export default function AppearanceSettingsRoute() {
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description="Personal appearance controls for your SuperNova workspace."
+      showPageTitle
       title="Appearance"
     >
       <SettingsBackLink />

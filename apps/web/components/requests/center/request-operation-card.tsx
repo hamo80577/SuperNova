@@ -24,20 +24,20 @@ export function RequestOperationCard({
 
   return (
     <button
-      className="group grid min-h-[190px] text-left rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-[0_14px_32px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-[0_18px_42px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      className="group grid min-h-[190px] text-left rounded-[1.25rem] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition hover:-translate-y-0.5 hover:border-[#FFD8BD] hover:shadow-[0_8px_32px_rgba(65,21,23,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
       onClick={onOpen}
       type="button"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 text-orange-600">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange)]">
             <Icon className="h-5 w-5" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-slate-950">
+            <span className="block text-sm font-semibold text-[color:var(--sn-ink)]">
               {formatEnum(request.type)}
             </span>
-            <span className="block text-xs text-slate-500">
+            <span className="block text-xs text-[color:var(--sn-muted)]">
               {relativeTime(request.createdAt)}
             </span>
           </span>
@@ -46,17 +46,17 @@ export function RequestOperationCard({
       </div>
 
       <div className="mt-4 grid gap-2">
-        <p className="line-clamp-2 text-base font-semibold text-slate-950">
+        <p className="line-clamp-2 text-base font-semibold text-[color:var(--sn-ink)]">
           {context.title}
         </p>
-        <p className="line-clamp-2 text-sm leading-5 text-slate-500">
+        <p className="line-clamp-2 text-sm leading-5 text-[color:var(--sn-muted)]">
           {context.subtitle}
         </p>
       </div>
 
       <ApprovalProgressDots className="mt-4" request={request} />
 
-      <div className="mt-4 grid gap-2 text-xs text-slate-500">
+      <div className="mt-4 grid gap-2 text-xs text-[color:var(--sn-muted)]">
         <span className="inline-flex items-center gap-1.5">
           <UserRound className="h-3.5 w-3.5" />
           {request.createdBy.nameEn}
@@ -71,15 +71,15 @@ export function RequestOperationCard({
         </span>
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+      <div className="mt-4 flex items-center justify-between border-t border-[color:var(--sn-border)] pt-3">
         {actionRequired ? (
-          <Badge className="bg-orange-50 text-orange-700" variant="outline">
+          <Badge className="bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
             Action required
           </Badge>
         ) : (
-          <span className="text-xs font-medium text-slate-400">Review</span>
+          <span className="text-xs font-medium text-[color:var(--sn-faint)]">Review</span>
         )}
-        <span className="inline-flex items-center text-sm font-semibold text-orange-600">
+        <span className="inline-flex items-center text-sm font-semibold text-[color:var(--tlb-orange)]">
           Open
           <ArrowRight className="ml-1 h-4 w-4 transition group-hover:translate-x-0.5" />
         </span>

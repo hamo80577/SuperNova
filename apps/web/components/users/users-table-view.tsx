@@ -30,7 +30,7 @@ export function UsersTableView({
   const showRoleColumn = section === "management";
 
   return (
-    <section className="overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-visible rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <DesktopUsersTable
         actions={actions}
         items={items}
@@ -61,7 +61,7 @@ function DesktopUsersTable({
   return (
     <div className="hidden overflow-visible lg:block">
       <table className="w-full table-fixed border-collapse text-left text-sm">
-        <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+        <thead className="bg-[#FBF9F5] text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
           <tr>
             <th className={cn("px-4 py-3", showRoleColumn ? "w-[23%]" : "w-[27%]")}>
               User
@@ -86,10 +86,10 @@ function DesktopUsersTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-[color:var(--sn-border)]">
           {items.map((item) => (
             <tr
-              className="group cursor-pointer transition hover:bg-orange-50/30"
+              className="group cursor-pointer transition hover:bg-[#FDF8F2]"
               key={item.key}
               onClick={() => onOpenProfile(item.user.id)}
               onKeyDown={(event) => {
@@ -106,7 +106,7 @@ function DesktopUsersTable({
               {showRoleColumn ? (
                 <td className="px-3 py-3">
                   <Badge
-                    className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
+                    className="rounded-full border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                     variant="outline"
                   >
                     {formatEnum(item.user.role)}
@@ -114,17 +114,17 @@ function DesktopUsersTable({
                 </td>
               ) : null}
               <td className="px-3 py-3">
-                <p className="truncate font-medium text-slate-800">
+                <p className="truncate font-medium text-[color:var(--sn-body)]">
                   {getItemBranch(item)?.vendorName ?? "Open profile"}
                 </p>
                 {item.assignment?.startDate ? (
-                  <p className="mt-1 truncate text-xs text-slate-500">
+                  <p className="mt-1 truncate text-xs text-[color:var(--sn-muted)]">
                     Since {formatShortDate(item.assignment.startDate)}
                   </p>
                 ) : null}
               </td>
               <td className="px-3 py-3">
-                <p className="truncate text-slate-700">
+                <p className="truncate text-[color:var(--sn-body)]">
                   {getItemChainName(item) || "Not assigned"}
                 </p>
               </td>
@@ -157,10 +157,10 @@ function MobileUsersRows({
   showRoleColumn: boolean;
 }) {
   return (
-    <div className="divide-y divide-slate-100 lg:hidden">
+    <div className="divide-y divide-[color:var(--sn-border)] lg:hidden">
       {items.map((item) => (
         <article
-          className="grid cursor-pointer gap-3 p-3 transition hover:bg-orange-50/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500"
+          className="grid cursor-pointer gap-3 p-3 transition hover:bg-[#FDF8F2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--tlb-orange)]"
           key={item.key}
           onClick={() => onOpenProfile(item.user.id)}
           onKeyDown={(event) => {
@@ -177,27 +177,27 @@ function MobileUsersRows({
             <UsersActionsMenu {...actions} item={item} />
           </div>
 
-          <div className="grid gap-2 rounded-2xl bg-slate-50 p-3">
+          <div className="grid gap-2 rounded-2xl bg-[color:var(--sn-sunken)] p-3">
             <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2 text-sm">
-              <span className="text-xs font-semibold uppercase text-slate-400">
+              <span className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
                 Branch
               </span>
-              <span className="min-w-0 truncate font-medium text-slate-800">
+              <span className="min-w-0 truncate font-medium text-[color:var(--sn-body)]">
                 {getItemBranch(item)?.vendorName ?? "Open profile"}
               </span>
             </div>
             <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2 text-sm">
-              <span className="text-xs font-semibold uppercase text-slate-400">
+              <span className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
                 Chain
               </span>
-              <span className="min-w-0 truncate text-slate-700">
+              <span className="min-w-0 truncate text-[color:var(--sn-body)]">
                 {getItemChainName(item) || "Not assigned"}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {showRoleColumn ? (
                 <Badge
-                  className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
+                  className="rounded-full border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                   variant="outline"
                 >
                   {formatEnum(item.user.role)}
@@ -228,8 +228,8 @@ function UserCell({ item }: { item: UsersAreaItem }) {
         statusTone={operationalStatus.tone}
       />
       <div className="min-w-0">
-        <p className="truncate font-semibold text-slate-950">{item.user.nameEn}</p>
-        <p className="mt-0.5 truncate text-xs text-slate-500">
+        <p className="truncate font-semibold text-[color:var(--sn-ink)]">{item.user.nameEn}</p>
+        <p className="mt-0.5 truncate text-xs text-[color:var(--sn-muted)]">
           {item.user.phoneNumber}
         </p>
       </div>
@@ -240,10 +240,10 @@ function UserCell({ item }: { item: UsersAreaItem }) {
 function PhoneCell({ item }: { item: UsersAreaItem }) {
   return (
     <div
-      className="flex min-w-0 items-center text-xs text-slate-500"
+      className="flex min-w-0 items-center text-xs text-[color:var(--sn-muted)]"
       onClick={(event) => event.stopPropagation()}
     >
-      <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-50 px-2 py-1">
+      <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-[color:var(--sn-sunken)] px-2 py-1">
         <Phone className="h-3.5 w-3.5" />
         <span className="truncate">{item.user.phoneNumber}</span>
       </span>
@@ -263,10 +263,10 @@ function StatusPill({ status }: { status: UserOperationalStatus }) {
       className={cn(
         "rounded-full",
         status.tone === "active" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
         status.tone === "pending" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
+          "border-[oklch(0.88_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+        status.tone === "resigned" && "border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       )}
       title={status.title}
       variant="outline"

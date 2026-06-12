@@ -20,15 +20,15 @@ export function BranchChoiceList({
           className={cn(
             "rounded-xl border bg-white p-3 text-left text-sm transition-colors",
             selectedVendorId === vendor.id
-              ? "border-orange-300 bg-orange-50 text-orange-950"
-              : "border-slate-200 text-slate-700 hover:border-orange-200"
+              ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-burgundy)]"
+              : "border-[color:var(--sn-border)] text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
           )}
           key={vendor.id}
           onClick={() => onSelect(vendor)}
           type="button"
         >
           <span className="block font-semibold">{vendor.vendorName}</span>
-          <span className="block text-xs text-slate-500">
+          <span className="block text-xs text-[color:var(--sn-muted)]">
             {vendor.vendorCode} · {vendor.chain.chainName}
           </span>
         </button>

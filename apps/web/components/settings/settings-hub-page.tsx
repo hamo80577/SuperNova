@@ -99,10 +99,10 @@ function SettingsSection({
 }) {
   return (
     <section>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--sn-muted)]">
         {title}
       </h2>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">{description}</p>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {links.map((link) => (
           <SettingsLinkCard key={link.href} link={link} />
@@ -117,7 +117,7 @@ function SettingsLinkCard({ link }: { link: SettingsLink }) {
 
   return (
     <Link
-      className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:p-5"
+      className="group flex items-center gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:p-5"
       href={link.href}
       prefetch
     >
@@ -125,14 +125,14 @@ function SettingsLinkCard({ link }: { link: SettingsLink }) {
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-slate-950">
+        <span className="block text-sm font-semibold text-[color:var(--sn-ink)]">
           {link.label}
         </span>
-        <span className="mt-0.5 block text-sm leading-6 text-slate-500">
+        <span className="mt-0.5 block text-sm leading-6 text-[color:var(--sn-muted)]">
           {link.description}
         </span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-primary" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--sn-muted)] transition group-hover:text-primary" />
     </Link>
   );
 }

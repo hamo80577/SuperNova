@@ -14,15 +14,15 @@ export function BranchRequests({
   requests: RequestSummary[];
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="text-lg font-semibold text-slate-950">Recent requests</h2>
-      <p className="mt-1 text-sm text-slate-500">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
+      <h2 className="text-lg font-semibold text-[color:var(--sn-ink)]">Recent requests</h2>
+      <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
         Branch-scoped request records created by this Champ.
       </p>
       {requests.length ? (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-xs uppercase text-slate-400">
+            <thead className="border-b border-[color:var(--sn-border)] text-xs uppercase text-[color:var(--sn-faint)]">
               <tr>
                 <th className="py-3 pr-4">Type</th>
                 <th className="py-3 pr-4">Status</th>
@@ -33,17 +33,17 @@ export function BranchRequests({
             </thead>
             <tbody>
               {requests.map((request) => (
-                <tr className="border-b border-slate-100 last:border-0" key={request.id}>
-                  <td className="py-3 pr-4 font-medium text-slate-950">
+                <tr className="border-b border-[color:var(--sn-border)] last:border-0" key={request.id}>
+                  <td className="py-3 pr-4 font-medium text-[color:var(--sn-ink)]">
                     {formatEnum(request.type)}
                   </td>
                   <td className="py-3 pr-4">
                     <Badge variant="muted">{formatEnum(request.status)}</Badge>
                   </td>
-                  <td className="py-3 pr-4 text-slate-500">
+                  <td className="py-3 pr-4 text-[color:var(--sn-muted)]">
                     {request.currentStep ? formatEnum(request.currentStep) : "None"}
                   </td>
-                  <td className="py-3 pr-4 text-slate-500">
+                  <td className="py-3 pr-4 text-[color:var(--sn-muted)]">
                     {formatDate(request.createdAt)}
                   </td>
                   <td className="py-3 text-right">

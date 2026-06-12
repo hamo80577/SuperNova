@@ -52,7 +52,7 @@ export function PickerProfileOverview({
               />
               <a
                 aria-label="Open WhatsApp chat"
-                className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)] transition hover:bg-[oklch(0.88_0.06_150)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.58_0.13_150)] active:scale-[0.96]"
                 href={whatsappHref}
                 rel="noreferrer"
                 target="_blank"
@@ -138,10 +138,10 @@ export function PickerProfileOverview({
         />
         <div className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-slate-400">
+            <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
               Operational status
             </p>
-            <p className="mt-1 text-sm text-slate-500">{operationalStatus.title}</p>
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">{operationalStatus.title}</p>
           </div>
           <StateBadge status={operationalStatus} />
         </div>
@@ -160,16 +160,16 @@ function ProfilePanel({
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex items-start gap-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-700 ring-1 ring-orange-100">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] ring-1 ring-[#FFD8BD]">
           {icon}
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</h3>
         </div>
       </div>
-      <div className="mt-4 divide-y divide-slate-100">{children}</div>
+      <div className="mt-4 divide-y divide-[color:var(--sn-border)]">{children}</div>
     </section>
   );
 }
@@ -188,12 +188,12 @@ function ProfileInfoRow({
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
+        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
-          <p className="mt-1 break-words text-sm font-semibold text-slate-950">
+          <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">{label}</p>
+          <p className="mt-1 break-words text-sm font-semibold text-[color:var(--sn-ink)]">
             {value}
           </p>
         </div>
@@ -213,10 +213,10 @@ function StateBadge({
       className={cn(
         "rounded-full",
         status.tone === "active" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
         status.tone === "pending" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
+          "border-[oklch(0.88_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+        status.tone === "resigned" && "border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       )}
       title={status.title}
       variant="outline"

@@ -1,0 +1,49 @@
+/* ============================================================
+   talabat — Typography tokens
+   Poppins everywhere. Display weights are heavy (ExtraBold/Black);
+   body is Regular/Medium. Sizes below are expressed for the
+   1280×720 slide canvas (the native medium of this system) — at
+   that scale 1pt ≈ 1.78px. Titles are LEFT-aligned by default.
+   ============================================================ */
+
+:root {
+  /* ---------- Families ---------- */
+  --font-display:   "Poppins", "Arial", sans-serif;  /* titles, hero, covers */
+  --font-body:      "Poppins", "Arial", sans-serif;  /* everything else      */
+  --font-secondary: "DM Sans", "Poppins", sans-serif;/* alt body / big nums  */
+  --font-orgchart:  "Open Sans", "Poppins", sans-serif; /* dense org/tables  */
+
+  /* ---------- Weights ---------- */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extrabold:800;
+  --weight-black:    900;
+
+  /* ---------- Slide type scale (px @ 1280×720) ---------- */
+  --fs-hero:     222px;  /* Poppins ExtraBold — statement hero (125pt)  */
+  --fs-gameover: 194px;  /* Poppins Bold — "Game Over" closer (109pt)   */
+  --fs-section:  124px;  /* Poppins Black — section divider (70pt)      */
+  --fs-cover:     98px;  /* Poppins Black — cover title (50–62pt)       */
+  --fs-divider:   89px;  /* Poppins Black — simple divider (50pt)       */
+  --fs-statement: 71px;  /* Poppins Bold — statement text (30–50pt)     */
+  --fs-bignum:    62px;  /* Poppins ExtraBold — big numbers (35pt)      */
+  --fs-cardtitle: 36px;  /* Poppins Black — card title (20pt)           */
+  --fs-title:     44px;  /* Poppins SemiBold — standard slide title(25pt)*/
+  --fs-subtitle:  27px;  /* Poppins SemiBold — subtitle (15pt)          */
+  --fs-body-lg:   23px;  /* Poppins Regular — large body (13pt)         */
+  --fs-body:      19px;  /* Poppins Regular — body (10–11pt)            */
+  --fs-caption:   14px;  /* Poppins Medium — small text (6–8pt)         */
+  --fs-bignum-deco:178px;/* DM Sans Black — 100pt decorative numerals   */
+
+  /* ---------- Line heights ---------- */
+  --lh-tight:   0.95;  /* @kind other */ /* display / hero */
+  --lh-snug:    1.1;   /* @kind other */ /* titles          */
+  --lh-normal:  1.35;  /* @kind other */ /* body copy       */
+
+  /* ---------- Letter spacing ---------- */
+  --ls-display: -0.01em;  /* @kind other */ /* negative on big Poppins */
+  --ls-normal:  0;        /* @kind other */
+  --ls-caption: 0.02em;   /* @kind other */
+}

@@ -89,12 +89,12 @@ export function RequestDetailView() {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Badge variant="outline">{formatEnum(request.type)}</Badge>
-            <h1 className="mt-3 text-xl font-semibold">Request Detail</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="mt-3 text-xl font-semibold text-[color:var(--sn-ink)]">Request Detail</h1>
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
               Created by {request.createdBy.nameEn} on{" "}
               {new Date(request.createdAt).toLocaleString()}
             </p>
@@ -161,8 +161,8 @@ export function RequestDetailView() {
 
       <ApprovalStepsIndicator request={request} />
 
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <h2 className="text-base font-semibold">Timeline</h2>
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+        <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">Timeline</h2>
         <RequestTimeline
           importantOnly
           items={request.timeline}

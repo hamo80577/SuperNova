@@ -92,11 +92,11 @@ export function DeductionPolicySettingsPage() {
   if (state.status === "loading") {
     return (
       <div aria-busy="true" className="grid gap-4" role="status">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="mt-3 h-4 w-64" />
         </div>
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-9" />
           <Skeleton className="h-9" />
@@ -107,7 +107,7 @@ export function DeductionPolicySettingsPage() {
 
   if (state.status === "error") {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+      <div className="rounded-[16px] border border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm font-medium text-[oklch(0.55_0.19_27)]">
         {state.error}
       </div>
     );
@@ -117,20 +117,20 @@ export function DeductionPolicySettingsPage() {
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
               <ShieldCheck className="h-5 w-5" />
             </span>
             <Badge
-              className="border-slate-200 bg-slate-50 text-slate-700"
+              className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
               variant="outline"
             >
               Version {policy.versionNumber}
             </Badge>
             <Badge
-              className="border-emerald-200 bg-emerald-50 text-emerald-700"
+              className="border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
               variant="outline"
             >
               Active
@@ -149,13 +149,13 @@ export function DeductionPolicySettingsPage() {
             New action
           </Button>
         </div>
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-[color:var(--sn-body)]">
           Effective from{" "}
-          <span className="font-semibold text-slate-950">
+          <span className="font-semibold text-[color:var(--sn-ink)]">
             {formatDate(policy.effectiveFrom)}
           </span>{" "}
           ·{" "}
-          <span className="font-semibold text-slate-950">
+          <span className="font-semibold text-[color:var(--sn-ink)]">
             {policy.actions.length}
           </span>{" "}
           {policy.actions.length === 1 ? "action" : "actions"}
@@ -163,7 +163,7 @@ export function DeductionPolicySettingsPage() {
       </section>
 
       {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+        <div className="rounded-[16px] border border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm font-medium text-[oklch(0.45_0.13_150)]">
           {successMessage}
         </div>
       ) : null}
@@ -186,7 +186,7 @@ export function DeductionPolicySettingsPage() {
         />
       ))}
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <div className="rounded-[16px] border border-[oklch(0.85_0.08_80)] bg-[oklch(0.95_0.05_80)] p-4 text-sm text-[oklch(0.45_0.13_70)]">
         Editing active deduction rules affects future tickets only. Historical
         deduction records keep the rule snapshot captured when the ticket was
         submitted and approved.
@@ -223,12 +223,12 @@ function PolicyActionCard({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-950">{action.name}</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">{action.name}</h3>
           <Badge
-            className="border-slate-200 bg-slate-50 text-slate-600"
+            className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
             variant="outline"
           >
             {action.code}
@@ -248,24 +248,24 @@ function PolicyActionCard({
         </Button>
       </div>
       {action.description ? (
-        <p className="mt-1 text-sm leading-6 text-slate-500">
+        <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
           {action.description}
         </p>
       ) : null}
       <ul className="mt-3 grid gap-2">
         {action.ruleSteps.map((step) => (
           <li
-            className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2"
             key={step.id}
           >
             <Badge
-              className="shrink-0 border-slate-200 bg-white text-slate-700"
+              className="shrink-0 border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)]"
               variant="outline"
             >
               {formatOrdinal(step.occurrenceNumber)}
               {step.appliesFromOccurrence !== null ? "+" : ""}
             </Badge>
-            <span className="text-sm text-slate-700">→ {step.label}</span>
+            <span className="text-sm text-[color:var(--sn-body)]">→ {step.label}</span>
           </li>
         ))}
       </ul>
@@ -424,13 +424,13 @@ function PolicyActionForm({
   }
 
   return (
-    <section className="rounded-2xl border border-orange-200 bg-white p-4">
+    <section className="rounded-[16px] border border-[#FFD8BD] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <form className="grid gap-4" onSubmit={submit}>
-        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</h3>
 
         <div className="grid gap-3 sm:grid-cols-2">
           {mode === "create" ? (
-            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
               Code
               <Input
                 className="h-11 rounded-xl uppercase"
@@ -446,7 +446,7 @@ function PolicyActionForm({
               />
             </label>
           ) : null}
-          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+          <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Name
             <Input
               className="h-11 rounded-xl"
@@ -462,7 +462,7 @@ function PolicyActionForm({
             />
           </label>
           {mode === "edit" ? (
-            <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
               Status
               <Select
                 aria-label="Action status"
@@ -479,7 +479,7 @@ function PolicyActionForm({
               </Select>
             </label>
           ) : null}
-          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:col-span-2">
+          <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)] sm:col-span-2">
             Description
             <textarea
               className="min-h-[72px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -497,7 +497,7 @@ function PolicyActionForm({
         </div>
 
         <div className="grid gap-2">
-          <p className="text-xs font-medium text-slate-600">Rules</p>
+          <p className="text-xs font-medium text-[color:var(--sn-body)]">Rules</p>
           {values.rules.map((rule, index) => (
             <RuleStepEditor
               isLast={index === values.rules.length - 1}
@@ -531,7 +531,7 @@ function PolicyActionForm({
         </div>
 
         {error ? (
-          <p className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-medium text-red-700">
+          <p className="rounded-xl border border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm font-medium text-[oklch(0.55_0.19_27)]">
             {error}
           </p>
         ) : null}
@@ -568,16 +568,16 @@ function RuleStepEditor({
   rule: RuleStepDraft;
 }) {
   return (
-    <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="grid gap-2 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge
-          className="shrink-0 border-slate-200 bg-white text-slate-700"
+          className="shrink-0 border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)]"
           variant="outline"
         >
           {formatOrdinal(occurrenceNumber)}
           {rule.openEnded && isLast ? "+" : ""}
         </Badge>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="text-xs font-medium text-[color:var(--sn-muted)]">
           Occurrence {occurrenceNumber}
           {rule.openEnded && isLast ? " and later" : ""}
         </span>
@@ -590,7 +590,7 @@ function RuleStepEditor({
             : "sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
         )}
       >
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Penalty type
           <Select
             aria-label={`Penalty type for occurrence ${occurrenceNumber}`}
@@ -609,7 +609,7 @@ function RuleStepEditor({
           </Select>
         </label>
         {rule.penaltyType === "DEDUCTION_DAYS" ? (
-          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+          <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Days
             <Input
               aria-label={`Deduction days for occurrence ${occurrenceNumber}`}
@@ -625,7 +625,7 @@ function RuleStepEditor({
             />
           </label>
         ) : null}
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Label
           <Input
             aria-label={`Label for occurrence ${occurrenceNumber}`}
@@ -638,10 +638,10 @@ function RuleStepEditor({
         </label>
       </div>
       {isLast ? (
-        <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+        <label className="flex items-center gap-2 text-xs font-medium text-[color:var(--sn-body)]">
           <input
             checked={rule.openEnded}
-            className="h-4 w-4 rounded border-slate-300 text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            className="h-4 w-4 rounded border-[color:var(--sn-border-strong)] text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
             onChange={(event) => onChange({ openEnded: event.target.checked })}
             type="checkbox"
           />

@@ -49,9 +49,9 @@ export function UsersToolbar({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <label className="relative min-w-0 lg:w-[380px]">
           <span className="sr-only">Search users</span>
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
           <Input
-            className="h-11 rounded-2xl border-slate-200 bg-white pl-9 shadow-sm transition focus-visible:ring-orange-500"
+            className="h-11 rounded-2xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] pl-9 shadow-sm transition focus-visible:ring-[color:var(--tlb-orange)]"
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="Search name, phone, Branch, Chain"
             value={query}
@@ -63,9 +63,9 @@ export function UsersToolbar({
             <Button
               aria-expanded={filtersOpen}
               className={cn(
-                "h-11 rounded-2xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700",
+                "h-11 rounded-2xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-body)] shadow-sm hover:border-[#FFD8BD] hover:bg-[#FFE8D9] hover:text-[color:var(--tlb-orange-900)]",
                 hasActiveFilters(filters) &&
-                  "border-orange-200 bg-orange-50 text-orange-700"
+                  "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
               )}
               onClick={onToggleFilters}
               type="button"
@@ -74,7 +74,7 @@ export function UsersToolbar({
               <Filter className="mr-2 h-4 w-4" />
               Filters
               {hasActiveFilters(filters) ? (
-                <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">
+                <span className="ml-2 rounded-full bg-[#FFE8D9] px-2 py-0.5 text-xs font-semibold text-[color:var(--tlb-orange-900)]">
                   {activeFilterCount(filters)}
                 </span>
               ) : null}
@@ -116,16 +116,16 @@ function ViewModeToggle({
   return (
     <div
       aria-label="Users view"
-      className="grid h-11 grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1 shadow-sm"
+      className="grid h-11 grid-cols-2 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-1 shadow-sm"
       role="group"
     >
       <button
         aria-label="Cards view"
         className={cn(
-          "grid h-9 w-10 place-items-center rounded-xl text-slate-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+          "grid h-9 w-10 place-items-center rounded-xl text-[color:var(--sn-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]",
           value === "cards"
-            ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-100"
-            : "hover:bg-white hover:text-slate-900"
+            ? "bg-[color:var(--sn-card)] text-[color:var(--tlb-orange-900)] shadow-sm ring-1 ring-[#FFD8BD]"
+            : "hover:bg-[color:var(--sn-card)] hover:text-[color:var(--sn-ink)]"
         )}
         onClick={() => onChange("cards")}
         type="button"
@@ -135,10 +135,10 @@ function ViewModeToggle({
       <button
         aria-label="Rows view"
         className={cn(
-          "grid h-9 w-10 place-items-center rounded-xl text-slate-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+          "grid h-9 w-10 place-items-center rounded-xl text-[color:var(--sn-muted)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]",
           value === "rows"
-            ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-100"
-            : "hover:bg-white hover:text-slate-900"
+            ? "bg-[color:var(--sn-card)] text-[color:var(--tlb-orange-900)] shadow-sm ring-1 ring-[#FFD8BD]"
+            : "hover:bg-[color:var(--sn-card)] hover:text-[color:var(--sn-ink)]"
         )}
         onClick={() => onChange("rows")}
         type="button"
@@ -165,7 +165,7 @@ function UsersFilterPanel({
   const admin = viewerRole === "ADMIN" || viewerRole === "SUPER_ADMIN";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-3 shadow-sm">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <FilterSelect
           label="Chain"
@@ -196,7 +196,7 @@ function UsersFilterPanel({
       </div>
       {hasActiveFilters(filters) ? (
         <Button
-          className="mt-3 h-10 rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          className="mt-3 h-10 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
           onClick={onClearAll}
           type="button"
           variant="outline"
@@ -221,10 +221,10 @@ function FilterSelect({
   value: string;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
+    <label className="grid gap-1.5 text-xs font-semibold text-[color:var(--sn-muted)]">
       {label}
       <Select
-        className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
+        className="h-11 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-sm text-[color:var(--sn-ink)]"
         disabled={!options.length}
         onChange={(event) => onChange(event.target.value)}
         value={value}
@@ -262,12 +262,12 @@ function ActiveFilterChips({
     <div className="flex flex-wrap gap-2">
       {active.map(([key, value]) => (
         <button
-          className="inline-flex min-h-8 items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 text-xs font-semibold text-orange-800 transition hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+          className="inline-flex min-h-8 items-center gap-2 rounded-full border border-[#FFD8BD] bg-[#FFE8D9] px-3 text-xs font-semibold text-[color:var(--tlb-orange-900)] transition hover:bg-[#FFD8BD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
           key={key}
           onClick={() => onClear(key)}
           type="button"
         >
-          <span className="text-orange-600">{getFilterName(key)}</span>
+          <span className="text-[color:var(--tlb-orange)]">{getFilterName(key)}</span>
           {getFilterLabel(key, value, options)}
           <X className="h-3.5 w-3.5" />
         </button>

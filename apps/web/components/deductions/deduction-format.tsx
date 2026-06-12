@@ -59,11 +59,13 @@ export function DeductionStatusBadge({
     <Badge
       className={cn(
         status === "EFFECTIVE" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
         status === "PENDING_APPROVAL" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        status === "REJECTED" && "border-rose-200 bg-rose-50 text-rose-700",
-        status === "CANCELLED" && "border-slate-200 bg-slate-50 text-slate-600"
+          "border-[oklch(0.85_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+        status === "REJECTED" &&
+          "border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+        status === "CANCELLED" &&
+          "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
       )}
       variant="outline"
     >

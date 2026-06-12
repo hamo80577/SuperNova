@@ -312,7 +312,7 @@ export function DeductionRequestForm({
 
   if (createdRequest) {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+      <div className="rounded-[16px] border border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm text-[oklch(0.45_0.13_150)]">
         <div className="flex items-start gap-3">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
@@ -326,7 +326,7 @@ export function DeductionRequestForm({
             <Link
               className={cn(
                 buttonVariants({ size: "sm", variant: "outline" }),
-                "mt-3 bg-white"
+                "mt-3 bg-[color:var(--sn-card)]"
               )}
               href={`/tickets?requestId=${createdRequest.id}`}
               prefetch
@@ -341,7 +341,7 @@ export function DeductionRequestForm({
 
   if (!allowedTargetRoles.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-body)]">
         Deduction tickets are not available for this user role.
       </div>
     );
@@ -366,8 +366,8 @@ export function DeductionRequestForm({
                     className={cn(
                       "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
                       targetRole === role
-                        ? "border-orange-300 bg-orange-50 text-orange-800"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                        ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                        : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
                     )}
                     key={role}
                     onClick={() => updateTargetRole(role)}
@@ -387,9 +387,9 @@ export function DeductionRequestForm({
                 value={query}
               />
             </Field>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-hidden rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)]">
               {query.trim().length < 2 ? (
-                <p className="p-3 text-sm text-slate-500">
+                <p className="p-3 text-sm text-[color:var(--sn-muted)]">
                   Type at least 2 characters to search your scoped{" "}
                   {formatEnum(targetRole)}s.
                 </p>
@@ -400,28 +400,28 @@ export function DeductionRequestForm({
                   <Skeleton className="h-12" />
                 </div>
               ) : searchItems.length ? (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-[color:var(--sn-border)]">
                   {searchItems.map((item) => (
                     <li key={`${item.userId}:${item.vendorId}`}>
                       <button
-                        className="flex min-h-12 w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left transition hover:bg-orange-50/60"
+                        className="flex min-h-12 w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left transition hover:bg-[#FFE8D9]/40"
                         onClick={() =>
                           setSelectedTarget(toSelectedFromSearchItem(item))
                         }
                         type="button"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-slate-950">
+                          <span className="block truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                             {item.name}
                           </span>
-                          <span className="block truncate text-xs text-slate-500">
+                          <span className="block truncate text-xs text-[color:var(--sn-muted)]">
                             {item.shopperId ? `Shopper ${item.shopperId} · ` : ""}
                             {item.ibsId ? `IBS ${item.ibsId} · ` : ""}
                             {item.vendorName} · {item.chainName}
                           </span>
                         </span>
                         <Badge
-                          className="shrink-0 border-orange-200 bg-orange-50 text-orange-700"
+                          className="shrink-0 border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                           variant="outline"
                         >
                           {formatEnum(item.role)}
@@ -431,7 +431,7 @@ export function DeductionRequestForm({
                   ))}
                 </ul>
               ) : (
-                <p className="p-3 text-sm text-slate-500">
+                <p className="p-3 text-sm text-[color:var(--sn-muted)]">
                   No scoped {formatEnum(targetRole)} matches this search.
                 </p>
               )}
@@ -461,7 +461,7 @@ export function DeductionRequestForm({
         title="Action"
       >
         {policyError ? (
-          <p className="text-sm font-medium text-red-600">{policyError}</p>
+          <p className="text-sm font-medium text-[oklch(0.55_0.19_27)]">{policyError}</p>
         ) : (
           <Field label="Action">
             <Select
@@ -497,7 +497,7 @@ export function DeductionRequestForm({
         <div className="grid gap-3">
           <Field label="Reason">
             <textarea
-              className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-200"
+              className="min-h-24 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 py-2 text-sm text-[color:var(--sn-ink)] outline-none transition placeholder:text-[color:var(--sn-faint)] focus:border-[#FFD8BD] focus:ring-2 focus:ring-[#FFE8D9]"
               maxLength={1000}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Optional"
@@ -528,7 +528,7 @@ export function DeductionRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl border-red-700 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
+          className="min-h-11 w-full rounded-xl border-[oklch(0.7_0.19_27)] bg-[oklch(0.55_0.19_27)] px-5 text-white hover:bg-[oklch(0.48_0.19_27)] sm:w-auto"
           disabled={isPending || previewState.status !== "ready"}
           type="submit"
         >
@@ -549,10 +549,10 @@ function Section({
   title: string;
 }) {
   return (
-    <section className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+    <section className="grid gap-4 border-b border-[color:var(--sn-border)] pb-5 lg:grid-cols-[13rem_1fr]">
       <div>
-        <p className="text-sm font-semibold text-slate-950">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+        <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[color:var(--sn-muted)]">{description}</p>
       </div>
       <div className="min-w-0">{children}</div>
     </section>
@@ -567,25 +567,25 @@ function DeductionTargetCard({
   target: SelectedDeductionTarget;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-base font-semibold text-slate-950">
+            <h3 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
               {target.name}
             </h3>
             <Badge
-              className="border-orange-200 bg-orange-50 text-orange-700"
+              className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
               variant="outline"
             >
               {formatEnum(target.role)}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
             {target.shopperId ? `Shopper ${target.shopperId}` : "No Shopper ID"}
             {target.ibsId ? ` · IBS ${target.ibsId}` : ""}
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
             {target.vendorName ?? "Branch resolved at preview"} ·{" "}
             {target.chainName ?? "Chain resolved at preview"}
           </p>
@@ -606,7 +606,7 @@ function DeductionTargetCard({
 function DeductionOutcomeCard({ state }: { state: PreviewState }) {
   if (state.status === "idle") {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+      <div className="rounded-[16px] border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
         Select a target, an incident date, and an action to preview the
         calculated penalty.
       </div>
@@ -617,7 +617,7 @@ function DeductionOutcomeCard({ state }: { state: PreviewState }) {
     return (
       <div
         aria-busy="true"
-        className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+        className="grid gap-3 rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]"
         role="status"
       >
         <Skeleton className="h-5 w-40" />
@@ -629,7 +629,7 @@ function DeductionOutcomeCard({ state }: { state: PreviewState }) {
 
   if (state.status === "error") {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+      <div className="rounded-[16px] border border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm font-medium text-[oklch(0.55_0.19_27)]">
         {state.message}
       </div>
     );
@@ -638,26 +638,26 @@ function DeductionOutcomeCard({ state }: { state: PreviewState }) {
   const { preview } = state;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex flex-wrap items-center gap-2">
         <Badge
-          className="border-slate-200 bg-slate-50 text-slate-700"
+          className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
           variant="outline"
         >
           Occurrence {preview.occurrenceNumber} in {preview.incidentMonth}
         </Badge>
         <PenaltyTypeBadge penaltyType={preview.penalty.penaltyType} />
       </div>
-      <p className="mt-3 text-base font-semibold text-slate-950">
+      <p className="mt-3 text-base font-semibold text-[color:var(--sn-ink)]">
         {preview.penalty.label}
       </p>
       {preview.penalty.deductionDays !== null ? (
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-[color:var(--sn-body)]">
           Deduction: {Number(preview.penalty.deductionDays)}{" "}
           {Number(preview.penalty.deductionDays) === 1 ? "day" : "days"}
         </p>
       ) : null}
-      <p className="mt-2 text-xs font-medium text-slate-400">
+      <p className="mt-2 text-xs font-medium text-[color:var(--sn-faint)]">
         Policy version {preview.policyVersion.versionNumber} ·{" "}
         {preview.action.name}
       </p>
@@ -673,11 +673,12 @@ export function PenaltyTypeBadge({
   return (
     <Badge
       className={cn(
-        penaltyType === "WARNING" && "border-amber-200 bg-amber-50 text-amber-700",
+        penaltyType === "WARNING" &&
+          "border-[oklch(0.85_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
         penaltyType === "DEDUCTION_DAYS" &&
-          "border-rose-200 bg-rose-50 text-rose-700",
+          "border-[oklch(0.85_0.1_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
         penaltyType === "LIFECYCLE_REVIEW_REQUIRED" &&
-          "border-violet-200 bg-violet-50 text-violet-700"
+          "border-[color:var(--sn-border-strong)] bg-[color:var(--sn-sunken)] text-[color:var(--tlb-purple)]"
       )}
       variant="outline"
     >

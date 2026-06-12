@@ -293,8 +293,8 @@ export function PickerProfileCompletion() {
                 <Field error={errors.address?.message} label="Address">
                   <Input placeholder="Required operational address" {...register("address")} />
                 </Field>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-                  <p className="font-medium text-slate-900">Joining date</p>
+                <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-body)]">
+                  <p className="font-medium text-[color:var(--sn-ink)]">Joining date</p>
                   <p className="mt-1">
                     {state.data.user.joiningDate
                       ? toDateInput(state.data.user.joiningDate)
@@ -337,7 +337,7 @@ export function PickerProfileCompletion() {
 
           {submitError ? <ErrorState message={submitError} /> : null}
           {submitted ? (
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-[oklch(0.85_0.08_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm text-[oklch(0.58_0.13_150)]">
               <CheckCircle2 className="h-4 w-4" />
               Profile completed. Opening Picker dashboard.
             </div>

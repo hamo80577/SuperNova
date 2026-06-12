@@ -165,16 +165,16 @@ export function PickerSelfAttendancePage() {
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-4 overflow-hidden">
-      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-5">
+      <section className="overflow-hidden rounded-[28px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
           <div className="min-w-0">
-            <Badge className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
+            <Badge className="rounded-full border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]" variant="outline">
               Picker attendance
             </Badge>
-            <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950 sm:text-3xl">
+            <h1 className="mt-3 text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-3xl">
               My Attendance
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--sn-muted)]">
               Review your shifts from the imported attendance file. Your score
               ignores leave and off days.
             </p>
@@ -189,7 +189,7 @@ export function PickerSelfAttendancePage() {
                 quickActions={["yesterday"]}
                 value={dateFrom}
               />
-              <span className="px-1 text-[11px] font-medium text-slate-400">
+              <span className="px-1 text-[11px] font-medium text-[color:var(--sn-faint)]">
                 Pick one attendance month.
               </span>
             </div>
@@ -203,7 +203,7 @@ export function PickerSelfAttendancePage() {
                 quickActions={["yesterday"]}
                 value={dateTo}
               />
-              <span className="px-1 text-[11px] font-medium text-slate-400">
+              <span className="px-1 text-[11px] font-medium text-[color:var(--sn-faint)]">
                 Ends by {formatDate(dateToMax)}.
               </span>
             </div>
@@ -226,18 +226,18 @@ export function PickerSelfAttendancePage() {
             <BucketCard viewModel={viewModel} />
           </section>
 
-          <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.04)] sm:p-5">
+          <section className="rounded-[28px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-body)]">
                     <CalendarDays className="h-4 w-4" />
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-950">
+                    <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
                       Shift History
                     </h2>
-                    <p className="text-xs leading-5 text-slate-500">
+                    <p className="text-xs leading-5 text-[color:var(--sn-muted)]">
                       Card view, sorted newest first.
                     </p>
                   </div>
@@ -245,7 +245,7 @@ export function PickerSelfAttendancePage() {
               </div>
               {viewModel.score.unavailableLateRows ? (
                 <button
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[oklch(0.82_0.08_80)] bg-[oklch(0.95_0.05_80)] px-3 text-xs font-semibold text-[oklch(0.55_0.14_65)]"
                   onClick={() => setActiveTab("ALL")}
                   type="button"
                 >
@@ -261,8 +261,8 @@ export function PickerSelfAttendancePage() {
                   className={cn(
                     "min-h-11 shrink-0 rounded-full border px-3 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
                     activeTab === tab.value
-                      ? "border-slate-900 bg-slate-950 text-white shadow-sm"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      ? "border-[color:var(--sn-ink)] bg-[color:var(--sn-ink)] text-white shadow-sm"
+                      : "border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] hover:border-[color:var(--sn-border-strong)] hover:bg-[color:var(--sn-sunken)]"
                   )}
                   key={tab.value}
                   onClick={() => setActiveTab(tab.value)}
@@ -318,23 +318,23 @@ function ScoreCard({
   const ringValue = percentage ?? 0;
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.04)] sm:p-5">
+    <section className="overflow-hidden rounded-[28px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-emerald-100 bg-emerald-50 text-emerald-700">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[oklch(0.88_0.04_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]">
             <Target className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-950">
+            <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
               Shift Score
             </h2>
-            <p className="text-xs leading-5 text-slate-500">
+            <p className="text-xs leading-5 text-[color:var(--sn-muted)]">
               {label} · Clean Shifts / Scorable Shifts
             </p>
           </div>
         </div>
         <Badge
-          className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700"
+          className="rounded-full border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
           variant="outline"
         >
           Target above 90%
@@ -344,15 +344,15 @@ function ScoreCard({
       <div className="mt-5 grid gap-5 sm:grid-cols-[12rem_1fr] sm:items-center">
         <div className="mx-auto grid aspect-square w-44 place-items-center rounded-full p-3 shadow-inner"
           style={{
-            background: `conic-gradient(#22c55e ${ringValue * 3.6}deg, #e2e8f0 0deg)`
+            background: `conic-gradient(oklch(0.58 0.13 150) ${ringValue * 3.6}deg, var(--sn-border) 0deg)`
           }}
         >
           <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
             <div>
-              <p className="text-4xl font-semibold tracking-normal text-slate-950">
+              <p className="text-4xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
                 {percentage === null ? "--" : `${percentage}%`}
               </p>
-              <p className="mt-1 text-xs font-medium text-slate-500">
+              <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
                 Clean / Scorable
               </p>
             </div>
@@ -384,7 +384,7 @@ function ScoreCard({
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-emerald-900">
+      <div className="mt-4 rounded-2xl border border-[oklch(0.88_0.04_150)] bg-[oklch(0.95_0.045_150)] p-3 text-sm leading-6 text-[oklch(0.45_0.12_150)]">
         <div className="flex gap-2">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
@@ -396,7 +396,7 @@ function ScoreCard({
       </div>
 
       {score.unavailableLateRows ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        <div className="mt-4 rounded-2xl border border-[oklch(0.82_0.08_80)] bg-[oklch(0.95_0.05_80)] p-3 text-sm leading-6 text-[oklch(0.45_0.12_65)]">
           <div className="flex gap-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
@@ -426,44 +426,44 @@ function BucketCard({
   const totalIssues = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.04)] sm:p-5">
+    <section className="rounded-[28px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
       <div className="flex items-center gap-3">
-        <div className="grid h-11 w-11 place-items-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-700">
+        <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[oklch(0.88_0.04_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]">
           <AlertCircle className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-slate-950">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Error Buckets
           </h2>
-          <p className="text-xs leading-5 text-slate-500">
+          <p className="text-xs leading-5 text-[color:var(--sn-muted)]">
             Simple attendance issue labels.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-        <p className="text-4xl font-semibold tracking-normal text-slate-950">
+      <div className="mt-5 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
+        <p className="text-4xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
           {totalIssues}
         </p>
-        <p className="mt-1 text-sm text-slate-500">Total issue tags</p>
+        <p className="mt-1 text-sm text-[color:var(--sn-muted)]">Total issue tags</p>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         {rows.map((row) => (
           <div
-            className="rounded-2xl border border-slate-100 bg-white p-3"
+            className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-3"
             key={row.label}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="text-xs font-semibold text-[color:var(--sn-muted)]">
                 {row.label}
               </span>
               <span
                 className={cn(
                   "grid h-7 min-w-7 place-items-center rounded-full px-2 text-xs font-semibold",
                   row.tone === "rose"
-                    ? "bg-rose-50 text-rose-700"
-                    : "bg-amber-50 text-amber-700"
+                    ? "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
+                    : "bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
                 )}
               >
                 {row.count}
@@ -487,20 +487,20 @@ function ShiftCard({
 
   return (
     <button
-      className="group w-full rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-[0_10px_30px_rgba(15,23,42,0.035)] transition hover:border-slate-300 hover:shadow-[0_18px_40px_rgba(15,23,42,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+      className="group w-full rounded-[24px] border border-[color:var(--sn-border)] bg-white p-4 text-left shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition hover:border-[color:var(--sn-border-strong)] hover:shadow-[0_4px_24px_rgba(65,21,23,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
       onClick={onOpen}
       type="button"
     >
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-slate-950">
+          <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
             {row.shiftName || "Shift"}
           </p>
-          <p className="mt-1 text-xs font-medium text-slate-500">
+          <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
             {formatDate(row.shiftDate)}
           </p>
         </div>
-        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500" />
+        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--sn-border-strong)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--sn-muted)]" />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -547,19 +547,19 @@ function ShiftDetailSheet({
   return (
     <ModalPortal>
       <div
-        className="fixed inset-0 z-[180] grid place-items-end bg-slate-950/45 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
+        className="fixed inset-0 z-[180] grid place-items-end bg-[rgba(65,21,23,0.45)] p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
         role="dialog"
         aria-modal="true"
         aria-label="Shift details"
       >
-        <div className="max-h-[92dvh] w-full overflow-auto rounded-t-[30px] border border-slate-200 bg-white p-4 shadow-2xl sm:max-w-xl sm:rounded-[30px] sm:p-5">
+        <div className="max-h-[92dvh] w-full overflow-auto rounded-t-[30px] border border-[color:var(--sn-border)] bg-white p-4 shadow-2xl sm:max-w-xl sm:rounded-[30px] sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Badge variant="outline">Shift details</Badge>
-              <h2 className="mt-3 truncate text-xl font-semibold text-slate-950">
+              <h2 className="mt-3 truncate text-xl font-semibold text-[color:var(--sn-ink)]">
                 {row.shiftName || "Shift"}
               </h2>
-              <p className="text-sm text-slate-500">{formatDate(row.shiftDate)}</p>
+              <p className="text-sm text-[color:var(--sn-muted)]">{formatDate(row.shiftDate)}</p>
             </div>
             <Button
               aria-label="Close shift details"
@@ -578,7 +578,7 @@ function ShiftDetailSheet({
             ))}
           </div>
 
-          <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+          <div className="mt-4 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm leading-6 text-[color:var(--sn-body)]">
             {shift.explanation}
           </div>
 
@@ -618,15 +618,15 @@ function InlineMetric({
   value: number;
 }) {
   return (
-    <div className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3">
-      <span className="text-sm font-medium text-slate-600">{label}</span>
+    <div className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3">
+      <span className="text-sm font-medium text-[color:var(--sn-body)]">{label}</span>
       <span
         className={cn(
           "rounded-xl px-2.5 py-1 text-lg font-semibold tabular-nums",
-          tone === "emerald" && "bg-emerald-50 text-emerald-700",
-          tone === "rose" && "bg-rose-50 text-rose-700",
-          tone === "blue" && "bg-sky-50 text-sky-700",
-          tone === "slate" && "bg-white text-slate-950"
+          tone === "emerald" && "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+          tone === "rose" && "bg-[oklch(0.95_0.04_10)] text-[oklch(0.55_0.19_27)]",
+          tone === "blue" && "bg-[color:var(--tlb-lavender,#f0f0ff)] text-[color:var(--tlb-purple,#4400aa)]",
+          tone === "slate" && "bg-white text-[color:var(--sn-ink)]"
         )}
       >
         {value}
@@ -645,13 +645,13 @@ function SmallFact({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-slate-50 p-3">
-      <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+    <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-[color:var(--sn-sunken)] p-3">
+      <Icon className="h-4 w-4 shrink-0 text-[color:var(--sn-faint)]" />
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase text-slate-400">
+        <p className="text-[11px] font-semibold uppercase text-[color:var(--sn-faint)]">
           {label}
         </p>
-        <p className="truncate text-sm font-semibold text-slate-800" title={value}>
+        <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]" title={value}>
           {value}
         </p>
       </div>
@@ -661,9 +661,9 @@ function SmallFact({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="max-w-full break-words text-right text-sm font-semibold text-slate-950">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--sn-border)] pb-3 last:border-b-0 last:pb-0">
+      <span className="text-sm text-[color:var(--sn-muted)]">{label}</span>
+      <span className="max-w-full break-words text-right text-sm font-semibold text-[color:var(--sn-ink)]">
         {value}
       </span>
     </div>
@@ -675,11 +675,11 @@ function ShiftTagBadge({ tag }: { tag: PickerShiftTag }) {
     <span
       className={cn(
         "inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-semibold",
-        tag.tone === "emerald" && "bg-emerald-50 text-emerald-700",
-        tag.tone === "rose" && "bg-rose-50 text-rose-700",
-        tag.tone === "amber" && "bg-amber-50 text-amber-800",
-        tag.tone === "blue" && "bg-sky-50 text-sky-700",
-        tag.tone === "slate" && "bg-slate-100 text-slate-600"
+        tag.tone === "emerald" && "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+        tag.tone === "rose" && "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+        tag.tone === "amber" && "bg-[oklch(0.95_0.05_80)] text-[oklch(0.55_0.14_65)]",
+        tag.tone === "blue" && "bg-[color:var(--tlb-lavender,#f0f0ff)] text-[color:var(--tlb-purple,#4400aa)]",
+        tag.tone === "slate" && "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
       )}
     >
       {tag.tone === "emerald" ? (
@@ -692,9 +692,9 @@ function ShiftTagBadge({ tag }: { tag: PickerShiftTag }) {
 
 function LoadingState() {
   return (
-    <div className="grid min-h-64 place-items-center rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-[0_18px_50px_rgba(15,23,42,0.04)]">
+    <div className="grid min-h-64 place-items-center rounded-[28px] border border-[color:var(--sn-border)] bg-white p-6 text-center shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="mt-3 text-sm font-medium text-slate-600">
+      <p className="mt-3 text-sm font-medium text-[color:var(--sn-body)]">
         Loading your attendance...
       </p>
     </div>
@@ -703,7 +703,7 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-[28px] border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+    <div className="rounded-[28px] border border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm leading-6 text-[oklch(0.55_0.19_27)]">
       <div className="flex gap-2">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{message}</span>
@@ -716,12 +716,12 @@ function EmptyState({ activeTab }: { activeTab: PickerAttendanceTab }) {
   const copy = emptyStateCopy[activeTab];
 
   return (
-    <div className="grid place-items-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-      <ShieldCheck className="h-8 w-8 text-slate-400" />
-      <p className="mt-3 text-sm font-semibold text-slate-700">
+    <div className="grid place-items-center rounded-[24px] border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-8 text-center">
+      <ShieldCheck className="h-8 w-8 text-[color:var(--sn-muted)]" />
+      <p className="mt-3 text-sm font-semibold text-[color:var(--sn-body)]">
         {copy.title}
       </p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+      <p className="mt-1 max-w-sm text-xs leading-5 text-[color:var(--sn-muted)]">
         {copy.body}
       </p>
     </div>
@@ -730,12 +730,12 @@ function EmptyState({ activeTab }: { activeTab: PickerAttendanceTab }) {
 
 function NoAttendanceDataState() {
   return (
-    <div className="grid place-items-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-      <CalendarDays className="h-8 w-8 text-slate-400" />
-      <p className="mt-3 text-sm font-semibold text-slate-700">
+    <div className="grid place-items-center rounded-[24px] border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-8 text-center">
+      <CalendarDays className="h-8 w-8 text-[color:var(--sn-muted)]" />
+      <p className="mt-3 text-sm font-semibold text-[color:var(--sn-body)]">
         No attendance here yet
       </p>
-      <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+      <p className="mt-1 max-w-sm text-xs leading-5 text-[color:var(--sn-muted)]">
         Try another date in the same month, or check back after the attendance
         file is imported.
       </p>

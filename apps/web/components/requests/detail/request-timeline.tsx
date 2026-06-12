@@ -24,12 +24,12 @@ export function RequestTimeline({
       <div className="grid gap-3">
         {visibleItems.map((item) => (
           <div className="flex gap-3" key={item.id}>
-            <div className="mt-1.5 h-2 w-2 rounded-full bg-orange-500" />
+            <div className="mt-1.5 h-2 w-2 rounded-full bg-[color:var(--tlb-orange)]" />
             <div>
-              <p className="text-sm font-semibold text-slate-950">
+              <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
                 {importantOnly ? getImportantTimelineLabel(item) : formatEnum(item.type)}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[color:var(--sn-muted)]">
                 {new Date(item.at).toLocaleString()}
               </p>
             </div>

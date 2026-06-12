@@ -41,13 +41,13 @@ export function DashboardNotificationsMenu({
 }) {
   return (
     <div
-      className="absolute right-[-3rem] top-12 w-[min(360px,calc(100vw-1.5rem))] rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-[0_18px_50px_rgba(15,23,42,0.16)] sm:right-0"
+      className="absolute right-[-3rem] top-12 w-[min(360px,calc(100vw-1.5rem))] rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-3 text-left shadow-[0_18px_50px_rgba(65,21,23,0.16)] sm:right-0"
       role="menu"
     >
       <div className="flex items-start justify-between gap-3 px-1 pb-3">
         <div>
-          <p className="text-sm font-semibold text-slate-950">Notifications</p>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Notifications</p>
+          <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
             {unreadCount ? `${unreadCount} unread updates` : "No unread updates"}
           </p>
         </div>
@@ -60,14 +60,14 @@ export function DashboardNotificationsMenu({
       </div>
 
       {error ? (
-        <div className="mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs leading-5 text-red-700">
+        <div className="mb-2 rounded-xl border border-[oklch(0.85_0.05_27)] bg-[oklch(0.95_0.035_27)] px-3 py-2 text-xs leading-5 text-[oklch(0.55_0.19_27)]">
           {error}
         </div>
       ) : null}
 
       <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1">
         {loading ? (
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-500">
+          <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
             Loading updates...
           </div>
         ) : groups.length ? (
@@ -81,10 +81,10 @@ export function DashboardNotificationsMenu({
             />
           ))
         ) : (
-          <div className="grid place-items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center">
-            <Bell className="mb-2 h-5 w-5 text-slate-400" />
-            <p className="text-sm font-medium text-slate-700">No notifications</p>
-            <p className="mt-1 text-xs text-slate-500">
+          <div className="grid place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-5 text-center">
+            <Bell className="mb-2 h-5 w-5 text-[color:var(--sn-muted)]" />
+            <p className="text-sm font-medium text-[color:var(--sn-body)]">No notifications</p>
+            <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
               Workflow updates will appear here.
             </p>
           </div>
@@ -94,7 +94,7 @@ export function DashboardNotificationsMenu({
       <Link
         className={buttonVariants({
           className:
-            "mt-3 h-11 w-full rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50",
+            "mt-3 h-11 w-full rounded-xl border-[color:var(--sn-border)] text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]",
           variant: "outline"
         })}
         href="/notifications"
@@ -128,8 +128,8 @@ function NotificationPreviewCard({
       className={cn(
         "flex items-start gap-2 rounded-xl border bg-white p-2.5 transition-colors",
         group.unreadCount
-          ? "border-brand-soft bg-primary/5"
-          : "border-slate-100"
+          ? "border-[#FFD8BD] bg-[#FFE8D9]/30"
+          : "border-[color:var(--sn-border)]"
       )}
     >
       <div
@@ -147,7 +147,7 @@ function NotificationPreviewCard({
         type="button"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-sm font-semibold text-slate-950">
+          <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
             {group.latest.title}
           </p>
           {group.unreadCount ? (
@@ -156,10 +156,10 @@ function NotificationPreviewCard({
             </span>
           ) : null}
         </div>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+        <p className="mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--sn-muted)]">
           {group.latest.body}
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[color:var(--sn-faint)]">
           <span>{formatNotificationLabel(group.latest.type)}</span>
           <span>{formatRelativeTime(group.latest.createdAt)}</span>
           {group.items.length > 1 ? <span>{group.items.length} updates</span> : null}
@@ -169,7 +169,7 @@ function NotificationPreviewCard({
         {isQuickApproveEligible(group) ? (
           <Button
             aria-label="Quick approve"
-            className="h-9 w-9 rounded-xl border-emerald-200 bg-emerald-50 p-0 text-emerald-700 hover:bg-emerald-100"
+            className="h-9 w-9 rounded-xl border-[oklch(0.85_0.07_150)] bg-[oklch(0.95_0.045_150)] p-0 text-[oklch(0.58_0.13_150)] hover:bg-[oklch(0.90_0.065_150)]"
             disabled={Boolean(activeAction)}
             onClick={onQuickApprove}
             type="button"
@@ -184,7 +184,7 @@ function NotificationPreviewCard({
         ) : null}
         <Button
           aria-label="Open notification target"
-          className="h-9 w-9 rounded-xl border-slate-200 p-0 text-slate-600 hover:bg-slate-50"
+          className="h-9 w-9 rounded-xl border-[color:var(--sn-border)] p-0 text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
           disabled={Boolean(activeAction)}
           onClick={onOpen}
           type="button"

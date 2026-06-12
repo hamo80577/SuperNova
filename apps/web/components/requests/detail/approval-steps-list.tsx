@@ -45,12 +45,12 @@ function ApprovalStepCard({
 }) {
   if (variant === "modal") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div>
-          <p className="text-sm font-semibold text-slate-950">
+          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
             {formatEnum(approval.step)}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[color:var(--sn-muted)]">
             {approval.approver?.nameEn ?? formatEnum(approval.approverRole)}
           </p>
         </div>

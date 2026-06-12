@@ -91,16 +91,16 @@ export function NewRequestSheet({
     <ModalPortal>
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[220] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4"
+      className="fixed inset-0 z-[220] grid place-items-end bg-[color:var(--tlb-burgundy)]/30 p-0 sm:place-items-center sm:p-4"
       role="dialog"
     >
-      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-slate-200 bg-white p-4 shadow-2xl [scrollbar-width:none] sm:max-w-5xl sm:rounded-[1.75rem] sm:p-5 xl:max-w-6xl [&::-webkit-scrollbar]:hidden">
+      <section className="max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-[1.75rem] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] [scrollbar-width:none] sm:max-w-5xl sm:rounded-[1.75rem] sm:p-5 xl:max-w-6xl [&::-webkit-scrollbar]:hidden">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
               New request
             </Badge>
-            <h2 className="mt-2 text-lg font-semibold text-slate-950">
+            <h2 className="mt-2 text-lg font-semibold text-[color:var(--sn-ink)]">
               {draft.type === "DEDUCTION" ? title : `Create ${title}`}
             </h2>
           </div>
@@ -139,7 +139,7 @@ export function NewRequestSheet({
             onDirtyChange={setIsDirty}
           />
         ) : (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-body)]">
             This request type is not available in the current workflow.
           </div>
         )}

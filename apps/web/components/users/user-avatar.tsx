@@ -10,24 +10,24 @@ type AvatarSize = "sm" | "md" | "lg";
 type AvatarStatusTone = "active" | "pending" | "resigned";
 
 const roleTone: Record<UserRole, string> = {
-  PICKER: "bg-orange-50 text-orange-700 ring-orange-100",
-  CHAMP: "bg-sky-50 text-sky-700 ring-sky-100",
-  AREA_MANAGER: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-  ADMIN: "bg-slate-100 text-slate-700 ring-slate-200",
-  SUPER_ADMIN: "bg-slate-100 text-slate-700 ring-slate-200"
+  PICKER: "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] ring-[#FFD8BD]",
+  CHAMP: "bg-[color:var(--sn-sunken)] text-[color:var(--tlb-purple)] ring-[color:var(--sn-border)]",
+  AREA_MANAGER: "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)] ring-[oklch(0.88_0.06_150)]",
+  ADMIN: "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)] ring-[color:var(--sn-border)]",
+  SUPER_ADMIN: "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)] ring-[color:var(--sn-border)]"
 };
 
 const statusDot: Record<SafeUser["employmentStatus"], string> = {
-  ACTIVE: "bg-emerald-500",
-  ARCHIVED: "bg-slate-400",
-  NEW_HIRE_PENDING: "bg-amber-500",
-  RESIGNED: "bg-red-500"
+  ACTIVE: "bg-[oklch(0.58_0.13_150)]",
+  ARCHIVED: "bg-[color:var(--sn-muted)]",
+  NEW_HIRE_PENDING: "bg-[oklch(0.62_0.13_70)]",
+  RESIGNED: "bg-[oklch(0.55_0.19_27)]"
 };
 
 const operationalStatusDot: Record<AvatarStatusTone, string> = {
-  active: "bg-emerald-500",
-  pending: "bg-amber-500",
-  resigned: "bg-red-500"
+  active: "bg-[oklch(0.58_0.13_150)]",
+  pending: "bg-[oklch(0.62_0.13_70)]",
+  resigned: "bg-[oklch(0.55_0.19_27)]"
 };
 
 export function UserAvatar({
@@ -53,7 +53,7 @@ export function UserAvatar({
   const dotClass = statusTone
     ? operationalStatusDot[statusTone]
     : accountStatus === "SUSPENDED" || accountStatus === "ARCHIVED"
-      ? "bg-slate-400"
+      ? "bg-[color:var(--sn-muted)]"
       : statusDot[employmentStatus];
 
   return (
@@ -72,7 +72,7 @@ export function UserAvatar({
       {showStatus ? (
         <span
           className={cn(
-            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white",
+            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--sn-card)]",
             dotClass
           )}
         />

@@ -185,40 +185,40 @@ export function OrdersKpiImportPage() {
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+    <div className="min-w-0 overflow-hidden rounded-3xl bg-[color:var(--sn-sunken)] p-3 sm:p-4">
+      <section className="rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="muted">FULL_DAILY_SNAPSHOT</Badge>
               <Badge variant="outline">Preview before confirm</Badge>
             </div>
-            <h2 className="mt-3 text-xl font-semibold tracking-normal text-slate-950">
+            <h2 className="mt-3 text-xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               Orders KPI Import
             </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--sn-muted)]">
               Upload the daily Orders KPI file, review matched rows and validation issues, then confirm replacement for the covered dates.
             </p>
           </div>
           <Link
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-4 text-sm font-semibold text-[color:var(--sn-body)] transition hover:bg-[color:var(--sn-sunken)]"
             href="/admin/reports/orders-kpi"
           >
             Open report
           </Link>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        <div className="mt-5 rounded-2xl border border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] p-3 text-sm leading-6 text-[oklch(0.62_0.13_70)]">
           Confirm replaces existing confirmed Orders KPI records only for the dates in this file. Rows with blocking errors are skipped when a review batch is approved.
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="flex min-h-28 cursor-pointer flex-col justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-4 transition hover:border-primary/40 hover:bg-white">
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+          <label className="flex min-h-28 cursor-pointer flex-col justify-center rounded-2xl border border-dashed border-[color:var(--sn-border-strong)] bg-[color:var(--sn-sunken)] p-4 transition hover:border-primary/40 hover:bg-[color:var(--sn-card)]">
+            <span className="flex items-center gap-2 text-sm font-semibold text-[color:var(--sn-ink)]">
               <UploadCloud className="h-5 w-5 text-primary" />
               Upload Orders KPI file
             </span>
-            <span className="mt-2 text-sm text-slate-500">
+            <span className="mt-2 text-sm text-[color:var(--sn-muted)]">
               {file ? file.name : "Choose .xlsx or .csv file"}
             </span>
             <input
@@ -267,7 +267,7 @@ export function OrdersKpiImportPage() {
       </section>
 
       {preview ? (
-        <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+        <section className="mt-4 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
           <PreviewHeader preview={preview} />
           <PreviewSummary preview={preview} />
 
@@ -280,8 +280,8 @@ export function OrdersKpiImportPage() {
             <div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-slate-950">Preview rows</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Preview rows</p>
+                  <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                     Showing {filteredPreviewRows.length} of {preview.previewRows.length} rows.
                   </p>
                 </div>
@@ -302,14 +302,14 @@ export function OrdersKpiImportPage() {
               <PreviewRows rows={filteredPreviewRows} />
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-              <p className="text-sm font-semibold text-slate-950">Review decision</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+            <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
+              <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Review decision</p>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
                 {getDecisionCopy(batch?.status)}
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 {batch?.status === "FAILED" ? (
-                  <Badge className="justify-center border-red-200 bg-red-50 text-red-700" variant="outline">
+                  <Badge className="justify-center border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]" variant="outline">
                     Upload a corrected file
                   </Badge>
                 ) : null}
@@ -379,21 +379,21 @@ function PreviewHeader({ preview }: { preview: OrdersKpiPreviewResponse }) {
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={preview.batch.status} />
           {preview.batch.requiresReviewDecision ? (
-            <Badge className="border-amber-200 bg-amber-50 text-amber-800" variant="outline">
+            <Badge className="border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]" variant="outline">
               Review decision required
             </Badge>
           ) : null}
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-950">
+        <p className="mt-3 text-sm font-semibold text-[color:var(--sn-ink)]">
           {preview.batch.fileName}
         </p>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
           Dates: {formatDateRange(preview.batch.coveredDateFrom, preview.batch.coveredDateTo)}
         </p>
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-        <p className="font-semibold text-slate-950">Batch ID</p>
-        <p className="mt-1 break-all text-xs text-slate-500">{preview.batch.id}</p>
+      <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-4 py-3 text-sm">
+        <p className="font-semibold text-[color:var(--sn-ink)]">Batch ID</p>
+        <p className="mt-1 break-all text-xs text-[color:var(--sn-muted)]">{preview.batch.id}</p>
       </div>
     </div>
   );
@@ -413,13 +413,13 @@ function PreviewSummary({ preview }: { preview: OrdersKpiPreviewResponse }) {
     <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       {cards.map((card) => (
         <div
-          className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+          className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4"
           key={card.label}
         >
-          <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             {card.label}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">
+          <p className="mt-2 font-[family-name:var(--font-data)] text-2xl font-semibold text-[color:var(--sn-ink)]">
             {formatNumber(card.value)}
           </p>
         </div>
@@ -431,17 +431,17 @@ function PreviewSummary({ preview }: { preview: OrdersKpiPreviewResponse }) {
 function PreviewRows({ rows }: { rows: OrdersKpiPreviewRow[] }) {
   if (!rows.length) {
     return (
-      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+      <div className="mt-4 rounded-2xl border border-dashed border-[color:var(--sn-border-strong)] bg-[color:var(--sn-sunken)] p-6 text-center text-sm text-[color:var(--sn-muted)]">
         No preview rows match this filter.
       </div>
     );
   }
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[color:var(--sn-border)]">
       <div className="max-h-[520px] overflow-auto">
-        <table className="hidden min-w-full divide-y divide-slate-200 text-sm lg:table">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+        <table className="hidden min-w-full divide-y divide-[color:var(--sn-border)] text-sm lg:table">
+          <thead className="sticky top-0 z-10 bg-[color:var(--sn-sunken)] text-left text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             <tr>
               <th className="px-3 py-3">Row</th>
               <th className="px-3 py-3">Date</th>
@@ -452,21 +452,21 @@ function PreviewRows({ rows }: { rows: OrdersKpiPreviewRow[] }) {
               <th className="px-3 py-3">Confirmable</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-[color:var(--sn-border)] bg-[color:var(--sn-card)]">
             {rows.map((row) => (
               <tr key={`${row.rawRowNumber}-${row.sourceShopperId ?? "unknown"}`}>
-                <td className="px-3 py-3 font-medium text-slate-950">{row.rawRowNumber}</td>
-                <td className="px-3 py-3 text-slate-600">{row.kpiDate ?? "N/A"}</td>
+                <td className="px-3 py-3 font-medium text-[color:var(--sn-ink)]">{row.rawRowNumber}</td>
+                <td className="px-3 py-3 text-[color:var(--sn-body)]">{row.kpiDate ?? "N/A"}</td>
                 <td className="px-3 py-3">
-                  <p className="font-medium text-slate-900">{row.vendorLabel}</p>
-                  <p className="text-xs text-slate-500">{row.sourceVendorId ?? "N/A"}</p>
+                  <p className="font-medium text-[color:var(--sn-ink)]">{row.vendorLabel}</p>
+                  <p className="text-xs text-[color:var(--sn-muted)]">{row.sourceVendorId ?? "N/A"}</p>
                 </td>
                 <td className="px-3 py-3">
-                  <p className="font-medium text-slate-900">{row.pickerLabel}</p>
-                  <p className="text-xs text-slate-500">{row.sourceShopperId ?? "N/A"}</p>
+                  <p className="font-medium text-[color:var(--sn-ink)]">{row.pickerLabel}</p>
+                  <p className="text-xs text-[color:var(--sn-muted)]">{row.sourceShopperId ?? "N/A"}</p>
                 </td>
-                <td className="px-3 py-3 text-slate-600">{formatNumber(row.totalOrders ?? 0)}</td>
-                <td className="px-3 py-3 text-slate-600">{formatNumber(row.issuesCount)}</td>
+                <td className="px-3 py-3 text-[color:var(--sn-body)]">{formatNumber(row.totalOrders ?? 0)}</td>
+                <td className="px-3 py-3 text-[color:var(--sn-body)]">{formatNumber(row.issuesCount)}</td>
                 <td className="px-3 py-3">
                   <ConfirmableBadge confirmable={row.confirmable} />
                 </td>
@@ -475,31 +475,31 @@ function PreviewRows({ rows }: { rows: OrdersKpiPreviewRow[] }) {
           </tbody>
         </table>
 
-        <div className="divide-y divide-slate-100 bg-white lg:hidden">
+        <div className="divide-y divide-[color:var(--sn-border)] bg-[color:var(--sn-card)] lg:hidden">
           {rows.map((row) => (
             <div className="p-4" key={`${row.rawRowNumber}-${row.sourceShopperId ?? "unknown"}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-950">Row {row.rawRowNumber}</p>
-                  <p className="mt-1 text-xs text-slate-500">{row.kpiDate ?? "N/A"}</p>
+                  <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Row {row.rawRowNumber}</p>
+                  <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{row.kpiDate ?? "N/A"}</p>
                 </div>
                 <ConfirmableBadge confirmable={row.confirmable} />
               </div>
-              <div className="mt-3 grid gap-2 text-sm text-slate-600">
+              <div className="mt-3 grid gap-2 text-sm text-[color:var(--sn-body)]">
                 <p>
-                  <span className="font-semibold text-slate-900">Vendor:</span>{" "}
+                  <span className="font-semibold text-[color:var(--sn-ink)]">Vendor:</span>{" "}
                   {row.vendorLabel}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-900">Shopper:</span>{" "}
+                  <span className="font-semibold text-[color:var(--sn-ink)]">Shopper:</span>{" "}
                   {row.pickerLabel}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-900">Orders:</span>{" "}
+                  <span className="font-semibold text-[color:var(--sn-ink)]">Orders:</span>{" "}
                   {formatNumber(row.totalOrders ?? 0)}
                 </p>
                 <p>
-                  <span className="font-semibold text-slate-900">Issues:</span>{" "}
+                  <span className="font-semibold text-[color:var(--sn-ink)]">Issues:</span>{" "}
                   {formatNumber(row.issuesCount)}
                 </p>
               </div>
@@ -519,19 +519,19 @@ function IssueDetails({ issues }: { issues: OrdersKpiPreviewIssue[] }) {
   const visibleIssues = issues.slice(0, 30);
 
   return (
-    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+    <div className="mt-5 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-950">Issue details</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Issue details</p>
+          <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
             Showing first {visibleIssues.length} of {issues.length} issues.
           </p>
         </div>
       </div>
-      <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="mt-3 overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)]">
         <div className="max-h-80 overflow-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+          <table className="min-w-full divide-y divide-[color:var(--sn-border)] text-sm">
+            <thead className="sticky top-0 z-10 bg-[color:var(--sn-sunken)] text-left text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
               <tr>
                 <th className="px-3 py-3">Row</th>
                 <th className="px-3 py-3">Severity</th>
@@ -539,24 +539,24 @@ function IssueDetails({ issues }: { issues: OrdersKpiPreviewIssue[] }) {
                 <th className="px-3 py-3">Message</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[color:var(--sn-border)]">
               {visibleIssues.map((issue, index) => (
                 <tr key={`${issue.issueCode}-${issue.rowNumber ?? "file"}-${index}`}>
-                  <td className="px-3 py-3 text-slate-600">{issue.rowNumber ?? "File"}</td>
+                  <td className="px-3 py-3 text-[color:var(--sn-body)]">{issue.rowNumber ?? "File"}</td>
                   <td className="px-3 py-3">
                     <Badge
                       className={cn(
                         issue.severity === "ERROR"
-                          ? "border-red-200 bg-red-50 text-red-700"
-                          : "border-amber-200 bg-amber-50 text-amber-800"
+                          ? "border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
+                          : "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
                       )}
                       variant="outline"
                     >
                       {issue.severity}
                     </Badge>
                   </td>
-                  <td className="px-3 py-3 text-slate-700">{formatIssueCode(issue.issueCode)}</td>
-                  <td className="px-3 py-3 text-slate-600">{issue.message}</td>
+                  <td className="px-3 py-3 text-[color:var(--sn-body)]">{formatIssueCode(issue.issueCode)}</td>
+                  <td className="px-3 py-3 text-[color:var(--sn-body)]">{issue.message}</td>
                 </tr>
               ))}
             </tbody>
@@ -594,19 +594,19 @@ function ConfirmDialog({
 }) {
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 sm:items-center">
-        <div className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-3xl bg-white p-5 shadow-2xl">
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--sn-ink)]/45 p-3 sm:items-center">
+        <div className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-3xl bg-[color:var(--sn-card)] p-5 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-lg font-semibold text-slate-950">
+              <p className="text-lg font-semibold text-[color:var(--sn-ink)]">
                 {needsReview ? "Approve valid rows only" : "Confirm replacement"}
               </p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+              <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
                 This writes confirmed Orders KPI records and replaces existing records for the covered dates.
               </p>
             </div>
             <button
-              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-full p-2 text-[color:var(--sn-muted)] transition hover:bg-[color:var(--sn-sunken)] hover:text-[color:var(--sn-body)]"
               onClick={onClose}
               type="button"
             >
@@ -615,38 +615,38 @@ function ConfirmDialog({
             </button>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <div className="mt-4 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-body)]">
             <p>
-              <span className="font-semibold text-slate-950">Dates:</span>{" "}
+              <span className="font-semibold text-[color:var(--sn-ink)]">Dates:</span>{" "}
               {formatDateList(preview?.batch.coveredDates ?? [])}
             </p>
             <p className="mt-2">
-              <span className="font-semibold text-slate-950">Rows to confirm:</span>{" "}
+              <span className="font-semibold text-[color:var(--sn-ink)]">Rows to confirm:</span>{" "}
               {formatNumber(preview?.batch.confirmableRows ?? 0)}
             </p>
             {needsReview ? (
               <p className="mt-2">
-                <span className="font-semibold text-slate-950">Rows skipped:</span>{" "}
+                <span className="font-semibold text-[color:var(--sn-ink)]">Rows skipped:</span>{" "}
                 {formatNumber(preview?.batch.errorRows ?? 0)}
               </p>
             ) : null}
           </div>
 
           <div className="mt-4 space-y-3">
-            <label className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700">
+            <label className="flex gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-3 text-sm leading-6 text-[color:var(--sn-body)]">
               <input
                 checked={acknowledgeReplaceDates}
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-primary"
+                className="mt-1 h-4 w-4 rounded border-[color:var(--sn-border-strong)] text-primary"
                 onChange={(event) => onAcknowledgeReplaceDatesChange(event.target.checked)}
                 type="checkbox"
               />
               I understand confirmed records for the covered dates will be replaced.
             </label>
             {needsReview ? (
-              <label className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+              <label className="flex gap-3 rounded-2xl border border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] p-3 text-sm leading-6 text-[oklch(0.62_0.13_70)]">
                 <input
                   checked={acknowledgeSkippedRows}
-                  className="mt-1 h-4 w-4 rounded border-amber-300 text-primary"
+                  className="mt-1 h-4 w-4 rounded border-[oklch(0.8_0.07_70)] text-primary"
                   onChange={(event) => onAcknowledgeSkippedRowsChange(event.target.checked)}
                   type="checkbox"
                 />
@@ -698,17 +698,17 @@ function RejectDialog({
 }) {
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-3 sm:items-center">
-        <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color:var(--sn-ink)]/45 p-3 sm:items-center">
+        <div className="w-full max-w-lg rounded-3xl bg-[color:var(--sn-card)] p-5 shadow-2xl">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-lg font-semibold text-slate-950">Reject review</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+              <p className="text-lg font-semibold text-[color:var(--sn-ink)]">Reject review</p>
+              <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
                 Rejection writes no confirmed Orders KPI daily records for this batch.
               </p>
             </div>
             <button
-              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-full p-2 text-[color:var(--sn-muted)] transition hover:bg-[color:var(--sn-sunken)] hover:text-[color:var(--sn-body)]"
               onClick={onClose}
               type="button"
             >
@@ -717,11 +717,11 @@ function RejectDialog({
             </button>
           </div>
 
-          <label className="mt-4 block text-sm font-semibold text-slate-700" htmlFor="orders-kpi-reject-reason">
+          <label className="mt-4 block text-sm font-semibold text-[color:var(--sn-body)]" htmlFor="orders-kpi-reject-reason">
             Reason
           </label>
           <textarea
-            className="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
+            className="mt-2 min-h-28 w-full rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 py-2 text-sm text-[color:var(--sn-ink)] outline-none transition placeholder:text-[color:var(--sn-muted)] focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
             id="orders-kpi-reject-reason"
             onChange={(event) => onReasonChange(event.target.value)}
             placeholder="Optional"
@@ -756,7 +756,7 @@ function RejectDialog({
 
 function ConfirmSuccess({ result }: { result: OrdersKpiConfirmReplaceResponse }) {
   return (
-    <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+    <div className="mt-5 rounded-2xl border border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm leading-6 text-[oklch(0.58_0.13_150)]">
       <div className="flex items-start gap-3">
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
@@ -775,8 +775,8 @@ function ConfirmSuccess({ result }: { result: OrdersKpiConfirmReplaceResponse })
 
 function RejectSuccess({ result }: { result: OrdersKpiRejectImportResponse }) {
   return (
-    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-      <p className="font-semibold text-slate-950">Batch rejected</p>
+    <div className="mt-5 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm leading-6 text-[color:var(--sn-body)]">
+      <p className="font-semibold text-[color:var(--sn-ink)]">Batch rejected</p>
       <p className="mt-1">
         No confirmed Orders KPI daily records were written for batch {result.batchId}.
       </p>
@@ -786,7 +786,7 @@ function RejectSuccess({ result }: { result: OrdersKpiRejectImportResponse }) {
 
 function InlineError({ message, title }: { message: string; title: string }) {
   return (
-    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+    <div className="mt-4 rounded-2xl border border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm leading-6 text-[oklch(0.55_0.19_27)]">
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
         <div>
@@ -811,8 +811,8 @@ function ConfirmableBadge({ confirmable }: { confirmable: boolean }) {
     <Badge
       className={
         confirmable
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-red-200 bg-red-50 text-red-700"
+          ? "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
+          : "border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       }
       variant="outline"
     >
@@ -886,18 +886,18 @@ function getStatusLabel(status: OrdersKpiImportBatchStatus) {
 
 function getStatusClassName(status: OrdersKpiImportBatchStatus) {
   if (status === "VALIDATED" || status === "CONFIRMED") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]";
   }
 
   if (status === "NEEDS_REVIEW") {
-    return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]";
   }
 
   if (status === "FAILED") {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]";
   }
 
-  return "border-slate-200 bg-slate-50 text-slate-700";
+  return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]";
 }
 
 function formatDateRange(dateFrom: string | null, dateTo: string | null) {

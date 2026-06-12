@@ -47,22 +47,22 @@ export function DeductionRequestDetailPanel({ request }: { request: RequestDetai
 
   return (
     <InfoCard title="Deduction">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <PickerAvatar name={request.targetUser?.nameEn ?? context.targetName} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-950">
+              <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
                 {request.targetUser?.nameEn ?? context.targetName}
               </p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-[color:var(--sn-body)]">
                 {request.sourceVendor?.vendorName ?? context.sourceVendorName} ·{" "}
                 {request.sourceChain?.chainName ?? context.sourceChainName}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
               {formatEnum(context.targetRole)}
             </Badge>
             <RequestStatusBadge status={request.status} />
@@ -126,15 +126,15 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
 
   return (
     <InfoCard title="Resignation">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <PickerAvatar name={request.targetUser?.nameEn ?? formatEnum(context.targetRole)} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-950">
+              <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
                 {request.targetUser?.nameEn ?? context.targetUserId}
               </p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-[color:var(--sn-body)]">
                 {request.targetUser?.phoneNumber ?? "Phone not available"} ·{" "}
                 {request.sourceVendor?.vendorName ??
                   request.sourceChain?.chainName ??
@@ -143,7 +143,7 @@ export function ResignationRequestDetailPanel({ request }: { request: RequestDet
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
               {request.targetUser?.role
                 ? formatEnum(request.targetUser.role)
                 : formatEnum(context.targetRole)}
@@ -241,21 +241,21 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
 
   return (
     <InfoCard title="New Hire">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <PickerAvatar name={context.nameEn ?? "New Hire"} />
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-slate-950">
+              <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
                 {context.nameEn ?? "Not available"}
               </p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-[color:var(--sn-body)]">
                 {context.candidatePhone}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
               {formatEnum(context.targetRole)}
             </Badge>
             <Badge variant="outline">{isRehire ? "Rehire" : "New User"}</Badge>
@@ -307,11 +307,11 @@ export function NewHireRequestDetailPanel({ request }: { request: RequestDetail 
       </div>
 
       {context.finalization ? (
-        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+        <div className="grid gap-2 rounded-2xl border border-[oklch(0.82_0.08_150)] bg-[oklch(0.95_0.045_150)] p-3">
           <Definition label="Finalized user" value={context.finalization.userId} />
           {request.targetUser ? (
             <Link
-              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[oklch(0.82_0.08_150)] bg-white px-3 text-sm font-semibold text-[oklch(0.40_0.13_150)] hover:bg-[oklch(0.90_0.06_150)]"
               href={`/users?userId=${request.targetUser.id}`}
               prefetch
             >
@@ -365,12 +365,12 @@ function ProfileRow({
   value: string;
 }) {
   return (
-    <div className="grid gap-1 border-b border-slate-100 py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr] sm:gap-4">
-      <span className="text-xs font-medium text-slate-500">
+    <div className="grid gap-1 border-b border-[color:var(--sn-border)] py-2.5 last:border-b-0 sm:grid-cols-[150px_1fr] sm:gap-4">
+      <span className="text-xs font-medium text-[color:var(--sn-muted)]">
         {label}
       </span>
       <span className="flex min-w-0 items-center justify-between gap-2">
-        <span className="min-w-0 break-words text-sm font-medium text-slate-950">
+        <span className="min-w-0 break-words text-sm font-medium text-[color:var(--sn-ink)]">
           {value}
         </span>
         {copyValue ? <CopyValueButton label={label} value={copyValue} /> : null}
@@ -448,24 +448,24 @@ export function TransferContext({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white">
+      <div className="flex flex-col gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-orange-100 text-orange-700">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]">
             <MoveRight className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-slate-950">
+            <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
               {request.targetUser?.nameEn ?? context.pickerId}
             </p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-[color:var(--sn-body)]">
               {request.sourceVendor?.vendorName ?? context.sourceVendorId} to{" "}
               {request.destinationVendor?.vendorName ?? context.destinationVendorId}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+          <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
             {context.approvalPath === "CROSS_CHAIN"
               ? "Cross-chain Transfer"
               : "Same-chain Transfer"}

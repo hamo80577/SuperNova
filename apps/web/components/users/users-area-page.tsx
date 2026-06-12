@@ -181,34 +181,34 @@ const movementKpiCards: Array<{
 
 const kpiToneStyles = {
   blue: {
-    icon: "bg-blue-50 text-blue-600",
-    line: "bg-blue-300",
-    ring: "ring-blue-100"
+    icon: "bg-[color:var(--sn-sunken)] text-[color:var(--tlb-purple)]",
+    line: "bg-[color:var(--tlb-lavender)]",
+    ring: "ring-[color:var(--sn-border)]"
   },
   emerald: {
-    icon: "bg-emerald-50 text-emerald-600",
-    line: "bg-emerald-300",
-    ring: "ring-emerald-100"
+    icon: "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    line: "bg-[oklch(0.75_0.1_150)]",
+    ring: "ring-[oklch(0.88_0.06_150)]"
   },
   green: {
-    icon: "bg-green-50 text-green-600",
-    line: "bg-green-300",
-    ring: "ring-green-100"
+    icon: "bg-[oklch(0.95_0.045_145)] text-[oklch(0.58_0.13_145)]",
+    line: "bg-[oklch(0.75_0.1_145)]",
+    ring: "ring-[oklch(0.88_0.06_145)]"
   },
   orange: {
-    icon: "bg-orange-50 text-orange-600",
-    line: "bg-orange-300",
-    ring: "ring-orange-100"
+    icon: "bg-[#FFE8D9] text-[color:var(--tlb-orange)]",
+    line: "bg-[#FFD8BD]",
+    ring: "ring-[#FFD8BD]"
   },
   red: {
-    icon: "bg-red-50 text-red-600",
-    line: "bg-red-300",
-    ring: "ring-red-100"
+    icon: "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+    line: "bg-[oklch(0.75_0.1_27)]",
+    ring: "ring-[oklch(0.88_0.06_27)]"
   },
   violet: {
-    icon: "bg-violet-50 text-violet-600",
-    line: "bg-violet-300",
-    ring: "ring-violet-100"
+    icon: "bg-[color:var(--sn-sunken)] text-[color:var(--tlb-lavender)]",
+    line: "bg-[color:var(--tlb-lavender)]",
+    ring: "ring-[color:var(--sn-border)]"
   }
 } satisfies Record<KpiTone, { icon: string; line: string; ring: string }>;
 
@@ -611,7 +611,7 @@ export function UsersAreaPage() {
       />
 
       {requestError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+        <div className="rounded-2xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm font-medium text-[oklch(0.55_0.19_27)]">
           {requestError}
         </div>
       ) : null}
@@ -678,19 +678,19 @@ function UsersPageHeader({
   onRefresh: () => void;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-white via-white to-orange-50/45 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex flex-col gap-3 rounded-2xl border border-[#FFD8BD] bg-gradient-to-r from-[color:var(--sn-card)] via-[color:var(--sn-card)] to-[#FFE8D9]/45 px-4 py-3 shadow-[0_8px_22px_rgba(65,21,23,0.05)] sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="max-w-2xl text-sm font-medium leading-6 text-slate-600">
+        <p className="max-w-2xl text-sm font-medium leading-6 text-[color:var(--sn-body)]">
           Operational workforce, assignments, and lifecycle movement.
         </p>
-        <p className="mt-0.5 text-xs font-semibold text-orange-600">
+        <p className="mt-0.5 text-xs font-semibold text-[color:var(--tlb-orange)]">
           Live users, guarded sections, and assignment-based context.
         </p>
       </div>
       <div className="flex flex-wrap gap-2 sm:justify-end">
         <Button
           aria-disabled="true"
-          className="h-9 rounded-xl border-orange-100 bg-white px-3 text-slate-700 shadow-sm hover:bg-white"
+          className="h-9 rounded-xl border-[#FFD8BD] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-body)] shadow-sm hover:bg-[color:var(--sn-card)]"
           type="button"
           variant="outline"
         >
@@ -698,16 +698,16 @@ function UsersPageHeader({
           This month
         </Button>
         <Button
-          className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-orange-50/60"
+          className="h-9 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-body)] shadow-sm hover:bg-[#FFE8D9]/60"
           disabled={loading}
           onClick={onRefresh}
           type="button"
           variant="outline"
         >
           {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-[color:var(--sn-muted)]" />
           ) : (
-            <RefreshCw className="mr-2 h-4 w-4 text-slate-500" />
+            <RefreshCw className="mr-2 h-4 w-4 text-[color:var(--sn-muted)]" />
           )}
           Refresh
         </Button>
@@ -746,10 +746,10 @@ function RoleSelectorCards({
           <button
             aria-pressed={active}
             className={cn(
-              "group relative min-h-[118px] overflow-hidden rounded-2xl border bg-white p-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.045)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
+              "group relative min-h-[118px] overflow-hidden rounded-[16px] border bg-[color:var(--sn-card)] p-4 text-left shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
               active
-                ? "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-white shadow-[0_16px_34px_rgba(249,115,22,0.14)]"
-                : "border-slate-200 hover:border-orange-100 hover:bg-orange-50/20 hover:shadow-[0_12px_28px_rgba(15,23,42,0.07)]"
+                ? "border-[#FFD8BD] bg-gradient-to-br from-[#FFE8D9] via-[color:var(--sn-card)] to-[color:var(--sn-card)] shadow-[0_16px_34px_rgba(255,89,0,0.14)]"
+                : "border-[color:var(--sn-border)] hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/20 hover:shadow-[0_12px_28px_rgba(65,21,23,0.07)]"
             )}
             key={card.id}
             onClick={() => onSelect(card.id)}
@@ -759,7 +759,7 @@ function RoleSelectorCards({
               aria-hidden="true"
               className={cn(
                 "absolute inset-x-0 top-0 h-1 transition",
-                active ? "bg-primary" : "bg-transparent group-hover:bg-orange-100"
+                active ? "bg-primary" : "bg-transparent group-hover:bg-[#FFD8BD]"
               )}
             />
             <span className="flex items-start justify-between gap-3">
@@ -767,8 +767,8 @@ function RoleSelectorCards({
                 className={cn(
                   "grid h-12 w-12 shrink-0 place-items-center rounded-2xl ring-1 transition",
                   active
-                    ? "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(249,115,22,0.20)] ring-orange-200"
-                    : "bg-slate-50 text-slate-500 ring-slate-100 group-hover:bg-orange-50 group-hover:text-primary group-hover:ring-orange-100"
+                    ? "bg-[color:var(--tlb-orange)] text-white shadow-[0_10px_20px_rgba(249,115,22,0.20)] ring-[#FFD8BD]"
+                    : "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)] ring-[color:var(--sn-border)] group-hover:bg-[#FFE8D9] group-hover:text-primary group-hover:ring-[#FFD8BD]"
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -777,24 +777,24 @@ function RoleSelectorCards({
                 className={cn(
                   "rounded-full border-transparent px-2.5 py-0.5 text-[11px] font-semibold",
                   active
-                    ? "bg-white text-primary shadow-sm"
-                    : "bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-primary"
+                    ? "bg-[color:var(--sn-card)] text-primary shadow-sm"
+                    : "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)] group-hover:bg-[color:var(--sn-card)] group-hover:text-primary"
                 )}
               >
                 {loading ? "..." : formatCount(counts[card.id])}
               </Badge>
             </span>
-            <span className="mt-4 block text-base font-semibold text-slate-950">
+            <span className="mt-4 block text-base font-semibold text-[color:var(--sn-ink)]">
               {card.label}
             </span>
-            <span className="mt-1 block text-xs font-semibold text-slate-500">
+            <span className="mt-1 block text-xs font-semibold text-[color:var(--sn-muted)]">
               {card.subtitle}
             </span>
             <span
               aria-hidden="true"
               className={cn(
                 "mt-4 block h-1.5 rounded-full",
-                active ? "bg-orange-200" : "bg-slate-100 group-hover:bg-orange-100"
+                active ? "bg-[#FFD8BD]" : "bg-[color:var(--sn-sunken)] group-hover:bg-[#FFD8BD]"
               )}
             />
           </button>
@@ -840,7 +840,7 @@ function MovementKpiCard({
       aria-busy={summaryState.status === "loading"}
       aria-disabled={summaryState.status === "disabled" ? "true" : undefined}
       className={cn(
-        "min-h-[148px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.045)] ring-1 ring-transparent"
+        "min-h-[148px] rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] ring-1 ring-transparent"
       )}
     >
       <div className="flex items-start gap-3">
@@ -854,15 +854,15 @@ function MovementKpiCard({
           <TrendingUp className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-slate-700">
+          <p className="truncate text-xs font-semibold text-[color:var(--sn-body)]">
             {card.label}
           </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-4 text-slate-400">
+          <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-4 text-[color:var(--sn-muted)]">
             {display.helper}
           </p>
         </div>
       </div>
-      <p className="mt-4 text-lg font-semibold tracking-normal text-slate-950">
+      <p className="mt-4 text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
         {display.value}
       </p>
       <div aria-hidden="true" className="mt-3 flex h-7 items-end gap-1">
@@ -874,7 +874,7 @@ function MovementKpiCard({
           />
         ))}
       </div>
-      <p className="mt-3 text-xs font-medium text-slate-500">
+      <p className="mt-3 text-xs font-medium text-[color:var(--sn-muted)]">
         {display.footer}
       </p>
     </article>
@@ -968,8 +968,8 @@ function UserDirectory({
   viewMode: ViewMode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="border-b border-slate-100 bg-white p-3 sm:p-4">
+    <section className="overflow-hidden rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <div className="border-b border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-3 sm:p-4">
         <DirectoryToolbar
           filters={filters}
           filtersOpen={filtersOpen}
@@ -1052,9 +1052,9 @@ function DirectoryToolbar({
       <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-1">
         <label className="relative min-w-0">
           <span className="sr-only">Search users</span>
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
           <Input
-            className="h-11 rounded-xl border-slate-200 bg-slate-50/60 pl-9 pr-3 shadow-inner shadow-slate-100/60 placeholder:text-slate-400 focus:bg-white"
+            className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] pl-9 pr-3 shadow-inner shadow-[color:var(--sn-border)]/60 placeholder:text-[color:var(--sn-muted)] focus:bg-[color:var(--sn-card)]"
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="Search by name, phone, shopper ID, branch..."
             type="search"
@@ -1065,7 +1065,7 @@ function DirectoryToolbar({
         <Button
           aria-expanded={filtersOpen}
           className={cn(
-            "h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:bg-orange-50/60 lg:hidden",
+            "h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-body)] shadow-sm hover:bg-[#FFE8D9]/60 lg:hidden",
             hasActiveFilters(filters) &&
               "border-primary/25 bg-brand-soft text-primary hover:bg-brand-soft"
           )}
@@ -1076,7 +1076,7 @@ function DirectoryToolbar({
           <SlidersHorizontal
             className={cn(
               "mr-2 h-4 w-4",
-              hasActiveFilters(filters) ? "text-primary" : "text-slate-500"
+              hasActiveFilters(filters) ? "text-primary" : "text-[color:var(--sn-muted)]"
             )}
           />
           Filters
@@ -1124,7 +1124,7 @@ function DirectoryToolbar({
       <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(180px,220px)] xl:justify-end">
         <Button
           aria-disabled="true"
-          className="h-11 rounded-xl border-slate-200 bg-white px-3 text-slate-500 shadow-sm hover:bg-white"
+          className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-muted)] shadow-sm hover:bg-[color:var(--sn-card)]"
           disabled
           title="Column customization is not part of Phase 1."
           type="button"
@@ -1134,14 +1134,14 @@ function DirectoryToolbar({
           Columns
         </Button>
 
-        <div className="grid h-11 grid-cols-2 rounded-xl border border-slate-200 bg-slate-100/70 p-1 shadow-inner shadow-slate-200/40">
+        <div className="grid h-11 grid-cols-2 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-1 shadow-inner shadow-[color:var(--sn-border)]/40">
           <button
             aria-pressed={viewMode === "rows"}
             className={cn(
               "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
               viewMode === "rows"
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
+                ? "bg-[color:var(--sn-card)] text-primary shadow-sm"
+                : "text-[color:var(--sn-muted)] hover:text-[color:var(--sn-ink)]"
             )}
             onClick={() => onViewModeChange("rows")}
             type="button"
@@ -1154,8 +1154,8 @@ function DirectoryToolbar({
             className={cn(
               "inline-flex items-center justify-center gap-1 rounded-lg px-2 text-xs font-semibold",
               viewMode === "cards"
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
+                ? "bg-[color:var(--sn-card)] text-primary shadow-sm"
+                : "text-[color:var(--sn-muted)] hover:text-[color:var(--sn-ink)]"
             )}
             onClick={() => onViewModeChange("cards")}
             type="button"
@@ -1187,7 +1187,7 @@ function FilterSelect({
       <span className="sr-only">{label}</span>
       <Select
         aria-label={label}
-        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-orange-100"
+        className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-sm font-medium text-[color:var(--sn-body)] shadow-sm hover:border-[#FFD8BD]"
         disabled={!options.length}
         onChange={(event) => onChange(event.target.value)}
         value={value}
@@ -1218,7 +1218,7 @@ function StatusSelect({
       <span className="sr-only">Status</span>
       <Select
         aria-label="Status"
-        className="h-11 rounded-xl border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:border-orange-100"
+        className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-sm font-medium text-[color:var(--sn-body)] shadow-sm hover:border-[#FFD8BD]"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -1250,21 +1250,21 @@ function ActiveFilterChips({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-orange-50/20 px-3 py-2.5 sm:px-4">
+    <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--sn-border)] bg-[#FFE8D9]/20 px-3 py-2.5 sm:px-4">
       {active.map(([key, value]) => (
         <button
-          className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-orange-100 bg-white px-2.5 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-primary/25 hover:bg-brand-soft hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+          className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[#FFD8BD] bg-[color:var(--sn-card)] px-2.5 text-[11px] font-semibold text-[color:var(--sn-body)] shadow-sm transition hover:border-primary/25 hover:bg-brand-soft hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
           key={key}
           onClick={() => onClearFilter(key)}
           type="button"
         >
-          <span className="text-slate-400">{getFilterName(key)}:</span>
+          <span className="text-[color:var(--sn-muted)]">{getFilterName(key)}:</span>
           {getFilterLabel(key, value, options)}
           <X className="h-3.5 w-3.5" />
         </button>
       ))}
       <button
-        className="h-7 rounded-lg px-2 text-[11px] font-semibold text-primary hover:bg-white"
+        className="h-7 rounded-lg px-2 text-[11px] font-semibold text-primary hover:bg-[color:var(--sn-card)]"
         onClick={onClearAll}
         type="button"
       >
@@ -1333,7 +1333,7 @@ function DesktopDirectoryTable({
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[1040px] border-collapse text-left">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-normal text-slate-500">
+          <tr className="border-b border-[color:var(--sn-border)] bg-[#FBF9F5] text-[11px] font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             <th className="px-4 py-3.5">User</th>
             <th className="px-3 py-3.5">Role</th>
             <th className="px-3 py-3.5">Operational Context</th>
@@ -1343,7 +1343,7 @@ function DesktopDirectoryTable({
             <th className="px-4 py-3.5 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 bg-white">
+        <tbody className="divide-y divide-[color:var(--sn-border)] bg-[color:var(--sn-card)]">
           {items.map((item) => (
             <DirectoryTableRow
               actions={actions}
@@ -1369,7 +1369,7 @@ function DirectoryTableRow({
 }) {
   return (
     <tr
-      className="cursor-pointer text-sm text-slate-700 transition hover:bg-orange-50/45"
+      className="cursor-pointer text-sm text-[color:var(--sn-body)] transition hover:bg-[#FDF8F2]"
       onClick={() => onOpenProfile(item.user.id)}
     >
       <td className="px-4 py-4 align-middle">
@@ -1393,7 +1393,7 @@ function DirectoryTableRow({
       <td className="px-4 py-4 align-middle">
         <div className="flex justify-end gap-2">
           <Button
-            className="h-9 rounded-xl border-slate-200 bg-white px-3 text-slate-700 shadow-sm hover:border-orange-100 hover:bg-orange-50/60"
+            className="h-9 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-[color:var(--sn-body)] shadow-sm hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/60"
             onClick={(event) => {
               event.stopPropagation();
               onOpenProfile(item.user.id);
@@ -1401,7 +1401,7 @@ function DirectoryTableRow({
             type="button"
             variant="outline"
           >
-            <Eye className="mr-2 h-4 w-4 text-slate-500" />
+            <Eye className="mr-2 h-4 w-4 text-[color:var(--sn-muted)]" />
             View
           </Button>
           <UsersActionsMenu {...actions} item={item} />
@@ -1444,20 +1444,20 @@ function DirectoryUserCard({
   onOpenProfile: (id: string) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.045)]">
+    <article className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex items-start justify-between gap-3">
         <UserIdentity item={item} />
         <LifecycleBadge item={item} />
       </div>
       <div className="mt-4 grid gap-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-normal text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             Role
           </span>
           <RoleBadge role={item.user.role} />
         </div>
         <div>
-          <span className="text-xs font-semibold uppercase tracking-normal text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             Operational Context
           </span>
           <div className="mt-1">
@@ -1465,7 +1465,7 @@ function DirectoryUserCard({
           </div>
         </div>
         <div>
-          <span className="text-xs font-semibold uppercase tracking-normal text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             Manager
           </span>
           <div className="mt-1">
@@ -1476,12 +1476,12 @@ function DirectoryUserCard({
       </div>
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_44px] gap-2">
         <Button
-          className="h-11 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:border-orange-100 hover:bg-orange-50/60"
+          className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] shadow-sm hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/60"
           onClick={() => onOpenProfile(item.user.id)}
           type="button"
           variant="outline"
         >
-          <Eye className="mr-2 h-4 w-4 text-slate-500" />
+          <Eye className="mr-2 h-4 w-4 text-[color:var(--sn-muted)]" />
           View
         </Button>
         <UsersActionsMenu {...actions} align="right" item={item} />
@@ -1502,10 +1502,10 @@ function UserIdentity({ item }: { item: UsersAreaItem }) {
         statusTone={getUserOperationalStatus(item).tone}
       />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-slate-950">
+        <span className="block truncate text-sm font-semibold text-[color:var(--sn-ink)]">
           {item.user.nameEn}
         </span>
-        <span className="block truncate text-xs font-medium text-slate-500">
+        <span className="block truncate text-xs font-medium text-[color:var(--sn-muted)]">
           {getUserIdentifier(item.user)}
         </span>
       </span>
@@ -1517,14 +1517,14 @@ function OperationalContext({ item }: { item: UsersAreaItem }) {
   const context = getOperationalContextDisplay(item);
 
   return (
-    <div className="min-w-0 border-l border-slate-100 pl-3">
-      <p className="truncate text-sm font-semibold text-slate-800">
+    <div className="min-w-0 border-l border-[color:var(--sn-border)] pl-3">
+      <p className="truncate text-sm font-semibold text-[color:var(--sn-body)]">
         {context.primary}
       </p>
-      <p className="truncate text-xs font-medium text-slate-500">
+      <p className="truncate text-xs font-medium text-[color:var(--sn-muted)]">
         {context.secondary}
       </p>
-      <p className="truncate text-xs text-slate-400">{context.meta}</p>
+      <p className="truncate text-xs text-[color:var(--sn-faint)]">{context.meta}</p>
     </div>
   );
 }
@@ -1534,14 +1534,14 @@ function ManagerCell({ item }: { item: UsersAreaItem }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-orange-50 text-xs font-semibold text-primary ring-1 ring-orange-100">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#FFE8D9] text-xs font-semibold text-primary ring-1 ring-[#FFD8BD]">
         {getInitials(manager.name)}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-slate-800">
+        <span className="block truncate text-sm font-semibold text-[color:var(--sn-body)]">
           {manager.name}
         </span>
-        <span className="block truncate text-xs font-medium text-slate-500">
+        <span className="block truncate text-xs font-medium text-[color:var(--sn-muted)]">
           {manager.role}
         </span>
       </span>
@@ -1551,8 +1551,8 @@ function ManagerCell({ item }: { item: UsersAreaItem }) {
 
 function ContactCell({ item }: { item: UsersAreaItem }) {
   return (
-    <span className="inline-flex max-w-[150px] items-center gap-2 rounded-full bg-slate-50 px-2.5 py-1 text-sm font-medium text-slate-600 ring-1 ring-slate-100">
-      <Phone className="h-4 w-4 shrink-0 text-slate-400" />
+    <span className="inline-flex max-w-[150px] items-center gap-2 rounded-full bg-[color:var(--sn-sunken)] px-2.5 py-1 text-sm font-medium text-[color:var(--sn-body)] ring-1 ring-[color:var(--sn-border)]">
+      <Phone className="h-4 w-4 shrink-0 text-[color:var(--sn-muted)]" />
       <span className="truncate">{item.user.phoneNumber}</span>
     </span>
   );
@@ -1563,11 +1563,11 @@ function RoleBadge({ role }: { role: UserRole }) {
     <Badge
       className={cn(
         "rounded-full border-transparent px-2.5 py-1 text-[11px] font-semibold",
-        role === "PICKER" && "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
-        role === "CHAMP" && "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
-        role === "AREA_MANAGER" && "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+        role === "PICKER" && "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] ring-1 ring-[#FFD8BD]",
+        role === "CHAMP" && "bg-[color:var(--sn-sunken)] text-[color:var(--tlb-purple)] ring-1 ring-[color:var(--sn-border)]",
+        role === "AREA_MANAGER" && "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)] ring-1 ring-[oklch(0.88_0.06_150)]",
         (role === "ADMIN" || role === "SUPER_ADMIN") &&
-          "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)] ring-1 ring-[color:var(--sn-border)]"
       )}
     >
       {formatEnum(role)}
@@ -1583,13 +1583,13 @@ function LifecycleBadge({ item }: { item: UsersAreaItem }) {
       className={cn(
         "gap-1.5 rounded-full border-transparent px-2.5 py-1 text-[11px] font-semibold",
         lifecycle.tone === "active" &&
-          "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+          "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)] ring-1 ring-[oklch(0.88_0.06_150)]",
         lifecycle.tone === "pending" &&
-          "bg-orange-50 text-orange-700 ring-1 ring-orange-100",
+          "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] ring-1 ring-[#FFD8BD]",
         lifecycle.tone === "blocked" &&
-          "bg-red-50 text-red-700 ring-1 ring-red-100",
+          "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)] ring-1 ring-[oklch(0.88_0.06_27)]",
         lifecycle.tone === "muted" &&
-          "bg-slate-100 text-slate-700 ring-1 ring-slate-200"
+          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)] ring-1 ring-[color:var(--sn-border)]"
       )}
       title={lifecycle.title}
     >
@@ -1623,13 +1623,13 @@ function DirectoryPagination({
   const pageNumbers = getPageNumbers(page, totalPages);
 
   return (
-    <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <p className="text-sm font-medium text-slate-500">
+    <div className="flex flex-col gap-3 border-t border-[color:var(--sn-border)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <p className="text-sm font-medium text-[color:var(--sn-muted)]">
         {sectionLabel}: showing {from} to {to} of {total}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <button
-          className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 disabled:text-slate-300"
+          className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-muted)] disabled:text-[color:var(--sn-faint)]"
           disabled={page <= 1}
           onClick={() => onPageChange(Math.max(1, page - 1))}
           type="button"
@@ -1644,7 +1644,7 @@ function DirectoryPagination({
               "grid h-9 w-9 place-items-center rounded-xl border text-sm font-semibold",
               pageNumber === page
                 ? "border-primary/30 bg-brand-soft text-primary"
-                : "border-slate-200 bg-white text-slate-600"
+                : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)]"
             )}
             key={pageNumber}
             onClick={() => onPageChange(pageNumber)}
@@ -1654,7 +1654,7 @@ function DirectoryPagination({
           </button>
         ))}
         <button
-          className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 disabled:text-slate-300"
+          className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-muted)] disabled:text-[color:var(--sn-faint)]"
           disabled={page >= totalPages}
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           type="button"
@@ -1662,7 +1662,7 @@ function DirectoryPagination({
           <span className="sr-only">Next page</span>
           <ChevronRight className="h-4 w-4" />
         </button>
-        <span className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600">
+        <span className="inline-flex h-9 items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] px-3 text-sm font-semibold text-[color:var(--sn-body)]">
           {pageSize} / page
         </span>
       </div>
@@ -1680,13 +1680,13 @@ function DirectoryErrorState({
   return (
     <div className="grid min-h-56 place-items-center p-6 text-center">
       <div>
-        <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-red-50 text-red-600">
+        <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]">
           <AlertCircle className="h-5 w-5" />
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-900">
+        <p className="mt-3 text-sm font-semibold text-[color:var(--sn-ink)]">
           Users could not be loaded.
         </p>
-        <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">{error}</p>
+        <p className="mt-1 max-w-md text-sm leading-6 text-[color:var(--sn-muted)]">{error}</p>
         <Button className="mt-4 rounded-xl" onClick={onRetry} type="button">
           Retry
         </Button>
@@ -1699,13 +1699,13 @@ function DirectoryEmptyState({ sectionLabel }: { sectionLabel: string }) {
   return (
     <div className="grid min-h-56 place-items-center p-6 text-center">
       <div>
-        <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-slate-50 text-slate-400">
+        <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
           <UsersRound className="h-5 w-5" />
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-900">
+        <p className="mt-3 text-sm font-semibold text-[color:var(--sn-ink)]">
           No {sectionLabel.toLowerCase()} found.
         </p>
-        <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">
+        <p className="mt-1 max-w-md text-sm leading-6 text-[color:var(--sn-muted)]">
           Users appear here when assignment data puts them inside the selected
           scope.
         </p>

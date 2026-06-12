@@ -67,9 +67,9 @@ export function DashboardHeader({
   return (
     <header
       className={cn(
-        "fixed left-0 right-0 top-0 z-[70] overflow-visible border-b px-4 backdrop-blur-xl backdrop-saturate-150 transition-[height,left,background-color,box-shadow,border-color] duration-300 ease-out sm:px-5 lg:px-6 motion-reduce:transition-none",
+        "fixed left-0 right-0 top-0 z-[70] overflow-visible border-b px-4 backdrop-blur-xl backdrop-saturate-150 transition-[height,left,background-color,box-shadow,border-color] duration-300 ease-out sm:px-5 lg:hidden motion-reduce:transition-none",
         isScrolled
-          ? "h-16 border-slate-200/70 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.07)]"
+          ? "h-16 border-[color:var(--sn-border)] bg-white/90 shadow-[0_10px_30px_rgba(65,21,23,0.07)]"
           : "h-[84px] border-transparent bg-white/80 shadow-none",
         isCollapsed ? "lg:left-[76px]" : "lg:left-[266px]"
       )}
@@ -77,7 +77,7 @@ export function DashboardHeader({
       <div
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-x-0 -bottom-8 h-8 bg-gradient-to-b from-white/85 via-slate-100/45 to-transparent transition-opacity duration-300 ease-out",
+          "pointer-events-none absolute inset-x-0 -bottom-8 h-8 bg-gradient-to-b from-white/85 via-[#f1ece4]/55 to-transparent transition-opacity duration-300 ease-out",
           isScrolled ? "opacity-100" : "opacity-70"
         )}
       />
@@ -85,7 +85,7 @@ export function DashboardHeader({
         <div className="flex min-w-0 items-center gap-3">
           <Button
             aria-label="Open navigation"
-            className="h-11 w-11 shrink-0 rounded-xl text-slate-700 lg:hidden"
+            className="h-11 w-11 shrink-0 rounded-xl border-[color:var(--sn-border)] text-[color:var(--sn-body)] lg:hidden"
             onClick={onOpenMobileNav}
             type="button"
             variant="outline"
@@ -97,7 +97,7 @@ export function DashboardHeader({
               <PanelLeft className="hidden h-4 w-4 text-primary sm:block lg:hidden" />
               <h1
                 className={cn(
-                  "truncate font-semibold tracking-normal text-slate-800 transition-[font-size,line-height,opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none",
+                  "truncate font-semibold tracking-[-0.01em] text-[color:var(--sn-ink)] transition-[font-size,line-height,opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none",
                   isScrolled
                     ? "translate-y-0 text-lg leading-6 opacity-95 sm:text-xl sm:leading-7"
                     : "translate-y-[1px] text-[28px] leading-8 opacity-100 sm:text-[34px] sm:leading-10"
@@ -109,7 +109,7 @@ export function DashboardHeader({
             {!hideHeaderDescription ? (
               <p
                 className={cn(
-                  "mt-0.5 line-clamp-2 max-h-10 text-xs leading-5 text-slate-500 transition-[opacity,max-height] duration-200 sm:text-sm",
+                  "mt-0.5 line-clamp-2 max-h-10 text-xs leading-5 text-[color:var(--sn-muted)] transition-[opacity,max-height] duration-200 sm:text-sm",
                   isScrolled && "max-h-0 overflow-hidden opacity-0"
                 )}
               >
@@ -133,7 +133,7 @@ export function DashboardHeader({
               aria-expanded={isNotificationsOpen}
               aria-haspopup="menu"
               aria-label="Open notifications"
-              className="relative h-10 w-10 rounded-xl border-slate-200 p-0 text-slate-700 hover:bg-slate-50"
+              className="relative h-10 w-10 rounded-xl border-[color:var(--sn-border)] p-0 text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
               onClick={() => {
                 onToggleNotifications();
                 onLoadNotificationPreview();
@@ -175,7 +175,7 @@ export function DashboardHeader({
               aria-expanded={isUserMenuOpen}
               aria-haspopup="menu"
               aria-label="Open user menu"
-              className="h-10 w-10 rounded-full border-slate-200 bg-slate-950 p-0 text-sm font-semibold text-white hover:bg-slate-800"
+              className="h-10 w-10 rounded-full border-transparent bg-[color:var(--tlb-burgundy)] p-0 text-sm font-semibold text-[color:var(--tlb-cream)] hover:bg-[#52211f]"
               onClick={onToggleUserMenu}
               type="button"
               variant="outline"

@@ -108,22 +108,22 @@ export function AdminProfileEditDialog({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[240] grid place-items-center bg-slate-950/55 p-2 sn-dialog-overlay-in sm:p-4"
+        className="fixed inset-0 z-[240] grid place-items-center bg-[rgba(65,21,23,0.55)] p-2 sn-dialog-overlay-in sm:p-4"
         role="dialog"
       >
         <form
-          className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-2xl sn-dialog-panel-in"
+          className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[22px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-2xl sn-dialog-panel-in"
           onSubmit={onSubmit}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 sm:p-5">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--tlb-orange-900)]">
                 Admin edit
               </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-normal text-slate-950 sm:text-xl">
+              <h2 className="mt-1 text-lg font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-xl">
                 Edit profile
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
                 Update safe identity and profile fields for {user.nameEn}.
               </p>
             </div>
@@ -139,10 +139,10 @@ export function AdminProfileEditDialog({
             </Button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-4 sm:p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--sn-sunken)] p-4 sm:p-5">
             {formError ? (
               <div
-                className="mb-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                className="mb-4 flex items-start gap-3 rounded-2xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm text-[oklch(0.55_0.19_27)]"
                 role="alert"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -208,11 +208,11 @@ export function AdminProfileEditDialog({
                 type="date"
                 value={form.joiningDate ?? ""}
               />
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+              <label className="grid gap-1.5 text-sm font-medium text-[color:var(--sn-body)]">
                 <span>Gender</span>
                 <Select
                   aria-label="Gender"
-                  className="h-11 rounded-xl bg-white"
+                  className="h-11 rounded-xl bg-[color:var(--sn-card)]"
                   onChange={(event) =>
                     updateField("gender", event.target.value as SafeUser["gender"])
                   }
@@ -253,7 +253,7 @@ export function AdminProfileEditDialog({
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
+          <div className="flex flex-col-reverse gap-2 border-t border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 sm:flex-row sm:justify-end sm:p-5">
             <Button
               className="h-11 rounded-xl"
               disabled={isSaving}
@@ -264,7 +264,7 @@ export function AdminProfileEditDialog({
               Cancel
             </Button>
             <Button
-              className="h-11 rounded-xl bg-orange-600 px-5 text-white hover:bg-orange-700"
+              className="h-11 rounded-xl bg-[color:var(--tlb-orange)] px-5 text-white hover:bg-[#E85100]"
               disabled={isSaving}
               type="submit"
             >
@@ -308,19 +308,19 @@ function EditTextField({
   const errorId = `${field}-error`;
 
   return (
-    <label className={cn("grid gap-1.5 text-sm font-medium text-slate-700", className)}>
+    <label className={cn("grid gap-1.5 text-sm font-medium text-[color:var(--sn-body)]", className)}>
       <span>
         {label}
-        {required ? <span className="ml-1 text-red-600">*</span> : null}
+        {required ? <span className="ml-1 text-[oklch(0.55_0.19_27)]">*</span> : null}
       </span>
       <Input
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
         autoComplete={autoComplete}
         className={cn(
-          "h-11 rounded-xl bg-white",
+          "h-11 rounded-xl bg-[color:var(--sn-card)]",
           error &&
-            "border-red-300 text-red-900 focus-visible:ring-red-200"
+            "border-[oklch(0.75_0.1_27)] text-[oklch(0.35_0.15_27)] focus-visible:ring-[oklch(0.88_0.06_27)]"
         )}
         onChange={(event) => onChange(event.target.value)}
         ref={refSetter}
@@ -328,7 +328,7 @@ function EditTextField({
         value={value}
       />
       {error ? (
-        <p className="text-xs font-medium text-red-600" id={errorId}>
+        <p className="text-xs font-medium text-[oklch(0.55_0.19_27)]" id={errorId}>
           {error}
         </p>
       ) : null}

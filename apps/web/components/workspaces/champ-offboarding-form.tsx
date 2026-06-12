@@ -107,10 +107,10 @@ export function ChampOffboardingForm({
   }
 
   const formContent = (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
+      <div className="mb-5 rounded-2xl border border-[#FFD8BD] bg-[#FFE8D9] p-4 text-sm text-[color:var(--tlb-orange-900)]">
         <p className="font-semibold">{branch.vendor.vendorName}</p>
-        <p className="mt-1 text-orange-800">
+        <p className="mt-1 text-[color:var(--tlb-orange-900)]">
           {branch.vendor.vendorCode} · {branch.chain.chainName}
         </p>
       </div>
@@ -130,9 +130,9 @@ export function ChampOffboardingForm({
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <Link
-          className="mb-4 inline-flex items-center text-sm font-medium text-orange-700"
+          className="mb-4 inline-flex items-center text-sm font-medium text-[color:var(--tlb-orange)]"
           href={branchHref}
           prefetch
         >
@@ -141,19 +141,19 @@ export function ChampOffboardingForm({
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
               Branch-scoped {formatEnum(type)}
             </Badge>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[color:var(--sn-ink)]">
               Submit {formatEnum(type)}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--sn-muted)]">
               Picker search is locked to this Branch. Chain and Branch are
               written to the request from the active assignment selected by the
               backend.
             </p>
           </div>
-          <ShieldAlert className="h-7 w-7 text-orange-600" />
+          <ShieldAlert className="h-7 w-7 text-[color:var(--tlb-orange)]" />
         </div>
       </section>
       {formContent}
@@ -172,11 +172,11 @@ function LoadingState({ label }: { label: string }) {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+    <div className="flex items-center gap-2 rounded-2xl border border-[oklch(0.85_0.08_27)] bg-[oklch(0.95_0.035_27)] p-5 text-sm text-[oklch(0.55_0.19_27)]">
       <AlertCircle className="h-4 w-4" />
       {message}
       <Link
-        className={cn(buttonVariants({ size: "sm", variant: "outline" }), "ml-auto bg-white")}
+        className={cn(buttonVariants({ size: "sm", variant: "outline" }), "ml-auto bg-white border-[color:var(--sn-border)]")}
         href="/champ/branches"
         prefetch
       >

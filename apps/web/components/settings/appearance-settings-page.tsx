@@ -79,7 +79,7 @@ export function AppearanceSettingsPage() {
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -87,18 +87,18 @@ export function AppearanceSettingsPage() {
                 <Palette className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="text-lg font-semibold tracking-normal text-slate-950">
+                <h2 className="text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
                   Appearance
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">
+                <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
                   Choose a calm accent color for your SuperNova workspace.
                 </p>
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2 text-sm text-[color:var(--sn-body)]">
             Current:{" "}
-            <span className="font-semibold text-slate-950">
+            <span className="font-semibold text-[color:var(--sn-ink)]">
               {selectedPreset.label}
             </span>
           </div>
@@ -112,10 +112,10 @@ export function AppearanceSettingsPage() {
               <button
                 aria-pressed={selected}
                 className={cn(
-                  "group flex min-h-[112px] items-start gap-3 rounded-2xl border bg-white p-4 text-left outline-none transition duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)] focus-visible:ring-2 focus-visible:ring-primary/25 motion-reduce:transform-none",
+                  "group flex min-h-[112px] items-start gap-3 rounded-2xl border bg-[color:var(--sn-card)] p-4 text-left outline-none transition duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_12px_30px_rgba(65,21,23,0.08)] focus-visible:ring-2 focus-visible:ring-primary/25 motion-reduce:transform-none",
                   selected
-                    ? "border-primary/50 bg-primary/5 shadow-[0_10px_26px_rgba(15,23,42,0.08)]"
-                    : "border-slate-200"
+                    ? "border-primary/50 bg-primary/5 shadow-[0_10px_26px_rgba(65,21,23,0.08)]"
+                    : "border-[color:var(--sn-border)]"
                 )}
                 key={preset.value}
                 onClick={() => previewTheme(preset.value)}
@@ -134,16 +134,16 @@ export function AppearanceSettingsPage() {
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-slate-950">
+                  <span className="block text-sm font-semibold text-[color:var(--sn-ink)]">
                     {preset.label}
                   </span>
-                  <span className="mt-1 block text-sm leading-6 text-slate-500">
+                  <span className="mt-1 block text-sm leading-6 text-[color:var(--sn-muted)]">
                     {preset.description}
                   </span>
                   <span className="mt-3 flex gap-1.5">
                     <span className="h-2 flex-1 rounded-full bg-primary" />
                     <span className="h-2 flex-1 rounded-full bg-primary/35" />
-                    <span className="h-2 flex-1 rounded-full bg-slate-200" />
+                    <span className="h-2 flex-1 rounded-full bg-[color:var(--sn-border)]" />
                   </span>
                 </span>
               </button>
@@ -151,12 +151,12 @@ export function AppearanceSettingsPage() {
           })}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3 border-t border-[color:var(--sn-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-h-5 text-sm">
-            {message ? <span className="text-emerald-700">{message}</span> : null}
+            {message ? <span className="text-[oklch(0.58_0.13_150)]">{message}</span> : null}
             {error ? <span className="text-destructive">{error}</span> : null}
             {!message && !error ? (
-              <span className="text-slate-500">
+              <span className="text-[color:var(--sn-muted)]">
                 The selected theme follows you across roles after it is saved.
               </span>
             ) : null}

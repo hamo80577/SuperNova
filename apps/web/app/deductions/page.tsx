@@ -6,6 +6,7 @@ export default function DeductionsRoute() {
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description="Operational penalty tracking scoped to your role."
+      showPageTitle
       title="Deductions"
     >
       <DeductionsPage />

@@ -20,17 +20,17 @@ export function SelectedContextCard({
   }
 
   return (
-    <div className="rounded-2xl border border-orange-200 bg-white p-3 text-sm">
+    <div className="rounded-2xl border border-[#FFD8BD] bg-white p-3 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-semibold text-slate-950">{selectedVendor.vendorName}</p>
-          <p className="mt-1 text-xs text-slate-500">{selectedVendor.vendorCode}</p>
+          <p className="font-semibold text-[color:var(--sn-ink)]">{selectedVendor.vendorName}</p>
+          <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{selectedVendor.vendorCode}</p>
         </div>
-        <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+        <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
           Branch locked
         </Badge>
       </div>
-      <div className="mt-3 grid gap-2 text-xs text-slate-600">
+      <div className="mt-3 grid gap-2 text-xs text-[color:var(--sn-body)]">
         <span>Chain: {selectedChain?.chainName ?? selectedVendor.chain.chainName}</span>
         <span>Code: {selectedChain?.chainCode ?? selectedVendor.chain.chainCode}</span>
       </div>

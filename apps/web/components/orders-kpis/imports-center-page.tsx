@@ -39,12 +39,12 @@ const reportCards = [
 
 export function ImportsCenterPage() {
   return (
-    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
-      <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+    <div className="min-w-0 overflow-hidden rounded-3xl bg-[color:var(--sn-sunken)] p-3 sm:p-4">
+      <section className="rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-950">Imports Center</p>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Imports Center</p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-[color:var(--sn-muted)]">
               Admin import workflows for operational files. Each import opens with preview and review before confirmed records are written.
             </p>
           </div>
@@ -57,7 +57,7 @@ export function ImportsCenterPage() {
 
             return (
               <Link
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+                className="group rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition hover:border-primary/30 hover:shadow-md"
                 href={card.href}
                 key={card.href}
               >
@@ -67,10 +67,10 @@ export function ImportsCenterPage() {
                   </span>
                   <Badge variant="muted">{card.status}</Badge>
                 </div>
-                <p className="mt-4 text-sm font-semibold text-slate-950">
+                <p className="mt-4 text-sm font-semibold text-[color:var(--sn-ink)]">
                   {card.label}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
                   {card.description}
                 </p>
                 <span className="mt-4 inline-flex text-sm font-semibold text-primary group-hover:underline">
@@ -82,23 +82,23 @@ export function ImportsCenterPage() {
         </div>
       </section>
 
-      <section className="mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
-        <p className="text-sm font-semibold text-slate-950">Related reports</p>
+      <section className="mt-4 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
+        <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Related reports</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {reportCards.map((card) => {
             const Icon = card.icon;
 
             return (
               <Link
-                className="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition hover:border-primary/30 hover:bg-white"
+                className="group rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 transition hover:border-primary/30 hover:bg-[color:var(--sn-card)]"
                 href={card.href}
                 key={card.href}
               >
                 <Icon className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-sm font-semibold text-slate-950">
+                <p className="mt-3 text-sm font-semibold text-[color:var(--sn-ink)]">
                   {card.label}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
                   {card.description}
                 </p>
               </Link>

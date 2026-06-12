@@ -7,6 +7,7 @@ export default function UsersPage() {
       allowedRoles={["CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description=""
       hideHeaderDescription
+      showPageTitle
       title="Users"
     >
       <UsersAreaPage />

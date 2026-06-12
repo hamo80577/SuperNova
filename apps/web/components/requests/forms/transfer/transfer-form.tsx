@@ -390,12 +390,12 @@ function OrganizationTransferRequestForm({
   return (
     <form className="grid min-w-0 gap-4" onSubmit={submit}>
       {error ? <ErrorState message={error} /> : null}
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Source Chain">
             <Select
               aria-label="Source Chain"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={loading}
               emptyMessage="No Chain matches this search."
               onChange={(event) => selectSourceChain(event.target.value)}
@@ -414,7 +414,7 @@ function OrganizationTransferRequestForm({
           <Field label="Source Branch">
             <Select
               aria-label="Source Branch"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={!sourceChainId || loading}
               emptyMessage="No Branch matches this Chain/search."
               onChange={(event) => {
@@ -443,18 +443,18 @@ function OrganizationTransferRequestForm({
       </div>
 
       {sourceVendor ? (
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+        <div className="rounded-2xl border border-[#FFD8BD] bg-[#FFE8D9] p-3 text-sm text-[color:var(--tlb-burgundy)]">
           <span className="font-semibold">{sourceVendor.chain.chainName}</span>
-          <span className="mx-2 text-orange-400">/</span>
+          <span className="mx-2 text-[color:var(--tlb-orange)]">/</span>
           <span>{sourceVendor.vendorName}</span>
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-white p-3">
         <Field label="Picker">
           <Select
             aria-label="Picker"
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
             disabled={!sourceVendorId || pickerLoading}
             emptyMessage="No active Picker matches this Branch/search."
             onChange={(event) => {
@@ -485,8 +485,8 @@ function OrganizationTransferRequestForm({
       </div>
 
       {selectedAssignment ? (
-        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
-          <p className="font-semibold text-emerald-950">Selected Picker</p>
+        <div className="grid gap-2 rounded-2xl border border-[oklch(0.80_0.08_150)] bg-[oklch(0.95_0.045_150)] p-3 text-sm">
+          <p className="font-semibold text-[oklch(0.58_0.13_150)]">Selected Picker</p>
           <Definition label="Name" value={selectedAssignment.picker.nameEn} />
           <Definition label="Phone" value={selectedAssignment.picker.phoneNumber} />
           <Definition label="Branch" value={selectedAssignment.vendor.vendorName} />
@@ -494,12 +494,12 @@ function OrganizationTransferRequestForm({
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Destination Chain">
             <Select
               aria-label="Destination Chain"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={loading}
               emptyMessage="No Chain matches this search."
               onChange={(event) => selectDestinationChain(event.target.value)}
@@ -520,7 +520,7 @@ function OrganizationTransferRequestForm({
           <Field label="Destination Branch">
             <Select
               aria-label="Destination Branch"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={!destinationChainId || loading}
               emptyMessage="No destination Branch matches this Chain/search."
               onChange={(event) => {
@@ -548,7 +548,7 @@ function OrganizationTransferRequestForm({
           </Field>
         </div>
         {destinationVendor ? (
-          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+          <div className="rounded-xl border border-[#FFD8BD] bg-[#FFE8D9] p-3 text-sm text-[color:var(--tlb-burgundy)]">
             {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
           </div>
         ) : null}
@@ -596,7 +596,7 @@ function OrganizationTransferRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
+          className="min-h-11 w-full rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100] sm:w-auto"
           disabled={isPending}
           type="submit"
         >
@@ -837,12 +837,12 @@ function ChampScopedTransferRequestForm({
   return (
     <form className="grid min-w-0 gap-4" onSubmit={submit}>
       {error ? <ErrorState message={error} /> : null}
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Source Chain">
             <Select
               aria-label="Source Chain"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={loading}
               emptyMessage="No Chain matches this search."
               onChange={(event) => selectSourceChain(event.target.value)}
@@ -863,7 +863,7 @@ function ChampScopedTransferRequestForm({
           <Field label="Source Branch">
             <Select
               aria-label="Source Branch"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={!sourceChainId || loading}
               emptyMessage="No assigned Branch matches this Chain/search."
               onChange={(event) => {
@@ -893,20 +893,20 @@ function ChampScopedTransferRequestForm({
       </div>
 
       {selectedSourceBranch ? (
-        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+        <div className="rounded-2xl border border-[#FFD8BD] bg-[#FFE8D9] p-3 text-sm text-[color:var(--tlb-burgundy)]">
           <span className="font-semibold">
             {selectedSourceBranch.chain.chainName}
           </span>
-          <span className="mx-2 text-orange-400">/</span>
+          <span className="mx-2 text-[color:var(--tlb-orange)]">/</span>
           <span>{selectedSourceBranch.vendor.vendorName}</span>
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-white p-3">
         <Field label="Picker">
           <Select
             aria-label="Picker"
-            className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+            className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
             disabled={!sourceVendorId}
             emptyMessage="No active Picker matches this Branch/search."
             onChange={(event) => {
@@ -936,8 +936,8 @@ function ChampScopedTransferRequestForm({
       </div>
 
       {selectedPicker && selectedSourceBranch ? (
-        <div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
-          <p className="font-semibold text-emerald-950">Selected Picker</p>
+        <div className="grid gap-2 rounded-2xl border border-[oklch(0.80_0.08_150)] bg-[oklch(0.95_0.045_150)] p-3 text-sm">
+          <p className="font-semibold text-[oklch(0.58_0.13_150)]">Selected Picker</p>
           <Definition label="Name" value={selectedPicker.picker.nameEn} />
           <Definition label="Phone" value={selectedPicker.picker.phoneNumber} />
           <Definition
@@ -948,12 +948,12 @@ function ChampScopedTransferRequestForm({
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Destination Chain">
             <Select
               aria-label="Destination Chain"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={loading}
               emptyMessage="No Chain matches this search."
               onChange={(event) => selectDestinationChain(event.target.value)}
@@ -974,7 +974,7 @@ function ChampScopedTransferRequestForm({
           <Field label="Destination Branch">
             <Select
               aria-label="Destination Branch"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               disabled={!destinationChainId || loading}
               emptyMessage="No destination Branch matches this Chain/search."
               onChange={(event) => {
@@ -1002,7 +1002,7 @@ function ChampScopedTransferRequestForm({
           </Field>
         </div>
         {destinationVendor ? (
-          <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+          <div className="rounded-xl border border-[#FFD8BD] bg-[#FFE8D9] p-3 text-sm text-[color:var(--tlb-burgundy)]">
             {destinationVendor.chain.chainName} / {destinationVendor.vendorName}
           </div>
         ) : null}
@@ -1050,7 +1050,7 @@ function ChampScopedTransferRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
+          className="min-h-11 w-full rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100] sm:w-auto"
           disabled={isPending}
           type="submit"
         >

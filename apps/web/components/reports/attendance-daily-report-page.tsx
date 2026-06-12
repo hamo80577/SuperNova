@@ -283,17 +283,17 @@ export function AttendanceDailyReportPage({
     yesterdayIsoDate();
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
-      <div className="grid min-w-0 gap-4 rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="min-w-0 overflow-hidden rounded-3xl bg-[color:var(--sn-sunken)] p-3 sm:p-4">
+      <div className="grid min-w-0 gap-4 rounded-[1.4rem] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <header className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
+            <h1 className="text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               {copy.title}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
               {copy.description}
             </p>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">
+            <p className="mt-2 max-w-3xl text-xs leading-5 text-[color:var(--sn-muted)]">
               {copy.scopeNote}
             </p>
           </div>
@@ -301,7 +301,7 @@ export function AttendanceDailyReportPage({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button
               aria-label="Reset to yesterday"
-              className="h-11 w-11 rounded-xl border-sky-200 bg-sky-50 p-0 text-sky-700 hover:bg-sky-100"
+              className="h-11 w-11 rounded-xl border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)] p-0 text-[color:var(--tlb-purple,#4B3B8C)] hover:bg-[color:var(--tlb-lavender,#EDE9FF)]/80"
               onClick={resetToYesterday}
               type="button"
               variant="outline"
@@ -391,7 +391,7 @@ export function AttendanceDailyReportPage({
         </ReportStateView>
 
         {report ? (
-          <p className="text-xs leading-5 text-slate-500">
+          <p className="text-xs leading-5 text-[color:var(--sn-muted)]">
             Showing {report.rows.length} of {report.pagination.totalRows} rows
             for {formatRangeLabel(report.analytics.range.dateFrom, report.analytics.range.dateTo)}.
           </p>
@@ -444,7 +444,7 @@ function AttendanceRateCard({
   );
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <CardTitle icon={ListChecks} title={title} />
       <div className="mt-8">
         <MetricValue
@@ -476,9 +476,9 @@ function AttendanceRateCard({
         total={quality.counts.totalShifts.value}
       />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <MixTile color="bg-orange-400" label="Late" metric={problemMix.late} />
-        <MixTile color="bg-rose-500" label="Absent" metric={problemMix.absent} />
-        <MixTile color="bg-amber-500" label="Duration Error" metric={durationError} />
+        <MixTile color="bg-[color:var(--tlb-orange,#FF5900)]" label="Late" metric={problemMix.late} />
+        <MixTile color="bg-[oklch(0.55_0.19_27)]" label="Absent" metric={problemMix.absent} />
+        <MixTile color="bg-[oklch(0.62_0.13_70)]" label="Duration Error" metric={durationError} />
       </div>
     </section>
   );
@@ -492,22 +492,22 @@ function LateBucketsCard({
   const buckets = analytics.lateBuckets;
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <CardTitle icon={UsersRound} title="Late Rate" />
-      <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center">
-        <p className="text-xs font-semibold uppercase tracking-normal text-slate-400">
+      <div className="mt-6 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-center">
+        <p className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
           Total late shifts
         </p>
         <div className="mt-2 flex items-end justify-center gap-1">
           <AnimatedMetricText
-            className="text-4xl font-semibold tabular-nums text-slate-950"
+            className="font-[family-name:var(--font-data)] text-4xl font-semibold tabular-nums text-[color:var(--sn-ink)]"
             value={buckets.totalLateCount.toLocaleString()}
           />
-          <span className="pb-1 text-sm font-medium text-slate-500">
+          <span className="pb-1 text-sm font-medium text-[color:var(--sn-muted)]">
             of {analytics.attendanceRate.totalShifts.toLocaleString()}
           </span>
         </div>
-        <p className="mt-1 text-xs text-slate-500">created shifts</p>
+        <p className="mt-1 text-xs text-[color:var(--sn-muted)]">created shifts</p>
       </div>
       <LateBucketMiniTable buckets={buckets} />
     </section>
@@ -520,7 +520,7 @@ function AverageHoursCard({
   analytics: AttendanceDailyReportAnalytics;
 }) {
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <CardTitle icon={Clock3} title="AVG Shift Duration" />
       <div className="mt-16">
         <MetricValue
@@ -545,17 +545,17 @@ function PerformanceCard({
   const selected = performanceMetricForView(analytics, view);
 
   return (
-    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="flex min-w-0 flex-col rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <CardTitle icon={Gauge} title="Attendance rate" />
-      <div className="mt-6 overflow-hidden rounded-xl bg-slate-100 p-1">
+      <div className="mt-6 overflow-hidden rounded-xl bg-[color:var(--sn-sunken)] p-1">
         <div className="flex gap-1 overflow-x-auto">
           {performanceViews.map((item) => (
             <button
               className={cn(
-                "h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-slate-600 transition",
+                "h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-[color:var(--sn-body)] transition",
                 item.value === view
-                  ? "bg-white text-slate-950 shadow-sm"
-                  : "hover:bg-white/70"
+                  ? "bg-[color:var(--sn-card)] text-[color:var(--sn-ink)] shadow-sm"
+                  : "hover:bg-[color:var(--sn-card)]/70"
               )}
               key={item.value}
               onClick={() => onViewChange(item.value)}
@@ -602,7 +602,7 @@ function AttendanceList({
   const [sortOpen, setSortOpen] = useState(false);
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <CardTitle icon={ListChecks} title="Attendance List" />
         <div className="relative">
@@ -622,7 +622,7 @@ function AttendanceList({
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+      <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--sn-border)]">
         <table className="hidden w-full table-fixed text-left text-sm lg:table">
           <colgroup>
             <col className="w-[13%]" />
@@ -633,7 +633,7 @@ function AttendanceList({
             <col className="w-[11%]" />
             <col className="w-[8%]" />
           </colgroup>
-          <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+          <thead className="bg-[color:var(--sn-sunken)] text-xs font-medium text-[color:var(--sn-muted)]">
             <tr>
               <TableHeader>ID Employee</TableHeader>
               <TableHeader>Name</TableHeader>
@@ -647,9 +647,9 @@ function AttendanceList({
           <tbody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <tr className="border-t border-slate-100" key={row.id}>
+                <tr className="border-t border-[color:var(--sn-border)]" key={row.id}>
                   <TableCell>
-                    <TruncatedText className="font-medium text-slate-950" value={row.shopperId} />
+                    <TruncatedText className="font-medium text-[color:var(--sn-ink)]" value={row.shopperId} />
                   </TableCell>
                   <TableCell>
                     <NameCell row={row} />
@@ -673,7 +673,7 @@ function AttendanceList({
               ))
             ) : (
               <tr>
-                <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={7}>
+                <td className="px-4 py-10 text-center text-sm text-[color:var(--sn-muted)]" colSpan={7}>
                   No attendance rows match the selected filters.
                 </td>
               </tr>
@@ -684,11 +684,11 @@ function AttendanceList({
         <div className="grid gap-3 p-3 lg:hidden">
           {rows.length > 0 ? (
             rows.map((row) => (
-              <article className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3" key={row.id}>
+              <article className="grid gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3" key={row.id}>
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <TruncatedText className="font-semibold text-slate-950" value={row.pickerName} />
-                    <p className="mt-1 text-xs text-slate-500">{row.shopperId}</p>
+                    <TruncatedText className="font-semibold text-[color:var(--sn-ink)]" value={row.pickerName} />
+                    <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{row.shopperId}</p>
                   </div>
                   <StatusBadge row={row} />
                 </div>
@@ -713,7 +713,7 @@ function AttendanceList({
               </article>
             ))
           ) : (
-            <div className="py-8 text-center text-sm text-slate-500">
+            <div className="py-8 text-center text-sm text-[color:var(--sn-muted)]">
               No attendance rows match the selected filters.
             </div>
           )}
@@ -721,7 +721,7 @@ function AttendanceList({
       </div>
 
       <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <p className="text-sm font-medium text-slate-700">
+        <p className="text-sm font-medium text-[color:var(--sn-body)]">
           Total Attendance : {pagination.totalRows.toLocaleString()}
         </p>
         <PaginationControls
@@ -729,7 +729,7 @@ function AttendanceList({
           page={pagination.page}
           totalPages={lastPage}
         />
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+        <label className="flex items-center gap-2 text-sm text-[color:var(--sn-body)]">
           Show per Page
           <Select
             aria-label="Rows per page"
@@ -771,11 +771,11 @@ function ReportFilterBar({
   setSearchDraft: (value: string) => void;
 }) {
   return (
-    <section className="grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 shadow-sm xl:grid-cols-[minmax(18rem,1.1fr)_minmax(0,2fr)_auto]">
+    <section className="grid min-w-0 gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 shadow-sm xl:grid-cols-[minmax(18rem,1.1fr)_minmax(0,2fr)_auto]">
       <label className="relative min-w-0">
-        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
         <Input
-          className="h-11 rounded-xl border-slate-200 bg-white pl-9 shadow-sm"
+          className="h-11 rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] pl-9 shadow-sm"
           onChange={(event) => setSearchDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
@@ -858,7 +858,7 @@ function ReportFilterBar({
           Clear
         </Button>
       </div>
-      <p className="min-w-0 text-xs leading-5 text-slate-500 xl:col-span-3">
+      <p className="min-w-0 text-xs leading-5 text-[color:var(--sn-muted)] xl:col-span-3">
         Chain and Branch filters use reported labels mapped from the attendance
         file fields <span className="font-mono text-[11px]">reportedChainId</span>{" "}
         and <span className="font-mono text-[11px]">reportedLocation</span>. They
@@ -877,9 +877,9 @@ function FilterSelectShell({
   tone: "amber" | "rose" | "sky";
 }) {
   const toneClass = {
-    amber: "border-amber-100 bg-amber-50/60",
-    rose: "border-rose-100 bg-rose-50/60",
-    sky: "border-sky-100 bg-sky-50/60"
+    amber: "border-[oklch(0.88_0.05_80)] bg-[oklch(0.97_0.025_80)]",
+    rose: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.97_0.015_27)]",
+    sky: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/40"
   }[tone];
 
   return (
@@ -907,8 +907,8 @@ function SortMenu({
   ) => void;
 }) {
   return (
-    <div className="absolute right-0 top-12 z-30 w-72 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl">
-      <p className="text-xs font-semibold uppercase text-slate-400">Sort rows</p>
+    <div className="absolute right-0 top-12 z-30 w-72 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-3 shadow-xl">
+      <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">Sort rows</p>
       <div className="mt-3 grid gap-2">
         {sortOptions.map((option) => {
           const Icon = option.icon;
@@ -919,8 +919,8 @@ function SortMenu({
               className={cn(
                 "flex h-10 items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition",
                 selected
-                  ? "bg-sky-50 text-sky-700"
-                  : "text-slate-600 hover:bg-slate-50"
+                  ? "bg-[color:var(--tlb-lavender,#EDE9FF)] text-[color:var(--tlb-purple,#4B3B8C)]"
+                  : "text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
               )}
               key={option.value}
               onClick={() => onFilterChange({ sortBy: option.value })}
@@ -932,7 +932,7 @@ function SortMenu({
           );
         })}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[color:var(--sn-border)] pt-3">
         {(["asc", "desc"] as const).map((direction) => (
           <Button
             key={direction}
@@ -990,10 +990,10 @@ function ReportStateView({
 function CardTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] shadow-sm">
         <Icon className="h-5 w-5" />
       </span>
-      <h2 className="truncate text-lg font-semibold tracking-normal text-slate-950">
+      <h2 className="truncate text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
         {title}
       </h2>
     </div>
@@ -1013,12 +1013,12 @@ function MetricValue({
     <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-2">
         <AnimatedMetricText
-          className="truncate text-4xl font-semibold tabular-nums tracking-normal text-slate-950"
+          className="truncate font-[family-name:var(--font-data)] text-4xl font-semibold tabular-nums tracking-normal text-[color:var(--sn-ink)]"
           value={value}
         />
         <DeltaBadge delta={delta} />
       </div>
-      <p className="mt-2 truncate text-base text-slate-500">{label}</p>
+      <p className="mt-2 truncate text-base text-[color:var(--sn-muted)]">{label}</p>
     </div>
   );
 }
@@ -1057,12 +1057,12 @@ function AnimatedMetricText({
 function DeltaBadge({ delta }: { delta: AttendanceMetricDelta }) {
   const tone =
     delta.direction === "up"
-      ? "bg-emerald-50 text-emerald-700"
+      ? "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
       : delta.direction === "down"
-        ? "bg-rose-50 text-rose-700"
+        ? "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
         : delta.direction === "flat"
-          ? "bg-slate-100 text-slate-600"
-          : "bg-slate-100 text-slate-400";
+          ? "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
+          : "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]";
 
   return (
     <span className={cn("rounded-lg px-2 py-1 text-sm font-semibold tabular-nums", tone)}>
@@ -1085,21 +1085,21 @@ function ChartHoverCard({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute left-1/2 z-30 w-max min-w-44 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-left shadow-xl backdrop-blur transition duration-150",
+        "pointer-events-none absolute left-1/2 z-30 w-max min-w-44 -translate-x-1/2 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)]/95 px-3 py-2 text-left shadow-xl backdrop-blur transition duration-150",
         className ?? "top-2"
       )}
     >
       <div className="flex items-center gap-2">
         <span className={cn("h-2.5 w-2.5 rounded-full", chartToneColor(info.tone))} />
-        <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+        <p className="text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
           {info.label}
         </p>
       </div>
       <div className="mt-1 flex items-end justify-between gap-4">
-        <p className="text-lg font-semibold tabular-nums text-slate-950">
+        <p className="font-[family-name:var(--font-data)] text-lg font-semibold tabular-nums text-[color:var(--sn-ink)]">
           {info.count.toLocaleString()}
         </p>
-        <p className="rounded-lg bg-slate-50 px-2 py-1 text-xs font-semibold tabular-nums text-slate-600">
+        <p className="rounded-lg bg-[color:var(--sn-sunken)] px-2 py-1 text-xs font-semibold tabular-nums text-[color:var(--sn-body)]">
           {formatNumber(info.percentage)}%
         </p>
       </div>
@@ -1109,13 +1109,13 @@ function ChartHoverCard({
 
 function chartToneColor(tone: ChartTone) {
   const colors: Record<ChartTone, string> = {
-    clean: "bg-emerald-500",
-    error: "bg-rose-500",
-    late1: "bg-amber-400",
-    late2: "bg-orange-500",
-    late3: "bg-rose-500",
-    leave: "bg-sky-400",
-    neutral: "bg-slate-200"
+    clean: "bg-[oklch(0.58_0.13_150)]",
+    error: "bg-[oklch(0.55_0.19_27)]",
+    late1: "bg-[oklch(0.75_0.13_80)]",
+    late2: "bg-[color:var(--tlb-orange,#FF5900)]",
+    late3: "bg-[oklch(0.55_0.19_27)]",
+    leave: "bg-[color:var(--tlb-lavender,#EDE9FF)]",
+    neutral: "bg-[color:var(--sn-border-strong)]"
   };
 
   return colors[tone];
@@ -1142,16 +1142,16 @@ function MixTile({
   metric: AttendanceSegmentMetric;
 }) {
   return (
-    <div className="min-w-0 rounded-xl bg-slate-50 p-3">
+    <div className="min-w-0 rounded-xl bg-[color:var(--sn-sunken)] p-3">
       <span className={cn("block h-2 w-10 rounded-full", color)} />
       <div className="mt-3 flex min-w-0 items-end justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-medium text-slate-600">{label}</p>
+        <p className="min-w-0 truncate text-sm font-medium text-[color:var(--sn-body)]">{label}</p>
         <AnimatedMetricText
-          className="text-xl font-semibold tabular-nums text-slate-950"
+          className="font-[family-name:var(--font-data)] text-xl font-semibold tabular-nums text-[color:var(--sn-ink)]"
           value={metric.count.toLocaleString()}
         />
       </div>
-      <p className="mt-1 text-xs font-medium tabular-nums text-slate-500">
+      <p className="mt-1 text-xs font-medium tabular-nums text-[color:var(--sn-muted)]">
         {formatNumber(metric.percentage)}% of shifts
       </p>
     </div>
@@ -1168,17 +1168,17 @@ function ShiftQualityStat({
   tone: "clean" | "error" | "total";
 }) {
   const toneClass = {
-    clean: "border-emerald-100 bg-emerald-50/70 text-emerald-700",
-    error: "border-rose-100 bg-rose-50/70 text-rose-700",
-    total: "border-slate-200 bg-white text-slate-800"
+    clean: "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    error: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+    total: "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)]"
   }[tone];
 
   return (
     <div className={cn("min-w-0 rounded-2xl border p-3 shadow-sm", toneClass)}>
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-semibold text-slate-600">{label}</p>
+        <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--sn-body)]">{label}</p>
         <AnimatedMetricText
-          className="shrink-0 text-2xl font-semibold tabular-nums text-slate-950"
+          className="shrink-0 font-[family-name:var(--font-data)] text-2xl font-semibold tabular-nums text-[color:var(--sn-ink)]"
           value={metric.value.toLocaleString()}
         />
       </div>
@@ -1224,7 +1224,7 @@ function QualityStrip({
 
   return (
     <div
-      className="relative mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-3"
+      className="relative mt-6 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3"
       onMouseLeave={() => setHovered(null)}
     >
       <ChartHoverCard info={hovered} />
@@ -1241,7 +1241,7 @@ function QualityStrip({
             <span
               aria-label={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
               className={cn(
-                "min-w-0 flex-1 rounded-full transition-[background-color,opacity] duration-300 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-slate-300",
+                "min-w-0 flex-1 rounded-full transition-[background-color,opacity] duration-300 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[color:var(--sn-border-strong)]",
                 color
               )}
               key={index}
@@ -1253,13 +1253,13 @@ function QualityStrip({
           );
         })}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-500">
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--sn-muted)]">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.58_0.13_150)]" />
           Clean {clean.toLocaleString()}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[oklch(0.55_0.19_27)]" />
           Error {error.toLocaleString()}
         </span>
       </div>
@@ -1273,21 +1273,21 @@ function LateBucketMiniTable({
   buckets: AttendanceDailyReportAnalytics["lateBuckets"];
 }) {
   const items = [
-    { color: "bg-amber-400", label: "Late 1", metric: buckets.late1 },
-    { color: "bg-orange-500", label: "Late 2", metric: buckets.late2 },
-    { color: "bg-rose-500", label: "Late 3", metric: buckets.late3 }
+    { color: "bg-[oklch(0.75_0.13_80)]", label: "Late 1", metric: buckets.late1 },
+    { color: "bg-[color:var(--tlb-orange,#FF5900)]", label: "Late 2", metric: buckets.late2 },
+    { color: "bg-[oklch(0.55_0.19_27)]", label: "Late 3", metric: buckets.late3 }
   ];
   const [hovered, setHovered] = useState<ChartHoverInfo | null>(null);
 
   return (
     <div
-      className="relative mt-4 rounded-2xl border border-slate-200"
+      className="relative mt-4 rounded-2xl border border-[color:var(--sn-border)]"
       onMouseLeave={() => setHovered(null)}
     >
       <ChartHoverCard className="-top-4" info={hovered} />
-      <div className="grid grid-cols-3 overflow-hidden rounded-t-2xl bg-slate-50 text-center text-xs font-semibold uppercase tracking-normal text-slate-500">
+      <div className="grid grid-cols-3 overflow-hidden rounded-t-2xl bg-[color:var(--sn-sunken)] text-center text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
         {items.map((item) => (
-          <div className="border-r border-slate-200 px-3 py-2 last:border-r-0" key={item.label}>
+          <div className="border-r border-[color:var(--sn-border)] px-3 py-2 last:border-r-0" key={item.label}>
             {item.label}
           </div>
         ))}
@@ -1296,7 +1296,7 @@ function LateBucketMiniTable({
         {items.map((item) => (
           <div
             aria-label={`${item.label}: ${item.metric.count.toLocaleString()} shifts, ${formatNumber(item.metric.percentage)}% of late shifts`}
-            className="min-w-0 border-r border-slate-100 p-3 transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none last:border-r-0"
+            className="min-w-0 border-r border-[color:var(--sn-border)] p-3 transition-colors hover:bg-[color:var(--sn-sunken)] focus:bg-[color:var(--sn-sunken)] focus:outline-none last:border-r-0"
             key={item.label}
             onFocus={() =>
               setHovered({
@@ -1319,10 +1319,10 @@ function LateBucketMiniTable({
           >
             <span className={cn("mx-auto block h-2 w-8 rounded-full", item.color)} />
             <AnimatedMetricText
-              className="mt-2 block text-xl font-semibold tabular-nums text-slate-950"
+              className="mt-2 block font-[family-name:var(--font-data)] text-xl font-semibold tabular-nums text-[color:var(--sn-ink)]"
               value={item.metric.count.toLocaleString()}
             />
-            <p className="mt-1 text-xs font-medium tabular-nums text-slate-500">
+            <p className="mt-1 text-xs font-medium tabular-nums text-[color:var(--sn-muted)]">
               {formatNumber(item.metric.percentage)}%
             </p>
           </div>
@@ -1375,7 +1375,7 @@ function ArcGauge({
           <span
             aria-label={`${info.label}: ${info.count.toLocaleString()} shifts, ${formatNumber(info.percentage)}%`}
             className={cn(
-              "absolute left-1/2 top-1/2 h-9 w-3 rounded-full transition-[background-color,opacity] duration-300 ease-out hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-slate-300",
+              "absolute left-1/2 top-1/2 h-9 w-3 rounded-full transition-[background-color,opacity] duration-300 ease-out hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-[color:var(--sn-border-strong)]",
               color
             )}
             key={index}
@@ -1389,10 +1389,10 @@ function ArcGauge({
       })}
       <div className="relative z-10 grid place-items-center text-center">
         <AnimatedMetricText
-          className="text-4xl font-semibold tabular-nums text-slate-950"
+          className="font-[family-name:var(--font-data)] text-4xl font-semibold tabular-nums text-[color:var(--sn-ink)]"
           value={`${formatNumber(metric.percentage)}%`}
         />
-        <p className="mt-2 text-xs font-semibold tabular-nums text-slate-400">
+        <p className="mt-2 text-xs font-semibold tabular-nums text-[color:var(--sn-muted)]">
           {metric.count.toLocaleString()} shifts
         </p>
         <div className="mt-2"><DeltaBadge delta={metric.delta} /></div>
@@ -1403,11 +1403,11 @@ function ArcGauge({
 
 function performanceGaugeColor(view: PerformanceView) {
   const colors: Record<PerformanceView, string> = {
-    absent: "bg-rose-500",
-    all: "bg-emerald-500",
-    lateOver15: "bg-orange-500",
-    onLeave: "bg-sky-400",
-    onTime: "bg-emerald-500"
+    absent: "bg-[oklch(0.55_0.19_27)]",
+    all: "bg-[oklch(0.58_0.13_150)]",
+    lateOver15: "bg-[color:var(--tlb-orange,#FF5900)]",
+    onLeave: "bg-[color:var(--tlb-lavender,#EDE9FF)]",
+    onTime: "bg-[oklch(0.58_0.13_150)]"
   };
 
   return colors[view];
@@ -1460,7 +1460,7 @@ function PaginationControls({
       </Button>
       {pages.map((item) =>
         item === "ellipsis" ? (
-          <span className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-500" key={item}>
+          <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-muted)]" key={item}>
             ...
           </span>
         ) : (
@@ -1502,17 +1502,17 @@ function PaginationControls({
 function NameCell({ row }: { row: AttendanceDailyReportRow }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-xs font-semibold text-white">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--sn-ink)] text-xs font-semibold text-white">
         {initials(row.pickerName)}
       </span>
-      <TruncatedText className="font-medium text-slate-950" value={row.pickerName} />
+      <TruncatedText className="font-medium text-[color:var(--sn-ink)]" value={row.pickerName} />
     </div>
   );
 }
 
 function LocationPill({ value }: { value?: string | null }) {
   return (
-    <span className="inline-flex max-w-full rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700">
+    <span className="inline-flex max-w-full rounded-lg bg-[color:var(--sn-sunken)] px-2.5 py-1 text-[color:var(--sn-body)]">
       <TruncatedText value={value} />
     </span>
   );
@@ -1530,7 +1530,7 @@ function rowLocationLabel(row: AttendanceDailyReportRow) {
 function TimeCell({ icon: Icon, value }: { icon: LucideIcon; value?: string | null }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+      <Icon className="h-4 w-4 shrink-0 text-[color:var(--sn-muted)]" />
       <TruncatedText value={value} />
     </span>
   );
@@ -1541,7 +1541,7 @@ function CheckInCell({ row }: { row: AttendanceDailyReportRow }) {
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LogIn className="h-4 w-4 shrink-0 text-slate-400" />
+      <LogIn className="h-4 w-4 shrink-0 text-[color:var(--sn-muted)]" />
       <TruncatedText value={row.actualCheckinTime} />
       {offset !== null ? <CheckInOffsetBadge minutes={offset} /> : null}
     </span>
@@ -1553,7 +1553,7 @@ function CheckInOffsetBadge({ minutes }: { minutes: number }) {
     return (
       <span
         aria-label="On time or early"
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
         title="On time or early"
       >
         <Check className="h-3.5 w-3.5" />
@@ -1563,8 +1563,8 @@ function CheckInOffsetBadge({ minutes }: { minutes: number }) {
 
   const lateTone =
     minutes > 15
-      ? "bg-rose-50 text-rose-700"
-      : "bg-amber-50 text-amber-700";
+      ? "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
+      : "bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]";
 
   return (
     <span
@@ -1588,7 +1588,7 @@ function LogHoursCell({ row }: { row: AttendanceDailyReportRow }) {
       {hasHoursIssue ? (
         <TriangleAlert
           aria-label={row.isUnder8Hours ? "Under 8 hours" : "Over 15 hours"}
-          className="h-4 w-4 shrink-0 text-amber-500"
+          className="h-4 w-4 shrink-0 text-[oklch(0.62_0.13_70)]"
         />
       ) : null}
     </span>
@@ -1610,14 +1610,14 @@ function TableHeader({ children }: { children: ReactNode }) {
 }
 
 function TableCell({ children }: { children: ReactNode }) {
-  return <td className="min-w-0 px-4 py-3 align-middle text-slate-700">{children}</td>;
+  return <td className="min-w-0 px-4 py-3 align-middle text-[color:var(--sn-body)]">{children}</td>;
 }
 
 function Definition({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg bg-white p-2">
-      <p className="text-[11px] font-medium uppercase text-slate-400">{label}</p>
-      <div className="mt-1 min-w-0 text-sm font-medium text-slate-800">
+    <div className="min-w-0 rounded-lg bg-[color:var(--sn-card)] p-2">
+      <p className="text-[11px] font-medium uppercase text-[color:var(--sn-muted)]">{label}</p>
+      <div className="mt-1 min-w-0 text-sm font-medium text-[color:var(--sn-ink)]">
         {value}
       </div>
     </div>
@@ -1743,10 +1743,10 @@ function rowStatus(row: AttendanceDailyReportRow) {
       NONE: "On time"
     };
     const tones = {
-      LATE_1: "border-amber-300 bg-amber-50 text-amber-800",
-      LATE_2: "border-orange-300 bg-orange-50 text-orange-800",
-      LATE_3: "border-rose-300 bg-rose-50 text-rose-800",
-      NONE: "border-emerald-200 bg-emerald-50 text-emerald-700"
+      LATE_1: "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+      LATE_2: "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]",
+      LATE_3: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+      NONE: "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
     };
     const bucket = row.lateBucket ?? "NONE";
     return { label: labels[bucket], tone: tones[bucket] };
@@ -1755,47 +1755,47 @@ function rowStatus(row: AttendanceDailyReportRow) {
   const statuses: Record<AttendanceCalculatedStatus, { label: string; tone: string }> = {
     ABSENT: {
       label: "Absent",
-      tone: "border-rose-300 bg-rose-50 text-rose-800"
+      tone: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
     },
     ANNUAL_LEAVE: {
       label: "Annual Leave",
-      tone: "border-sky-200 bg-sky-50 text-sky-700"
+      tone: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/60 text-[color:var(--tlb-purple,#4B3B8C)]"
     },
     EXCLUDED_NON_EGYPT: {
       label: "Excluded",
-      tone: "border-slate-200 bg-slate-100 text-slate-600"
+      tone: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
     },
     EXCLUDED_NOT_PICKER: {
       label: "Not Picker",
-      tone: "border-slate-200 bg-slate-100 text-slate-600"
+      tone: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
     },
     INVALID_OR_MISSING_ATTENDANCE_DATA: {
       label: "Invalid",
-      tone: "border-rose-300 bg-rose-50 text-rose-800"
+      tone: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
     },
     LATE: {
       label: "Late",
-      tone: "border-orange-300 bg-orange-50 text-orange-800"
+      tone: "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
     },
     MEDICAL_LEAVE: {
       label: "Sick Leave",
-      tone: "border-sky-200 bg-sky-50 text-sky-700"
+      tone: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/60 text-[color:var(--tlb-purple,#4B3B8C)]"
     },
     OFF_DAY: {
       label: "Off Day",
-      tone: "border-sky-200 bg-sky-50 text-sky-700"
+      tone: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/60 text-[color:var(--tlb-purple,#4B3B8C)]"
     },
     ON_TIME: {
       label: "Attend",
-      tone: "border-emerald-200 bg-emerald-50 text-emerald-700"
+      tone: "border-[oklch(0.8_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
     },
     OTHER_LEAVE: {
       label: "Other Leave",
-      tone: "border-sky-200 bg-sky-50 text-sky-700"
+      tone: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/60 text-[color:var(--tlb-purple,#4B3B8C)]"
     },
     UNMATCHED_IDENTIFIER: {
       label: "Unmatched",
-      tone: "border-amber-300 bg-amber-50 text-amber-800"
+      tone: "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
     }
   };
 

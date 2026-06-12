@@ -6,6 +6,8 @@ export default function TicketsPage() {
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description="Operational lifecycle tickets, approvals, and final actions."
+      hideHeaderDescription
+      showPageTitle
       title="Tickets"
     >
       <RequestOperationsCenter defaultMode="open" />

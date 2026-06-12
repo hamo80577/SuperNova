@@ -55,32 +55,32 @@ export function ChampBranchWorkspace() {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <Link
-              className="mb-3 inline-flex items-center text-sm font-medium text-primary"
+              className="mb-3 inline-flex items-center text-sm font-medium text-[color:var(--tlb-orange)]"
               href="/champ/branches"
               prefetch
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               My Branches
             </Link>
-            <h1 className="truncate text-3xl font-semibold tracking-normal text-slate-950">
+            <h1 className="truncate text-3xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               {branch.vendor.vendorName}
             </h1>
-            <p className="mt-1 text-base font-medium text-slate-500">
+            <p className="mt-1 text-base font-medium text-[color:var(--sn-muted)]">
               {branch.chain.chainName}
             </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {allBranches.length > 1 ? (
-              <label className="grid gap-1 text-xs font-medium text-slate-500">
+              <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-muted)]">
                 Switch Branch
                 <Select
                   aria-label="Switch Branch"
-                  className="h-11 min-w-56 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800"
+                  className="h-11 min-w-56 rounded-xl border border-[color:var(--sn-border)] bg-white px-3 text-sm font-medium text-[color:var(--sn-ink)]"
                   onChange={(event) =>
                     pushRoute(router, `/champ/branches/${event.target.value}`)
                   }
@@ -119,7 +119,7 @@ export function ChampBranchWorkspace() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-2 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <div className="grid grid-cols-2 gap-2">
           {(["Pickers", "Requests"] as const).map((tab) => (
             <button
@@ -128,7 +128,7 @@ export function ChampBranchWorkspace() {
                 "h-11 rounded-xl px-3 text-sm font-semibold transition-colors",
                 activeTab === tab
                   ? "bg-primary text-primary-foreground"
-                  : "text-slate-600 hover:bg-slate-50"
+                  : "text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
               )}
               key={tab}
               onClick={() => setActiveTab(tab)}

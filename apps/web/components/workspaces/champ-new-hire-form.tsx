@@ -71,7 +71,7 @@ export function ChampNewHireForm() {
 
   return (
     <div className="grid gap-5">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.04)]">
+      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <Link
           className="mb-4 inline-flex items-center text-sm font-medium text-primary"
           href={branchHref}
@@ -83,7 +83,7 @@ export function ChampNewHireForm() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <Badge
-              className="border-orange-200 bg-orange-50 text-orange-700"
+              className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
               variant="outline"
             >
               Branch-first New Hire

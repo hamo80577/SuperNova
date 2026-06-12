@@ -307,7 +307,7 @@ export function ResignationRequestForm({
 
   if (createdRequest) {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+      <div className="rounded-2xl border border-[oklch(0.80_0.08_150)] bg-[oklch(0.95_0.045_150)] p-4 text-sm text-[oklch(0.58_0.13_150)]">
         <div className="flex items-start gap-3">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
@@ -336,7 +336,7 @@ export function ResignationRequestForm({
 
   if (!allowedTargetRoles.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-body)]">
         Resignation requests are not available for this user role.
       </div>
     );
@@ -356,8 +356,8 @@ export function ResignationRequestForm({
               className={cn(
                 "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
                 targetRole === role
-                  ? "border-orange-300 bg-orange-50 text-orange-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                  ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-burgundy)]"
+                  : "border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
               )}
               key={role}
               onClick={() => updateTargetRole(role)}
@@ -436,7 +436,7 @@ export function ResignationRequestForm({
                 placeholder="Select final working day"
                 value={form.lastWorkingDate}
               />
-              <span className="text-xs font-normal leading-5 text-slate-500">
+              <span className="text-xs font-normal leading-5 text-[color:var(--sn-muted)]">
                 The Picker's final working day. Used later for HR sync.
               </span>
             </Field>
@@ -444,7 +444,7 @@ export function ResignationRequestForm({
           <Field label="Reason">
             <Select
               aria-label="Reason"
-              className="h-11 rounded-xl border border-input bg-white px-3 text-sm"
+              className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
@@ -520,7 +520,7 @@ export function ResignationRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl border-red-700 bg-red-600 px-5 text-white hover:bg-red-700 sm:w-auto"
+          className="min-h-11 w-full rounded-xl border-[oklch(0.45_0.19_27)] bg-[oklch(0.55_0.19_27)] px-5 text-white hover:bg-[oklch(0.48_0.19_27)] sm:w-auto"
           disabled={isPending || selectedUser?.hasPendingResignation}
           type="submit"
         >
@@ -541,10 +541,10 @@ function Section({
   title: string;
 }) {
   return (
-    <section className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+    <section className="grid gap-4 border-b border-[color:var(--sn-border)] pb-5 lg:grid-cols-[13rem_1fr]">
       <div>
-        <p className="text-sm font-semibold text-slate-950">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+        <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[color:var(--sn-muted)]">{description}</p>
       </div>
       <div className="min-w-0">{children}</div>
     </section>
@@ -553,21 +553,21 @@ function Section({
 
 function ResignationUserCard({ item }: { item: OffboardingEligibleUserSearchItem }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 gap-3">
           <PickerAvatar name={item.user.nameEn} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate text-base font-semibold text-slate-950">
+              <h3 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
                 {item.user.nameEn}
               </h3>
-              <Badge className="border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+              <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
                 {formatEnum(item.targetRole)}
               </Badge>
               <Badge variant="muted">{formatEnum(item.user.employmentStatus)}</Badge>
             </div>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
               {item.user.phoneNumber}
               {item.user.shopperId ? ` · Shopper ${item.user.shopperId}` : ""}
               {item.user.ibsId ? ` · IBS ${item.user.ibsId}` : ""}
@@ -578,7 +578,7 @@ function ResignationUserCard({ item }: { item: OffboardingEligibleUserSearchItem
           className={cn(
             "w-fit",
             item.hasPendingResignation
-              ? "border-red-200 bg-red-50 text-red-700"
+              ? "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
               : ""
           )}
           variant="outline"

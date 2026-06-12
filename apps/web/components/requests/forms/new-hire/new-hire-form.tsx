@@ -576,7 +576,7 @@ export function NewHireRequestForm({
 
   return (
     <form
-      className="grid min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+      className="grid min-w-0 overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white"
       onSubmit={submit}
     >
       {error ? <ErrorState message={error} /> : null}
@@ -592,8 +592,8 @@ export function NewHireRequestForm({
                 className={cn(
                   "min-h-12 rounded-xl border p-3 text-left text-sm font-semibold transition-colors",
                   form.targetRole === role
-                    ? "border-orange-300 bg-orange-50 text-orange-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                    ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-burgundy)]"
+                    : "border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
                 )}
                 key={role}
                 onClick={() => updateTargetRole(role)}
@@ -623,11 +623,11 @@ export function NewHireRequestForm({
             selectedVendor={selectedVendor ?? null}
           />
         ) : isAreaManagerTarget ? (
-          <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4 text-sm text-slate-700">
-            <p className="font-semibold text-slate-950">
+          <div className="rounded-2xl border border-[#FFD8BD] bg-[#FFE8D9]/50 p-4 text-sm text-[color:var(--sn-body)]">
+            <p className="font-semibold text-[color:var(--sn-ink)]">
               Chain assignment is managed from the Area Manager profile after creation.
             </p>
-            <p className="mt-1 text-slate-600">
+            <p className="mt-1 text-[color:var(--sn-body)]">
               Admin final approval creates the user only. Admin/Super Admin can assign Chains from Users List - Area Manager Profile.
             </p>
           </div>
@@ -716,7 +716,7 @@ export function NewHireRequestForm({
             />
           </Field>
         </div>
-        <div className="grid gap-1 text-xs text-slate-500">
+        <div className="grid gap-1 text-xs text-[color:var(--sn-muted)]">
           {form.phoneNumber && !isPhoneValid ? (
             <span>Phone must be 11 digits and start with 010, 011, 012, or 015.</span>
           ) : null}
@@ -742,7 +742,7 @@ export function NewHireRequestForm({
               placeholder="Select actual joining date"
               value={form.actualJoiningDate}
             />
-            <span className="text-xs font-normal leading-5 text-slate-500">
+            <span className="text-xs font-normal leading-5 text-[color:var(--sn-muted)]">
               The Picker's real first working day. Used later for HR sync.
             </span>
           </Field>
@@ -767,7 +767,7 @@ export function NewHireRequestForm({
       ) : null}
 
       {lookupState === "checking" ? (
-        <div className="border-b border-slate-100 px-4 py-3 text-sm text-slate-600 sm:px-5">
+        <div className="border-b border-[color:var(--sn-border)] px-4 py-3 text-sm text-[color:var(--sn-body)] sm:px-5">
           Checking existing user records...
         </div>
       ) : null}
@@ -857,7 +857,7 @@ export function NewHireRequestForm({
         </NewHireFormSection>
       ) : null}
 
-      <div className="flex flex-col gap-2 bg-slate-50/70 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
+      <div className="flex flex-col gap-2 bg-[color:var(--sn-sunken)]/70 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
         {onCancel ? (
           <Button
             className="min-h-11 w-full rounded-xl sm:w-auto"
@@ -869,7 +869,7 @@ export function NewHireRequestForm({
           </Button>
         ) : null}
         <Button
-          className="min-h-11 w-full rounded-xl bg-orange-600 hover:bg-orange-700 sm:w-auto"
+          className="min-h-11 w-full rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100] sm:w-auto"
           disabled={!canSubmit}
           type="submit"
         >

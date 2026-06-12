@@ -11,12 +11,12 @@ export function EmptyState({
     <div
       className={
         compact
-          ? "rounded-md border bg-background p-4 text-sm text-muted-foreground"
-          : "grid place-items-center rounded-lg border bg-card p-8 text-center shadow-sm"
+          ? "rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]"
+          : "grid place-items-center rounded-[16px] border border-[color:var(--sn-border)] bg-white p-8 text-center shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]"
       }
     >
-      {!compact ? <Inbox className="mb-3 h-8 w-8 text-muted-foreground" /> : null}
-      <p className="text-sm text-muted-foreground">{message}</p>
+      {!compact ? <Inbox className="mb-3 h-8 w-8 text-[color:var(--sn-muted)]" /> : null}
+      <p className="text-sm text-[color:var(--sn-muted)]">{message}</p>
     </div>
   );
 }

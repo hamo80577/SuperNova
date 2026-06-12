@@ -63,14 +63,14 @@ export function LoginForm() {
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-800" htmlFor="phone">
+        <label className="text-sm font-medium text-[color:var(--sn-ink)]" htmlFor="phone">
           Phone number
         </label>
         <div className="relative">
-          <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--sn-muted)]" />
           <Input
             autoComplete="tel"
-            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+            className="h-[46px] rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] pl-11 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             disabled={busy}
             id="phone"
             inputMode="tel"
@@ -82,16 +82,16 @@ export function LoginForm() {
 
       <div className="space-y-2">
         <label
-          className="text-sm font-medium text-slate-800"
+          className="text-sm font-medium text-[color:var(--sn-ink)]"
           htmlFor="password"
         >
           Password
         </label>
         <div className="relative">
-          <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--sn-muted)]" />
           <Input
             autoComplete="current-password"
-            className="h-[46px] rounded-xl border-slate-200 bg-white pl-11 pr-12 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+            className="h-[46px] rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] pl-11 pr-12 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             disabled={busy}
             id="password"
             onChange={(event) => setPassword(event.target.value)}
@@ -101,7 +101,7 @@ export function LoginForm() {
           <button
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
-            className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[color:var(--sn-body)] transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             disabled={busy}
             onClick={() => setShowPassword((current) => !current)}
             type="button"
@@ -117,12 +117,12 @@ export function LoginForm() {
 
       <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-start sm:justify-between">
         <label
-          className="flex min-h-10 cursor-pointer items-center gap-3 text-slate-700"
+          className="flex min-h-10 cursor-pointer items-center gap-3 text-[color:var(--sn-body)]"
           htmlFor="remember-me"
         >
           <input
             checked={rememberMe}
-            className="h-4 w-4 rounded border-slate-300 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            className="h-4 w-4 rounded border-[color:var(--sn-border-strong)] accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             disabled={busy}
             id="remember-me"
             onChange={(event) => setRememberMe(event.target.checked)}
@@ -130,7 +130,7 @@ export function LoginForm() {
           />
           Keep me signed in
         </label>
-        <p className="leading-5 text-slate-500 sm:max-w-[180px] sm:text-right">
+        <p className="leading-5 text-[color:var(--sn-muted)] sm:max-w-[180px] sm:text-right">
           Forgot password? Contact Admin to reset it.
         </p>
       </div>

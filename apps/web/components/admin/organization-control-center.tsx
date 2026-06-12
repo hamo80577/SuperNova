@@ -206,7 +206,7 @@ export function OrganizationControlCenter() {
       <div className="flex justify-end">
         <div className="relative">
           <Button
-            className="h-11 rounded-xl bg-orange-600 px-4 text-white hover:bg-orange-700"
+            className="h-11 rounded-xl bg-[color:var(--tlb-orange)] px-4 text-white hover:bg-[#E85100]"
             onClick={() => setAddMenuOpen((value) => !value)}
             type="button"
           >
@@ -215,7 +215,7 @@ export function OrganizationControlCenter() {
             <ChevronDown className="ml-2 h-4 w-4" />
           </Button>
           {addMenuOpen ? (
-            <div className="absolute right-0 top-12 z-30 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-12 z-30 w-56 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 shadow-xl">
               <MenuButton
                 icon={<GitBranch className="h-4 w-4" />}
                 label="Add Chain"
@@ -231,11 +231,11 @@ export function OrganizationControlCenter() {
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <section className="overflow-hidden rounded-[22px] border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-950">Chains</p>
-            <p className="text-xs text-slate-500">Select one Chain to inspect its Branches.</p>
+            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">Chains</p>
+            <p className="text-xs text-[color:var(--sn-muted)]">Select one Chain to inspect its Branches.</p>
           </div>
           <div className="flex gap-2">
             <IconButton
@@ -258,13 +258,13 @@ export function OrganizationControlCenter() {
           <div className="relative min-w-0 overflow-hidden">
             <div
               className={cn(
-                "pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent transition-opacity duration-200",
+                "pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[color:var(--sn-card,#fff)] to-transparent transition-opacity duration-200",
                 carouselState.canScrollLeft ? "opacity-100" : "opacity-0"
               )}
             />
             <div
               className={cn(
-                "pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent transition-opacity duration-200",
+                "pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[color:var(--sn-card,#fff)] to-transparent transition-opacity duration-200",
                 carouselState.canScrollRight ? "opacity-100" : "opacity-0"
               )}
             />
@@ -295,16 +295,16 @@ export function OrganizationControlCenter() {
       </section>
 
       {selectedChain ? (
-        <section className="grid gap-4 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="grid gap-4 rounded-[22px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--tlb-orange)]">
                 Selected Chain
               </p>
-              <h2 className="mt-1 text-2xl font-semibold text-slate-950">
+              <h2 className="mt-1 text-2xl font-semibold text-[color:var(--sn-ink)]">
                 {selectedChain.chainName}
               </h2>
-              <p className="text-sm text-slate-500">{selectedChain.chainCode}</p>
+              <p className="text-sm text-[color:var(--sn-muted)]">{selectedChain.chainCode}</p>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <MiniMetric label="Branches" value={selectedChain.branchCount} />
@@ -319,21 +319,21 @@ export function OrganizationControlCenter() {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative sm:w-80">
-              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[color:var(--sn-muted)]" />
               <Input
-                className="h-11 rounded-xl border-slate-200 pl-9"
+                className="h-11 rounded-xl border-[color:var(--sn-border)] pl-9"
                 onChange={(event) => setBranchQuery(event.target.value)}
                 placeholder="Search Branch or Champ"
                 value={branchQuery}
               />
             </div>
             <Button
-              className="h-11 rounded-xl border-slate-200"
+              className="h-11 rounded-xl border-[color:var(--sn-border)]"
               onClick={() => openAdd("vendor")}
               type="button"
               variant="outline"
             >
-              <Store className="mr-2 h-4 w-4 text-orange-600" />
+              <Store className="mr-2 h-4 w-4 text-[color:var(--tlb-orange)]" />
               Add Branch
             </Button>
           </div>
@@ -386,22 +386,22 @@ function ChainCard({
       className={cn(
         "min-h-[164px] shrink-0 basis-[min(82vw,280px)] snap-start rounded-[24px] border p-4 text-left transition-[border-color,background-color,box-shadow,transform] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:basis-[calc((100%_-_0.75rem)/2)] lg:basis-[calc((100%_-_2.25rem)/4)]",
         selected
-          ? "border-orange-300 bg-orange-50 shadow-sm ring-2 ring-orange-100"
-          : "border-slate-200 bg-slate-50/70 hover:border-orange-200"
+          ? "border-[#FFD8BD] bg-[#FFE8D9] shadow-sm ring-2 ring-[#FFD8BD]/60"
+          : "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)]/70 hover:border-[#FFD8BD]"
       )}
       onClick={onSelect}
       type="button"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[color:var(--tlb-orange)] shadow-sm">
           <Building2 className="h-5 w-5" />
         </div>
         <StatusBadge status={chain.status} />
       </div>
-      <h3 className="mt-4 line-clamp-2 text-lg font-semibold text-slate-950">
+      <h3 className="mt-4 line-clamp-2 text-lg font-semibold text-[color:var(--sn-ink)]">
         {chain.chainName}
       </h3>
-      <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+      <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-[color:var(--sn-muted)]">
         {chain.chainCode}
       </p>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -430,9 +430,9 @@ function BranchTable({
   }
 
   return (
-    <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-slate-200">
+    <div className="max-h-[520px] overflow-y-auto rounded-2xl border border-[color:var(--sn-border)]">
       <table className="w-full table-fixed text-left text-sm">
-        <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+        <thead className="sticky top-0 z-10 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-xs uppercase text-[color:var(--sn-muted)]">
           <tr>
             <th className="w-[38%] px-3 py-3 sm:px-4">Branch</th>
             <th className="w-[18%] px-3 py-3 sm:px-4">Pickers</th>
@@ -444,24 +444,24 @@ function BranchTable({
         <tbody>
           {branches.map((branch) => (
             <tr
-              className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-orange-50/40"
+              className="cursor-pointer border-b border-[color:var(--sn-border)] last:border-0 hover:bg-[#FFE8D9]/35"
               key={branch.id}
               onClick={() => onOpen(branch)}
               tabIndex={0}
             >
               <td className="px-3 py-3 sm:px-4">
-                <p className="truncate font-semibold text-slate-950">{branch.vendorName}</p>
-                <p className="truncate text-xs text-slate-500">{branch.vendorCode}</p>
+                <p className="truncate font-semibold text-[color:var(--sn-ink)]">{branch.vendorName}</p>
+                <p className="truncate text-xs text-[color:var(--sn-muted)]">{branch.vendorCode}</p>
               </td>
               <td className="px-3 py-3 sm:px-4">{branch.activePickerCount}</td>
               <td className="hidden px-3 py-3 sm:table-cell sm:px-4">{branch.requestCount}</td>
               <td className="px-3 py-3 sm:px-4">
                 {branch.currentChamp ? (
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-900">
+                    <p className="truncate font-medium text-[color:var(--sn-ink)]">
                       {branch.currentChamp.nameEn}
                     </p>
-                    <p className="truncate text-xs text-slate-500">
+                    <p className="truncate text-xs text-[color:var(--sn-muted)]">
                       {branch.currentChamp.phoneNumber}
                     </p>
                   </div>
@@ -614,7 +614,7 @@ function AddResourceModal({
             Cancel
           </Button>
           <Button
-            className="bg-orange-600 text-white hover:bg-orange-700"
+            className="bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
             disabled={isPending}
             type="submit"
           >
@@ -673,19 +673,19 @@ function BranchDetailSheet({
   return (
     <ModalPortal>
     <div
-      className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/35 p-2 sm:p-4"
+      className="fixed inset-0 z-[140] grid place-items-center bg-[rgba(65,21,23,0.35)] p-2 sm:p-4"
       role="dialog"
     >
       <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--sn-border)] p-4 sm:p-5">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--tlb-orange)]">
               Branch
             </p>
-            <h2 className="truncate text-xl font-semibold text-slate-950">
+            <h2 className="truncate text-xl font-semibold text-[color:var(--sn-ink)]">
               {state.status === "ready" ? state.data.branch.vendorName : "Branch"}
             </h2>
-            <p className="truncate text-sm text-slate-500">
+            <p className="truncate text-sm text-[color:var(--sn-muted)]">
               {state.status === "ready" ? state.data.chain.chainName : "Loading"}
             </p>
           </div>
@@ -705,19 +705,19 @@ function BranchDetailSheet({
             />
           ) : (
             <div className="grid gap-5">
-              <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-semibold text-slate-950">
+                  <p className="font-semibold text-[color:var(--sn-ink)]">
                     {state.data.branch.vendorName}
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-[color:var(--sn-muted)]">
                     {state.data.branch.vendorCode} · {state.data.chain.chainName}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="relative">
                     <Button
-                      className="rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+                      className="rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
                       onClick={() => {
                         setNewHireMenuOpen((value) => !value);
                         setAssignMenuOpen(false);
@@ -729,7 +729,7 @@ function BranchDetailSheet({
                       <ChevronDown className="ml-2 h-4 w-4" />
                     </Button>
                     {newHireMenuOpen ? (
-                      <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                      <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 shadow-xl">
                         <MenuButton
                           icon={<Users className="h-4 w-4" />}
                           label="Picker"
@@ -764,7 +764,7 @@ function BranchDetailSheet({
                       <ChevronDown className="ml-2 h-4 w-4" />
                     </Button>
                     {assignMenuOpen ? (
-                      <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                      <div className="absolute right-0 top-11 z-20 w-44 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 shadow-xl">
                         <MenuButton
                           icon={<Users className="h-4 w-4" />}
                           label="Transfer Picker"
@@ -827,21 +827,21 @@ function BranchDetailSheet({
                 />
               </div>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="font-semibold text-slate-950">Recent requests</h3>
+              <section className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-4">
+                <h3 className="font-semibold text-[color:var(--sn-ink)]">Recent requests</h3>
                 <div className="mt-3 grid gap-2">
                   {state.data.requests.length ? (
                     state.data.requests.map((request) => (
                       <a
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 text-sm hover:bg-slate-50"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--sn-border)] p-3 text-sm hover:bg-[color:var(--sn-sunken)]"
                         href={request.route}
                         key={request.id}
                       >
                         <span>
-                          <span className="font-medium text-slate-950">
+                          <span className="font-medium text-[color:var(--sn-ink)]">
                             {formatEnum(request.type)}
                           </span>
-                          <span className="ml-2 text-slate-500">
+                          <span className="ml-2 text-[color:var(--sn-muted)]">
                             {request.targetUser?.nameEn ?? "No target user"}
                           </span>
                         </span>
@@ -849,7 +849,7 @@ function BranchDetailSheet({
                       </a>
                     ))
                   ) : (
-                    <p className="text-sm text-slate-500">No recent requests.</p>
+                    <p className="text-sm text-[color:var(--sn-muted)]">No recent requests.</p>
                   )}
                 </div>
               </section>
@@ -964,7 +964,7 @@ function BranchEditForm({
 
   return (
     <form
-      className="grid gap-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-4 md:grid-cols-5"
+      className="grid gap-3 rounded-2xl border border-[#FFD8BD] bg-[#FFE8D9]/35 p-4 md:grid-cols-5"
       onSubmit={onSubmit}
     >
       {error ? <div className="md:col-span-5"><InlineError message={error} /></div> : null}
@@ -1043,9 +1043,9 @@ function PeopleTable({
   }, [items.length]);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-semibold text-slate-950">
+        <h3 className="font-semibold text-[color:var(--sn-ink)]">
           {kind === "picker" ? "Pickers" : "Champ"}
         </h3>
         <Badge variant="muted">{actionLabel}</Badge>
@@ -1053,7 +1053,7 @@ function PeopleTable({
       {items.length ? (
         <>
           <table className="w-full table-fixed text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
+            <thead className="text-xs uppercase text-[color:var(--sn-muted)]">
               <tr>
                 <th className="w-[42%] py-2 pr-2">User</th>
                 <th className="hidden w-[28%] py-2 pr-2 sm:table-cell">Phone</th>
@@ -1069,22 +1069,22 @@ function PeopleTable({
                 }
                 return (
                   <tr
-                    className="cursor-pointer border-t border-slate-100 hover:bg-orange-50/40"
+                    className="cursor-pointer border-t border-[color:var(--sn-border)] hover:bg-[#FFE8D9]/35"
                     key={item.assignment.id}
                     onClick={() => onOpenUser(user)}
                     tabIndex={0}
                   >
                     <td className="py-3 pr-2">
-                      <p className="truncate font-medium text-slate-950">{user.nameEn}</p>
-                      <p className="truncate text-xs text-slate-500">{formatEnum(user.role)}</p>
-                      <p className="truncate text-xs text-slate-500 sm:hidden">
+                      <p className="truncate font-medium text-[color:var(--sn-ink)]">{user.nameEn}</p>
+                      <p className="truncate text-xs text-[color:var(--sn-muted)]">{formatEnum(user.role)}</p>
+                      <p className="truncate text-xs text-[color:var(--sn-muted)] sm:hidden">
                         {user.phoneNumber}
                       </p>
                     </td>
-                    <td className="hidden py-3 pr-2 text-slate-600 sm:table-cell">
+                    <td className="hidden py-3 pr-2 text-[color:var(--sn-body)] sm:table-cell">
                       <span className="truncate">{user.phoneNumber}</span>
                     </td>
-                    <td className="py-3 pr-2 text-slate-500">
+                    <td className="py-3 pr-2 text-[color:var(--sn-muted)]">
                       {formatDate(item.assignment.startDate)}
                     </td>
                     <td className="py-3 text-right" onClick={(event) => event.stopPropagation()}>
@@ -1107,7 +1107,7 @@ function PeopleTable({
             </tbody>
           </table>
           {paginate && totalPages > 1 ? (
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm text-slate-500">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-[color:var(--sn-border)] pt-3 text-sm text-[color:var(--sn-muted)]">
               <span>
                 Page {page} of {totalPages}
               </span>
@@ -1137,7 +1137,7 @@ function PeopleTable({
           ) : null}
         </>
       ) : (
-        <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+        <p className="rounded-xl bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
           {emptyLabel}
         </p>
       )}
@@ -1359,9 +1359,9 @@ function PickerActionModal({
     <ModalFrame onClose={requestClose} title={`${formatEnum(action.type)} request`}>
       <form className="grid gap-4" onSubmit={onSubmit}>
         {error ? <InlineError message={error} /> : null}
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-          <p className="font-medium text-slate-950">{action.picker.nameEn}</p>
-          <p className="text-slate-500">{action.picker.phoneNumber}</p>
+        <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 text-sm">
+          <p className="font-medium text-[color:var(--sn-ink)]">{action.picker.nameEn}</p>
+          <p className="text-[color:var(--sn-muted)]">{action.picker.phoneNumber}</p>
         </div>
         {action.type === "transfer" ? (
           <FormField label="Destination Branch">
@@ -1424,7 +1424,7 @@ function UserSearchResults({
 }) {
   if (!canSearch) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
         Start typing at least 3 letters or numbers.
       </div>
     );
@@ -1432,29 +1432,29 @@ function UserSearchResults({
 
   if (!users.length) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+      <div className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
         No matching active users.
       </div>
     );
   }
 
   return (
-    <div className="max-h-72 overflow-y-auto rounded-2xl border border-slate-200 p-2">
+    <div className="max-h-72 overflow-y-auto rounded-2xl border border-[color:var(--sn-border)] p-2">
       {users.map((user) => (
         <button
           className={cn(
-            "flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-orange-50",
-            selectedUser?.id === user.id ? "bg-orange-50 ring-1 ring-orange-200" : ""
+            "flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-[#FFE8D9]",
+            selectedUser?.id === user.id ? "bg-[#FFE8D9] ring-1 ring-[#FFD8BD]" : ""
           )}
           key={user.id}
           onClick={() => onSelect(user)}
           type="button"
         >
           <span className="min-w-0">
-            <span className="block truncate font-semibold text-slate-950">
+            <span className="block truncate font-semibold text-[color:var(--sn-ink)]">
               {user.nameEn}
             </span>
-            <span className="block truncate text-xs text-slate-500">
+            <span className="block truncate text-xs text-[color:var(--sn-muted)]">
               {user.phoneNumber}
             </span>
           </span>
@@ -1476,7 +1476,7 @@ function ChampActionMenu({ onAssign }: { onAssign?: () => void }) {
         <MoreHorizontal className="h-4 w-4" />
       </IconButton>
       {open ? (
-        <div className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
+        <div className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 text-left shadow-xl">
           <MenuButton label="Assign Champ" onClick={() => onAssign?.()} />
         </div>
       ) : null}
@@ -1498,7 +1498,7 @@ function RowActionMenu({
         <MoreHorizontal className="h-4 w-4" />
       </IconButton>
       {open ? (
-        <div className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-xl">
+        <div className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 text-left shadow-xl">
           <MenuButton label="Transfer" onClick={onTransfer} />
           <MenuButton label="Resignation" onClick={onResignation} />
         </div>
@@ -1520,15 +1520,15 @@ function ModalFrame({
 }) {
   return (
     <ModalPortal>
-    <div className="fixed inset-0 z-[140] grid place-items-end bg-slate-950/35 p-0 sm:place-items-center sm:p-4">
+    <div className="fixed inset-0 z-[140] grid place-items-end bg-[rgba(65,21,23,0.35)] p-0 sm:place-items-center sm:p-4">
       <div
         className={cn(
-          "max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-slate-200 bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5",
+          "max-h-[92vh] w-full overflow-auto rounded-t-[28px] border border-[color:var(--sn-border)] bg-white p-4 shadow-2xl sm:rounded-[28px] sm:p-5",
           size === "wide" ? "sm:max-w-5xl xl:max-w-6xl" : "sm:max-w-lg"
         )}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+          <h2 className="text-lg font-semibold text-[color:var(--sn-ink)]">{title}</h2>
           <IconButton label={`Close ${title}`} onClick={onClose}>
             <X className="h-4 w-4" />
           </IconButton>
@@ -1542,7 +1542,7 @@ function ModalFrame({
 
 function FormField({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+    <label className="grid gap-1.5 text-sm font-medium text-[color:var(--sn-body)]">
       {label}
       {children}
     </label>
@@ -1560,7 +1560,7 @@ function MenuButton({
 }) {
   return (
     <button
-      className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-700"
+      className="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium text-[color:var(--sn-body)] hover:bg-[#FFE8D9] hover:text-[color:var(--tlb-orange-900)]"
       onClick={onClick}
       type="button"
     >
@@ -1584,7 +1584,7 @@ function IconButton({
   return (
     <button
       aria-label={label}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] transition-colors hover:bg-[color:var(--sn-sunken)] disabled:cursor-not-allowed disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -1606,12 +1606,12 @@ function MiniMetric({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200 bg-slate-50 p-3",
+        "rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3",
         wide ? "col-span-2 sm:col-span-1" : ""
       )}
     >
-      <p className="text-[11px] font-semibold uppercase text-slate-500">{label}</p>
-      <p className="mt-1 truncate text-lg font-semibold text-slate-950">{value}</p>
+      <p className="text-[11px] font-semibold uppercase text-[color:var(--sn-muted)]">{label}</p>
+      <p className="mt-1 truncate text-lg font-semibold text-[color:var(--sn-ink)]">{value}</p>
     </div>
   );
 }
@@ -1619,16 +1619,16 @@ function MiniMetric({
 function CardStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-xl bg-white/80 p-2">
-      <p className="text-base font-semibold text-slate-950">{value}</p>
-      <p className="text-[11px] text-slate-500">{label}</p>
+      <p className="text-base font-semibold text-[color:var(--sn-ink)]">{value}</p>
+      <p className="text-[11px] text-[color:var(--sn-muted)]">{label}</p>
     </div>
   );
 }
 
 function EmptyBlock({ icon, message }: { icon: ReactNode; message: string }) {
   return (
-    <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
-      <div className="text-orange-600">{icon}</div>
+    <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-5 text-center text-sm text-[color:var(--sn-muted)]">
+      <div className="text-[color:var(--tlb-orange)]">{icon}</div>
       {message}
     </div>
   );
@@ -1650,15 +1650,15 @@ function PanelState({
   }
 
   return (
-    <div className="grid min-h-64 place-items-center rounded-[22px] border border-slate-200 bg-white p-6 text-center">
+    <div className="grid min-h-64 place-items-center rounded-[22px] border border-[color:var(--sn-border)] bg-white p-6 text-center">
       <div>
         <Icon
           className={cn(
-            "mx-auto h-7 w-7 text-orange-600",
+            "mx-auto h-7 w-7 text-[color:var(--tlb-orange)]",
             spin ? "animate-spin" : ""
           )}
         />
-        <p className="mt-3 text-sm font-medium text-slate-700">{label}</p>
+        <p className="mt-3 text-sm font-medium text-[color:var(--sn-body)]">{label}</p>
         {action ? <div className="mt-4">{action}</div> : null}
       </div>
     </div>
@@ -1667,7 +1667,7 @@ function PanelState({
 
 function InlineError({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    <div className="rounded-xl border border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] px-3 py-2 text-sm text-[oklch(0.55_0.19_27)]">
       {message}
     </div>
   );

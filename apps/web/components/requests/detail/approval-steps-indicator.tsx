@@ -45,18 +45,18 @@ export function ApprovalStepsIndicator({ request }: { request: RequestSummary })
   return (
     <section
       aria-label="Request workflow progress"
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="overflow-hidden rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Workflow progress
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
             Current approval position for this request.
           </p>
         </div>
-        <Badge className="border-slate-200 bg-slate-50 text-slate-700" variant="outline">
+        <Badge className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]" variant="outline">
           {formatEnum(request.status)}
         </Badge>
       </div>
@@ -106,7 +106,7 @@ export function ApprovalProgressDots({
         .map((step) => `${step.title} ${step.statusLabel}`)
         .join(", ")}`}
       className={cn(
-        "flex items-center rounded-xl border border-slate-100 bg-slate-50 px-3 py-2",
+        "flex items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2",
         className
       )}
       role="img"
@@ -233,7 +233,7 @@ function StepContent({
 }) {
   return (
     <div className={cn("min-w-0 pt-0.5", centered ? "mt-3 max-w-36" : "flex-1")}>
-      <p className="text-sm font-semibold leading-5 text-slate-950">
+      <p className="text-sm font-semibold leading-5 text-[color:var(--sn-ink)]">
         {step.title}
       </p>
       <div className={cn("mt-2 flex flex-wrap gap-1.5", centered && "justify-center")}>
@@ -245,7 +245,7 @@ function StepContent({
         </Badge>
       </div>
       {step.actorLabel ? (
-        <p className="mt-2 break-words text-xs leading-5 text-slate-500">
+        <p className="mt-2 break-words text-xs leading-5 text-[color:var(--sn-muted)]">
           {step.actorLabel}
         </p>
       ) : null}
@@ -499,59 +499,59 @@ function isCrossChainTransfer(request: RequestSummary) {
 }
 
 function getCircleClass(state: ProgressState) {
-  if (state === "completed") return "border-emerald-600 bg-emerald-600 text-white";
-  if (state === "current") return "border-blue-600 bg-blue-600 text-white";
-  if (state === "rejected") return "border-red-600 bg-red-600 text-white";
-  if (state === "cancelled") return "border-red-200 bg-red-50 text-red-700";
-  if (state === "skipped") return "border-slate-300 bg-slate-100 text-slate-500";
-  return "border-slate-200 bg-slate-50 text-slate-500";
+  if (state === "completed") return "border-[oklch(0.55_0.13_150)] bg-[oklch(0.55_0.13_150)] text-white";
+  if (state === "current") return "border-[color:var(--tlb-orange)] bg-[color:var(--tlb-orange)] text-white";
+  if (state === "rejected") return "border-[oklch(0.50_0.19_27)] bg-[oklch(0.50_0.19_27)] text-white";
+  if (state === "cancelled") return "border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.50_0.19_27)]";
+  if (state === "skipped") return "border-[color:var(--sn-border-strong)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]";
+  return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]";
 }
 
 function getPillClass(state: ProgressState) {
-  if (state === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (state === "current") return "border-blue-200 bg-blue-50 text-blue-700";
-  if (state === "rejected") return "border-red-200 bg-red-50 text-red-700";
-  if (state === "cancelled") return "border-red-200 bg-red-50 text-red-700";
-  if (state === "skipped") return "border-slate-200 bg-slate-100 text-slate-600";
-  return "border-slate-200 bg-slate-50 text-slate-500";
+  if (state === "completed") return "border-[oklch(0.82_0.08_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.40_0.13_150)]";
+  if (state === "current") return "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]";
+  if (state === "rejected") return "border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.45_0.19_27)]";
+  if (state === "cancelled") return "border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.45_0.19_27)]";
+  if (state === "skipped") return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]";
+  return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]";
 }
 
 function getConnectorClass(step: ProgressStep, nextStep: ProgressStep | undefined) {
-  if (step.state === "rejected") return "border-red-300";
-  if (step.state === "cancelled") return "border-red-200";
-  if (step.state === "skipped") return "border-dashed border-slate-300";
+  if (step.state === "rejected") return "border-[oklch(0.75_0.10_27)]";
+  if (step.state === "cancelled") return "border-[oklch(0.85_0.05_27)]";
+  if (step.state === "skipped") return "border-dashed border-[color:var(--sn-border-strong)]";
   if (step.state === "completed" && nextStep?.state === "completed") {
-    return "border-emerald-300";
+    return "border-[oklch(0.72_0.10_150)]";
   }
   if (step.state === "completed" && nextStep?.state === "current") {
-    return "border-blue-300";
+    return "border-[#FFD8BD]";
   }
-  if (step.state === "current") return "border-blue-300";
-  return "border-slate-200";
+  if (step.state === "current") return "border-[#FFD8BD]";
+  return "border-[color:var(--sn-border)]";
 }
 
 function getMiniDotClass(state: ProgressState) {
-  if (state === "completed") return "bg-emerald-500";
-  if (state === "current") return "bg-blue-600";
-  if (state === "rejected") return "bg-red-600";
-  if (state === "cancelled") return "bg-red-300";
-  if (state === "skipped") return "bg-slate-300";
-  return "bg-slate-200";
+  if (state === "completed") return "bg-[oklch(0.58_0.13_150)]";
+  if (state === "current") return "bg-[color:var(--tlb-orange)]";
+  if (state === "rejected") return "bg-[oklch(0.50_0.19_27)]";
+  if (state === "cancelled") return "bg-[oklch(0.75_0.10_27)]";
+  if (state === "skipped") return "bg-[color:var(--sn-border-strong)]";
+  return "bg-[color:var(--sn-border)]";
 }
 
 function getMiniConnectorClass(
   step: ProgressStep,
   nextStep: ProgressStep | undefined
 ) {
-  if (step.state === "rejected") return "bg-red-200";
-  if (step.state === "cancelled") return "bg-red-100";
-  if (step.state === "skipped") return "bg-slate-200";
+  if (step.state === "rejected") return "bg-[oklch(0.85_0.05_27)]";
+  if (step.state === "cancelled") return "bg-[oklch(0.92_0.03_27)]";
+  if (step.state === "skipped") return "bg-[color:var(--sn-border)]";
   if (step.state === "completed" && nextStep?.state === "completed") {
-    return "bg-emerald-300";
+    return "bg-[oklch(0.80_0.07_150)]";
   }
   if (step.state === "completed" && nextStep?.state === "current") {
-    return "bg-blue-300";
+    return "bg-[#FFD8BD]";
   }
-  if (step.state === "current") return "bg-blue-200";
-  return "bg-slate-200";
+  if (step.state === "current") return "bg-[#FFE8D9]";
+  return "bg-[color:var(--sn-border)]";
 }

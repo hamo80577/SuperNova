@@ -55,7 +55,7 @@ function UserCard({
 
   return (
     <article
-      className="group grid h-[282px] cursor-pointer grid-rows-[auto_58px_1fr] gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      className="group grid h-[282px] cursor-pointer grid-rows-[auto_58px_1fr] gap-3 overflow-hidden rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition duration-200 hover:-translate-y-0.5 hover:border-[#FFD8BD] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
       onClick={() => onOpenProfile(item.user.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -76,10 +76,10 @@ function UserCard({
             statusTone={operationalStatus.tone}
           />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-950">
+            <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
               {item.user.nameEn}
             </p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">
+            <p className="mt-0.5 truncate text-xs text-[color:var(--sn-muted)]">
               {item.user.phoneNumber}
             </p>
           </div>
@@ -90,7 +90,7 @@ function UserCard({
 
       <div className="flex min-h-0 flex-wrap content-start gap-1.5 overflow-hidden">
         <Badge
-          className="rounded-full border-orange-200 bg-orange-50 text-orange-700"
+          className="rounded-full border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
           variant="outline"
         >
           {formatEnum(item.user.role)}
@@ -98,9 +98,9 @@ function UserCard({
         <StatusPill status={operationalStatus} />
       </div>
 
-      <div className="grid min-h-0 gap-2 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+      <div className="grid min-h-0 gap-2 overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
         <div className="flex items-center gap-2">
-          <p className="min-w-0 truncate text-xs font-semibold uppercase text-slate-400">
+          <p className="min-w-0 truncate text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
             {getContextNote(item)}
           </p>
         </div>
@@ -119,7 +119,7 @@ function UserCard({
           />
         ) : null}
         {!branch && !chainName ? (
-          <p className="line-clamp-2 text-sm text-slate-500">
+          <p className="line-clamp-2 text-sm text-[color:var(--sn-muted)]">
             Assignment context is available inside the profile.
           </p>
         ) : null}
@@ -139,13 +139,13 @@ function ContextLine({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 text-sm">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-white text-slate-500 ring-1 ring-slate-200">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-[color:var(--sn-card)] text-[color:var(--sn-muted)] ring-1 ring-[color:var(--sn-border)]">
         {icon}
       </span>
-      <span className="shrink-0 text-xs font-semibold uppercase text-slate-400">
+      <span className="shrink-0 text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
         {label}
       </span>
-      <span className="min-w-0 truncate font-medium text-slate-800">{value}</span>
+      <span className="min-w-0 truncate font-medium text-[color:var(--sn-body)]">{value}</span>
     </div>
   );
 }
@@ -155,10 +155,10 @@ function StatusPill({ status }: { status: UserOperationalStatus }) {
     <Badge
       className={
         status.tone === "active"
-          ? "rounded-full border-emerald-200 bg-emerald-50 text-emerald-700"
+          ? "rounded-full border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
           : status.tone === "pending"
-            ? "rounded-full border-amber-200 bg-amber-50 text-amber-700"
-            : "rounded-full border-red-200 bg-red-50 text-red-700"
+            ? "rounded-full border-[oklch(0.88_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
+            : "rounded-full border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       }
       title={status.title}
       variant="outline"

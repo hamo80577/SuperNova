@@ -87,23 +87,23 @@ export function PasswordAccessDialog({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[180] grid place-items-center bg-slate-950/50 p-3 sn-dialog-overlay-in"
+      className="fixed inset-0 z-[180] grid place-items-center bg-[rgba(65,21,23,0.45)] p-3 sn-dialog-overlay-in"
       role="dialog"
     >
-      <section className="w-full max-w-lg rounded-[24px] border border-slate-200 bg-white p-4 shadow-2xl sn-dialog-panel-in sm:p-5">
+      <section className="w-full max-w-lg rounded-[24px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-2xl sn-dialog-panel-in sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-orange-50 text-orange-700 ring-1 ring-orange-100">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] ring-1 ring-[#FFD8BD]">
               <KeyRound className="h-5 w-5" />
             </div>
-            <h3 className="mt-3 text-base font-semibold text-slate-950">
+            <h3 className="mt-3 text-base font-semibold text-[color:var(--sn-ink)]">
               Password access
             </h3>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
+            <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
               Temporary password can be revealed only while the user must change it.
             </p>
             {temporaryPasswordExpiresAt ? (
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                 Available until {new Date(temporaryPasswordExpiresAt).toLocaleString()}
               </p>
             ) : null}
@@ -150,7 +150,7 @@ export function PasswordAccessDialog({
         ) : canReveal ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Button
-              className="h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+              className="h-11 rounded-xl border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] hover:bg-[#FFD8BD]"
               disabled={isPending}
               onClick={revealTemporaryPassword}
               type="button"
@@ -178,7 +178,7 @@ export function PasswordAccessDialog({
           </div>
         ) : (
           <Button
-            className="mt-4 h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+            className="mt-4 h-11 rounded-xl border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] hover:bg-[#FFD8BD]"
             disabled={isPending || !canReset}
             onClick={resetTemporaryPassword}
             type="button"
@@ -192,8 +192,8 @@ export function PasswordAccessDialog({
             Reset temporary password
           </Button>
         )}
-        {message ? <p className="mt-3 text-sm text-emerald-700">{message}</p> : null}
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {message ? <p className="mt-3 text-sm text-[oklch(0.58_0.13_150)]">{message}</p> : null}
+        {error ? <p className="mt-3 text-sm text-[oklch(0.55_0.19_27)]">{error}</p> : null}
       </section>
     </div>
   );

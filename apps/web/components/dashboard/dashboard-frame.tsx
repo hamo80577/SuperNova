@@ -19,13 +19,13 @@ export function DashboardShell({ role }: { role: UserRole }) {
       description={copy.description}
       title={copy.title}
     >
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-6 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">
               {copy.emptyTitle}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--sn-muted)]">
               {copy.emptyBody}
             </p>
           </div>
@@ -42,12 +42,14 @@ export function DashboardFrame({
   children,
   description,
   hideHeaderDescription,
+  showPageTitle,
   title
 }: {
   allowedRoles: UserRole[];
   children: ReactNode;
   description: string;
   hideHeaderDescription?: boolean;
+  showPageTitle?: boolean;
   title: string;
 }) {
   return (
@@ -55,6 +57,7 @@ export function DashboardFrame({
       <DashboardLayout
         description={description}
         hideHeaderDescription={hideHeaderDescription}
+        showPageTitle={showPageTitle}
         title={title}
       >
         {children}
@@ -72,10 +75,10 @@ function DashboardPlaceholderGrid() {
       {navItems.slice(1).map((item) => {
         const Icon = item.icon;
         return (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4" key={item.label}>
+          <div className="rounded-[16px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4" key={item.label}>
             <Icon className="mb-4 h-5 w-5 text-primary" />
-            <p className="text-sm font-semibold text-slate-950">{item.label}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{item.label}</p>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">
               {item.href ? "Available" : "Planned control surface"}
             </p>
           </div>

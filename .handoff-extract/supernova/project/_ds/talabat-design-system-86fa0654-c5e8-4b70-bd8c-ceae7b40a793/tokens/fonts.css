@@ -1,0 +1,70 @@
+/* ============================================================
+   talabat — Webfonts
+   Poppins is the primary brand typeface (Regular → Black).
+   DM Sans is the secondary body / big-number face.
+   Open Sans is reserved for dense org-chart / table labels.
+   Font binaries live in /assets/fonts (paths are relative to
+   THIS file, i.e. ../assets/fonts/).
+   ============================================================ */
+
+/* ---------- Poppins (primary) ---------- */
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-ExtraBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("../assets/fonts/Poppins-Black.ttf") format("truetype");
+}
+
+/* ---------- DM Sans (secondary / big numbers) ---------- */
+@font-face {
+  font-family: "DM Sans";
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url("../assets/fonts/DMSans-Variable.ttf") format("truetype");
+}
+
+/* ---------- Open Sans (org charts / dense tables) ---------- */
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url("../assets/fonts/OpenSans-Variable.ttf") format("truetype");
+}

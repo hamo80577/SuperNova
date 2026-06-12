@@ -6,6 +6,7 @@ export default function AdminOrganizationPage() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Chains, Branches, and assignment setup."
+      showPageTitle
       title="Organization"
     >
       <OrganizationControlCenter />

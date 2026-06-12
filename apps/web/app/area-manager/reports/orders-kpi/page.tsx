@@ -6,6 +6,7 @@ export default function AreaManagerOrdersKpiReportRoute() {
     <DashboardFrame
       allowedRoles={["AREA_MANAGER"]}
       description="Orders KPI performance scoped to your assigned chains."
+      showPageTitle
       title="Orders KPI Performance"
     >
       <OrdersKpiReportPage variant="area-manager" />

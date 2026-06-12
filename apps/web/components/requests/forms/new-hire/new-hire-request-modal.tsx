@@ -68,22 +68,22 @@ export function NewHireRequestModal({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[160] grid place-items-end bg-slate-950/45 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
+        className="fixed inset-0 z-[160] grid place-items-end bg-[color:var(--tlb-burgundy)]/35 p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
         role="dialog"
       >
-        <section className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-slate-200 bg-white shadow-2xl sm:max-w-5xl sm:rounded-[1.75rem] xl:max-w-6xl">
-          <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-4 sm:p-5">
+        <section className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:max-w-5xl sm:rounded-[1.75rem] xl:max-w-6xl">
+          <div className="flex items-start justify-between gap-3 border-b border-[color:var(--sn-border)] p-4 sm:p-5">
             <div className="min-w-0">
               <Badge
-                className="border-orange-200 bg-orange-50 text-orange-700"
+                className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                 variant="outline"
               >
                 New Hire workflow
               </Badge>
-              <h2 className="mt-2 text-lg font-semibold text-slate-950 sm:text-xl">
+              <h2 className="mt-2 text-lg font-semibold text-[color:var(--sn-ink)] sm:text-xl">
                 {resolvedTitle}
               </h2>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-[color:var(--sn-muted)]">
                 {description ??
                   "Submit a workflow request. This does not create or assign a user directly."}
               </p>

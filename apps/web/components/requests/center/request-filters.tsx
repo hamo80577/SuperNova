@@ -43,8 +43,8 @@ export function RequestFilters({
             className={cn(
               "h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors",
               mode === value
-                ? "border-orange-200 bg-orange-50 text-orange-700"
-                : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"
+                ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                : "border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
             )}
             key={value}
             onClick={() => onModeChange(value)}

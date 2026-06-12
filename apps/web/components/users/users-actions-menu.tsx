@@ -67,7 +67,7 @@ export function UsersActionsMenu({
       <button
         aria-expanded={menuOpen}
         aria-label={`Open actions for ${item.user.nameEn}`}
-        className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-[0.98]"
+        className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-muted)] shadow-sm transition hover:border-[#FFD8BD] hover:bg-[#FFE8D9] hover:text-[color:var(--tlb-orange-900)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)] active:scale-[0.98]"
         onClick={() => onToggleMenu(item.key)}
         type="button"
       >
@@ -77,7 +77,7 @@ export function UsersActionsMenu({
       {menuOpen ? (
         <div
           className={cn(
-            "absolute top-12 z-30 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl",
+            "absolute top-12 z-30 w-44 overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-1 shadow-xl",
             "motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]",
             align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left"
           )}
@@ -135,10 +135,10 @@ function MenuAction({
   return (
     <button
       className={cn(
-        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-        tone === "amber" && "text-amber-700 hover:bg-amber-50",
-        tone === "blue" && "text-blue-700 hover:bg-blue-50",
-        tone === "red" && "text-red-700 hover:bg-red-50"
+        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]",
+        tone === "amber" && "text-[oklch(0.62_0.13_70)] hover:bg-[oklch(0.95_0.05_80)]",
+        tone === "blue" && "text-[color:var(--tlb-purple)] hover:bg-[color:var(--sn-sunken)]",
+        tone === "red" && "text-[oklch(0.55_0.19_27)] hover:bg-[oklch(0.95_0.035_27)]"
       )}
       onClick={onClick}
       type="button"

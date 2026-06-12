@@ -27,10 +27,10 @@ export function BlockDecisionFields({
   title: string;
 }) {
   return (
-    <div className="grid gap-4 border-b border-slate-200 pb-5 lg:grid-cols-[13rem_1fr]">
+    <div className="grid gap-4 border-b border-[color:var(--sn-border)] pb-5 lg:grid-cols-[13rem_1fr]">
       <div>
-        <p className="text-sm font-semibold text-slate-950">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
+        <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[color:var(--sn-muted)]">
           Area Manager chooses either no block or a permanent block before
           Admin confirmation.
         </p>
@@ -42,8 +42,8 @@ export function BlockDecisionFields({
               className={cn(
                 "min-h-11 rounded-xl border px-3 text-sm font-medium transition",
                 blockDecision === decision
-                  ? "border-orange-300 bg-orange-50 text-orange-700"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                  ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                  : "border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
               )}
               key={decision}
               onClick={() =>

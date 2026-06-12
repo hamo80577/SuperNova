@@ -120,14 +120,14 @@ export function RequestApprovalDecisionPanel({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       {error ? <ErrorState message={error} /> : null}
       {isRejecting ? (
         <div className="grid gap-3">
-          <label className="grid gap-1 text-sm font-medium text-slate-950">
+          <label className="grid gap-1 text-sm font-medium text-[color:var(--sn-ink)]">
             Reject reason
             <textarea
-              className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-200"
+              className="min-h-24 rounded-xl border border-[color:var(--sn-border)] bg-white px-3 py-2 text-sm text-[color:var(--sn-ink)] outline-none transition focus:border-[#FFD8BD] focus:ring-2 focus:ring-[#FFE8D9]"
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Write the rejection reason"
               value={notes}
@@ -135,7 +135,7 @@ export function RequestApprovalDecisionPanel({
           </label>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
-              className="min-h-11 rounded-xl border-red-200 bg-red-600 text-white hover:bg-red-700"
+              className="min-h-11 rounded-xl border-[oklch(0.80_0.06_27)] bg-[oklch(0.55_0.19_27)] text-white hover:bg-[oklch(0.48_0.19_27)]"
               disabled={isPending}
               onClick={reject}
               type="button"
@@ -191,7 +191,7 @@ export function RequestApprovalDecisionPanel({
           ) : null}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
-              className="min-h-11 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+              className="min-h-11 rounded-xl bg-[oklch(0.58_0.13_150)] text-white hover:bg-[oklch(0.52_0.13_150)]"
               disabled={isPending}
               onClick={approve}
               type="button"
@@ -199,7 +199,7 @@ export function RequestApprovalDecisionPanel({
               {isPending ? "Approving..." : "Approve"}
             </Button>
             <Button
-              className="min-h-11 rounded-xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              className="min-h-11 rounded-xl border-[oklch(0.85_0.06_27)] text-[oklch(0.55_0.19_27)] hover:bg-[oklch(0.95_0.035_27)] hover:text-[oklch(0.48_0.19_27)]"
               disabled={isPending}
               onClick={() => {
                 setIsRejecting(true);

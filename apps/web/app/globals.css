@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Fonts — "Calm Talabat" UI (Poppins) + numeric data (DM Sans)
+   Inter is retained for any screens not yet migrated.
+   ============================================================ */
+@font-face {
+  font-family: "Poppins";
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/poppins/Poppins-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/poppins/Poppins-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/poppins/Poppins-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/poppins/Poppins-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/poppins/Poppins-ExtraBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "DM Sans";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/dm-sans/DMSans-Variable.ttf") format("truetype");
+}
+
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -19,28 +60,81 @@
 }
 
 :root {
-  --background: 48 20% 96%;
-  --foreground: 222.2 47.4% 11.2%;
+  /* Neutral surfaces — warm "Calm Talabat" palette (global re-skin) */
+  --background: 38 30% 95%; /* #F7F4EF toned cream */
+  --foreground: 357 38% 13%; /* #2E1516 near-burgundy ink */
   --card: 0 0% 100%;
-  --card-foreground: 222.2 47.4% 11.2%;
-  --primary: 21 100% 50%;
+  --card-foreground: 357 38% 13%;
+  --primary: 21 100% 50%; /* #FF5900 talabat orange */
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --secondary: 36 28% 92%; /* warm sunken */
+  --secondary-foreground: 357 30% 18%;
+  --muted: 36 28% 92%;
+  --muted-foreground: 23 9% 51%; /* #8A7F78 warm muted */
   --accent: 28 96% 55%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent-foreground: 357 38% 13%;
   --destructive: 0 84.2% 40.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  --border: 35 26% 87%; /* #E8E1D6 warm border */
+  --input: 35 26% 87%;
   --ring: 21 100% 50%;
   --radius: 0.5rem;
-  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Poppins", "Segoe UI", system-ui, sans-serif;
   --brand-soft: 24 100% 96%;
   --brand-muted: 24 95% 88%;
   --brand-border: 24 96% 82%;
   --brand-shadow: 21 100% 50%;
+
+  /* ---------- Calm Talabat design system tokens ---------- */
+  /* Brand core (from Talabat DS) */
+  --tlb-orange: #ff5900;
+  --tlb-burgundy: #411517;
+  --tlb-cream: #f4ede3;
+  --tlb-lime: #cfff00;
+  --tlb-purple: #8318d8;
+  --tlb-lavender: #ebe8fc;
+  --tlb-gold: #ffc944;
+  --tlb-orange-100: #ffd1b3;
+  --tlb-orange-200: #fdc3a4;
+  --tlb-orange-400: #ff944d;
+  --tlb-orange-900: #b34700;
+
+  /* Calm internal-tool surfaces */
+  --sn-bg: #f7f4ef;
+  --sn-card: #ffffff;
+  --sn-sunken: #f1ece4;
+  --sn-border: #e8e1d6;
+  --sn-border-strong: #d9d0c2;
+
+  /* Text */
+  --sn-ink: #2e1516;
+  --sn-body: #4a3f3c;
+  --sn-muted: #8a7f78;
+  --sn-faint: #b3a99f;
+
+  /* Semantic (oklch-harmonised with the warm palette) */
+  --sn-success: oklch(0.58 0.13 150);
+  --sn-success-bg: oklch(0.95 0.045 150);
+  --sn-danger: oklch(0.55 0.19 27);
+  --sn-danger-bg: oklch(0.95 0.035 27);
+  --sn-warn: oklch(0.62 0.13 70);
+  --sn-warn-bg: oklch(0.95 0.05 80);
+  --sn-info: var(--tlb-purple);
+  --sn-info-bg: var(--tlb-lavender);
+  --sn-pending: var(--tlb-orange-900);
+  --sn-pending-bg: #ffe8d9;
+
+  /* Type */
+  --font-ui: "Poppins", system-ui, sans-serif;
+  --font-data: "DM Sans", "Poppins", sans-serif;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(65, 21, 23, 0.05), 0 4px 16px rgba(65, 21, 23, 0.06);
+  --shadow-pop: 0 8px 24px rgba(65, 21, 23, 0.14);
+  --ease-snap: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme="ORANGE"] {
@@ -193,4 +287,443 @@ a {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* ============================================================
+   SuperNova UI — "Calm Talabat" component classes
+   Ported from the design handoff (supernova-ui.css).
+   ============================================================ */
+.sn {
+  font-family: var(--font-ui);
+  color: var(--sn-body);
+  font-size: 13px;
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+.sn * {
+  box-sizing: border-box;
+}
+
+/* ---------- Typography helpers ---------- */
+.sn-h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sn-ink);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.sn-h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sn-ink);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.sn-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sn-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sn-num {
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sn-mono {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons ---------- */
+.sn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s var(--ease-snap), transform 0.1s var(--ease-snap);
+}
+.sn-btn:active {
+  transform: scale(0.96);
+}
+.sn-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.sn-btn-primary {
+  background: var(--tlb-orange);
+  color: #fff;
+}
+.sn-btn-primary:hover {
+  background: #e85100;
+}
+.sn-btn-dark {
+  background: var(--tlb-burgundy);
+  color: var(--tlb-cream);
+}
+.sn-btn-ghost {
+  background: transparent;
+  color: var(--sn-ink);
+  border-color: var(--sn-border-strong);
+}
+.sn-btn-ghost:hover {
+  background: var(--sn-sunken);
+}
+.sn-btn-soft {
+  background: #ffe8d9;
+  color: var(--tlb-orange-900);
+}
+.sn-btn-danger {
+  background: var(--sn-danger);
+  color: #fff;
+}
+.sn-btn-sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: var(--r-sm);
+}
+
+/* ---------- Inputs (ONE style everywhere) ---------- */
+.sn-input,
+.sn-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  width: 100%;
+  padding: 0 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--sn-border-strong);
+  background: #fff;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--sn-ink);
+}
+.sn-input:focus-within,
+.sn-input.is-focus {
+  border-color: var(--tlb-orange);
+  box-shadow: 0 0 0 3px rgba(255, 89, 0, 0.14);
+}
+.sn-input input {
+  border: 0;
+  outline: 0;
+  flex: 1;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  min-width: 0;
+}
+.sn-input .ph {
+  color: var(--sn-faint);
+}
+.sn-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.sn-field > .sn-flabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sn-body);
+}
+.sn-field > .sn-fhint {
+  font-size: 11px;
+  color: var(--sn-muted);
+}
+.sn-req {
+  color: var(--tlb-orange);
+}
+
+/* ---------- Status badges (ONE set) ---------- */
+.sn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sn-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sn-badge-pending {
+  background: var(--sn-pending-bg);
+  color: var(--sn-pending);
+}
+.sn-badge-approved {
+  background: var(--sn-success-bg);
+  color: var(--sn-success);
+}
+.sn-badge-rejected {
+  background: var(--sn-danger-bg);
+  color: var(--sn-danger);
+}
+.sn-badge-draft {
+  background: var(--sn-sunken);
+  color: var(--sn-muted);
+}
+.sn-badge-info {
+  background: var(--sn-info-bg);
+  color: var(--sn-info);
+}
+.sn-badge-warn {
+  background: var(--sn-warn-bg);
+  color: var(--sn-warn);
+}
+
+/* Request type chips */
+.sn-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.sn-type-hire {
+  background: #ffe8d9;
+  color: var(--tlb-orange-900);
+}
+.sn-type-resign {
+  background: #f6e3e3;
+  color: #8c2b2b;
+}
+.sn-type-transfer {
+  background: var(--tlb-lavender);
+  color: var(--tlb-purple);
+}
+.sn-type-deduct {
+  background: #fcf0d4;
+  color: #8a6400;
+}
+
+/* ---------- Card ---------- */
+.sn-card {
+  background: var(--sn-card);
+  border: 1px solid var(--sn-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------- THE table (one spec) ---------- */
+.sn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.sn-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sn-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sn-border);
+  background: #fbf9f5;
+}
+.sn-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--sn-border);
+  color: var(--sn-body);
+}
+.sn-table tr:last-child td {
+  border-bottom: 0;
+}
+.sn-table tbody tr:hover {
+  background: #fdf8f2;
+}
+
+/* ---------- THE filter bar (one spec) ---------- */
+.sn-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--sn-border-strong);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sn-body);
+  cursor: pointer;
+}
+.sn-chip.is-active {
+  border-style: solid;
+  border-color: var(--tlb-orange);
+  background: #fff3eb;
+  color: var(--tlb-orange-900);
+  font-weight: 600;
+}
+.sn-chip .x {
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+/* Saved view tabs */
+.sn-views {
+  display: flex;
+  gap: 2px;
+  background: var(--sn-sunken);
+  padding: 3px;
+  border-radius: var(--r-md);
+  width: max-content;
+}
+.sn-view {
+  height: 28px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sn-muted);
+  cursor: pointer;
+}
+.sn-view.is-active {
+  background: #fff;
+  color: var(--sn-ink);
+  box-shadow: 0 1px 3px rgba(65, 21, 23, 0.1);
+}
+.sn-view .n {
+  font-family: var(--font-data);
+  font-size: 11px;
+  background: var(--sn-sunken);
+  border-radius: var(--r-pill);
+  padding: 1px 7px;
+}
+.sn-view.is-active .n {
+  background: #ffe8d9;
+  color: var(--tlb-orange-900);
+}
+
+/* ---------- Avatar ---------- */
+.sn-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tlb-burgundy);
+  background: var(--tlb-orange-100);
+  flex: none;
+}
+.sn-avatar.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+/* ---------- Timeline ---------- */
+.sn-tl {
+  display: grid;
+  gap: 0;
+}
+.sn-tl-step {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 18px;
+}
+.sn-tl-step:last-child {
+  padding-bottom: 0;
+}
+.sn-tl-step::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 26px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--sn-border);
+  border-radius: 2px;
+}
+.sn-tl-step:last-child::before {
+  display: none;
+}
+.sn-tl-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex: none;
+}
+.sn-tl-dot.done {
+  background: var(--sn-success-bg);
+  color: var(--sn-success);
+}
+.sn-tl-dot.now {
+  background: var(--tlb-orange);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 89, 0, 0.18);
+}
+.sn-tl-dot.wait {
+  background: var(--sn-sunken);
+  color: var(--sn-faint);
+}
+.sn-tl-step.done::before {
+  background: var(--sn-success);
+  opacity: 0.35;
+}
+
+/* ---------- Misc ---------- */
+.sn-divider {
+  height: 1px;
+  background: var(--sn-border);
+}
+.sn-kbd {
+  font-family: var(--font-data);
+  font-size: 11px;
+  background: var(--sn-sunken);
+  border: 1px solid var(--sn-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: var(--sn-body);
+}
+.sn-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

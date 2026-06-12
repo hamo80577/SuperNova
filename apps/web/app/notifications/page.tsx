@@ -6,6 +6,7 @@ export default function NotificationsPage() {
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description="In-app workflow updates."
+      showPageTitle
       title="Notifications"
     >
       <NotificationsCenter />

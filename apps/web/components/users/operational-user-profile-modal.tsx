@@ -122,10 +122,10 @@ export function OperationalUserProfileModal({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/45 p-2 sn-dialog-overlay-in sm:p-4"
+        className="fixed inset-0 z-[140] grid place-items-center bg-[rgba(65,21,23,0.45)] p-2 sn-dialog-overlay-in sm:p-4"
         role="dialog"
       >
-        <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl sn-dialog-panel-in">
+        <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-2xl sn-dialog-panel-in">
           {state.status === "loading" ? (
             <ProfileShell title="Loading profile" onClose={onClose}>
               <DetailPanelSkeleton
@@ -179,7 +179,7 @@ function ProfileContent({
 
   return (
     <>
-      <div className="border-b border-slate-200 bg-white p-4 sm:p-5">
+      <div className="border-b border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <UserAvatar
@@ -192,15 +192,15 @@ function ProfileContent({
             />
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap gap-1.5">
-                <Badge className="rounded-full border-orange-200 bg-orange-50 text-orange-700" variant="outline">
+                <Badge className="rounded-full border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
                   {formatEnum(user.role)}
                 </Badge>
                 <OperationalStatusBadge status={operationalStatus} />
               </div>
-              <h2 className="truncate text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
+              <h2 className="truncate text-xl font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-2xl">
                 {user.nameEn}
               </h2>
-              <p className="truncate text-sm text-slate-500">
+              <p className="truncate text-sm text-[color:var(--sn-muted)]">
                 {getPrimaryAssignmentLabel(profile)}
               </p>
             </div>
@@ -231,7 +231,7 @@ function ProfileContent({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 sm:p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--sn-sunken)] p-3 sm:p-5">
         {user.role === "CHAMP" ? (
           <ChampProfileCard
             profile={profile}
@@ -309,7 +309,7 @@ function ProfileHeaderActions({
       <button
         aria-expanded={open}
         aria-label="Open profile actions"
-        className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+        className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] transition hover:border-[#FFD8BD] hover:bg-[#FFE8D9] hover:text-[color:var(--tlb-orange-900)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -317,7 +317,7 @@ function ProfileHeaderActions({
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]">
+        <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-1 shadow-xl motion-safe:animate-[sn-dialog-panel-in_140ms_ease-out_both]">
           {canEdit ? (
             <HeaderMenuAction
               icon={<Edit3 className="h-4 w-4" />}
@@ -393,11 +393,11 @@ function HeaderMenuAction({
   return (
     <button
       className={cn(
-        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-        tone === "amber" && "text-amber-700 hover:bg-amber-50",
-        tone === "blue" && "text-blue-700 hover:bg-blue-50",
-        tone === "red" && "text-red-700 hover:bg-red-50",
-        tone === "slate" && "text-slate-700 hover:bg-slate-50"
+        "flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]",
+        tone === "amber" && "text-[oklch(0.62_0.13_70)] hover:bg-[oklch(0.95_0.05_80)]",
+        tone === "blue" && "text-[color:var(--tlb-purple)] hover:bg-[color:var(--sn-sunken)]",
+        tone === "red" && "text-[oklch(0.55_0.19_27)] hover:bg-[oklch(0.95_0.035_27)]",
+        tone === "slate" && "text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
       )}
       onClick={onClick}
       type="button"
@@ -418,10 +418,10 @@ function OperationalStatusBadge({
       className={cn(
         "rounded-full",
         status.tone === "active" &&
-          "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
         status.tone === "pending" &&
-          "border-amber-200 bg-amber-50 text-amber-700",
-        status.tone === "resigned" && "border-red-200 bg-red-50 text-red-700"
+          "border-[oklch(0.88_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
+        status.tone === "resigned" && "border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
       )}
       title={status.title}
       variant="outline"
@@ -633,18 +633,18 @@ function AreaManagerChainAssignmentManager({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-950">
+          <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">
             Chain assignments
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
             Area Manager operating scope is controlled from this profile.
           </p>
         </div>
         <Button
-          className="h-10 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+          className="h-10 rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
           onClick={() => setAddOpen(true)}
           type="button"
         >
@@ -654,7 +654,7 @@ function AreaManagerChainAssignmentManager({
       </div>
 
       {error ? (
-        <p className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+        <p className="mt-3 rounded-xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm text-[oklch(0.55_0.19_27)]">
           {error}
         </p>
       ) : null}
@@ -663,27 +663,27 @@ function AreaManagerChainAssignmentManager({
         {assignments.length ? (
           assignments.map((assignment) => (
             <div
-              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 sm:flex-row sm:items-center sm:justify-between"
               key={assignment.id}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white text-orange-600 shadow-sm">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[color:var(--sn-card)] text-[color:var(--tlb-orange)] shadow-sm">
                   <GitBranch className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-950">
+                  <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                     {assignment.chain.chainName}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                     {assignment.chain.chainCode} · {formatEnum(assignment.chain.status)}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                     Start {formatDate(assignment.startDate)}
                   </p>
                 </div>
               </div>
               <Button
-                className="h-10 rounded-xl border-red-100 text-red-700 hover:bg-red-50 sm:w-auto"
+                className="h-10 rounded-xl border-[oklch(0.88_0.06_27)] text-[oklch(0.55_0.19_27)] hover:bg-[oklch(0.95_0.035_27)] sm:w-auto"
                 disabled={isPending && removingId === assignment.id}
                 onClick={() => removeAssignment(assignment)}
                 type="button"
@@ -699,7 +699,7 @@ function AreaManagerChainAssignmentManager({
             </div>
           ))
         ) : (
-          <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          <p className="rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
             No Chains assigned yet. Add Chains from this profile.
           </p>
         )}
@@ -814,17 +814,17 @@ function AddAreaManagerChainsDialog({
     <ModalPortal>
       <div
         aria-modal="true"
-        className="fixed inset-0 z-[220] grid place-items-center bg-slate-950/45 p-3"
+        className="fixed inset-0 z-[220] grid place-items-center bg-[rgba(65,21,23,0.45)] p-3"
         role="dialog"
       >
         <form
-          className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+          className="flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] shadow-2xl"
           onSubmit={submit}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4">
             <div>
-              <h3 className="text-base font-semibold text-slate-950">Add Chains</h3>
-              <p className="text-sm text-slate-500">
+              <h3 className="text-base font-semibold text-[color:var(--sn-ink)]">Add Chains</h3>
+              <p className="text-sm text-[color:var(--sn-muted)]">
                 Select one or more active Chains.
               </p>
             </div>
@@ -841,7 +841,7 @@ function AddAreaManagerChainsDialog({
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
               <Input
                 className="h-11 rounded-xl pl-9"
                 onChange={(event) => setQuery(event.target.value)}
@@ -851,14 +851,14 @@ function AddAreaManagerChainsDialog({
             </label>
 
             {error ? (
-              <p className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              <p className="mt-3 rounded-xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm text-[oklch(0.55_0.19_27)]">
                 {error}
               </p>
             ) : null}
 
             <div className="mt-4 grid gap-2">
               {loading ? (
-                <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
                   Loading Chains...
                 </p>
               ) : selectableChains.length ? (
@@ -869,8 +869,8 @@ function AddAreaManagerChainsDialog({
                       className={cn(
                         "flex min-h-14 items-center justify-between gap-3 rounded-2xl border p-3 text-left transition",
                         selected
-                          ? "border-orange-300 bg-orange-50 text-orange-900"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-orange-200"
+                          ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                          : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] hover:border-[#FFD8BD]"
                       )}
                       key={chain.id}
                       onClick={() => toggle(chain.id)}
@@ -880,7 +880,7 @@ function AddAreaManagerChainsDialog({
                         <span className="block truncate text-sm font-semibold">
                           {chain.chainName}
                         </span>
-                        <span className="mt-1 block text-xs text-slate-500">
+                        <span className="mt-1 block text-xs text-[color:var(--sn-muted)]">
                           {chain.chainCode} · {formatEnum(chain.status)}
                         </span>
                       </span>
@@ -888,8 +888,8 @@ function AddAreaManagerChainsDialog({
                         className={cn(
                           "grid h-8 w-8 shrink-0 place-items-center rounded-full border",
                           selected
-                            ? "border-orange-300 bg-orange-600 text-white"
-                            : "border-slate-200 bg-slate-50 text-slate-400"
+                            ? "border-[#FFD8BD] bg-[color:var(--tlb-orange)] text-white"
+                            : "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
                         )}
                       >
                         {selected ? <Check className="h-4 w-4" /> : null}
@@ -898,14 +898,14 @@ function AddAreaManagerChainsDialog({
                   );
                 })
               ) : (
-                <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
                   No active unassigned Chains found.
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 border-t border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:justify-end">
             <Button
               className="h-11 rounded-xl"
               onClick={onClose}
@@ -915,7 +915,7 @@ function AddAreaManagerChainsDialog({
               Cancel
             </Button>
             <Button
-              className="h-11 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+              className="h-11 rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
               disabled={isPending || !selectedIds.length}
               type="submit"
             >
@@ -939,11 +939,11 @@ function ProfileSummaryPanel({
   const user = profile.user;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
       <div className="grid gap-1">
-        <h3 className="text-sm font-semibold text-slate-950">Overview</h3>
+        <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">Overview</h3>
       </div>
-      <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+      <div className="mt-4 divide-y divide-[color:var(--sn-border)] overflow-hidden rounded-2xl border border-[color:var(--sn-border)]">
         <InfoRow
           icon={<MessageCircle className="h-4 w-4" />}
           label="Phone"
@@ -951,7 +951,7 @@ function ProfileSummaryPanel({
           action={
             <a
               aria-label="Open WhatsApp chat"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-[0.96]"
+              className="grid h-10 w-10 place-items-center rounded-xl border border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)] transition hover:-translate-y-0.5 hover:bg-[oklch(0.88_0.06_150)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.58_0.13_150)] active:scale-[0.96]"
               href={whatsappHref}
               rel="noreferrer"
               target="_blank"
@@ -992,14 +992,14 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 bg-[color:var(--sn-card)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500">
+        <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
-          <p className="mt-1 break-words text-sm font-semibold text-slate-950">
+          <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">{label}</p>
+          <p className="mt-1 break-words text-sm font-semibold text-[color:var(--sn-ink)]">
             {value}
           </p>
         </div>
@@ -1021,7 +1021,7 @@ function ProfileTabs<TabId extends string>({
   return (
     <div
       className={cn(
-        "grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1",
+        "grid gap-1 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-1",
         tabs.length === 4
           ? "grid-cols-2 sm:grid-cols-4"
           : tabs.length === 3
@@ -1033,10 +1033,10 @@ function ProfileTabs<TabId extends string>({
         <button
           aria-selected={active === tab.id}
           className={cn(
-            "min-h-11 min-w-0 rounded-xl px-2 py-2 text-center text-xs font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:text-sm",
+            "min-h-11 min-w-0 rounded-xl px-2 py-2 text-center text-xs font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)] sm:text-sm",
             active === tab.id
-              ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-100"
-              : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+              ? "bg-[color:var(--sn-card)] text-[color:var(--tlb-orange-900)] shadow-sm ring-1 ring-[#FFD8BD]"
+              : "text-[color:var(--sn-body)] hover:bg-[color:var(--sn-card)]/80 hover:text-[color:var(--sn-ink)]"
           )}
           key={tab.id}
           onClick={() => onChange(tab.id)}
@@ -1059,21 +1059,21 @@ function AssignmentList({
   title: string;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</h3>
       <div className="mt-3 grid gap-2">
         {assignments.length ? (
           assignments.map((assignment) => (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" key={assignment.id}>
+            <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3" key={assignment.id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-950">
+                <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
                   {assignment.vendor?.vendorName ?? assignment.chain.chainName}
                 </p>
                 <Badge variant={assignment.status === "ACTIVE" ? "muted" : "outline"}>
                   {formatEnum(assignment.status)}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                 {assignment.vendor ? `${assignment.chain.chainName} · ` : ""}
                 Start {formatDate(assignment.startDate)}
                 {assignment.endDate ? ` · End ${formatDate(assignment.endDate)}` : ""}
@@ -1081,7 +1081,7 @@ function AssignmentList({
             </div>
           ))
         ) : (
-          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+          <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
             {emptyLabel}
           </p>
         )}
@@ -1133,10 +1133,10 @@ function ResignationStatusSection({
   const payload = detail ? parseOffboardingPayload(detail.payload) : null;
 
   return (
-    <section className="rounded-2xl border border-red-100 bg-red-50/50 p-4 shadow-sm">
+    <section className="rounded-2xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.97_0.018_27)] p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-red-950">Lifecycle state</h3>
-        <Badge className="rounded-full border-red-200 bg-white text-red-700" variant="outline">
+        <h3 className="text-sm font-semibold text-[oklch(0.35_0.15_27)]">Lifecycle state</h3>
+        <Badge className="rounded-full border-[oklch(0.88_0.06_27)] bg-[color:var(--sn-card)] text-[oklch(0.55_0.19_27)]" variant="outline">
           {formatEnum(user.employmentStatus)}
         </Badge>
       </div>
@@ -1187,9 +1187,9 @@ function LifecycleField({
   valueIcon?: ReactNode;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-red-100 bg-white/75 p-3", className)}>
-      <p className="text-xs font-semibold uppercase text-red-400">{label}</p>
-      <p className="mt-1 flex items-center gap-1.5 break-words text-sm font-semibold text-red-950">
+    <div className={cn("rounded-2xl border border-[oklch(0.88_0.06_27)] bg-[color:var(--sn-card)]/75 p-3", className)}>
+      <p className="text-xs font-semibold uppercase text-[oklch(0.65_0.10_27)]">{label}</p>
+      <p className="mt-1 flex items-center gap-1.5 break-words text-sm font-semibold text-[oklch(0.35_0.15_27)]">
         {value}
         {valueIcon}
       </p>
@@ -1205,17 +1205,17 @@ function RelatedRequestsPanel({
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-950">Related Requests</h3>
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">Related Requests</h3>
       <div className="mt-3 grid gap-2">
         {profile.recentRequests.length ? (
           profile.recentRequests.map((request) => (
             <article
               className={cn(
-                "w-full cursor-pointer rounded-2xl border p-3 text-left transition hover:border-orange-200 hover:bg-orange-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                "w-full cursor-pointer rounded-2xl border p-3 text-left transition hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]",
                 isOpenRequest(request.status)
-                  ? "border-orange-200 bg-orange-50/50"
-                  : "border-slate-200 bg-white"
+                  ? "border-[#FFD8BD] bg-[#FFE8D9]/50"
+                  : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)]"
               )}
               key={request.id}
               onClick={() => setSelectedRequestId(request.id)}
@@ -1230,10 +1230,10 @@ function RelatedRequestsPanel({
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-950">
+                  <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
                     {formatEnum(request.type)}
                   </p>
-                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-[color:var(--sn-muted)]">
                     <span>
                       {request.currentStep
                         ? formatEnum(request.currentStep)
@@ -1248,7 +1248,7 @@ function RelatedRequestsPanel({
                     <span onClick={(event) => event.stopPropagation()}>
                       <CopyButton
                         aria-label="Copy request ID"
-                        className="h-7 w-7 rounded-lg border-0 bg-slate-50 p-0 shadow-none"
+                        className="h-7 w-7 rounded-lg border-0 bg-[color:var(--sn-sunken)] p-0 shadow-none"
                         iconOnly
                         size="sm"
                         text={request.id}
@@ -1260,7 +1260,7 @@ function RelatedRequestsPanel({
                   {formatEnum(request.status)}
                 </Badge>
               </div>
-              <p className="mt-2 truncate text-xs text-slate-500">
+              <p className="mt-2 truncate text-xs text-[color:var(--sn-muted)]">
                 {request.sourceVendor?.vendorName ?? "No source Branch"}
                 {request.destinationVendor
                   ? ` -> ${request.destinationVendor.vendorName}`
@@ -1269,7 +1269,7 @@ function RelatedRequestsPanel({
             </article>
           ))
         ) : (
-          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+          <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
             No related requests found for this user.
           </p>
         )}
@@ -1325,23 +1325,23 @@ function UserDeductionsPanel({ userId }: { userId: string }) {
   }, [month, userId]);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-slate-950">Deductions</h3>
+          <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">Deductions</h3>
           {state.status === "ready" ? (
-            <p className="mt-1 text-xs font-medium text-slate-500">
+            <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
               {state.data.summary.effectiveCount} effective ·{" "}
               {formatDeductionDays(Number(state.data.summary.deductionDaysTotal))}{" "}
               days
             </p>
           ) : (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
               Deduction records for the selected month.
             </p>
           )}
         </div>
-        <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:w-44">
+        <label className="grid min-w-0 gap-1 text-xs font-medium text-[color:var(--sn-body)] sm:w-44">
           <span className="sr-only">Month</span>
           <Input
             aria-label="Deductions month"
@@ -1361,37 +1361,37 @@ function UserDeductionsPanel({ userId }: { userId: string }) {
             <Skeleton className="h-12" />
           </div>
         ) : state.status === "error" ? (
-          <p className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+          <p className="rounded-xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm text-[oklch(0.55_0.19_27)]">
             {state.error}
           </p>
         ) : state.data.items.length ? (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-[color:var(--sn-border)]">
             {state.data.items.map((item) => (
               <li
                 className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3"
                 key={item.id}
               >
-                <span className="text-sm font-semibold text-slate-950">
+                <span className="text-sm font-semibold text-[color:var(--sn-ink)]">
                   {item.actionName}
                 </span>
                 <Badge
-                  className="border-slate-200 bg-slate-50 text-slate-600"
+                  className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
                   variant="outline"
                 >
                   {formatOrdinal(item.occurrenceNumber)}
                 </Badge>
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-[color:var(--sn-body)]">
                   {item.penaltyLabel}
                 </span>
                 <DeductionStatusBadge status={item.status} />
-                <span className="text-xs font-medium text-slate-500">
+                <span className="text-xs font-medium text-[color:var(--sn-muted)]">
                   {formatDate(item.incidentDate)}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+          <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
             No deductions for this month.
           </p>
         )}
@@ -1402,8 +1402,8 @@ function UserDeductionsPanel({ userId }: { userId: string }) {
 
 function ReadOnlyDetails({ profile }: { profile: OperationalProfileResponse }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-950">Profile data</h3>
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">Profile data</h3>
       <ProfileRows user={profile.user} />
     </section>
   );
@@ -1437,16 +1437,16 @@ function ActivityPanel({
   }, [profile.user.id]);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">{title}</h3>
+          <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
             Latest actions connected to this user.
           </p>
         </div>
         {items.length ? (
-          <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">
+          <span className="rounded-full bg-[color:var(--sn-sunken)] px-2.5 py-1 text-xs font-semibold text-[color:var(--sn-muted)] ring-1 ring-[color:var(--sn-border)]">
             {items.length} actions
           </span>
         ) : null}
@@ -1454,27 +1454,27 @@ function ActivityPanel({
 
       <div className="mt-4">
         {visibleItems.length ? (
-          <ol className="relative grid gap-0 before:absolute before:left-4 before:top-4 before:h-[calc(100%-2rem)] before:w-px before:bg-slate-200">
+          <ol className="relative grid gap-0 before:absolute before:left-4 before:top-4 before:h-[calc(100%-2rem)] before:w-px before:bg-[color:var(--sn-border)]">
             {visibleItems.map((item) => (
               <li className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-3 pb-4 last:pb-0" key={item.id}>
-                <span className="relative z-10 mt-1 grid h-8 w-8 place-items-center rounded-full border border-orange-200 bg-orange-50 text-orange-700 shadow-sm">
+                <span className="relative z-10 mt-1 grid h-8 w-8 place-items-center rounded-full border border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] shadow-sm">
                   <CalendarDays className="h-4 w-4" />
                 </span>
-                <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
+                <div className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)]/80 p-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                    <p className="truncate text-sm font-semibold text-slate-950">
+                    <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                       {formatEnum(item.action)}
                     </p>
-                    <time className="shrink-0 text-xs font-medium text-slate-500">
+                    <time className="shrink-0 text-xs font-medium text-[color:var(--sn-muted)]">
                       {formatDateTime(item.createdAt)}
                     </time>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
                     {item.actor?.nameEn
                       ? `By ${item.actor.nameEn}`
                       : `Recorded on ${formatEnum(item.entityType)}`}
                   </p>
-                  <p className="mt-2 truncate font-mono text-[11px] text-slate-400">
+                  <p className="mt-2 truncate font-mono text-[11px] text-[color:var(--sn-faint)]">
                     {item.entityType} · {item.entityId}
                   </p>
                 </div>
@@ -1482,15 +1482,15 @@ function ActivityPanel({
             ))}
           </ol>
         ) : (
-          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+          <p className="rounded-xl bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
             No recent activity yet.
           </p>
         )}
       </div>
 
       {totalPages > 1 ? (
-        <div className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs font-medium text-slate-500">
+        <div className="mt-4 flex flex-col gap-2 border-t border-[color:var(--sn-border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-[color:var(--sn-muted)]">
             Page {safePage} of {totalPages}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -1534,8 +1534,8 @@ function ProfileShell({
 }) {
   return (
     <>
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
-        <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4">
+        <h2 className="text-lg font-semibold text-[color:var(--sn-ink)]">{title}</h2>
         <Button aria-label={`Close ${title}`} className="h-10 w-10 rounded-xl p-0" onClick={onClose} variant="outline">
           <X className="h-4 w-4" />
         </Button>
@@ -1555,10 +1555,10 @@ function CenteredState({
   label: string;
 }) {
   return (
-    <div className="grid min-h-48 place-items-center rounded-2xl bg-slate-50 p-6 text-center">
+    <div className="grid min-h-48 place-items-center rounded-2xl bg-[color:var(--sn-sunken)] p-6 text-center">
       <div>
-        {icon ? <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-white text-orange-600">{icon}</div> : null}
-        <p className="text-sm font-medium text-slate-700">{label}</p>
+        {icon ? <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-[color:var(--sn-card)] text-[color:var(--tlb-orange)]">{icon}</div> : null}
+        <p className="text-sm font-medium text-[color:var(--sn-body)]">{label}</p>
         {action ? <div className="mt-4">{action}</div> : null}
       </div>
     </div>
@@ -1594,13 +1594,13 @@ function ProfileRow({
   return (
     <div
       className={cn(
-        "flex min-h-[86px] min-w-0 items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3",
+        "flex min-h-[86px] min-w-0 items-start justify-between gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)]/70 p-3",
         className
       )}
     >
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase text-slate-400">{label}</p>
-        <p className="mt-1 break-words text-sm font-medium text-slate-950">{value}</p>
+        <p className="text-xs font-semibold uppercase text-[color:var(--sn-muted)]">{label}</p>
+        <p className="mt-1 break-words text-sm font-medium text-[color:var(--sn-ink)]">{value}</p>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ export default function ChampBranchesPage() {
     <DashboardFrame
       allowedRoles={["CHAMP"]}
       description="Branch-first Champ operations."
+      showPageTitle
       title="My Branches"
     >
       <ChampBranchesIndex />

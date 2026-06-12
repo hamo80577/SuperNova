@@ -82,7 +82,7 @@ function ChangePasswordFormInner() {
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
       {user?.role === "PICKER" && user.profileStatus === "INCOMPLETE" ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="rounded-md border border-[#FFD8BD] bg-[#FFE8D9] px-3 py-2 text-sm text-[color:var(--tlb-orange-900)]">
           After changing this temporary password, complete your operational
           Picker profile before opening the full workspace.
         </div>
@@ -119,7 +119,7 @@ function ChangePasswordFormInner() {
         </div>
       ) : null}
       {success ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <div className="rounded-md border border-[oklch(0.85_0.07_150)] bg-[oklch(0.95_0.045_150)] px-3 py-2 text-sm text-[oklch(0.40_0.13_150)]">
           {success}
         </div>
       ) : null}

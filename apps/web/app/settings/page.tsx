@@ -6,6 +6,7 @@ export default function SettingsPage() {
     <DashboardFrame
       allowedRoles={["PICKER", "CHAMP", "AREA_MANAGER", "ADMIN", "SUPER_ADMIN"]}
       description="Workspace preferences and system configuration."
+      showPageTitle
       title="Settings"
     >
       <SettingsHubPage />

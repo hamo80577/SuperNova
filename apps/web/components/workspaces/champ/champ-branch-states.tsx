@@ -58,7 +58,7 @@ export function WorkspaceState<T>({
   }
 
   return (
-    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+    <div className="rounded-2xl border border-[oklch(0.85_0.08_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm text-[oklch(0.55_0.19_27)]">
       {state.error}
     </div>
   );
@@ -98,19 +98,19 @@ export function EmptyState({
 }) {
   if (compact) {
     return (
-      <div className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-white/90 p-5 text-center">
-        <span className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-orange-50 text-orange-600">
+      <div className="grid place-items-center rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-white/90 p-5 text-center">
+        <span className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-[#FFE8D9] text-[color:var(--tlb-orange)]">
           <Inbox className="h-5 w-5" />
         </span>
-        <p className="max-w-sm text-sm leading-6 text-slate-500">{message}</p>
+        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">{message}</p>
       </div>
     );
   }
 
   return (
-    <div className="grid place-items-center rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-      <Inbox className="mb-3 h-8 w-8 text-slate-400" />
-      <p className="text-sm text-slate-500">{message}</p>
+    <div className="grid place-items-center rounded-2xl border border-[color:var(--sn-border)] bg-white p-8 text-center shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <Inbox className="mb-3 h-8 w-8 text-[color:var(--sn-faint)]" />
+      <p className="text-sm text-[color:var(--sn-muted)]">{message}</p>
     </div>
   );
 }

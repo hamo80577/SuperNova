@@ -206,7 +206,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           aria-haspopup="listbox"
           aria-label={props["aria-label"]}
           className={cn(
-            "flex h-11 w-full items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 text-left text-sm font-medium text-slate-700 shadow-sm outline-none transition hover:border-primary/30 hover:bg-white focus-visible:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60",
+            "flex h-11 w-full items-center gap-2 rounded-xl border border-[color:var(--sn-border)] bg-white/90 px-3 text-left text-sm font-medium text-[color:var(--sn-body)] shadow-sm outline-none transition hover:border-primary/30 hover:bg-white focus-visible:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60",
             className,
             triggerClassName
           )}
@@ -238,7 +238,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           </span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 shrink-0 text-slate-400 transition-transform",
+              "h-4 w-4 shrink-0 text-[color:var(--sn-muted)] transition-transform",
               isOpen && "rotate-180"
             )}
           />
@@ -247,7 +247,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         {isOpen ? (
           <div
             className={cn(
-              "absolute left-0 top-full z-50 mt-1 max-h-72 w-full min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 text-sm shadow-[0_18px_45px_rgba(15,23,42,0.16)]",
+              "absolute left-0 top-full z-50 mt-1 max-h-72 w-full min-w-full overflow-y-auto rounded-xl border border-[color:var(--sn-border)] bg-white p-1 text-sm shadow-[0_18px_45px_rgba(65,21,23,0.16)]",
               menuClassName
             )}
             role="listbox"
@@ -255,10 +255,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             {searchable ? (
               <div className="sticky top-0 z-10 bg-white p-1">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[color:var(--sn-muted)]" />
                   <input
                     aria-label={searchPlaceholder}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
+                    className="h-10 w-full rounded-lg border border-[color:var(--sn-border)] bg-white pl-9 pr-3 text-sm text-[color:var(--sn-ink)] outline-none transition placeholder:text-[color:var(--sn-muted)] focus:border-primary/35 focus:ring-2 focus:ring-primary/15"
                     onChange={(event) => updateSearchValue(event.target.value)}
                     onKeyDown={(event) => event.stopPropagation()}
                     placeholder={searchPlaceholder}
@@ -275,8 +275,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 <button
                   aria-selected={selected}
                   className={cn(
-                    "flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 outline-none transition hover:bg-primary/10 hover:text-slate-950 focus-visible:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-45",
-                    selected && "bg-primary/10 text-slate-950"
+                    "flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[color:var(--sn-body)] outline-none transition hover:bg-primary/10 hover:text-[color:var(--sn-ink)] focus-visible:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-45",
+                    selected && "bg-primary/10 text-[color:var(--sn-ink)]"
                   )}
                   disabled={option.disabled}
                   key={option.value}
@@ -292,7 +292,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               );
             })}
             {!visibleOptions.length ? (
-              <div className="px-3 py-3 text-sm text-slate-500">
+              <div className="px-3 py-3 text-sm text-[color:var(--sn-muted)]">
                 {emptyMessage}
               </div>
             ) : null}

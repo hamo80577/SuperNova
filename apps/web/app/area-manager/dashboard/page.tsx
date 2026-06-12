@@ -1,14 +1,15 @@
 import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
-import { AreaManagerWorkspaceDashboard } from "@/components/workspaces/role-workspaces";
+import { AreaManagerCalmDashboard } from "@/components/workspaces/area-manager-calm-dashboard";
 
 export default function AreaManagerDashboardPage() {
   return (
     <DashboardFrame
       allowedRoles={["AREA_MANAGER"]}
       description="Chain, branch, and scoped user visibility."
-      title="Area Manager Workspace"
+      hideHeaderDescription
+      title="Dashboard"
     >
-      <AreaManagerWorkspaceDashboard />
+      <AreaManagerCalmDashboard />
     </DashboardFrame>
   );
 }

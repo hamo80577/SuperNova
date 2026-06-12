@@ -345,7 +345,7 @@ export function OrdersKpiReportPage({
   const isEmpty = status === "success" && !rows.length;
 
   return (
-    <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-slate-50/60 p-3 sm:p-4">
+    <div className="min-w-0 space-y-4 overflow-hidden rounded-2xl bg-[color:var(--sn-sunken)] p-3 sm:p-4">
       <div
         className={cn(
           "flex w-full flex-col gap-3 sm:flex-row sm:items-center",
@@ -353,7 +353,7 @@ export function OrdersKpiReportPage({
         )}
       >
         {scopeNote ? (
-          <p className="text-xs leading-5 text-slate-500">{scopeNote}</p>
+          <p className="text-xs leading-5 text-[color:var(--sn-muted)]">{scopeNote}</p>
         ) : null}
         <div className="w-full shrink-0 sm:w-auto">
           <AttendanceDateRangeSelector
@@ -383,10 +383,10 @@ export function OrdersKpiReportPage({
         targetEvaluation={report?.targetEvaluation ?? null}
       />
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+      <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--sn-ink)]">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               Report controls
             </div>
@@ -394,11 +394,11 @@ export function OrdersKpiReportPage({
               <div className="mt-3 flex flex-wrap gap-2">
                 {activeContexts.map((context) => (
                   <span
-                    className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600"
+                    className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 text-xs font-semibold text-[color:var(--sn-body)]"
                     key={`${context.label}:${context.value}`}
                   >
-                    <span className="text-slate-400">{context.label}</span>
-                    <span className="max-w-[14rem] truncate text-slate-900">
+                    <span className="text-[color:var(--sn-muted)]">{context.label}</span>
+                    <span className="max-w-[14rem] truncate text-[color:var(--sn-ink)]">
                       {context.value}
                     </span>
                   </span>
@@ -418,7 +418,7 @@ export function OrdersKpiReportPage({
               onSubmit={handleSearchSubmit}
             >
               <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
                 <Input
                   className="h-11 rounded-xl pl-9"
                   onChange={(event) => setSearchDraft(event.target.value)}
@@ -447,14 +447,14 @@ export function OrdersKpiReportPage({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-5">
+      <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <ReportViewTabs
             activeView={filters.view}
             onViewChange={handleViewChange}
           />
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-[color:var(--sn-muted)]">
               {pagination
                 ? `${formatNumber(pagination.totalRows)} rows across ${formatNumber(
                     pagination.totalPages
@@ -548,8 +548,8 @@ function KpiCard({
   return (
     <article
       className={cn(
-        "min-w-0 rounded-2xl border bg-white p-4",
-        isPrimary ? "border-primary/30 ring-1 ring-primary/10" : "border-slate-200"
+        "min-w-0 rounded-[16px] border bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
+        isPrimary ? "border-primary/30 ring-1 ring-primary/10" : "border-[color:var(--sn-border)]"
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -562,7 +562,7 @@ function KpiCard({
           >
             <Icon className="h-4 w-4" />
           </span>
-          <p className="truncate text-xs font-medium text-slate-500">
+          <p className="truncate text-xs font-medium text-[color:var(--sn-muted)]">
             {metric.label}
           </p>
         </div>
@@ -579,8 +579,8 @@ function KpiCard({
       ) : (
         <p
           className={cn(
-            "mt-2 text-[26px] font-semibold leading-tight tabular-nums",
-            outOfTarget ? "text-rose-600" : "text-slate-950"
+            "mt-2 font-[family-name:var(--font-data)] text-[26px] font-semibold leading-tight tabular-nums",
+            outOfTarget ? "text-[oklch(0.55_0.19_27)]" : "text-[color:var(--sn-ink)]"
           )}
         >
           {formatMetricValue(value, metric.valueType)}
@@ -609,7 +609,7 @@ function TargetIcon({
 
   return (
     <span
-      className={cn("shrink-0", inTarget ? "text-emerald-500" : "text-rose-500")}
+      className={cn("shrink-0", inTarget ? "text-[oklch(0.58_0.13_150)]" : "text-[oklch(0.55_0.19_27)]")}
       title={title}
     >
       <Icon className="h-[18px] w-[18px]" />
@@ -715,7 +715,7 @@ function FilterSelect({
 
   return (
     <label className="min-w-0">
-      <span className="mb-1 block text-xs font-semibold text-slate-500">
+      <span className="mb-1 block text-xs font-semibold text-[color:var(--sn-muted)]">
         {label}
       </span>
       <Select
@@ -751,14 +751,14 @@ function ReportViewTabs({
             "min-h-16 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
             activeView === view.value
               ? "border-primary/45 bg-primary/5 text-primary shadow-sm"
-              : "border-slate-200 bg-white text-slate-600 hover:border-primary/30"
+              : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] hover:border-primary/30"
           )}
           key={view.value}
           onClick={() => onViewChange(view.value)}
           type="button"
         >
           <span className="block text-sm font-semibold">{view.label}</span>
-          <span className="mt-1 block text-xs leading-5 text-slate-500">
+          <span className="mt-1 block text-xs leading-5 text-[color:var(--sn-muted)]">
             {view.description}
           </span>
         </button>
@@ -779,9 +779,9 @@ function ReportRows({
   rows: OrdersKpiPerformanceRow[];
 }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[color:var(--sn-border)]">
       <div className="overflow-x-auto">
-        <table className="hidden w-full min-w-[900px] table-fixed divide-y divide-slate-200 text-sm lg:table">
+        <table className="hidden w-full min-w-[900px] table-fixed divide-y divide-[color:var(--sn-border)] text-sm lg:table">
           <colgroup>
             <col className="w-[22%]" />
             {metricDefinitions.map((metric) => (
@@ -789,7 +789,7 @@ function ReportRows({
             ))}
             <col className="w-[56px]" />
           </colgroup>
-          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
+          <thead className="bg-[color:var(--sn-sunken)] text-left text-xs font-semibold uppercase tracking-normal text-[color:var(--sn-muted)]">
             <tr>
               <th className="px-3 py-3">Name</th>
               {metricDefinitions.map((metric) => (
@@ -804,15 +804,15 @@ function ReportRows({
               <th className="px-3 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-[color:var(--sn-border)] bg-[color:var(--sn-card)]">
             {rows.map((row) => (
-              <tr className="transition hover:bg-slate-50/70" key={row.groupKey}>
+              <tr className="transition hover:bg-[color:var(--sn-sunken)]" key={row.groupKey}>
                 <td className="px-3 py-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <GroupIcon row={row} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="truncate font-semibold text-slate-950">
+                        <p className="truncate font-semibold text-[color:var(--sn-ink)]">
                           {getRowLabel(row)}
                         </p>
                         <TargetIcon
@@ -825,7 +825,7 @@ function ReportRows({
                         />
                       </div>
                       {getRowSubLabel(row) ? (
-                        <p className="mt-0.5 text-xs text-slate-500">
+                        <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
                           {getRowSubLabel(row)}
                         </p>
                       ) : null}
@@ -849,7 +849,7 @@ function ReportRows({
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <span className="text-slate-300" aria-hidden>
+                    <span className="text-[color:var(--sn-muted)]" aria-hidden>
                       —
                     </span>
                   )}
@@ -859,7 +859,7 @@ function ReportRows({
           </tbody>
         </table>
 
-        <div className="divide-y divide-slate-100 bg-white lg:hidden">
+        <div className="divide-y divide-[color:var(--sn-border)] bg-[color:var(--sn-card)] lg:hidden">
           {rows.map((row) => (
             <MobileReportCard key={row.groupKey} onDrilldown={onDrilldown} row={row} />
           ))}
@@ -889,8 +889,8 @@ function SortableMetricHeader({
     >
       <button
         className={cn(
-          "ml-auto inline-flex w-full items-center justify-end gap-1 rounded-lg px-2 py-1 text-right transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
-          isActive ? "text-slate-900" : "text-slate-500"
+          "ml-auto inline-flex w-full items-center justify-end gap-1 rounded-lg px-2 py-1 text-right transition hover:text-[color:var(--sn-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+          isActive ? "text-[color:var(--sn-ink)]" : "text-[color:var(--sn-muted)]"
         )}
         onClick={() => onSort(metric.key)}
         type="button"
@@ -917,12 +917,12 @@ function MetricCell({
     <td className="px-3 py-3 text-right tabular-nums" title={formatTargetTooltip(target)}>
       <div className="flex items-center justify-end gap-1.5">
         {isOutOfTarget ? (
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+          <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.55_0.19_27)]" aria-hidden />
         ) : null}
         <span
           className={cn(
             "font-semibold",
-            isOutOfTarget ? "text-rose-600" : "text-slate-700"
+            isOutOfTarget ? "text-[oklch(0.55_0.19_27)]" : "text-[color:var(--sn-body)]"
           )}
         >
           {formatMetricValue(value, metric.valueType)}
@@ -946,7 +946,7 @@ function MobileReportCard({
           <GroupIcon row={row} />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="truncate font-semibold text-slate-950">
+              <p className="truncate font-semibold text-[color:var(--sn-ink)]">
                 {getRowLabel(row)}
               </p>
               <TargetIcon
@@ -959,7 +959,7 @@ function MobileReportCard({
               />
             </div>
             {getRowSubLabel(row) ? (
-              <p className="mt-0.5 text-xs leading-5 text-slate-500">
+              <p className="mt-0.5 text-xs leading-5 text-[color:var(--sn-muted)]">
                 {getRowSubLabel(row)}
               </p>
             ) : null}
@@ -975,21 +975,21 @@ function MobileReportCard({
 
           return (
             <div
-              className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3"
+              className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3"
               key={metric.key}
               title={formatTargetTooltip(target)}
             >
-              <p className="text-xs font-medium text-slate-500">
+              <p className="text-xs font-medium text-[color:var(--sn-muted)]">
                 {metric.shortLabel}
               </p>
               <div className="mt-1 flex items-center gap-1.5">
                 {isOutOfTarget ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[oklch(0.55_0.19_27)]" aria-hidden />
                 ) : null}
                 <span
                   className={cn(
-                    "font-semibold tabular-nums",
-                    isOutOfTarget ? "text-rose-600" : "text-slate-950"
+                    "font-[family-name:var(--font-data)] font-semibold tabular-nums",
+                    isOutOfTarget ? "text-[oklch(0.55_0.19_27)]" : "text-[color:var(--sn-ink)]"
                   )}
                 >
                   {formatMetricValue(row.metrics[metric.key], metric.valueType)}
@@ -1023,7 +1023,7 @@ function GroupIcon({ row }: { row: OrdersKpiPerformanceRow }) {
     <span
       className={cn(
         "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl",
-        isUnmapped ? "bg-amber-50 text-amber-700" : "bg-primary/10 text-primary"
+        isUnmapped ? "bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]" : "bg-primary/10 text-primary"
       )}
     >
       {isUnmapped ? <AlertTriangle className="h-4 w-4" /> : <Store className="h-4 w-4" />}
@@ -1047,11 +1047,11 @@ function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
       className={cn(
         "mt-1.5",
         row.groupType.includes("UNMAPPED") &&
-          "border-amber-200 bg-amber-50 text-amber-800",
+          "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]",
         row.groupType.includes("UNKNOWN") &&
-          "border-slate-200 bg-slate-50 text-slate-600",
+          "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
         row.groupType.includes("UNMATCHED") &&
-          "border-orange-200 bg-orange-50 text-orange-800"
+          "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
       )}
       variant="outline"
     >
@@ -1062,7 +1062,7 @@ function GroupBadge({ row }: { row: OrdersKpiPerformanceRow }) {
 
 function ReportTableSkeleton() {
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+    <div className="mt-4 rounded-2xl border border-[color:var(--sn-border)] p-4">
       <div className="space-y-3">
         {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton className="h-14 w-full" key={index} />
@@ -1074,12 +1074,12 @@ function ReportTableSkeleton() {
 
 function EmptyReport() {
   return (
-    <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-      <BarChart3 className="mx-auto h-8 w-8 text-slate-400" />
-      <p className="mt-3 text-sm font-semibold text-slate-950">
+    <div className="mt-4 rounded-2xl border border-dashed border-[color:var(--sn-border-strong)] bg-[color:var(--sn-sunken)] p-8 text-center">
+      <BarChart3 className="mx-auto h-8 w-8 text-[color:var(--sn-muted)]" />
+      <p className="mt-3 text-sm font-semibold text-[color:var(--sn-ink)]">
         No confirmed Orders KPI rows
       </p>
-      <p className="mt-2 text-sm text-slate-500">
+      <p className="mt-2 text-sm text-[color:var(--sn-muted)]">
         Change filters or import confirmed Orders KPI records for this date range.
       </p>
     </div>
@@ -1097,7 +1097,7 @@ function PaginationControls({
 }) {
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-[color:var(--sn-muted)]">
         Page {formatNumber(page)} of {formatNumber(totalPages)}
       </p>
       <div className="flex gap-2">
@@ -1138,8 +1138,8 @@ function InlineNotice({
       className={cn(
         "rounded-2xl border p-4 text-sm leading-6",
         tone === "error"
-          ? "border-red-200 bg-red-50 text-red-800"
-          : "border-amber-200 bg-amber-50 text-amber-900"
+          ? "border-[oklch(0.75_0.12_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]"
+          : "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
       )}
     >
       <div className="flex items-start gap-3">
@@ -1388,11 +1388,11 @@ function getGroupTypeLabel(type: OrdersKpiPerformanceRow["groupType"]) {
 
 function metricToneClasses(tone: MetricTone) {
   const classes: Record<MetricTone, string> = {
-    danger: "bg-rose-50 text-rose-600",
-    default: "bg-slate-100 text-slate-600",
-    info: "bg-sky-50 text-sky-600",
-    success: "bg-emerald-50 text-emerald-600",
-    warning: "bg-amber-50 text-amber-600"
+    danger: "bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
+    default: "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
+    info: "bg-[color:var(--tlb-lavender,#EDE9FF)] text-[color:var(--tlb-purple,#4B3B8C)]",
+    success: "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    warning: "bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]"
   };
 
   return classes[tone];
@@ -1400,12 +1400,12 @@ function metricToneClasses(tone: MetricTone) {
 
 function getDeltaTone(metric: MetricDefinition, delta: number) {
   if (delta === 0) {
-    return "text-slate-500";
+    return "text-[color:var(--sn-muted)]";
   }
 
   const lowerIsBetter = metric.key !== "totalOrders";
   const isGood = lowerIsBetter ? delta < 0 : delta > 0;
-  return isGood ? "text-emerald-700" : "text-rose-700";
+  return isGood ? "text-[oklch(0.58_0.13_150)]" : "text-[oklch(0.55_0.19_27)]";
 }
 
 function formatTargetTooltip(

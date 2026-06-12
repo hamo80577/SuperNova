@@ -6,6 +6,7 @@ export default function ChampOrdersKpiReportRoute() {
     <DashboardFrame
       allowedRoles={["CHAMP"]}
       description="Orders KPI performance scoped to your assigned branches."
+      showPageTitle
       title="Orders KPI Performance"
     >
       <OrdersKpiReportPage variant="champ" />

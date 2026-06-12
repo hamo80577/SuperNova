@@ -223,7 +223,7 @@ export function NotificationsCenter() {
     <div className="grid gap-4">
       {error ? <ErrorState message={error} /> : null}
 
-      <section className="sticky top-[81px] z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+      <section className="sticky top-[81px] z-20 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)]/95 p-3 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {notificationFilters.map((filter) => (
@@ -231,8 +231,8 @@ export function NotificationsCenter() {
                 className={cn(
                   "h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors",
                   activeFilter === filter.value
-                    ? "border-orange-200 bg-orange-50 text-orange-700"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                    : "border-[color:var(--sn-border)] bg-[color:var(--sn-card)] text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)]"
                 )}
                 key={filter.value}
                 onClick={() => setActiveFilter(filter.value)}
@@ -243,7 +243,7 @@ export function NotificationsCenter() {
             ))}
           </div>
           <Button
-            className="h-10 shrink-0 rounded-xl border-slate-200 text-slate-700"
+            className="h-10 shrink-0 rounded-xl border-[color:var(--sn-border)] text-[color:var(--sn-body)]"
             disabled={Boolean(activeAction) || unreadCount === 0}
             onClick={() => void markAllRead()}
             type="button"
@@ -344,10 +344,10 @@ function NotificationGroupCard({
       ) : null}
       <section
         className={cn(
-          "relative z-10 rounded-[22px] border bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition-colors sm:p-4",
+          "relative z-10 rounded-[22px] border bg-[color:var(--sn-card)] p-3 shadow-[0_12px_30px_rgba(65,21,23,0.06)] transition-colors sm:p-4",
           group.unreadCount
-            ? "border-orange-200 ring-1 ring-orange-100"
-            : "border-slate-200"
+            ? "border-[#FFD8BD] ring-1 ring-[#FFE8D9]"
+            : "border-[color:var(--sn-border)]"
         )}
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -372,7 +372,7 @@ function NotificationGroupCard({
                 </Badge>
                 {actionCompleted ? (
                   <Badge
-                    className="border-emerald-200 bg-emerald-50 text-emerald-700"
+                    className="border-[oklch(0.85_0.07_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
                     variant="outline"
                   >
                     <Check className="mr-1 h-3 w-3" />
@@ -387,7 +387,7 @@ function NotificationGroupCard({
                 ) : null}
                 {requestUnavailable ? (
                   <Badge
-                    className="border-slate-200 bg-slate-50 text-slate-600"
+                    className="border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
                     variant="outline"
                   >
                     <AlertCircle className="mr-1 h-3 w-3" />
@@ -395,13 +395,13 @@ function NotificationGroupCard({
                   </Badge>
                 ) : null}
               </div>
-              <h2 className="mt-2 text-base font-semibold tracking-normal text-slate-950">
+              <h2 className="mt-2 text-base font-semibold tracking-normal text-[color:var(--sn-ink)]">
                 {group.latest.title}
               </h2>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-[color:var(--sn-muted)]">
                 {previewBody}
               </p>
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-[color:var(--sn-faint)]">
                 Latest update {formatDateTime(group.latest.createdAt)}
               </p>
             </div>
@@ -411,7 +411,7 @@ function NotificationGroupCard({
             {isStacked ? (
               <Button
                 aria-label={expanded ? "Collapse updates" : "Expand updates"}
-                className="h-10 rounded-xl border-slate-200 px-3 text-slate-700"
+                className="h-10 rounded-xl border-[color:var(--sn-border)] px-3 text-[color:var(--sn-body)]"
                 disabled={Boolean(activeAction)}
                 onClick={onToggleExpanded}
                 type="button"
@@ -429,7 +429,7 @@ function NotificationGroupCard({
             ) : null}
             {isQuickApproveEligible(group) && !actionCompleted ? (
               <Button
-                className="h-10 rounded-xl border-emerald-200 bg-emerald-50 px-3 text-emerald-700 hover:bg-emerald-100"
+                className="h-10 rounded-xl border-[oklch(0.85_0.07_150)] bg-[oklch(0.95_0.045_150)] px-3 text-[oklch(0.58_0.13_150)] hover:bg-[oklch(0.90_0.065_150)]"
                 disabled={Boolean(activeAction)}
                 onClick={onQuickApprove}
                 type="button"
@@ -445,7 +445,7 @@ function NotificationGroupCard({
             ) : null}
             {group.unreadCount ? (
               <Button
-                className="h-10 rounded-xl border-slate-200 px-3 text-slate-700"
+                className="h-10 rounded-xl border-[color:var(--sn-border)] px-3 text-[color:var(--sn-body)]"
                 disabled={Boolean(activeAction)}
                 onClick={onMarkRead}
                 type="button"
@@ -477,33 +477,33 @@ function NotificationGroupCard({
 
         {expanded && isStacked ? (
           <button
-            className="mt-4 grid w-full gap-2 border-t border-slate-100 pt-4 text-left"
+            className="mt-4 grid w-full gap-2 border-t border-[color:var(--sn-border)] pt-4 text-left"
             onClick={onToggleExpanded}
             type="button"
           >
             {group.items.map((item, index) => (
               <div
-                className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"
+                className="flex items-start gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2.5"
                 key={item.id}
               >
                 <span
                   className={cn(
                     "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
                     item.readAt
-                      ? "bg-white text-slate-500"
-                      : "bg-orange-100 text-orange-700"
+                      ? "bg-[color:var(--sn-card)] text-[color:var(--sn-muted)]"
+                      : "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
                   )}
                 >
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-800">
+                  <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                     {item.title}
                   </p>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                  <p className="mt-0.5 line-clamp-1 text-xs text-[color:var(--sn-muted)]">
                     {item.body}
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-[11px] text-[color:var(--sn-faint)]">
                     {formatDateTime(item.createdAt)}
                   </p>
                 </div>
@@ -525,8 +525,8 @@ function StackLayers({ count, unread }: { count: number; unread: boolean }) {
         <div
           aria-hidden="true"
           className={cn(
-            "absolute inset-x-3 h-full rounded-[22px] border bg-white shadow-sm",
-            unread ? "border-orange-100" : "border-slate-200"
+            "absolute inset-x-3 h-full rounded-[22px] border bg-[color:var(--sn-card)] shadow-sm",
+            unread ? "border-[#FFE8D9]" : "border-[color:var(--sn-border)]"
           )}
           key={index}
           style={{
@@ -594,7 +594,7 @@ function getCandidatePayload(payload: unknown) {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+    <div className="flex items-center gap-2 rounded-2xl border border-[oklch(0.85_0.05_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm text-[oklch(0.55_0.19_27)]">
       <AlertCircle className="h-4 w-4 shrink-0" />
       {message}
     </div>
@@ -609,12 +609,12 @@ function LoadingState() {
 
 function EmptyState() {
   return (
-    <div className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center shadow-sm">
-      <Inbox className="mb-3 h-8 w-8 text-slate-400" />
-      <p className="text-sm font-medium text-slate-700">
+    <div className="grid place-items-center rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-10 text-center shadow-sm">
+      <Inbox className="mb-3 h-8 w-8 text-[color:var(--sn-muted)]" />
+      <p className="text-sm font-medium text-[color:var(--sn-body)]">
         No notifications in this view.
       </p>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
         Try another filter or check back after workflow activity.
       </p>
     </div>
@@ -634,19 +634,19 @@ function getNotificationTone(category: NotificationCategory): {
   > = {
     approvals: {
       icon: ClipboardCheck,
-      iconClassName: "bg-emerald-50 text-emerald-700"
+      iconClassName: "bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]"
     },
     completed: {
       icon: CheckCheck,
-      iconClassName: "bg-slate-100 text-slate-700"
+      iconClassName: "bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]"
     },
     requests: {
       icon: FileText,
-      iconClassName: "bg-orange-50 text-primary"
+      iconClassName: "bg-[#FFE8D9] text-[color:var(--tlb-orange)]"
     },
     system: {
       icon: Bell,
-      iconClassName: "bg-blue-50 text-blue-700"
+      iconClassName: "bg-[color:var(--tlb-lavender)] text-[color:var(--tlb-purple)]"
     }
   };
 

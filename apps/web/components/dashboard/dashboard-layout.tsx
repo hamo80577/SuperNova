@@ -39,11 +39,13 @@ export function DashboardLayout({
   children,
   description,
   hideHeaderDescription = false,
+  showPageTitle = false,
   title
 }: {
   children: ReactNode;
   description: string;
   hideHeaderDescription?: boolean;
+  showPageTitle?: boolean;
   title: string;
 }) {
   const { logout, user } = useAuth();
@@ -207,8 +209,23 @@ export function DashboardLayout({
         <DashboardSidebar
           collapsed={isCollapsed}
           navSections={navSections}
+          onCloseUserMenu={() => setIsUserMenuOpen(false)}
+          onLogout={() => {
+            setIsUserMenuOpen(false);
+            void logout();
+          }}
           onToggleCollapsed={() => setIsCollapsed((current) => !current)}
+          onToggleUserMenu={() => {
+            setIsUserMenuOpen((current) => !current);
+            setIsNotificationsOpen(false);
+          }}
           pathname={pathname}
+          unreadCount={unreadNotificationCount}
+          user={user}
+          userInitials={userInitials}
+          userMenuOpen={isUserMenuOpen}
+          userName={user?.nameEn}
+          userRole={user?.role}
         />
 
         <MobileDashboardNavDrawer
@@ -216,6 +233,10 @@ export function DashboardLayout({
           onClose={() => setIsMobileNavOpen(false)}
           open={isMobileNavOpen}
           pathname={pathname}
+          unreadCount={unreadNotificationCount}
+          userInitials={userInitials}
+          userName={user?.nameEn}
+          userRole={user?.role}
         />
 
         <section
@@ -274,7 +295,19 @@ export function DashboardLayout({
               onScroll={updateScrolled}
               ref={contentRef}
             >
-              <div className="px-4 pb-4 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-[108px]">
+              <div className="px-4 pb-4 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-7">
+                {showPageTitle ? (
+                  <div className="mb-4 hidden lg:block">
+                    <h1 className="sn-h1" style={{ fontSize: 22 }}>
+                      {title}
+                    </h1>
+                    {!hideHeaderDescription ? (
+                      <p className="mt-1 text-[13px] text-[color:var(--sn-muted)]">
+                        {description}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {children}
               </div>
             </div>

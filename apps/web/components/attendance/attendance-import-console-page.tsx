@@ -292,14 +292,14 @@ export function AttendanceImportConsolePage({
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-3xl bg-slate-50/80 p-3 sm:p-4">
-      <div className="grid min-w-0 gap-4 rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="min-w-0 overflow-hidden rounded-3xl bg-[color:var(--sn-sunken)]/80 p-3 sm:p-4">
+      <div className="grid min-w-0 gap-4 rounded-[1.4rem] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <header className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
+            <h1 className="text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               {pageTitle}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
               {pageDescription}
             </p>
           </div>
@@ -320,7 +320,7 @@ export function AttendanceImportConsolePage({
               <Link
                 className={cn(
                   buttonVariants({ variant: "outline" }),
-                  "h-11 rounded-xl border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                  "h-11 rounded-xl border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)] hover:bg-[#FFD8BD]"
                 )}
                 href="/admin/attendance/imports/historical"
                 prefetch
@@ -452,20 +452,20 @@ function DuplicateResolutionModal({
 
   return (
     <ModalPortal>
-      <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-3 py-6 backdrop-blur-sm">
-        <section className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
+      <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(65,21,23,0.45)] px-3 py-6 backdrop-blur-sm">
+        <section className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-[color:var(--sn-border)] bg-white shadow-2xl">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[color:var(--sn-border)] bg-white px-5 py-4">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold tracking-normal text-slate-950">
+              <h2 className="text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
                 Resolve duplicate shift
               </h2>
-              <p className="mt-1 text-xs font-medium text-slate-500">
+              <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
                 {currentIndex + 1} of {groups.length} Pickers
               </p>
             </div>
             <button
               aria-label="Close duplicate resolver"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-muted)] transition hover:bg-[color:var(--sn-sunken)] hover:text-[color:var(--sn-ink)]"
               onClick={onClose}
               type="button"
             >
@@ -473,7 +473,7 @@ function DuplicateResolutionModal({
             </button>
           </div>
 
-          <div className="max-h-[calc(92vh-9.5rem)] overflow-y-auto bg-slate-50/70 p-4 sm:p-5">
+          <div className="max-h-[calc(92vh-9.5rem)] overflow-y-auto bg-[color:var(--sn-sunken)]/70 p-4 sm:p-5">
             <div className="grid gap-4">
               <DuplicatePickerCard group={group} />
 
@@ -488,9 +488,9 @@ function DuplicateResolutionModal({
                 ))}
               </div>
 
-              <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-2 overflow-hidden rounded-full bg-[color:var(--sn-border-strong)]">
                 <div
-                  className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                  className="h-full rounded-full bg-[oklch(0.58_0.13_150)] transition-[width] duration-300"
                   style={{ width: `${Math.max((resolvedCount / groups.length) * 100, 8)}%` }}
                 />
               </div>
@@ -501,7 +501,7 @@ function DuplicateResolutionModal({
             </div>
           </div>
 
-          <div className="sticky bottom-0 flex flex-col gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-between">
+          <div className="sticky bottom-0 flex flex-col gap-2 border-t border-[color:var(--sn-border)] bg-white px-5 py-4 sm:flex-row sm:justify-between">
             <Button
               className="h-11 rounded-xl"
               disabled={currentIndex === 0}
@@ -553,13 +553,13 @@ function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
   const initials = initialsFromName(group.pickerName ?? group.shopperId);
 
   return (
-    <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 shadow-sm">
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[color:var(--sn-ink)] text-sm font-semibold text-white">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="break-words text-lg font-semibold text-slate-950">
+          <h3 className="break-words text-lg font-semibold text-[color:var(--sn-ink)]">
             {group.pickerName ?? "Unmatched Picker"}
           </h3>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -594,18 +594,18 @@ function DuplicateShiftOptionCard({
       className={cn(
         "grid gap-3 rounded-2xl border p-4 text-left shadow-sm transition",
         isSelected
-          ? "border-emerald-400 bg-emerald-50 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]"
-          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/50"
+          ? "border-[oklch(0.72_0.1_150)] bg-[oklch(0.95_0.045_150)] shadow-[0_0_0_3px_oklch(0.95_0.045_150)]"
+          : "border-[color:var(--sn-border)] bg-white hover:border-[color:var(--sn-border-strong)] hover:bg-[color:var(--sn-sunken)]"
       )}
       onClick={onSelect}
       type="button"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h4 className="break-words text-sm font-semibold text-slate-950">
+          <h4 className="break-words text-sm font-semibold text-[color:var(--sn-ink)]">
             {option.shiftName ?? "Unnamed shift"}
           </h4>
-          <p className="mt-1 text-xs font-medium text-slate-500">
+          <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
             Row {option.rawRowNumber}
           </p>
         </div>
@@ -636,7 +636,7 @@ function MetaPill({
   icon?: ReactNode;
 }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-[color:var(--sn-border)] bg-white px-2.5 py-1 text-xs font-medium text-[color:var(--sn-body)]">
       {icon}
       <span className="truncate">{children}</span>
     </span>
@@ -645,9 +645,9 @@ function MetaPill({
 
 function MiniFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-      <p className="text-[10px] font-semibold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-slate-800">{value}</p>
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase text-[color:var(--sn-faint)]">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[color:var(--sn-ink)]">{value}</p>
     </div>
   );
 }
@@ -680,16 +680,16 @@ function UploadCard({
   const historical = importMode === "HISTORICAL_MONTH";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-600">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#FFE8D9] text-[color:var(--tlb-orange)]">
           <UploadCloud className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-950">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             {historical ? "Upload historical month file" : "Upload MTD file"}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
+          <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
             {historical
               ? "Preview a closed month before replacing that month batch."
               : "Preview only - this does not activate the batch."}
@@ -698,7 +698,7 @@ function UploadCard({
       </div>
 
       <div className="mt-5 grid gap-3">
-        <label className="grid gap-1 text-xs font-medium text-slate-600">
+        <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
           Excel file
           <Input
             accept=".xlsx,.xls"
@@ -708,11 +708,11 @@ function UploadCard({
             type="file"
           />
         </label>
-        <p className="break-words rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <p className="break-words rounded-xl bg-[color:var(--sn-sunken)] px-3 py-2 text-sm text-[color:var(--sn-body)]">
           {fileLabel}
         </p>
         {historical ? (
-          <label className="grid gap-1 text-xs font-medium text-slate-600">
+          <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Period month
             <Input
               className="h-11 rounded-xl"
@@ -720,13 +720,13 @@ function UploadCard({
               type="month"
               value={periodMonth}
             />
-            <span className="text-xs leading-5 text-slate-500">
+            <span className="text-xs leading-5 text-[color:var(--sn-muted)]">
               Choose a closed month. Current and future months are rejected by
               the backend.
             </span>
           </label>
         ) : (
-          <label className="grid gap-1 text-xs font-medium text-slate-600">
+          <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Upload date
             <Input
               className="h-11 rounded-xl"
@@ -738,7 +738,7 @@ function UploadCard({
         )}
       </div>
 
-      <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+      <p className="mt-4 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2 text-xs leading-5 text-[color:var(--sn-muted)]">
         {historical
           ? "This imports a closed historical month. It does not update assignments. Attendance Location from the file controls the reported branch used by attendance reporting, and confirm replaces the active attendance batch for the selected month."
           : "Imported Location and Sub Division values are kept as reported branch source labels for attendance reporting filters only. They do not update assignments, hierarchy, or authorization."}
@@ -775,16 +775,16 @@ function PreviewStatusCard({
   const historical = importMode === "HISTORICAL_MONTH";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-700">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]">
           <ClipboardCheck className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-950">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Preview status
           </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
+          <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
             {historical
               ? "Confirm will replace the active batch for the selected historical month."
               : "Confirm will replace the current active batch for this month."}
@@ -805,7 +805,7 @@ function PreviewStatusCard({
           />
         </div>
       ) : (
-        <div className="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+        <div className="mt-5 rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
           Preview results will appear after the backend validates the file.
         </div>
       )}
@@ -819,7 +819,7 @@ function CoverageCard({
   preview: AttendanceImportPreviewResponse;
 }) {
   return (
-    <section className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-3 rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:grid-cols-2 xl:grid-cols-4">
       <Definition
         label="Period month"
         value={formatMonth(preview.preview.periodMonth)}
@@ -903,17 +903,17 @@ function ReportedLocationsSection({
   locations: AttendanceReportedLocationSummary[];
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] shadow-sm">
             <MapPin className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-950">
+            <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
               Reported Locations
             </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
+            <p className="mt-1 text-sm leading-6 text-[color:var(--sn-muted)]">
               Attendance Location from the file controls the reported branch
               used by attendance reporting.
             </p>
@@ -927,7 +927,7 @@ function ReportedLocationsSection({
       {locations.length === 0 ? (
         <EmptyState message="No reported attendance locations returned by the backend." />
       ) : (
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--sn-border)]">
           <table className="hidden w-full table-fixed text-left text-sm lg:table">
             <colgroup>
               <col className="w-[14%]" />
@@ -937,7 +937,7 @@ function ReportedLocationsSection({
               <col className="w-[10%]" />
               <col className="w-[14%]" />
             </colgroup>
-            <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+            <thead className="bg-[color:var(--sn-sunken)] text-xs font-medium text-[color:var(--sn-muted)]">
               <tr>
                 <TableHeader>Code</TableHeader>
                 <TableHeader>Name</TableHeader>
@@ -1000,23 +1000,23 @@ function UnmappedLocationsWarningSection({
   rowCount: number;
 }) {
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm sm:p-5">
+    <section className="rounded-[16px] border border-[oklch(0.82_0.08_80)] bg-[oklch(0.95_0.05_80)]/70 p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[oklch(0.62_0.13_70)] shadow-sm">
             <AlertCircle className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-950">
+            <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
               Unmapped Location warnings
             </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-700">
+            <p className="mt-1 text-sm leading-6 text-[color:var(--sn-body)]">
               These rows can continue with warning. They will be imported
               without a reported branch until mapping can be fixed later.
             </p>
           </div>
         </div>
-        <Badge className="border-amber-300 bg-white text-amber-800" variant="outline">
+        <Badge className="border-[oklch(0.75_0.1_70)] bg-white text-[oklch(0.55_0.14_65)]" variant="outline">
           {rowCount} rows
         </Badge>
       </div>
@@ -1024,28 +1024,28 @@ function UnmappedLocationsWarningSection({
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {locations.map((location) => (
           <article
-            className="min-w-0 rounded-xl border border-amber-200 bg-white p-3"
+            className="min-w-0 rounded-xl border border-[oklch(0.82_0.08_80)] bg-white p-3"
             key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-950">
+                <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                   {formatText(location.name)}
                 </p>
-                <p className="mt-1 truncate text-xs text-slate-500">
+                <p className="mt-1 truncate text-xs text-[color:var(--sn-muted)]">
                   Code {formatText(location.code)}
                 </p>
               </div>
               <ReportedLocationStatusBadge status={location.mappingStatus} />
             </div>
-            <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            <div className="mt-3 rounded-lg bg-[oklch(0.95_0.05_80)] px-3 py-2 text-sm font-semibold text-[oklch(0.45_0.12_65)]">
               {location.rowCount} rows
             </div>
           </article>
         ))}
       </div>
 
-      <label className="mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
+      <label className="mt-4 flex items-start gap-3 rounded-xl border border-[oklch(0.82_0.08_80)] bg-white p-3 text-sm text-[color:var(--sn-body)]">
         <input
           checked={acknowledged}
           className="mt-1 h-4 w-4 shrink-0"
@@ -1072,15 +1072,15 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
   const lastVisible = Math.min(startIndex + visibleIssues.length, issues.length);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--sn-border)] bg-white text-[color:var(--sn-body)] shadow-sm">
             <ListChecks className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-950">Import issues</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">Import issues</h2>
+            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
               {issues.length} validation and calculation issues
             </p>
           </div>
@@ -1094,7 +1094,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
         <EmptyState message="No validation issues returned by the backend." />
       ) : (
         <>
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+          <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--sn-border)]">
             <table className="hidden w-full table-fixed text-left text-sm lg:table">
               <colgroup>
                 <col className="w-[12%]" />
@@ -1104,7 +1104,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
                 <col className="w-[13%]" />
                 <col className="w-[30%]" />
               </colgroup>
-              <thead className="bg-slate-50 text-xs font-medium text-slate-500">
+              <thead className="bg-[color:var(--sn-sunken)] text-xs font-medium text-[color:var(--sn-muted)]">
                 <tr>
                   <TableHeader>Severity</TableHeader>
                   <TableHeader>Row</TableHeader>
@@ -1146,7 +1146,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
           </div>
 
           <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-sm font-medium text-slate-700">
+            <p className="text-sm font-medium text-[color:var(--sn-body)]">
               Showing {firstVisible}-{lastVisible} of {issues.length}
             </p>
             <div className="flex items-center justify-center gap-2">
@@ -1160,7 +1160,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="grid h-10 min-w-14 place-items-center rounded-xl border border-slate-200 px-3 text-sm font-semibold tabular-nums text-slate-700">
+              <span className="grid h-10 min-w-14 place-items-center rounded-xl border border-[color:var(--sn-border)] px-3 text-sm font-semibold tabular-nums text-[color:var(--sn-body)]">
                 {currentPage}/{totalPages}
               </span>
               <Button
@@ -1176,7 +1176,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-[color:var(--sn-body)]">
               Show per Page
               <Select
                 aria-label="Issues per page"
@@ -1220,16 +1220,16 @@ function ConfirmSection({
     !preview.canConfirm || !preview.batchId || !checked || confirmState.status === "loading";
 
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm sm:p-5">
+    <section className="rounded-[16px] border border-[oklch(0.82_0.08_80)] bg-[oklch(0.95_0.05_80)]/60 p-4 shadow-sm sm:p-5">
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[oklch(0.62_0.13_70)]">
           <ShieldAlert className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-slate-950">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Confirm replacement
           </h2>
-          <p className="mt-1 text-sm leading-6 text-slate-700">
+          <p className="mt-1 text-sm leading-6 text-[color:var(--sn-body)]">
             Confirming activates this batch and replaces the current active
             batch for {formatMonth(preview.preview.periodMonth)}.
           </p>
@@ -1240,7 +1240,7 @@ function ConfirmSection({
         <InlineError message="This preview has blocking issues and cannot be confirmed." />
       ) : null}
 
-      <label className="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
+      <label className="mt-5 flex items-start gap-3 rounded-xl border border-[oklch(0.82_0.08_80)] bg-white p-3 text-sm text-[color:var(--sn-body)]">
         <input
           checked={checked}
           className="mt-1 h-4 w-4 shrink-0"
@@ -1285,7 +1285,7 @@ function ConfirmedResult({
   result: AttendanceImportConfirmResponse;
 }) {
   return (
-    <div className="mt-4 grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-4 grid gap-3 rounded-xl border border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] p-3 sm:grid-cols-2 xl:grid-cols-4">
       <Definition label="Activated batch" value={result.batchId} mono />
       <Definition label="Status" value={<StatusBadge status={result.status} />} />
       <Definition
@@ -1306,12 +1306,12 @@ function EmptyConsoleState({
   const historical = importMode === "HISTORICAL_MONTH";
 
   return (
-    <section className="grid place-items-center rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
-      <Inbox className="mb-3 h-8 w-8 text-slate-400" />
-      <h2 className="text-base font-semibold text-slate-950">
+    <section className="grid place-items-center rounded-[16px] border border-dashed border-[color:var(--sn-border)] bg-white p-8 text-center shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <Inbox className="mb-3 h-8 w-8 text-[color:var(--sn-muted)]" />
+      <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
         No preview loaded
       </h2>
-      <p className="mt-1 max-w-md text-sm leading-6 text-slate-500">
+      <p className="mt-1 max-w-md text-sm leading-6 text-[color:var(--sn-muted)]">
         {historical
           ? "Choose a closed historical month and Excel file to inspect backend validation results before confirming replacement."
           : "Upload an MTD Excel file to inspect backend validation results before confirming replacement."}
@@ -1322,24 +1322,24 @@ function EmptyConsoleState({
 
 function CountCard({ label, value }: { label: string; value: number }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-2xl font-semibold tabular-nums text-slate-950">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <p className="text-2xl font-semibold tabular-nums text-[color:var(--sn-ink)]">
         {value}
       </p>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className="mt-1 text-sm text-[color:var(--sn-muted)]">{label}</p>
     </section>
   );
 }
 
 function IssueCard({ issue }: { issue: AttendancePreviewIssue }) {
   return (
-    <article className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+    <article className="grid gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)]/60 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words text-sm font-semibold text-slate-950">
+          <h3 className="break-words text-sm font-semibold text-[color:var(--sn-ink)]">
             {formatEnum(issue.issueCode)}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">{issue.message}</p>
+          <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{issue.message}</p>
         </div>
         <SeverityBadge severity={issue.severity} />
       </div>
@@ -1362,13 +1362,13 @@ function ReportedLocationCard({
   location: AttendanceReportedLocationSummary;
 }) {
   return (
-    <article className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+    <article className="grid gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)]/60 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words text-sm font-semibold text-slate-950">
+          <h3 className="break-words text-sm font-semibold text-[color:var(--sn-ink)]">
             {formatText(location.name)}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
             Code {formatText(location.code)}
           </p>
         </div>
@@ -1412,7 +1412,7 @@ function SeverityBadge({ severity }: { severity: AttendanceIssueSeverity }) {
       className={
         error
           ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-amber-300 bg-amber-50 text-amber-800"
+          : "border-[oklch(0.75_0.1_70)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.55_0.14_65)]"
       }
       variant="outline"
     >
@@ -1476,14 +1476,14 @@ function sourceStatusTone(value: string | null) {
   }
 
   if (status.includes("LATE")) {
-    return "border-amber-300 bg-amber-50 text-amber-800";
+    return "border-[oklch(0.75_0.1_70)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.55_0.14_65)]";
   }
 
   if (status.includes("PRESENT") || status.includes("ON TIME")) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]";
   }
 
-  return "border-slate-200 bg-slate-100 text-slate-600";
+  return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]";
 }
 
 function reportedLocationStatusTone(
@@ -1493,12 +1493,11 @@ function reportedLocationStatusTone(
     AttendanceReportedLocationSummary["mappingStatus"],
     string
   > = {
-    MAPPED_VENDOR_CODE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    MAPPED_VENDOR_EXTERNAL_ID:
-      "border-emerald-200 bg-emerald-50 text-emerald-700",
+    MAPPED_VENDOR_CODE: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    MAPPED_VENDOR_EXTERNAL_ID: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
     MISSING_CODE: "border-destructive/40 bg-destructive/10 text-destructive",
-    NOT_CHECKED: "border-slate-200 bg-slate-100 text-slate-600",
-    UNMAPPED: "border-amber-300 bg-amber-50 text-amber-800"
+    NOT_CHECKED: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
+    UNMAPPED: "border-[oklch(0.75_0.1_70)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.55_0.14_65)]"
   };
 
   return tones[status];
@@ -1535,9 +1534,9 @@ function InlineError({ message }: { message: string }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="mt-4 grid place-items-center rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
-      <Inbox className="mb-3 h-8 w-8 text-slate-400" />
-      <p className="text-sm text-slate-500">{message}</p>
+    <div className="mt-4 grid place-items-center rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-8 text-center">
+      <Inbox className="mb-3 h-8 w-8 text-[color:var(--sn-muted)]" />
+      <p className="text-sm text-[color:var(--sn-muted)]">{message}</p>
     </div>
   );
 }
@@ -1553,10 +1552,10 @@ function Definition({
 }) {
   return (
     <div className="min-w-0 rounded-lg bg-white p-2">
-      <p className="text-[11px] font-medium uppercase text-slate-400">{label}</p>
+      <p className="text-[11px] font-medium uppercase text-[color:var(--sn-faint)]">{label}</p>
       <div
         className={cn(
-          "mt-1 break-words text-sm font-medium text-slate-800",
+          "mt-1 break-words text-sm font-medium text-[color:var(--sn-ink)]",
           mono && "font-mono text-xs"
         )}
       >
@@ -1586,18 +1585,18 @@ function TableHeader({ children }: { children: ReactNode }) {
 }
 
 function TableCell({ children }: { children: ReactNode }) {
-  return <td className="min-w-0 px-4 py-3 align-middle text-slate-700">{children}</td>;
+  return <td className="min-w-0 px-4 py-3 align-middle text-[color:var(--sn-body)]">{children}</td>;
 }
 
 function statusTone(status: AttendanceImportBatchStatus) {
   const tones: Record<AttendanceImportBatchStatus, string> = {
-    UPLOADED: "border-slate-200 bg-slate-100 text-slate-600",
-    VALIDATED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    CONFIRMED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    ACTIVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    REPLACED: "border-slate-200 bg-slate-100 text-slate-600",
+    UPLOADED: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
+    VALIDATED: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    CONFIRMED: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    ACTIVE: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+    REPLACED: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
     FAILED: "border-destructive/40 bg-destructive/10 text-destructive",
-    LOCKED: "border-amber-300 bg-amber-50 text-amber-800"
+    LOCKED: "border-[oklch(0.75_0.1_70)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.55_0.14_65)]"
   };
 
   return tones[status];

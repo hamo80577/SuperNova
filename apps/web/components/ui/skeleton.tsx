@@ -4,7 +4,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-lg bg-slate-200/80 motion-reduce:animate-none",
+        "animate-pulse rounded-lg bg-[color:var(--sn-sunken)] motion-reduce:animate-none",
         className
       )}
     />
@@ -17,7 +17,7 @@ export function PageHeaderSkeleton({ className }: { className?: string }) {
       aria-busy="true"
       aria-label="Loading page header"
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5",
+        "rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5",
         className
       )}
       role="status"
@@ -35,7 +35,7 @@ export function StatsCardSkeleton({ className }: { className?: string }) {
     <div
       aria-hidden="true"
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
         className
       )}
     >
@@ -51,7 +51,7 @@ export function BranchCardSkeleton({ className }: { className?: string }) {
     <div
       aria-hidden="true"
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
         className
       )}
     >
@@ -81,7 +81,7 @@ export function ListCardSkeleton({
     <div
       aria-hidden="true"
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm",
+        "rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
         className
       )}
     >
@@ -89,7 +89,7 @@ export function ListCardSkeleton({
         <div
           className={cn(
             "flex items-center gap-3 py-3",
-            index > 0 && "border-t border-slate-100"
+            index > 0 && "border-t border-[color:var(--sn-border)]"
           )}
           key={index}
         >
@@ -119,7 +119,7 @@ export function TableRowsSkeleton({
       aria-busy="true"
       aria-label={label}
       className={cn(
-        "rounded-2xl border border-slate-200 bg-white p-3 shadow-sm",
+        "rounded-[16px] border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
         className
       )}
       role="status"
@@ -128,7 +128,7 @@ export function TableRowsSkeleton({
         <div
           className={cn(
             "grid gap-3 py-3 sm:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(90px,0.7fr))]",
-            index > 0 && "border-t border-slate-100"
+            index > 0 && "border-t border-[color:var(--sn-border)]"
           )}
           key={index}
         >
@@ -154,7 +154,7 @@ export function DetailPanelSkeleton({
       aria-busy="true"
       aria-label={label}
       className={cn(
-        "grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5",
+        "grid gap-4 rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5",
         className
       )}
       role="status"

@@ -12,12 +12,14 @@ export function DashboardNav({
   collapsed,
   navSections,
   onNavigate,
-  pathname
+  pathname,
+  unreadCount = 0
 }: {
   collapsed: boolean;
   navSections: DashboardNavSection[];
   onNavigate?: () => void;
   pathname: string;
+  unreadCount?: number;
 }) {
   return (
     <nav
@@ -28,13 +30,14 @@ export function DashboardNav({
         {navSections.map(([section, items]) => (
           <div className="grid gap-1" key={section}>
             {!collapsed ? (
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--sn-muted)]">
                 {section}
               </p>
             ) : null}
             {items.map((item) => (
               <DashboardNavItem
                 collapsed={collapsed}
+                count={item.label === "Notifications" ? unreadCount : 0}
                 item={item}
                 key={`${section}-${item.label}`}
                 onNavigate={onNavigate}
@@ -50,28 +53,51 @@ export function DashboardNav({
 
 function DashboardNavItem({
   collapsed,
+  count = 0,
   item,
   onNavigate,
   pathname
 }: {
   collapsed: boolean;
+  count?: number;
   item: NavItem;
   onNavigate?: () => void;
   pathname: string;
 }) {
   const Icon = item.icon;
   const isActive = item.href ? isActiveHref(pathname, item.href) : false;
+  const hasCount = count > 0;
+  const countLabel = count > 9 ? "9+" : String(count);
+  const countChip =
+    !collapsed && hasCount ? (
+      <span
+        className={cn(
+          "ml-auto rounded-full px-1.5 py-px text-[10px] font-bold font-[family-name:var(--font-data)] leading-none",
+          isActive
+            ? "bg-white/25 text-white"
+            : "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+        )}
+      >
+        {countLabel}
+      </span>
+    ) : null;
+  const collapsedDot =
+    collapsed && hasCount ? (
+      <span className="absolute right-1.5 top-1.5 h-[7px] w-[7px] rounded-full bg-[color:var(--tlb-orange)]" />
+    ) : null;
   const itemClassName = cn(
-    "flex min-h-11 items-center rounded-xl border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/20",
+    "flex min-h-11 items-center rounded-[10px] border text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/25",
     collapsed ? "justify-center px-0" : "gap-3 px-3",
     isActive
-      ? "border-slate-200 bg-slate-100 text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.05)]"
-      : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950",
-    item.disabled && "cursor-not-allowed opacity-45 hover:border-transparent hover:bg-transparent hover:text-slate-600"
+      ? "border-transparent bg-[color:var(--tlb-orange)] font-semibold text-white shadow-[0_4px_12px_rgba(255,89,0,0.28)]"
+      : "border-transparent font-medium text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)] hover:text-[color:var(--sn-ink)]",
+    item.disabled &&
+      "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-[color:var(--sn-body)]",
+    collapsedDot && "relative"
   );
   const iconClassName = cn(
-    "h-5 w-5 shrink-0",
-    isActive ? "text-primary" : "text-slate-500"
+    "h-[18px] w-[18px] shrink-0",
+    isActive ? "text-white" : "text-[color:var(--sn-faint)]"
   );
 
   if (!item.href || item.disabled) {
@@ -82,7 +108,9 @@ function DashboardNavItem({
         title={collapsed ? item.label : undefined}
       >
         <Icon className={iconClassName} />
+        {collapsedDot}
         {!collapsed ? <span className="truncate">{item.label}</span> : null}
+        {countChip}
       </span>
     );
   }
@@ -97,7 +125,9 @@ function DashboardNavItem({
       title={collapsed ? item.label : undefined}
     >
       <Icon className={iconClassName} />
+      {collapsedDot}
       {!collapsed ? <span className="truncate">{item.label}</span> : null}
+      {countChip}
     </Link>
   );
 }

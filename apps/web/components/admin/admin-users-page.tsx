@@ -113,19 +113,19 @@ export function AdminUsersPage() {
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0">
             <Badge
-              className="border-orange-200 bg-orange-50 text-orange-700"
+              className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
               variant="outline"
             >
               Admin users
             </Badge>
-            <h2 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
+            <h2 className="mt-3 text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               Users Control Center
             </h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-[color:var(--sn-muted)]">
               Search, filter, export, and open operational profiles for every
               SuperNova user.
             </p>
@@ -141,7 +141,7 @@ export function AdminUsersPage() {
               Refresh
             </Button>
             <Button
-              className="h-11 rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+              className="h-11 rounded-xl bg-[color:var(--tlb-orange)] text-white hover:bg-[#E85100]"
               disabled={!users.length}
               onClick={() => exportUsersCsv(users)}
               type="button"
@@ -160,14 +160,14 @@ export function AdminUsersPage() {
         <StatCard icon={Archive} label="Archived users" value={stats.archived} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-950">
-          <Filter className="h-4 w-4 text-orange-600" />
+      <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--sn-ink)]">
+          <Filter className="h-4 w-4 text-[color:var(--tlb-orange)]" />
           Filters
         </div>
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(140px,1fr))]">
           <label className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
             <Input
               className="h-11 rounded-xl pl-9"
               onChange={(event) =>
@@ -230,7 +230,7 @@ export function AdminUsersPage() {
             value={filters.blockStatus}
           />
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--sn-muted)]">
           <span>
             Showing {filteredUsers.length} of {users.length} users
           </span>
@@ -299,7 +299,7 @@ function UsersStateView({
 
   if (state.status === "error") {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-[16px] border border-[oklch(0.88_0.035_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm text-[oklch(0.55_0.19_27)]">
         {state.error}
       </div>
     );
@@ -307,18 +307,18 @@ function UsersStateView({
 
   if (!users.length) {
     return (
-      <div className="grid min-h-56 place-items-center rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
-        <UserRound className="mb-3 h-8 w-8 text-slate-400" />
-        <p className="text-sm font-medium text-slate-700">No users match these filters.</p>
+      <div className="grid min-h-56 place-items-center rounded-[16px] border border-dashed border-[color:var(--sn-border)] bg-white p-6 text-center">
+        <UserRound className="mb-3 h-8 w-8 text-[color:var(--sn-muted)]" />
+        <p className="text-sm font-medium text-[color:var(--sn-body)]">No users match these filters.</p>
       </div>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
+          <thead className="border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-xs uppercase text-[color:var(--sn-muted)]">
             <tr>
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Role</th>
@@ -332,7 +332,7 @@ function UsersStateView({
           <tbody>
             {users.map((user) => (
               <tr
-                className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-orange-50/45"
+                className="cursor-pointer border-b border-[color:var(--sn-border)] transition-colors last:border-0 hover:bg-[#FFE8D9]/40"
                 key={user.id}
                 onClick={() => onOpenUser(user.id)}
                 tabIndex={0}
@@ -352,11 +352,11 @@ function UsersStateView({
                 <td className="px-4 py-3">
                   <StatusPill status={user.profileStatus} />
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-500">
+                <td className="px-4 py-3 text-xs text-[color:var(--sn-muted)]">
                   <p>{user.shopperId ?? "No Shopper ID"}</p>
                   <p>{user.ibsId ?? "No IBS ID"}</p>
                 </td>
-                <td className="px-4 py-3 text-slate-500">
+                <td className="px-4 py-3 text-[color:var(--sn-muted)]">
                   {formatDateTime(user.lastLoginAt)}
                 </td>
               </tr>
@@ -368,7 +368,7 @@ function UsersStateView({
       <div className="grid gap-3 p-3 lg:hidden">
         {users.map((user) => (
           <button
-            className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-200 hover:bg-orange-50/35"
+            className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-3 text-left shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] transition hover:border-[#FFD8BD] hover:bg-[#FFE8D9]/30"
             key={user.id}
             onClick={() => onOpenUser(user.id)}
             type="button"
@@ -390,12 +390,12 @@ function UsersStateView({
 function UserIdentity({ user }: { user: SafeUser }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[color:var(--sn-ink)] text-sm font-semibold text-white">
         {getInitials(user.nameEn)}
       </div>
       <div className="min-w-0">
-        <p className="truncate font-semibold text-slate-950">{user.nameEn}</p>
-        <p className="truncate text-xs text-slate-500">
+        <p className="truncate font-semibold text-[color:var(--sn-ink)]">{user.nameEn}</p>
+        <p className="truncate text-xs text-[color:var(--sn-muted)]">
           {user.phoneNumber} · {user.nameAr ?? "No Arabic name"}
         </p>
       </div>
@@ -413,12 +413,12 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 grid h-10 w-10 place-items-center rounded-2xl bg-orange-50 text-orange-700">
+    <div className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <div className="mb-4 grid h-10 w-10 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]">
         <Icon className="h-5 w-5" />
       </div>
-      <p className="text-2xl font-semibold text-slate-950">{value}</p>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className="text-2xl font-semibold text-[color:var(--sn-ink)]">{value}</p>
+      <p className="mt-1 text-sm text-[color:var(--sn-muted)]">{label}</p>
     </div>
   );
 }
@@ -435,11 +435,11 @@ function SelectFilter({
   value: string;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-semibold uppercase text-slate-500">
+    <label className="grid gap-1.5 text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
       {label}
       <Select
         aria-label={label}
-        className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium normal-case text-slate-700"
+        className="h-11 rounded-xl border border-[color:var(--sn-border)] bg-white px-3 text-sm font-medium normal-case text-[color:var(--sn-body)]"
         onChange={(event) => onChange(event.target.value)}
         value={value}
       >
@@ -466,7 +466,7 @@ function StatusPill({
       className={cn(
         "inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
         tone === "orange"
-          ? "border-orange-200 bg-orange-50 text-orange-700"
+          ? "border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
           : getStatusTone(status)
       )}
     >
@@ -477,15 +477,15 @@ function StatusPill({
 
 function getStatusTone(status: string) {
   if (["ACTIVE", "COMPLETE", "NO_BLOCK"].includes(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]";
   }
   if (["INACTIVE", "NEW_HIRE_PENDING", "INCOMPLETE", "PENDING_REVIEW"].includes(status)) {
-    return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-[oklch(0.82_0.08_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]";
   }
   if (["SUSPENDED", "ARCHIVED", "RESIGNED", "PERMANENT_BLOCK", "TEMPORARY_BLOCK"].includes(status)) {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "border-[oklch(0.82_0.08_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]";
   }
-  return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]";
 }
 
 function filterUsers(

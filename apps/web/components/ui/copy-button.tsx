@@ -62,7 +62,7 @@ export function CopyButton({
       aria-label={ariaLabel ?? label ?? "Copy"}
       aria-live="polite"
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition duration-200 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 active:scale-[0.96]",
+        "inline-flex items-center justify-center gap-1.5 rounded-xl border border-[color:var(--sn-border)] bg-white text-sm font-semibold text-[color:var(--sn-body)] transition duration-200 hover:border-[#FFD8BD] hover:bg-[#FFE8D9] hover:text-[color:var(--tlb-orange-900)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)] active:scale-[0.96]",
         iconOnly
           ? size === "sm"
             ? "h-8 w-8 p-0"
@@ -70,8 +70,10 @@ export function CopyButton({
           : size === "sm"
             ? "min-h-8 px-2.5"
             : "min-h-10 px-3",
-        state === "copied" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-        state === "error" && "border-red-200 bg-red-50 text-red-700",
+        state === "copied" &&
+          "border-[oklch(0.85_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
+        state === "error" &&
+          "border-[oklch(0.85_0.06_27)] bg-[oklch(0.95_0.035_27)] text-[oklch(0.55_0.19_27)]",
         className
       )}
       onClick={copyText}

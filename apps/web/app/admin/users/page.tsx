@@ -6,6 +6,7 @@ export default function UsersPage() {
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
       description="Role-specific operational users by assignment."
+      showPageTitle
       title="Users"
     >
       <UsersAreaPage />

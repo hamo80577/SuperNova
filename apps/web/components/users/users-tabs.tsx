@@ -22,7 +22,7 @@ export function UsersTabs({
     <div className="overflow-hidden pb-1">
       <div
         aria-label="User role sections"
-        className="flex min-w-0 items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1"
+        className="flex min-w-0 items-center gap-1 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-1"
         role="tablist"
       >
         {sections.map((section) => {
@@ -31,10 +31,10 @@ export function UsersTabs({
             <button
               aria-selected={active}
               className={cn(
-                "relative inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold text-slate-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 sm:gap-2 sm:px-4 sm:text-sm",
+                "relative inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold text-[color:var(--sn-body)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)] sm:gap-2 sm:px-4 sm:text-sm",
                 active
-                  ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-100"
-                  : "hover:bg-white/80 hover:text-slate-900"
+                  ? "bg-[color:var(--sn-card)] text-[color:var(--tlb-orange-900)] shadow-sm ring-1 ring-[#FFD8BD]"
+                  : "hover:bg-[color:var(--sn-card)]/80 hover:text-[color:var(--sn-ink)]"
               )}
               key={section.id}
               onClick={() => onSelect(section.id)}
@@ -46,8 +46,8 @@ export function UsersTabs({
                 className={cn(
                   "shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-4 sm:px-2",
                   active
-                    ? "bg-orange-50 text-orange-700"
-                    : "bg-white text-slate-500 ring-1 ring-slate-200"
+                    ? "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                    : "bg-[color:var(--sn-card)] text-[color:var(--sn-muted)] ring-1 ring-[color:var(--sn-border)]"
                 )}
               >
                 {counts[section.id]}
