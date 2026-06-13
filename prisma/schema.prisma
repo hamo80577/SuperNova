@@ -91,6 +91,7 @@ enum RequestType {
   RESIGNATION
   TRANSFER
   DEDUCTION
+  ANNUAL_LEAVE
 }
 
 enum DeductionPolicyStatus {
@@ -119,6 +120,7 @@ enum DeductionCaseStatus {
 
 enum RequestStatus {
   DRAFT
+  PENDING_CHAMP
   PENDING_AREA_MANAGER
   PENDING_DESTINATION_AREA_MANAGER
   PENDING_ADMIN
@@ -136,6 +138,7 @@ enum ApprovalStatus {
 }
 
 enum ApprovalStep {
+  CHAMP_APPROVAL
   AREA_MANAGER_APPROVAL
   SOURCE_AREA_MANAGER_APPROVAL
   DESTINATION_AREA_MANAGER_APPROVAL
@@ -371,6 +374,7 @@ model User {
   createdDeductionCases       DeductionCase[]                  @relation("DeductionCaseCreatedBy")
   targetedDeductionCases      DeductionCase[]                  @relation("DeductionCaseTargetUser")
   finalApprovedDeductionCases DeductionCase[]                  @relation("DeductionCaseFinalApprovedBy")
+  annualLeaveRequests         AnnualLeaveRequest[]             @relation("AnnualLeaveRequestTargetUser")
 
   @@index([role])
   @@index([role, accountStatus])
@@ -541,6 +545,7 @@ model Request {
   createdAssignments  PickerBranchAssignment[] @relation("RequestCreatedAssignments")
   hrSyncLogs          HrSyncLog[]
   deductionCase       DeductionCase?
+  annualLeaveRequest  AnnualLeaveRequest?
 
   @@index([status])
   @@index([status, currentStep])
@@ -665,6 +670,33 @@ model DeductionCase {
   // occurrenceNumber) WHERE status IN (PENDING_APPROVAL, EFFECTIVE) is created
   // in migration 20260611090000_deduction_open_occurrence_unique. Prisma
   // cannot express filtered unique indexes, so it lives in raw SQL only.
+}
+
+model AnnualLeaveRequest {
+  id                             String   @id @default(uuid())
+  requestId                      String   @unique
+  targetUserId                   String
+  targetRole                     UserRole
+  startDate                      DateTime
+  endDate                        DateTime
+  requestedDays                  Int
+  reason                         String
+  contextVendorId                String?
+  contextChainId                 String?
+  balanceCarriedSnapshot         Decimal? @db.Decimal(6, 2)
+  balanceAccruedSnapshot         Decimal? @db.Decimal(6, 2)
+  balanceTakenSnapshot           Decimal? @db.Decimal(6, 2)
+  balanceHeldSnapshot            Decimal? @db.Decimal(6, 2)
+  availableBeforeRequestSnapshot Decimal? @db.Decimal(6, 2)
+  availableAfterRequestSnapshot  Decimal? @db.Decimal(6, 2)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  request                        Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  targetUser                     User     @relation("AnnualLeaveRequestTargetUser", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@index([targetUserId, startDate])
+  @@index([targetUserId, endDate])
+  @@index([contextVendorId])
 }
 
 model HrSyncLog {

@@ -73,6 +73,7 @@ for (const step of [
 assert.deepEqual(Object.values(ApprovalStep).sort(), [
   "ADMIN_FINAL_APPROVAL",
   "AREA_MANAGER_APPROVAL",
+  "CHAMP_APPROVAL",
   "DESTINATION_AREA_MANAGER_APPROVAL",
   "SOURCE_AREA_MANAGER_APPROVAL"
 ]);

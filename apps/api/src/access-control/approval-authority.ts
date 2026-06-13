@@ -1,6 +1,7 @@
 import { ApprovalStep } from "@prisma/client";
 
 export const ApprovalAuthorities = {
+  BRANCH_AUTHORITY_APPROVAL: "BRANCH_AUTHORITY_APPROVAL",
   CHAIN_AUTHORITY_APPROVAL: "CHAIN_AUTHORITY_APPROVAL",
   SOURCE_CHAIN_AUTHORITY_APPROVAL: "SOURCE_CHAIN_AUTHORITY_APPROVAL",
   DESTINATION_CHAIN_AUTHORITY_APPROVAL: "DESTINATION_CHAIN_AUTHORITY_APPROVAL",
@@ -11,6 +12,7 @@ export type ApprovalAuthority =
   (typeof ApprovalAuthorities)[keyof typeof ApprovalAuthorities];
 
 export const APPROVAL_AUTHORITIES = [
+  ApprovalAuthorities.BRANCH_AUTHORITY_APPROVAL,
   ApprovalAuthorities.CHAIN_AUTHORITY_APPROVAL,
   ApprovalAuthorities.SOURCE_CHAIN_AUTHORITY_APPROVAL,
   ApprovalAuthorities.DESTINATION_CHAIN_AUTHORITY_APPROVAL,
@@ -18,6 +20,8 @@ export const APPROVAL_AUTHORITIES = [
 ] as const satisfies readonly ApprovalAuthority[];
 
 export const APPROVAL_AUTHORITY_BY_STEP = {
+  // Champ approving a Picker's annual leave on the branch they share.
+  [ApprovalStep.CHAMP_APPROVAL]: ApprovalAuthorities.BRANCH_AUTHORITY_APPROVAL,
   [ApprovalStep.AREA_MANAGER_APPROVAL]:
     ApprovalAuthorities.CHAIN_AUTHORITY_APPROVAL,
   [ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL]:
@@ -32,6 +36,13 @@ export function getApprovalAuthorityForStep(
   step: ApprovalStep
 ): ApprovalAuthority {
   return APPROVAL_AUTHORITY_BY_STEP[step];
+}
+
+export function isBranchAuthorityStep(step: ApprovalStep): boolean {
+  return (
+    getApprovalAuthorityForStep(step) ===
+    ApprovalAuthorities.BRANCH_AUTHORITY_APPROVAL
+  );
 }
 
 export function isChainAuthorityStep(step: ApprovalStep): boolean {

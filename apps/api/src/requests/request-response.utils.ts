@@ -1,6 +1,7 @@
 import type {
   AuditLog,
   HrSyncLog,
+  Prisma,
   RequestApproval,
   User
 } from "@prisma/client";
@@ -54,8 +55,40 @@ export function toRequestSummary(
     destinationVendor: request.destinationVendor
       ? toVendorSummary(request.destinationVendor)
       : null,
-    approvals: request.approvals.map(toApprovalSummary)
+    approvals: request.approvals.map(toApprovalSummary),
+    annualLeave: toAnnualLeaveSummary(request.annualLeaveRequest)
   };
+}
+
+function toAnnualLeaveSummary(
+  annualLeave: RequestWithRelations["annualLeaveRequest"]
+) {
+  if (!annualLeave) {
+    return null;
+  }
+
+  return {
+    startDate: annualLeave.startDate,
+    endDate: annualLeave.endDate,
+    requestedDays: annualLeave.requestedDays,
+    reason: annualLeave.reason,
+    contextVendorId: annualLeave.contextVendorId,
+    contextChainId: annualLeave.contextChainId,
+    balanceCarriedSnapshot: toNumberOrNull(annualLeave.balanceCarriedSnapshot),
+    balanceAccruedSnapshot: toNumberOrNull(annualLeave.balanceAccruedSnapshot),
+    balanceTakenSnapshot: toNumberOrNull(annualLeave.balanceTakenSnapshot),
+    balanceHeldSnapshot: toNumberOrNull(annualLeave.balanceHeldSnapshot),
+    availableBeforeRequestSnapshot: toNumberOrNull(
+      annualLeave.availableBeforeRequestSnapshot
+    ),
+    availableAfterRequestSnapshot: toNumberOrNull(
+      annualLeave.availableAfterRequestSnapshot
+    )
+  };
+}
+
+function toNumberOrNull(value: Prisma.Decimal | null) {
+  return value === null ? null : value.toNumber();
 }
 
 export function toRequestDetailSummary(

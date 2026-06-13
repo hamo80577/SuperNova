@@ -18,6 +18,7 @@ import {
 
 import { AccessPolicyService } from "../access-control/access-policy.service";
 import {
+  isBranchAuthorityStep,
   isChainAuthorityStep,
   isFinalLifecycleAuthorityStep
 } from "../access-control/approval-authority";
@@ -33,6 +34,7 @@ import {
 import { requestInclude } from "../requests/request-includes";
 import { toApprovalSummary, toRequestSummary } from "../requests/request-response.utils";
 import { RequestsService } from "../requests/requests.service";
+import { AnnualLeaveRequestService } from "../requests/workflows/annual-leave-request.service";
 import type { ApprovalDecisionDto } from "./dto/approval-decision.dto";
 
 const approvalInclude = {
@@ -66,7 +68,9 @@ export class ApprovalsService {
     @Inject(DeductionsService)
     private readonly deductionsService: DeductionsService,
     @Inject(AccessPolicyService)
-    private readonly accessPolicy: AccessPolicyService
+    private readonly accessPolicy: AccessPolicyService,
+    @Inject(AnnualLeaveRequestService)
+    private readonly annualLeaveRequestService: AnnualLeaveRequestService
   ) {}
 
   getFoundationStatus() {
@@ -185,6 +189,15 @@ export class ApprovalsService {
         approval.id,
         context,
         dto.notes
+      );
+    }
+
+    if (approval.request.type === RequestType.ANNUAL_LEAVE) {
+      // Re-check balance + active holds (excluding this request) before
+      // advancing the chain. Never writes attendance.
+      await this.annualLeaveRequestService.assertApprovalStillValid(
+        approval.requestId,
+        approval.id
       );
     }
 
@@ -404,6 +417,14 @@ export class ApprovalsService {
     approval: Pick<RequestApproval, "id" | "requestId" | "step">,
     user: AuthenticatedUser
   ) {
+    if (isBranchAuthorityStep(approval.step)) {
+      this.accessPolicy.assertCan(user, PermissionKeys.APPROVALS_DECIDE_BRANCH, {
+        approvalId: approval.id,
+        requestId: approval.requestId
+      });
+      return;
+    }
+
     if (isChainAuthorityStep(approval.step)) {
       this.accessPolicy.assertCan(user, PermissionKeys.APPROVALS_DECIDE_CHAIN, {
         approvalId: approval.id,
@@ -433,6 +454,7 @@ export class ApprovalsService {
     approvals: T[]
   ) {
     const priority: Record<ApprovalStep, number> = {
+      [ApprovalStep.CHAMP_APPROVAL]: 0,
       [ApprovalStep.AREA_MANAGER_APPROVAL]: 1,
       [ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL]: 1,
       [ApprovalStep.DESTINATION_AREA_MANAGER_APPROVAL]: 2,

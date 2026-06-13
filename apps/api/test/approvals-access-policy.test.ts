@@ -299,7 +299,9 @@ function createService(
     notificationsService,
     prisma,
     requestsService,
-    accessPolicy
+    { finalizeFromAdminApproval: async () => undefined } as never,
+    accessPolicy,
+    { assertApprovalStillValid: async () => undefined } as never
   ) as ApprovalsService;
 }
 

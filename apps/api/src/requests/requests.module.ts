@@ -9,6 +9,7 @@ import { UsersModule } from "../users/users.module";
 import { RequestApprovalRoutingService } from "./request-approval-routing.service";
 import { RequestsController } from "./requests.controller";
 import { RequestsService } from "./requests.service";
+import { AnnualLeaveRequestService } from "./workflows/annual-leave-request.service";
 import { NewHireCandidateService } from "./workflows/new-hire-candidate.service";
 import { NewHireFinalizationService } from "./workflows/new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./workflows/new-hire-request-creation.service";
@@ -35,6 +36,7 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
   providers: [
     RequestApprovalRoutingService,
     RequestsService,
+    AnnualLeaveRequestService,
     NewHireApprovalService,
     NewHireCandidateService,
     NewHireFinalizationService,
@@ -48,6 +50,6 @@ import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
     OffboardingWorkflowService,
     TransferWorkflowService
   ],
-  exports: [RequestsService]
+  exports: [RequestsService, AnnualLeaveRequestService]
 })
 export class RequestsModule {}

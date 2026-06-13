@@ -55,9 +55,11 @@ import {
   toRequestSummary,
   toTimeline
 } from "./request-response.utils";
+import { AnnualLeaveRequestService } from "./workflows/annual-leave-request.service";
 import { NewHireWorkflowService } from "./workflows/new-hire-workflow.service";
 import { OffboardingWorkflowService } from "./workflows/offboarding-workflow.service";
 import { TransferWorkflowService } from "./workflows/transfer-workflow.service";
+import type { CreateAnnualLeaveRequestDto } from "./dto/create-annual-leave-request.dto";
 
 const MAX_PAGE_SIZE = 100;
 
@@ -83,7 +85,9 @@ export class RequestsService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(RequestApprovalRoutingService)
-    private readonly requestApprovalRoutingService: RequestApprovalRoutingService
+    private readonly requestApprovalRoutingService: RequestApprovalRoutingService,
+    @Inject(AnnualLeaveRequestService)
+    private readonly annualLeaveRequestService: AnnualLeaveRequestService
   ) {}
 
   getFoundationStatus() {
@@ -257,6 +261,24 @@ export class RequestsService {
 
   async createTransfer(dto: CreateTransferRequestDto, context: RequestContext) {
     return this.transferWorkflowService.createTransfer(dto, context);
+  }
+
+  async previewAnnualLeave(
+    dto: CreateAnnualLeaveRequestDto,
+    context: RequestContext
+  ) {
+    return this.annualLeaveRequestService.preview(context.actor, dto);
+  }
+
+  async createAnnualLeaveRequest(
+    dto: CreateAnnualLeaveRequestDto,
+    context: RequestContext
+  ) {
+    return this.annualLeaveRequestService.createSelfRequest(
+      context.actor,
+      dto,
+      context
+    );
   }
 
   async finalizeNewHire(
@@ -603,6 +625,10 @@ export class RequestsService {
   }
 
   statusForStep(step: ApprovalStep) {
+    if (step === ApprovalStep.CHAMP_APPROVAL) {
+      return RequestStatus.PENDING_CHAMP;
+    }
+
     if (
       step === ApprovalStep.AREA_MANAGER_APPROVAL ||
       step === ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL
@@ -841,6 +867,15 @@ export class RequestsService {
   ) {
     if (step === ApprovalStep.ADMIN_FINAL_APPROVAL) {
       return this.isAdmin(user);
+    }
+
+    if (step === ApprovalStep.CHAMP_APPROVAL) {
+      // Annual leave Champ approval is owned by the specifically-assigned Champ.
+      return (
+        user.role === UserRole.CHAMP &&
+        approverId !== null &&
+        approverId === user.id
+      );
     }
 
     if (user.role !== UserRole.AREA_MANAGER) {

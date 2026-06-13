@@ -16,6 +16,6 @@ import { UsersService } from "./users.service";
   ],
   controllers: [UsersController],
   providers: [TemporaryPasswordService, AnnualLeaveBalanceService, UsersService],
-  exports: [TemporaryPasswordService, UsersService]
+  exports: [TemporaryPasswordService, AnnualLeaveBalanceService, UsersService]
 })
 export class UsersModule {}
