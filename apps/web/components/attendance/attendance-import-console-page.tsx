@@ -20,13 +20,14 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
+import { FileDropzone } from "@/components/ui/file-dropzone";
 import { ModalPortal } from "@/components/ui/modal-portal";
+import { MonthPicker } from "@/components/ui/month-picker";
 import { Select } from "@/components/ui/select";
 import {
   attendanceApi,
@@ -92,11 +93,6 @@ export function AttendanceImportConsolePage({
     useState<AsyncActionState>({
       status: "idle"
     });
-  const [fileInputKey, setFileInputKey] = useState(0);
-
-  const selectedFileLabel = file
-    ? `${file.name} (${formatFileSize(file.size)})`
-    : "No file selected";
   const unmappedLocations = useMemo(
     () =>
       preview?.preview.rowsByReportedLocationCode.filter(
@@ -244,10 +240,9 @@ export function AttendanceImportConsolePage({
     }
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
+  function handleFileSelect(nextFile: File | null) {
+    setFile(nextFile);
     resetPreviewState();
-    setFileInputKey((current) => current + 1);
   }
 
   function handlePeriodMonthChange(value: string) {
@@ -272,7 +267,6 @@ export function AttendanceImportConsolePage({
     setUploadDate(defaultUploadDate());
     setPeriodMonth("");
     resetPreviewState();
-    setFileInputKey((current) => current + 1);
   }
 
   function buildPreviewOptions(options: {
@@ -355,11 +349,10 @@ export function AttendanceImportConsolePage({
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           <UploadCard
-            fileLabel={selectedFileLabel}
-            fileInputKey={fileInputKey}
+            file={file}
             importMode={importMode}
             isPreviewing={isPreviewing}
-            onFileChange={handleFileChange}
+            onFileChange={handleFileSelect}
             onPeriodMonthChange={handlePeriodMonthChange}
             onPreview={handlePreview}
             onUploadDateChange={setUploadDate}
@@ -654,8 +647,7 @@ function MiniFact({ label, value }: { label: string; value: string }) {
 }
 
 function UploadCard({
-  fileLabel,
-  fileInputKey,
+  file,
   importMode,
   isPreviewing,
   onFileChange,
@@ -666,11 +658,10 @@ function UploadCard({
   previewError,
   uploadDate
 }: {
-  fileLabel: string;
-  fileInputKey: number;
+  file: File | null;
   importMode: AttendanceImportMode;
   isPreviewing: boolean;
-  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onFileChange: (file: File | null) => void;
   onPeriodMonthChange: (value: string) => void;
   onPreview: () => void;
   onUploadDateChange: (value: string) => void;
@@ -679,6 +670,13 @@ function UploadCard({
   uploadDate: string;
 }) {
   const historical = importMode === "HISTORICAL_MONTH";
+  const maxClosedMonth = useMemo(() => {
+    const now = new Date();
+    const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${previous.getFullYear()}-${String(
+      previous.getMonth() + 1
+    ).padStart(2, "0")}`;
+  }, []);
 
   return (
     <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
@@ -699,26 +697,22 @@ function UploadCard({
       </div>
 
       <div className="mt-5 grid gap-3">
-        <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
+        <div className="grid gap-1.5 text-xs font-medium text-[color:var(--sn-body)]">
           Excel file
-          <Input
+          <FileDropzone
             accept=".xlsx,.xls"
-            className="h-auto rounded-xl py-3"
-            key={fileInputKey}
-            onChange={onFileChange}
-            type="file"
+            file={file}
+            hint="XLSX or XLS"
+            onFileChange={onFileChange}
           />
-        </label>
-        <p className="break-words rounded-xl bg-[color:var(--sn-sunken)] px-3 py-2 text-sm text-[color:var(--sn-body)]">
-          {fileLabel}
-        </p>
+        </div>
         {historical ? (
-          <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
+          <label className="grid gap-1.5 text-xs font-medium text-[color:var(--sn-body)]">
             Period month
-            <Input
-              className="h-11 rounded-xl"
-              onChange={(event) => onPeriodMonthChange(event.target.value)}
-              type="month"
+            <MonthPicker
+              maxMonth={maxClosedMonth}
+              onChange={onPeriodMonthChange}
+              placeholder="Select a closed month"
               value={periodMonth}
             />
             <span className="text-xs leading-5 text-[color:var(--sn-muted)]">
@@ -902,6 +896,15 @@ function ReportedLocationsSection({
 }: {
   locations: AttendanceReportedLocationSummary[];
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(locations.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const visibleLocations = locations.slice(startIndex, startIndex + pageSize);
+  const firstVisible = locations.length === 0 ? 0 : startIndex + 1;
+  const lastVisible = startIndex + visibleLocations.length;
+
   return (
     <section className="rounded-[16px] border-[color:var(--sn-border)] border bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -927,6 +930,7 @@ function ReportedLocationsSection({
       {locations.length === 0 ? (
         <EmptyState message="No reported attendance locations returned by the backend." />
       ) : (
+        <>
         <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--sn-border)]">
           <table className="hidden w-full table-fixed text-left text-sm lg:table">
             <colgroup>
@@ -948,7 +952,7 @@ function ReportedLocationsSection({
               </tr>
             </thead>
             <tbody>
-              {locations.map((location) => (
+              {visibleLocations.map((location) => (
                 <tr
                   className="border-b last:border-0"
                   key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
@@ -975,7 +979,7 @@ function ReportedLocationsSection({
           </table>
 
           <div className="grid gap-3 p-3 lg:hidden">
-            {locations.map((location) => (
+            {visibleLocations.map((location) => (
               <ReportedLocationCard
                 key={`${location.code ?? "missing"}:${location.name ?? "none"}:${location.mappingStatus}`}
                 location={location}
@@ -983,6 +987,58 @@ function ReportedLocationsSection({
             ))}
           </div>
         </div>
+
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-sm font-medium text-[color:var(--sn-body)]">
+              Showing {firstVisible}-{lastVisible} of {locations.length}
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                aria-label="Previous reported locations page"
+                className="h-10 w-10 rounded-xl p-0"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((value) => Math.max(value - 1, 1))}
+                type="button"
+                variant="ghost"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="grid h-10 min-w-14 place-items-center rounded-xl border border-[color:var(--sn-border)] px-3 text-sm font-semibold tabular-nums text-[color:var(--sn-body)]">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                aria-label="Next reported locations page"
+                className="h-10 w-10 rounded-xl p-0"
+                disabled={currentPage >= totalPages}
+                onClick={() =>
+                  setPage((value) => Math.min(value + 1, totalPages))
+                }
+                type="button"
+                variant="ghost"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-[color:var(--sn-body)]">
+              Show per Page
+              <Select
+                aria-label="Reported locations per page"
+                className="h-10 w-20 rounded-xl"
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                value={pageSize}
+              >
+                {issuePageSizes.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          </div>
+        </>
       )}
     </section>
   );
@@ -1607,19 +1663,6 @@ function defaultUploadDate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
     now.getDate()
   ).padStart(2, "0")}`;
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  const kib = bytes / 1024;
-  if (kib < 1024) {
-    return `${kib.toFixed(1)} KB`;
-  }
-
-  return `${(kib / 1024).toFixed(1)} MB`;
 }
 
 function formatMonth(value?: string | null) {
