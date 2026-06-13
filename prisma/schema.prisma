@@ -202,8 +202,19 @@ enum AttendanceLeaveType {
   OTHER_LEAVE
 }
 
+enum AttendancePersonRole {
+  PICKER
+  CHAMP
+}
+
+enum AttendanceIdentifierType {
+  SHOPPER_ID
+  IBS_ID
+}
+
 enum AttendanceMatchStatus {
   MATCHED_PICKER
+  MATCHED_CHAMP
   UNMATCHED_IDENTIFIER
   EXCLUDED_NOT_PICKER
   EXCLUDED_NON_EGYPT
@@ -242,6 +253,7 @@ enum AttendanceIssueCode {
   MTD_INCLUDES_FUTURE_DATE
   MISSING_IDENTIFIER
   UNMATCHED_IDENTIFIER
+  AMBIGUOUS_ATTENDANCE_IDENTIFIER
   MATCHED_USER_NOT_PICKER
   NON_EGYPT_ROW
   INVALID_SHIFT_DATE
@@ -758,7 +770,11 @@ model AttendanceDailyRecord {
   importBatchId           String
   periodMonth             String
   shiftDate               DateTime
-  shopperId               String
+  shopperId               String?
+  personRole              AttendancePersonRole       @default(PICKER)
+  identifierType          AttendanceIdentifierType   @default(SHOPPER_ID)
+  identifierValue         String
+  personNameSnapshot      String
   userId                  String
   pickerNameSnapshot      String
   sourceName              String?
@@ -817,6 +833,9 @@ model AttendanceDailyRecord {
   @@index([periodMonth, shiftDate])
   @@index([periodMonth, userId])
   @@index([shopperId])
+  @@index([identifierValue])
+  @@index([personRole])
+  @@index([periodMonth, personRole])
   @@index([importBatchId])
   @@index([userId])
   @@index([reportedVendorId])
@@ -831,7 +850,11 @@ model AttendancePickerMonthlySummary {
   id                      String                @id @default(uuid())
   periodMonth             String
   sourceBatchId           String
-  shopperId               String
+  shopperId               String?
+  personRole              AttendancePersonRole  @default(PICKER)
+  identifierType          AttendanceIdentifierType @default(SHOPPER_ID)
+  identifierValue         String
+  personNameSnapshot      String
   userId                  String
   pickerNameSnapshot      String
   totalScheduledRows      Int                   @default(0)

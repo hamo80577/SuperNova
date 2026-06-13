@@ -9,6 +9,7 @@ import {
   AttendanceImportBatchStatus,
   AttendanceLateBucket,
   AttendanceLocationMappingStatus,
+  AttendancePersonRole,
   EmploymentStatus,
   ProfileStatus,
   UserRole
@@ -231,8 +232,8 @@ function actor(id: string, role: UserRole): AuthenticatedUser {
   };
 }
 
-function createPrismaMock() {
-  const rows = [...activeRows, ...inactiveRows];
+function createPrismaMock(extraRows: DailyRow[] = []) {
+  const rows = [...activeRows, ...extraRows, ...inactiveRows];
   const calls = {
     recordCount: [] as unknown[],
     recordFindMany: [] as unknown[]
@@ -387,6 +388,86 @@ async function run() {
   }
 
   {
+    // Champ visibility: own CHAMP attendance + PICKER attendance in assigned
+    // branches, but NEVER another champ's attendance — even in the same branch.
+    const champOwn = dailyRow({
+      id: "champ-1-own",
+      userId: "champ-1",
+      personRole: AttendancePersonRole.CHAMP,
+      shopperId: null,
+      pickerNameSnapshot: "Champ One",
+      reportedVendorId: "vendor-c",
+      reportedChainId: "chain-c",
+      reportedLocationName: "Champ Own Branch C"
+    });
+    const otherChampInBranch = dailyRow({
+      id: "other-champ-vendor-b",
+      userId: "champ-other",
+      personRole: AttendancePersonRole.CHAMP,
+      shopperId: null,
+      pickerNameSnapshot: "Other Champ",
+      reportedVendorId: "vendor-b",
+      reportedChainId: "chain-b",
+      reportedLocationName: "Reported Branch B"
+    });
+    const champInChainA = dailyRow({
+      id: "champ-in-chain-a",
+      userId: "champ-other",
+      personRole: AttendancePersonRole.CHAMP,
+      shopperId: null,
+      pickerNameSnapshot: "Champ In Chain A",
+      reportedVendorId: "vendor-a",
+      reportedChainId: "chain-a",
+      reportedLocationName: "Reported Branch A"
+    });
+    const { prisma } = createPrismaMock([
+      champOwn,
+      otherChampInBranch,
+      champInChainA
+    ]);
+    const service = new AttendanceReportService(prisma as never);
+
+    const result = await service.getDailyReport(
+      { periodMonth: "2026-05" },
+      actor("champ-1", UserRole.CHAMP)
+    );
+    // reported-vendor-b is a PICKER in the champ's assigned branch; champ-1-own
+    // is the champ's own row. other-champ-vendor-b is excluded.
+    assert.deepEqual(
+      result.rows.map((row) => row.id),
+      ["reported-vendor-b", "champ-1-own"]
+    );
+
+    const champOnly = await service.getDailyReport(
+      { periodMonth: "2026-05", role: UserRole.CHAMP },
+      actor("champ-1", UserRole.CHAMP)
+    );
+    assert.deepEqual(
+      champOnly.rows.map((row) => row.id),
+      ["champ-1-own"]
+    );
+
+    const pickerOnly = await service.getDailyReport(
+      { periodMonth: "2026-05", role: UserRole.PICKER },
+      actor("champ-1", UserRole.CHAMP)
+    );
+    assert.deepEqual(
+      pickerOnly.rows.map((row) => row.id),
+      ["reported-vendor-b"]
+    );
+
+    // Area Manager sees PICKER and CHAMP attendance inside their chain scope.
+    const areaManagerView = await service.getDailyReport(
+      { periodMonth: "2026-05" },
+      actor("area-manager-1", UserRole.AREA_MANAGER)
+    );
+    assert.deepEqual(
+      areaManagerView.rows.map((row) => row.id),
+      ["reported-chain-a", "picker-own-chain-a", "champ-in-chain-a"]
+    );
+  }
+
+  {
     const { prisma } = createPrismaMock();
     const service = new AttendanceReportService(prisma as never);
     const result = await service.getDailyReport(
@@ -486,6 +567,7 @@ function dailyRow(
     periodMonth: "2026-05",
     shiftDate: date(shiftDate),
     shopperId: "SHOPPER-001",
+    personRole: AttendancePersonRole.PICKER,
     userId: "picker-1",
     pickerNameSnapshot: "Picker One",
     sourceDesignation: "Picker",
@@ -625,7 +707,8 @@ type DailyRow = {
   importBatchId: string;
   periodMonth: string;
   shiftDate: Date;
-  shopperId: string;
+  shopperId: string | null;
+  personRole: AttendancePersonRole;
   userId: string;
   pickerNameSnapshot: string;
   sourceDesignation: string | null;

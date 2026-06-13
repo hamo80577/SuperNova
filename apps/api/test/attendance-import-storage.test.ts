@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import {
   AssignmentStatus,
   AttendanceAssignmentMismatchStatus,
+  AttendanceIdentifierType,
   AttendanceImportBatchStatus,
   AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueSeverity,
   AttendanceLocationMappingStatus,
+  AttendanceMatchStatus,
+  AttendancePersonRole,
   UserRole
 } from "@prisma/client";
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
@@ -157,10 +160,12 @@ function createStore() {
       },
       {
         id: "user-champ-1",
-        shopperId: "CHAMP-1",
+        shopperId: null,
+        ibsId: "CHAMP-1",
         role: UserRole.CHAMP,
         nameEn: "Champ One",
-        pickerBranchAssignments: []
+        pickerBranchAssignments: [],
+        vendorChampAssignments: []
       }
     ],
     vendors: [
@@ -203,6 +208,11 @@ function createStore() {
         startDate: now
       }
     ],
+    vendorChampAssignments: [] as Array<{
+      champId: string;
+      vendorId: string;
+      status: AssignmentStatus;
+    }>,
     batches: [] as StoredBatch[],
     issues: [] as Record<string, unknown>[],
     dailyRecords: [] as Record<string, unknown>[],
@@ -213,8 +223,35 @@ function createStore() {
 
   const prisma = {
     user: {
-      findMany: async ({ where }: { where: { shopperId: { in: string[] } } }) =>
-        store.users.filter((user) => where.shopperId.in.includes(user.shopperId)),
+      findMany: async ({
+        where
+      }: {
+        where: {
+          OR?: Array<{
+            role?: UserRole;
+            shopperId?: { in: string[] };
+            ibsId?: { in: string[] };
+          }>;
+        };
+      }) =>
+        store.users.filter((user) =>
+          (where.OR ?? []).some((condition) => {
+            if (condition.role !== undefined && user.role !== condition.role) {
+              return false;
+            }
+            if (condition.shopperId?.in) {
+              return (
+                user.shopperId !== null &&
+                condition.shopperId.in.includes(user.shopperId)
+              );
+            }
+            if (condition.ibsId?.in) {
+              const ibsId = (user as { ibsId?: string | null }).ibsId ?? null;
+              return ibsId !== null && condition.ibsId.in.includes(ibsId);
+            }
+            return false;
+          })
+        ),
       create: async () => {
         store.forbiddenMutationCalls.push("user.create");
         throw new Error("User creation is out of scope.");
@@ -283,6 +320,29 @@ function createStore() {
       },
       update: async () => {
         store.forbiddenMutationCalls.push("pickerBranchAssignment.update");
+        throw new Error("Assignment mutation is out of scope.");
+      }
+    },
+    vendorChampAssignment: {
+      findMany: async ({
+        where
+      }: {
+        where: {
+          champId?: { in: string[] };
+          status?: AssignmentStatus;
+        };
+      }) =>
+        store.vendorChampAssignments.filter(
+          (assignment) =>
+            (!where.champId?.in || where.champId.in.includes(assignment.champId)) &&
+            (!where.status || assignment.status === where.status)
+        ),
+      create: async () => {
+        store.forbiddenMutationCalls.push("vendorChampAssignment.create");
+        throw new Error("Assignment mutation is out of scope.");
+      },
+      update: async () => {
+        store.forbiddenMutationCalls.push("vendorChampAssignment.update");
         throw new Error("Assignment mutation is out of scope.");
       }
     },
@@ -485,6 +545,62 @@ async function main() {
     assert.ok(store.dailyRecords[0]?.["shiftDate"] instanceof Date);
     assert.ok(store.dailyRecords[0]?.["actualCheckinTime"] instanceof Date);
     assert.equal(store.monthlySummaries[0]?.["totalWorkingDays"], 1);
+  }
+
+  {
+    // Champ matched by ibsId is calculated on the reported Location branch.
+    // The champ has no active VendorChampAssignment to that branch, so the
+    // mismatch is a WARNING only — the row is still validated and persisted.
+    const { prisma, store } = createStore();
+    const result = await previewRows([baseRow({ Identifier: "CHAMP-1" })], {
+      prisma
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.VALIDATED);
+    assert.equal(result.canConfirm, true);
+    assert.equal(result.preview.matchedChampRows, 1);
+    assert.equal(result.preview.matchedPickerRows, 0);
+    assert.equal(store.dailyRecords.length, 1);
+    assert.equal(
+      store.dailyRecords[0]?.["personRole"],
+      AttendancePersonRole.CHAMP
+    );
+    assert.equal(
+      store.dailyRecords[0]?.["identifierType"],
+      AttendanceIdentifierType.IBS_ID
+    );
+    assert.equal(store.dailyRecords[0]?.["identifierValue"], "CHAMP-1");
+    assert.equal(store.dailyRecords[0]?.["shopperId"], null);
+    assert.equal(
+      store.dailyRecords[0]?.["matchStatus"],
+      AttendanceMatchStatus.MATCHED_CHAMP
+    );
+    assert.equal(store.dailyRecords[0]?.["reportedVendorId"], "vendor-a");
+    assert.equal(store.dailyRecords[0]?.["reportedChainId"], "chain-a");
+    assert.ok(result.preview.activeAssignmentMismatchRows >= 1);
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT
+    );
+  }
+
+  {
+    // Champ assigned to the reported branch -> assignment matches.
+    const { prisma, store } = createStore();
+    store.vendorChampAssignments.push({
+      champId: "user-champ-1",
+      vendorId: "vendor-a",
+      status: AssignmentStatus.ACTIVE
+    });
+    const result = await previewRows([baseRow({ Identifier: "CHAMP-1" })], {
+      prisma
+    });
+
+    assert.equal(result.canConfirm, true);
+    assert.equal(
+      store.dailyRecords[0]?.["assignmentMismatchStatus"],
+      AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT
+    );
   }
 
   {

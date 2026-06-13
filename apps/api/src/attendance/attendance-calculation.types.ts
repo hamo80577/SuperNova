@@ -1,5 +1,6 @@
 import type {
   AttendanceCalculatedStatus,
+  AttendanceIdentifierType,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
@@ -7,7 +8,8 @@ import type {
   AttendanceLeaveType,
   AttendanceAssignmentMismatchStatus,
   AttendanceLocationMappingStatus,
-  AttendanceMatchStatus
+  AttendanceMatchStatus,
+  AttendancePersonRole
 } from "@prisma/client";
 
 export interface AttendanceCalculationInput {
@@ -19,7 +21,11 @@ export interface AttendanceCalculationInput {
 export interface AttendanceCalculationInputRow {
   periodMonth: string;
   shiftDate: string;
-  shopperId: string;
+  shopperId: string | null;
+  personRole?: AttendancePersonRole;
+  identifierType?: AttendanceIdentifierType;
+  identifierValue?: string;
+  personNameSnapshot?: string;
   userId: string;
   pickerNameSnapshot: string;
   sourceName: string | null;
@@ -55,7 +61,11 @@ export interface AttendanceCalculationInputRow {
 export interface AttendanceDailyCalculationRecord {
   periodMonth: string;
   shiftDate: string;
-  shopperId: string;
+  shopperId: string | null;
+  personRole: AttendancePersonRole;
+  identifierType: AttendanceIdentifierType;
+  identifierValue: string;
+  personNameSnapshot: string;
   userId: string;
   pickerNameSnapshot: string;
   sourceName: string | null;
@@ -109,7 +119,11 @@ export interface AttendanceDailyCalculationRecord {
 
 export interface AttendancePickerMonthlyCalculationSummary {
   periodMonth: string;
-  shopperId: string;
+  shopperId: string | null;
+  personRole: AttendancePersonRole;
+  identifierType: AttendanceIdentifierType;
+  identifierValue: string;
+  personNameSnapshot: string;
   userId: string;
   pickerNameSnapshot: string;
   totalScheduledRows: number;

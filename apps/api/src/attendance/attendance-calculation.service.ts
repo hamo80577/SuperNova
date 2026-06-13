@@ -3,12 +3,14 @@ import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import {
   AttendanceCalculatedStatus,
+  AttendanceIdentifierType,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
   AttendanceLateBucket,
   AttendanceLeaveType,
-  AttendanceMatchStatus
+  AttendanceMatchStatus,
+  AttendancePersonRole
 } from "@prisma/client";
 
 import type {
@@ -38,7 +40,7 @@ export class AttendanceCalculationService {
     const dailyRecords: AttendanceDailyCalculationRecord[] = [];
 
     for (const row of input.rows) {
-      if (!isEligibleMatchedPickerRow(row)) {
+      if (!isEligibleMatchedRow(row)) {
         continue;
       }
 
@@ -82,6 +84,10 @@ function calculateDailyRecord(
     periodMonth,
     shiftDate: row.shiftDate,
     shopperId: row.shopperId,
+    personRole: row.personRole ?? AttendancePersonRole.PICKER,
+    identifierType: row.identifierType ?? AttendanceIdentifierType.SHOPPER_ID,
+    identifierValue: row.identifierValue ?? row.shopperId ?? "",
+    personNameSnapshot: row.personNameSnapshot ?? row.pickerNameSnapshot,
     userId: row.userId,
     pickerNameSnapshot: row.pickerNameSnapshot,
     sourceName: cleanText(row.sourceName),
@@ -127,7 +133,7 @@ function calculateDailyRecord(
     isWorkingDay,
     isUnder8Hours,
     isOver15Hours,
-    matchStatus: AttendanceMatchStatus.MATCHED_PICKER,
+    matchStatus: row.matchStatus ?? AttendanceMatchStatus.MATCHED_PICKER,
     rawRowNumber: row.rawRowNumber,
     rowHash: hashNormalizedRow(periodMonth, row),
     issuesCount: (row.issuesCount ?? 0) + state.issues.length
@@ -263,6 +269,10 @@ function emptySummary(
   return {
     periodMonth: record.periodMonth,
     shopperId: record.shopperId,
+    personRole: record.personRole,
+    identifierType: record.identifierType,
+    identifierValue: record.identifierValue,
+    personNameSnapshot: record.personNameSnapshot,
     userId: record.userId,
     pickerNameSnapshot: record.pickerNameSnapshot,
     totalScheduledRows: 0,
@@ -417,10 +427,14 @@ function rowIssue(
   };
 }
 
-function isEligibleMatchedPickerRow(row: AttendanceCalculationInputRow) {
+function isEligibleMatchedRow(row: AttendanceCalculationInputRow) {
   const matchStatus = row.matchStatus ?? AttendanceMatchStatus.MATCHED_PICKER;
 
-  return matchStatus === AttendanceMatchStatus.MATCHED_PICKER && isEgypt(row.division);
+  return (
+    (matchStatus === AttendanceMatchStatus.MATCHED_PICKER ||
+      matchStatus === AttendanceMatchStatus.MATCHED_CHAMP) &&
+    isEgypt(row.division)
+  );
 }
 
 function isEgypt(division: string) {

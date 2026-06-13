@@ -24,6 +24,7 @@ import {
   type NotificationGroup
 } from "@/lib/notifications/view-model";
 import { cn } from "@/lib/utils";
+import { DashboardBottomNav } from "./dashboard-bottom-nav";
 import { DashboardHeader } from "./dashboard-header";
 import {
   getUserInitials,
@@ -283,11 +284,8 @@ export function DashboardLayout({
           />
           <div
             className={cn(
-              "fixed bottom-0 left-0 right-0 top-0 overflow-hidden bg-background transition-[left,border-radius] duration-300 ease-out motion-reduce:transition-none",
-              isCollapsed ? "lg:left-[76px]" : "lg:left-[266px]",
-              isScrolled
-                ? "lg:rounded-tl-none"
-                : "lg:rounded-tl-[28px]"
+              "fixed bottom-0 left-0 right-0 top-0 overflow-hidden bg-background transition-[left] duration-300 ease-out motion-reduce:transition-none",
+              isCollapsed ? "lg:left-[76px]" : "lg:left-[266px]"
             )}
           >
             <div
@@ -295,7 +293,7 @@ export function DashboardLayout({
               onScroll={updateScrolled}
               ref={contentRef}
             >
-              <div className="px-4 pb-4 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-7">
+              <div className="px-4 pb-24 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-7">
                 {showPageTitle ? (
                   <div className="mb-4 hidden lg:block">
                     <h1 className="sn-h1" style={{ fontSize: 22 }}>
@@ -312,6 +310,8 @@ export function DashboardLayout({
               </div>
             </div>
           </div>
+
+          <DashboardBottomNav navSections={navSections} pathname={pathname} />
         </section>
       </div>
     </main>

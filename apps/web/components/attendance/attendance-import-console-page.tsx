@@ -854,10 +854,11 @@ function CountsSection({
         value: preview.preview.nonEgyptRows
       },
       { label: "Matched Pickers", value: preview.preview.matchedPickerRows },
+      { label: "Matched Champs", value: preview.preview.matchedChampRows },
       { label: "Unmatched", value: preview.preview.unmatchedRows },
       {
-        label: "Non-Picker excluded",
-        value: preview.preview.excludedNonPickerRows
+        label: "Ambiguous identifier",
+        value: preview.preview.ambiguousIdentifierRows
       },
       { label: "Error rows", value: preview.preview.errorRows },
       { label: "Warning rows", value: preview.preview.warningRows },
@@ -1108,7 +1109,7 @@ function IssuesSection({ issues }: { issues: AttendancePreviewIssue[] }) {
                 <tr>
                   <TableHeader>Severity</TableHeader>
                   <TableHeader>Row</TableHeader>
-                  <TableHeader>Shopper ID</TableHeader>
+                  <TableHeader>Identifier</TableHeader>
                   <TableHeader>Issue code</TableHeader>
                   <TableHeader>Field</TableHeader>
                   <TableHeader>Message</TableHeader>
@@ -1345,7 +1346,7 @@ function IssueCard({ issue }: { issue: AttendancePreviewIssue }) {
       </div>
       <div className="grid gap-2 text-sm sm:grid-cols-2">
         <Definition label="Row" value={formatNullable(issue.rowNumber)} />
-        <Definition label="Shopper ID" value={formatText(issue.shopperId)} />
+        <Definition label="Identifier" value={formatText(issue.shopperId)} />
         <Definition label="Field" value={formatText(issue.fieldName)} />
         <Definition
           label="Resolution"

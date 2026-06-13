@@ -17,6 +17,7 @@ import {
   AttendanceIssueSeverity,
   AttendanceLocationMappingStatus,
   AttendanceMatchStatus,
+  AttendancePersonRole,
   Prisma,
   UserRole
 } from "@prisma/client";
@@ -138,15 +139,15 @@ export class AttendanceImportService {
       userLookup: this.userLookup
     });
 
-    const usersByShopperId = await this.loadUsersByShopperId(workbook.rows);
+    const matchedUsers = await this.loadMatchLookup(workbook.rows);
     const duplicateSelections = selectedDuplicateRowsByMatchedKey(
       workbook.rows,
-      usersByShopperId,
+      matchedUsers,
       new Set(options.duplicateResolutionRowNumbers ?? [])
     );
     const locationEnrichment = await this.buildLocationPreviewEnrichment(
       workbook.rows,
-      usersByShopperId,
+      matchedUsers,
       duplicateSelections,
       preview.importMode
     );
@@ -162,7 +163,7 @@ export class AttendanceImportService {
         ? buildCalculationRows(
             preview.periodMonth,
             workbook.rows,
-            usersByShopperId,
+            matchedUsers,
             validationIssueCounts,
             duplicateSelections,
             locationEnrichment.contextsByRawRowNumber
@@ -400,13 +401,13 @@ export class AttendanceImportService {
 
   private async buildLocationPreviewEnrichment(
     parsedRows: AttendanceParsedRow[],
-    usersByShopperId: Map<string, AttendanceMatchedUser>,
+    matchedUsers: Map<string, AttendanceMatchedUser>,
     duplicateSelections: Map<string, number>,
     importMode: AttendanceImportMode
   ): Promise<AttendanceLocationPreviewEnrichment> {
     const mappableRows = buildMappableRows(
       parsedRows,
-      usersByShopperId,
+      matchedUsers,
       duplicateSelections
     );
     const reportedLocationCodes = uniqueStrings(
@@ -417,11 +418,22 @@ export class AttendanceImportService {
     const vendorMatches =
       await this.loadVendorMatchesByLocationCode(reportedLocationCodes);
     const shouldCompareActiveAssignments = importMode === AttendanceImportMode.MTD;
+    const pickerUserIds = uniqueStrings(
+      mappableRows
+        .filter(({ user }) => user.personRole === AttendancePersonRole.PICKER)
+        .map(({ user }) => user.id)
+    );
+    const champUserIds = uniqueStrings(
+      mappableRows
+        .filter(({ user }) => user.personRole === AttendancePersonRole.CHAMP)
+        .map(({ user }) => user.id)
+    );
     const activeAssignments = shouldCompareActiveAssignments
-      ? await this.loadActiveAssignmentsByPickerId(
-          uniqueStrings(mappableRows.map(({ user }) => user.id))
-        )
+      ? await this.loadActiveAssignmentsByPickerId(pickerUserIds)
       : new Map<string, string>();
+    const champActiveVendorIds = shouldCompareActiveAssignments
+      ? await this.loadActiveChampVendorIds(champUserIds)
+      : new Map<string, Set<string>>();
 
     const issues: AttendancePreviewIssue[] = [];
     const contextsByRawRowNumber = new Map<
@@ -480,38 +492,65 @@ export class AttendanceImportService {
           mappedLocationRows += 1;
 
           if (shouldCompareActiveAssignments) {
-            const activeVendorId = activeAssignments.get(user.id) ?? null;
-            if (!activeVendorId) {
-              context.assignmentMismatchStatus =
-                AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
-              activeAssignmentMismatchRows += 1;
-              issues.push(
-                locationIssue({
-                  row,
-                  severity: AttendanceIssueSeverity.WARNING,
-                  issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
-                  fieldName: "Location",
-                  message:
-                    "Picker has no active branch assignment to compare with the reported attendance Location."
-                })
-              );
-            } else if (activeVendorId === vendor.id) {
-              context.assignmentMismatchStatus =
-                AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
+            if (user.personRole === AttendancePersonRole.CHAMP) {
+              // Champ attendance is always calculated on the reported Location
+              // branch. We only warn (never block) when the champ has no active
+              // VendorChampAssignment to that specific reported branch.
+              const assignedVendorIds = champActiveVendorIds.get(user.id);
+              if (assignedVendorIds && assignedVendorIds.has(vendor.id)) {
+                context.assignmentMismatchStatus =
+                  AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
+              } else {
+                context.assignmentMismatchStatus =
+                  assignedVendorIds && assignedVendorIds.size > 0
+                    ? AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT
+                    : AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
+                activeAssignmentMismatchRows += 1;
+                issues.push(
+                  locationIssue({
+                    row,
+                    severity: AttendanceIssueSeverity.WARNING,
+                    issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                    fieldName: "Location",
+                    message:
+                      "Champ has no active branch assignment to the reported attendance Location branch (row is still calculated on the reported branch)."
+                  })
+                );
+              }
             } else {
-              context.assignmentMismatchStatus =
-                AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT;
-              activeAssignmentMismatchRows += 1;
-              issues.push(
-                locationIssue({
-                  row,
-                  severity: AttendanceIssueSeverity.WARNING,
-                  issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
-                  fieldName: "Location",
-                  message:
-                    "Reported attendance Location differs from the picker active branch assignment."
-                })
-              );
+              const activeVendorId = activeAssignments.get(user.id) ?? null;
+              if (!activeVendorId) {
+                context.assignmentMismatchStatus =
+                  AttendanceAssignmentMismatchStatus.NO_ACTIVE_ASSIGNMENT;
+                activeAssignmentMismatchRows += 1;
+                issues.push(
+                  locationIssue({
+                    row,
+                    severity: AttendanceIssueSeverity.WARNING,
+                    issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                    fieldName: "Location",
+                    message:
+                      "Picker has no active branch assignment to compare with the reported attendance Location."
+                  })
+                );
+              } else if (activeVendorId === vendor.id) {
+                context.assignmentMismatchStatus =
+                  AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT;
+              } else {
+                context.assignmentMismatchStatus =
+                  AttendanceAssignmentMismatchStatus.DIFFERS_FROM_ACTIVE_ASSIGNMENT;
+                activeAssignmentMismatchRows += 1;
+                issues.push(
+                  locationIssue({
+                    row,
+                    severity: AttendanceIssueSeverity.WARNING,
+                    issueCode: AttendanceIssueCode.ACTIVE_ASSIGNMENT_MISMATCH,
+                    fieldName: "Location",
+                    message:
+                      "Reported attendance Location differs from the picker active branch assignment."
+                  })
+                );
+              }
             }
           }
         }
@@ -653,12 +692,66 @@ export class AttendanceImportService {
     return activeAssignments;
   }
 
-  private async loadUsersByShopperId(rows: AttendanceParsedRow[]) {
-    const shopperIds = Array.from(
+  // Resolved, unambiguous matches keyed by sheet identifier. Picker (shopperId)
+  // and Champ (ibsId) both flow; an identifier that matches both a picker and a
+  // champ is dropped here (the validator already raised a blocking AMBIGUOUS
+  // error, so such rows are never confirmable).
+  private async loadMatchLookup(rows: AttendanceParsedRow[]) {
+    const identifiers = Array.from(
       new Set(rows.map((row) => row.identifier).filter(Boolean) as string[])
     );
-    const users = await this.userLookup.findByShopperIds(shopperIds);
-    return new Map(users.map((user) => [user.shopperId, user]));
+    const users = await this.userLookup.findByIdentifiers(identifiers);
+
+    const pickerByIdentifier = new Map<string, AttendanceMatchedUser>();
+    const champByIdentifier = new Map<string, AttendanceMatchedUser>();
+    for (const user of users) {
+      if (user.personRole === AttendancePersonRole.PICKER) {
+        pickerByIdentifier.set(user.identifier, user);
+      } else if (user.personRole === AttendancePersonRole.CHAMP) {
+        champByIdentifier.set(user.identifier, user);
+      }
+    }
+
+    const resolved = new Map<string, AttendanceMatchedUser>();
+    for (const identifier of new Set([
+      ...pickerByIdentifier.keys(),
+      ...champByIdentifier.keys()
+    ])) {
+      const picker = pickerByIdentifier.get(identifier) ?? null;
+      const champ = champByIdentifier.get(identifier) ?? null;
+      if (picker && champ && picker.id !== champ.id) {
+        continue;
+      }
+      const matched = picker ?? champ;
+      if (matched) {
+        resolved.set(identifier, matched);
+      }
+    }
+
+    return resolved;
+  }
+
+  private async loadActiveChampVendorIds(userIds: string[]) {
+    if (userIds.length === 0) {
+      return new Map<string, Set<string>>();
+    }
+
+    const assignments = await this.prisma.vendorChampAssignment.findMany({
+      where: {
+        champId: { in: userIds },
+        status: AssignmentStatus.ACTIVE
+      },
+      select: { champId: true, vendorId: true }
+    });
+
+    const byChampId = new Map<string, Set<string>>();
+    for (const assignment of assignments) {
+      const existing = byChampId.get(assignment.champId) ?? new Set<string>();
+      existing.add(assignment.vendorId);
+      byChampId.set(assignment.champId, existing);
+    }
+
+    return byChampId;
   }
 }
 
@@ -692,7 +785,7 @@ function isMtdImportModeInput(value: AttendanceImportPreviewOptions["importMode"
 function buildCalculationRows(
   periodMonth: string,
   parsedRows: AttendanceParsedRow[],
-  usersByShopperId: Map<string, AttendanceMatchedUser>,
+  matchedUsers: Map<string, AttendanceMatchedUser>,
   validationIssueCounts: Map<number, number>,
   duplicateSelections: Map<string, number> = new Map(),
   locationContexts: Map<number, AttendanceRowLocationContext> = new Map()
@@ -703,9 +796,9 @@ function buildCalculationRows(
         return null;
       }
 
-      const user = usersByShopperId.get(row.identifier);
+      const user = matchedUsers.get(row.identifier);
 
-      if (!user || user.role !== UserRole.PICKER) {
+      if (!user) {
         return null;
       }
 
@@ -716,11 +809,16 @@ function buildCalculationRows(
 
       const locationContext =
         locationContexts.get(row.rawRowNumber) ?? defaultLocationContext(row);
+      const isChamp = user.personRole === AttendancePersonRole.CHAMP;
 
       return {
         periodMonth,
         shiftDate: row.shiftDate,
-        shopperId: row.identifier,
+        shopperId: isChamp ? null : row.identifier,
+        personRole: user.personRole,
+        identifierType: user.identifierType,
+        identifierValue: row.identifier,
+        personNameSnapshot: user.nameEn,
         userId: user.id,
         pickerNameSnapshot: user.nameEn,
         sourceName: row.sourceName,
@@ -748,7 +846,9 @@ function buildCalculationRows(
         actualCheckoutTime: row.actualCheckoutTime,
         actualWorkDurationHours: row.actualWorkDurationHours,
         sourceStatus: row.sourceStatus,
-        matchStatus: AttendanceMatchStatus.MATCHED_PICKER,
+        matchStatus: isChamp
+          ? AttendanceMatchStatus.MATCHED_CHAMP
+          : AttendanceMatchStatus.MATCHED_PICKER,
         rawRowNumber: row.rawRowNumber,
         issuesCount: validationIssueCounts.get(row.rawRowNumber) ?? 0
       };
@@ -758,7 +858,7 @@ function buildCalculationRows(
 
 function buildMappableRows(
   parsedRows: AttendanceParsedRow[],
-  usersByShopperId: Map<string, AttendanceMatchedUser>,
+  matchedUsers: Map<string, AttendanceMatchedUser>,
   duplicateSelections: Map<string, number>
 ) {
   const rows: Array<{
@@ -771,9 +871,9 @@ function buildMappableRows(
       continue;
     }
 
-    const user = usersByShopperId.get(row.identifier);
+    const user = matchedUsers.get(row.identifier);
 
-    if (!user || user.role !== UserRole.PICKER) {
+    if (!user) {
       continue;
     }
 
@@ -790,7 +890,7 @@ function buildMappableRows(
 
 function selectedDuplicateRowsByMatchedKey(
   parsedRows: AttendanceParsedRow[],
-  usersByShopperId: Map<string, AttendanceMatchedUser>,
+  matchedUsers: Map<string, AttendanceMatchedUser>,
   selectedRows: Set<number>
 ) {
   const rowsByKey = new Map<string, AttendanceParsedRow[]>();
@@ -800,8 +900,8 @@ function selectedDuplicateRowsByMatchedKey(
       continue;
     }
 
-    const user = usersByShopperId.get(row.identifier);
-    if (!user || user.role !== UserRole.PICKER || !isEgypt(row.division)) {
+    const user = matchedUsers.get(row.identifier);
+    if (!user || !isEgypt(row.division)) {
       continue;
     }
 
@@ -962,6 +1062,10 @@ function mapDailyRecordForCreate(
     periodMonth: record.periodMonth,
     shiftDate: dateOnlyToUtcDate(record.shiftDate, "shiftDate"),
     shopperId: record.shopperId,
+    personRole: record.personRole,
+    identifierType: record.identifierType,
+    identifierValue: record.identifierValue,
+    personNameSnapshot: record.personNameSnapshot,
     userId: record.userId,
     pickerNameSnapshot: record.pickerNameSnapshot,
     sourceName: record.sourceName,
@@ -1036,6 +1140,10 @@ function mapMonthlySummaryForCreate(
     sourceBatchId,
     periodMonth: summary.periodMonth,
     shopperId: summary.shopperId,
+    personRole: summary.personRole,
+    identifierType: summary.identifierType,
+    identifierValue: summary.identifierValue,
+    personNameSnapshot: summary.personNameSnapshot,
     userId: summary.userId,
     pickerNameSnapshot: summary.pickerNameSnapshot,
     totalScheduledRows: summary.totalScheduledRows,

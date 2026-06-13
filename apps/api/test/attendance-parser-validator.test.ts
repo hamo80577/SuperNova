@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 
 import {
+  AttendanceIdentifierType,
   AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueSeverity,
+  AttendancePersonRole,
   UserRole
 } from "@prisma/client";
 import ExcelJS from "exceljs";
@@ -34,8 +36,10 @@ type WorkbookRow = Record<string, unknown>;
 
 const pickerUser: AttendanceMatchedUser = {
   id: "user-picker-1",
-  shopperId: "SHOPPER-1",
   role: UserRole.PICKER,
+  personRole: AttendancePersonRole.PICKER,
+  identifier: "SHOPPER-1",
+  identifierType: AttendanceIdentifierType.SHOPPER_ID,
   nameEn: "Picker Test",
   branchName: "Branch A",
   vendorName: "Vendor A"
@@ -43,8 +47,10 @@ const pickerUser: AttendanceMatchedUser = {
 
 const secondPickerUser: AttendanceMatchedUser = {
   id: "user-picker-2",
-  shopperId: "SHOPPER-2",
   role: UserRole.PICKER,
+  personRole: AttendancePersonRole.PICKER,
+  identifier: "SHOPPER-2",
+  identifierType: AttendanceIdentifierType.SHOPPER_ID,
   nameEn: "Picker Two",
   branchName: "Branch B",
   vendorName: "Vendor B"
@@ -52,9 +58,23 @@ const secondPickerUser: AttendanceMatchedUser = {
 
 const champUser: AttendanceMatchedUser = {
   id: "user-champ-1",
-  shopperId: "CHAMP-1",
   role: UserRole.CHAMP,
+  personRole: AttendancePersonRole.CHAMP,
+  identifier: "CHAMP-1",
+  identifierType: AttendanceIdentifierType.IBS_ID,
   nameEn: "Champ Test",
+  branchName: "Branch C",
+  vendorName: "Vendor C"
+};
+
+// Same identifier value resolving to both a picker and a champ (ambiguous).
+const ambiguousChampUser: AttendanceMatchedUser = {
+  id: "user-champ-2",
+  role: UserRole.CHAMP,
+  personRole: AttendancePersonRole.CHAMP,
+  identifier: "SHOPPER-1",
+  identifierType: AttendanceIdentifierType.IBS_ID,
+  nameEn: "Ambiguous Champ",
   branchName: null,
   vendorName: null
 };
@@ -94,15 +114,15 @@ async function workbookBuffer(
 }
 
 function createValidator(users: AttendanceMatchedUser[]) {
-  const usersByShopperId = new Map(users.map((user) => [user.shopperId, user]));
   const parser = new AttendanceParserService();
 
   const validator = new AttendanceValidatorService(parser);
   const userLookup = {
-    findByShopperIds: async (shopperIds) =>
-      shopperIds
-        .map((shopperId) => usersByShopperId.get(shopperId))
-        .filter((user): user is AttendanceMatchedUser => Boolean(user))
+    // Returns every matched user (picker by shopperId, champ by ibsId) whose
+    // identifier appears in the requested set — including the case where the
+    // same identifier resolves to both a picker and a champ.
+    findByIdentifiers: async (identifiers: string[]) =>
+      users.filter((user) => identifiers.includes(user.identifier))
   };
 
   return { userLookup, validator };
@@ -302,14 +322,35 @@ async function main() {
   }
 
   {
+    // Champ matched by ibsId — a valid MATCHED_CHAMP row, not an exclusion.
     const preview = await validateRows([baseRow({ Identifier: "CHAMP-1" })], {
       uploadDate: "2026-05-02",
       users: [champUser]
     });
 
     assert.equal(preview.canConfirm, true);
-    assert.equal(preview.excludedNonPickerRows, 1);
-    assertIssue(preview, AttendanceIssueCode.MATCHED_USER_NOT_PICKER);
+    assert.equal(preview.matchedChampRows, 1);
+    assert.equal(preview.matchedPickerRows, 0);
+    assert.equal(
+      preview.rowsPreview[0]?.matchStatus,
+      "MATCHED_CHAMP"
+    );
+  }
+
+  {
+    // Identifier matches both a picker shopperId and a champ ibsId -> blocking.
+    const preview = await validateRows([baseRow({ Identifier: "SHOPPER-1" })], {
+      uploadDate: "2026-05-02",
+      users: [pickerUser, ambiguousChampUser]
+    });
+
+    assert.equal(preview.canConfirm, false);
+    assert.equal(preview.ambiguousIdentifierRows, 1);
+    assert.equal(
+      preview.rowsPreview[0]?.matchStatus,
+      "AMBIGUOUS_IDENTIFIER"
+    );
+    assertIssue(preview, AttendanceIssueCode.AMBIGUOUS_ATTENDANCE_IDENTIFIER);
   }
 
   {

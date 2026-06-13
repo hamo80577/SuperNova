@@ -1,8 +1,10 @@
 import type {
   AttendanceCalculatedStatus,
+  AttendanceIdentifierType,
   AttendanceLateBucket,
   AttendanceLeaveType,
-  AttendanceLocationMappingStatus
+  AttendanceLocationMappingStatus,
+  AttendancePersonRole
 } from "@prisma/client";
 
 export interface AttendanceDailyReportQuery {
@@ -14,6 +16,7 @@ export interface AttendanceDailyReportQuery {
   branch?: string;
   chain?: string;
   status?: AttendanceCalculatedStatus;
+  role?: AttendancePersonRole;
   lateOnly?: boolean | string;
   absentOnly?: boolean | string;
   onLeaveOnly?: boolean | string;
@@ -189,7 +192,11 @@ export interface AttendanceDailyReportSummary {
 export interface AttendanceDailyReportRow {
   id: string;
   pickerName: string;
-  shopperId: string;
+  personName: string;
+  personRole: AttendancePersonRole;
+  identifierType: AttendanceIdentifierType;
+  identifierValue: string;
+  shopperId: string | null;
   userId: string;
   shiftDate: string;
   shiftName: string;

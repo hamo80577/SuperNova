@@ -1,4 +1,4 @@
-import { AttendanceCalculatedStatus } from "@prisma/client";
+import { AttendanceCalculatedStatus, AttendancePersonRole } from "@prisma/client";
 import { Transform, Type } from "class-transformer";
 import {
   IsBoolean,
@@ -47,6 +47,10 @@ export class ListAttendanceDailyReportQueryDto {
   @IsOptional()
   @IsEnum(AttendanceCalculatedStatus)
   status?: AttendanceCalculatedStatus;
+
+  @IsOptional()
+  @IsEnum(AttendancePersonRole)
+  role?: AttendancePersonRole;
 
   @IsOptional()
   @Transform(({ value }) => parseBooleanQuery(value))

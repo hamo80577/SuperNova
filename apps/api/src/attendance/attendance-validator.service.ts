@@ -4,7 +4,7 @@ import {
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
-  UserRole
+  AttendancePersonRole
 } from "@prisma/client";
 
 import { AttendanceParserService } from "./attendance-parser.service";
@@ -78,7 +78,7 @@ export class AttendanceValidatorService {
       }
     }
 
-    const usersByShopperId = await this.loadUsers(workbook.rows, options.userLookup);
+    const matchLookup = await this.loadUsers(workbook.rows, options.userLookup);
     const validShiftDates = workbook.rows
       .map((row) => row.shiftDate)
       .filter((value): value is string => Boolean(value));
@@ -132,8 +132,10 @@ export class AttendanceValidatorService {
     let egyptRows = 0;
     let nonEgyptRows = 0;
     let matchedPickerRows = 0;
+    let matchedChampRows = 0;
+    let ambiguousIdentifierRows = 0;
     let unmatchedRows = 0;
-    let excludedNonPickerRows = 0;
+    const excludedNonPickerRows = 0;
     const duplicateTrackers = new Map<string, DuplicateTracker>();
 
     for (const row of workbook.rows) {
@@ -166,36 +168,51 @@ export class AttendanceValidatorService {
         continue;
       }
 
-      const matchedUser = usersByShopperId.get(row.identifier);
+      const resolution = resolveAttendanceMatch(matchLookup, row.identifier);
 
-      if (!matchedUser) {
+      if (resolution.kind === "AMBIGUOUS") {
+        ambiguousIdentifierRows += 1;
+        matchStatuses.set(row.rawRowNumber, "AMBIGUOUS_IDENTIFIER");
+        addIssue(issues, rowIssueCounts, rowIssue(row, {
+          severity: AttendanceIssueSeverity.ERROR,
+          issueCode: AttendanceIssueCode.AMBIGUOUS_ATTENDANCE_IDENTIFIER,
+          fieldName: "Identifier",
+          message:
+            "Identifier matches both a Picker shopperId and a Champ ibsId. Resolve the duplicate identifier before importing."
+        }));
+        continue;
+      }
+
+      if (resolution.kind === "UNMATCHED") {
         unmatchedRows += 1;
         matchStatuses.set(row.rawRowNumber, "UNMATCHED_IDENTIFIER");
         addIssue(issues, rowIssueCounts, rowIssue(row, {
           severity: AttendanceIssueSeverity.WARNING,
           issueCode: AttendanceIssueCode.UNMATCHED_IDENTIFIER,
           fieldName: "Identifier",
-          message: "Identifier does not match a SuperNova User.shopperId."
+          message:
+            "Identifier does not match a Picker shopperId or a Champ ibsId."
         }));
-        trackDuplicate(duplicateTrackers, unmatchedDuplicateInput(row, matchedUser));
+        trackDuplicate(duplicateTrackers, unmatchedDuplicateInput(row, undefined));
         continue;
       }
 
-      if (matchedUser.role !== UserRole.PICKER) {
-        excludedNonPickerRows += 1;
-        matchStatuses.set(row.rawRowNumber, "EXCLUDED_NOT_PICKER");
-        addIssue(issues, rowIssueCounts, rowIssue(row, {
-          severity: AttendanceIssueSeverity.WARNING,
-          issueCode: AttendanceIssueCode.MATCHED_USER_NOT_PICKER,
-          fieldName: "Identifier",
-          message: "Matched SuperNova user is not role PICKER."
-        }));
+      if (resolution.kind === "CHAMP") {
+        matchedChampRows += 1;
+        matchStatuses.set(row.rawRowNumber, "MATCHED_CHAMP");
+        trackDuplicate(
+          duplicateTrackers,
+          matchedDuplicateInput(row, resolution.user)
+        );
         continue;
       }
 
       matchedPickerRows += 1;
       matchStatuses.set(row.rawRowNumber, "MATCHED_PICKER");
-      trackDuplicate(duplicateTrackers, matchedDuplicateInput(row, matchedUser));
+      trackDuplicate(
+        duplicateTrackers,
+        matchedDuplicateInput(row, resolution.user)
+      );
     }
 
     const duplicateGroups = buildDuplicateGroups(
@@ -218,6 +235,8 @@ export class AttendanceValidatorService {
       egyptRows,
       nonEgyptRows,
       matchedPickerRows,
+      matchedChampRows,
+      ambiguousIdentifierRows,
       unmatchedRows,
       excludedNonPickerRows,
       errorRows,
@@ -247,18 +266,64 @@ export class AttendanceValidatorService {
   private async loadUsers(
     rows: AttendanceParsedRow[],
     overrideLookup?: AttendanceUserLookup
-  ) {
+  ): Promise<AttendanceMatchLookup> {
+    const empty: AttendanceMatchLookup = {
+      pickerByIdentifier: new Map(),
+      champByIdentifier: new Map()
+    };
+
     if (!overrideLookup) {
-      return new Map<string, AttendanceMatchedUser>();
+      return empty;
     }
 
-    const shopperIds = Array.from(
+    const identifiers = Array.from(
       new Set(rows.map((row) => row.identifier).filter(Boolean) as string[])
     );
-    const users = await overrideLookup.findByShopperIds(shopperIds);
+    const users = await overrideLookup.findByIdentifiers(identifiers);
 
-    return new Map(users.map((user) => [user.shopperId, user]));
+    for (const user of users) {
+      if (user.personRole === AttendancePersonRole.PICKER) {
+        empty.pickerByIdentifier.set(user.identifier, user);
+      } else if (user.personRole === AttendancePersonRole.CHAMP) {
+        empty.champByIdentifier.set(user.identifier, user);
+      }
+    }
+
+    return empty;
   }
+}
+
+type AttendanceMatchLookup = {
+  pickerByIdentifier: Map<string, AttendanceMatchedUser>;
+  champByIdentifier: Map<string, AttendanceMatchedUser>;
+};
+
+type AttendanceMatchResolution =
+  | { kind: "PICKER"; user: AttendanceMatchedUser }
+  | { kind: "CHAMP"; user: AttendanceMatchedUser }
+  | { kind: "AMBIGUOUS" }
+  | { kind: "UNMATCHED" };
+
+function resolveAttendanceMatch(
+  lookup: AttendanceMatchLookup,
+  identifier: string
+): AttendanceMatchResolution {
+  const picker = lookup.pickerByIdentifier.get(identifier) ?? null;
+  const champ = lookup.champByIdentifier.get(identifier) ?? null;
+
+  if (picker && champ && picker.id !== champ.id) {
+    return { kind: "AMBIGUOUS" };
+  }
+
+  if (picker) {
+    return { kind: "PICKER", user: picker };
+  }
+
+  if (champ) {
+    return { kind: "CHAMP", user: champ };
+  }
+
+  return { kind: "UNMATCHED" };
 }
 
 type DuplicateTracker = {
@@ -665,7 +730,7 @@ function matchedDuplicateInput(
 
   return {
     key: matchedKey(row, user),
-    shopperId: user.shopperId,
+    shopperId: user.identifier,
     userId: user.id,
     pickerName: user.nameEn,
     branchName: user.branchName,

@@ -583,7 +583,7 @@ function ShiftDetailSheet({
           </div>
 
           <div className="mt-4 grid gap-3">
-            <DetailRow label="Shopper ID" value={row.shopperId} />
+            <DetailRow label="Identifier" value={row.shopperId ?? "—"} />
             <DetailRow label="Imported source" value={formatSource(row)} />
             <DetailRow
               label="Scheduled time"

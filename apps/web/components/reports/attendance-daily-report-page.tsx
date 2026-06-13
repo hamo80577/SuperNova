@@ -42,6 +42,7 @@ import {
   type AttendanceDailyReportSortBy,
   type AttendanceDailyReportSortDirection,
   type AttendanceMetricDelta,
+  type AttendancePersonRole,
   type AttendanceSegmentMetric
 } from "@/lib/api/attendance";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ type AsyncState<T> =
 
 type PerformanceView = "all" | "onTime" | "lateOver15" | "absent" | "onLeave";
 type AttendanceStatusFilter = AttendanceCalculatedStatus | "";
+type AttendanceRoleFilter = AttendancePersonRole | "";
 type ChartTone =
   | "clean"
   | "error"
@@ -88,6 +90,7 @@ interface AttendanceDailyReportFilters {
   sortBy: AttendanceDailyReportSortBy;
   sortDirection: AttendanceDailyReportSortDirection;
   status: AttendanceStatusFilter;
+  role: AttendanceRoleFilter;
   page: number;
   pageSize: number;
 }
@@ -185,6 +188,7 @@ export function AttendanceDailyReportPage({
           sortBy: filters.sortBy,
           sortDirection: filters.sortDirection,
           status: filters.status,
+          role: filters.role,
           page: filters.page,
           pageSize: filters.pageSize
         });
@@ -265,7 +269,7 @@ export function AttendanceDailyReportPage({
     nextFilters: Partial<
       Pick<
         AttendanceDailyReportFilters,
-        "branch" | "chain" | "sortBy" | "sortDirection" | "status"
+        "branch" | "chain" | "sortBy" | "sortDirection" | "status" | "role"
       >
     >
   ) {
@@ -357,7 +361,8 @@ export function AttendanceDailyReportPage({
                 filters={{
                   branch: filters.branch,
                   chain: filters.chain,
-                  status: filters.status
+                  status: filters.status,
+                  role: filters.role
                 }}
                 onClearSearch={clearSearch}
                 onFilterChange={applyListFilters}
@@ -635,7 +640,7 @@ function AttendanceList({
           </colgroup>
           <thead className="bg-[color:var(--sn-sunken)] text-xs font-medium text-[color:var(--sn-muted)]">
             <tr>
-              <TableHeader>ID Employee</TableHeader>
+              <TableHeader>Identifier</TableHeader>
               <TableHeader>Name</TableHeader>
               <TableHeader>Location</TableHeader>
               <TableHeader>Check-in Time</TableHeader>
@@ -649,7 +654,7 @@ function AttendanceList({
               rows.map((row) => (
                 <tr className="border-t border-[color:var(--sn-border)]" key={row.id}>
                   <TableCell>
-                    <TruncatedText className="font-medium text-[color:var(--sn-ink)]" value={row.shopperId} />
+                    <TruncatedText className="font-medium text-[color:var(--sn-ink)]" value={row.identifierValue} />
                   </TableCell>
                   <TableCell>
                     <NameCell row={row} />
@@ -687,8 +692,11 @@ function AttendanceList({
               <article className="grid gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3" key={row.id}>
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <TruncatedText className="font-semibold text-[color:var(--sn-ink)]" value={row.pickerName} />
-                    <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{row.shopperId}</p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <TruncatedText className="font-semibold text-[color:var(--sn-ink)]" value={row.personName} />
+                      <RoleBadge personRole={row.personRole} />
+                    </div>
+                    <p className="mt-1 text-xs text-[color:var(--sn-muted)]">{identifierLabel(row)}</p>
                   </div>
                   <StatusBadge row={row} />
                 </div>
@@ -759,11 +767,14 @@ function ReportFilterBar({
   setSearchDraft
 }: {
   filterOptions: AttendanceDailyReportResponse["filterOptions"];
-  filters: Pick<AttendanceDailyReportFilters, "branch" | "chain" | "status">;
+  filters: Pick<
+    AttendanceDailyReportFilters,
+    "branch" | "chain" | "status" | "role"
+  >;
   onClearSearch: () => void;
   onFilterChange: (
     nextFilters: Partial<
-      Pick<AttendanceDailyReportFilters, "branch" | "chain" | "status">
+      Pick<AttendanceDailyReportFilters, "branch" | "chain" | "status" | "role">
     >
   ) => void;
   onSearch: () => void;
@@ -786,7 +797,25 @@ function ReportFilterBar({
           value={searchDraft}
         />
       </label>
-      <div className="grid min-w-0 gap-2 md:grid-cols-3">
+      <div className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <FilterSelectShell tone="violet">
+          <Select
+            aria-label="Filter by workforce role"
+            className="h-11 rounded-xl border-0 bg-transparent shadow-none"
+            leadingIcon={<UsersRound className="h-4 w-4" />}
+            onChange={(event) =>
+              onFilterChange({
+                role: event.target.value as AttendanceRoleFilter
+              })
+            }
+            value={filters.role}
+            wrapperClassName="min-w-0"
+          >
+            <option value="">All roles</option>
+            <option value="PICKER">Picker</option>
+            <option value="CHAMP">Champ</option>
+          </Select>
+        </FilterSelectShell>
         <FilterSelectShell tone="rose">
           <Select
             aria-label="Filter by status"
@@ -874,12 +903,14 @@ function FilterSelectShell({
   tone
 }: {
   children: ReactNode;
-  tone: "amber" | "rose" | "sky";
+  tone: "amber" | "rose" | "sky" | "violet";
 }) {
   const toneClass = {
     amber: "border-[oklch(0.88_0.05_80)] bg-[oklch(0.97_0.025_80)]",
     rose: "border-[oklch(0.85_0.06_27)] bg-[oklch(0.97_0.015_27)]",
-    sky: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/40"
+    sky: "border-[color:var(--tlb-lavender,#EDE9FF)] bg-[color:var(--tlb-lavender,#EDE9FF)]/40",
+    violet:
+      "border-[color:var(--tlb-purple,#8318D8)]/30 bg-[color:var(--tlb-lavender,#EBE8FC)]/50"
   }[tone];
 
   return (
@@ -1503,11 +1534,43 @@ function NameCell({ row }: { row: AttendanceDailyReportRow }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--sn-ink)] text-xs font-semibold text-white">
-        {initials(row.pickerName)}
+        {initials(row.personName)}
       </span>
-      <TruncatedText className="font-medium text-[color:var(--sn-ink)]" value={row.pickerName} />
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <TruncatedText
+            className="font-medium text-[color:var(--sn-ink)]"
+            value={row.personName}
+          />
+          <RoleBadge personRole={row.personRole} />
+        </div>
+        <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
+          {identifierLabel(row)}
+        </p>
+      </div>
     </div>
   );
+}
+
+function RoleBadge({ personRole }: { personRole: AttendancePersonRole }) {
+  const isChamp = personRole === "CHAMP";
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+        isChamp
+          ? "bg-[color:var(--tlb-lavender,#EBE8FC)] text-[color:var(--tlb-purple,#8318D8)]"
+          : "bg-[#FFE8D9] text-[color:var(--tlb-orange-900,#B34700)]"
+      )}
+    >
+      {isChamp ? "Champ" : "Picker"}
+    </span>
+  );
+}
+
+function identifierLabel(row: AttendanceDailyReportRow) {
+  const typeLabel = row.identifierType === "IBS_ID" ? "IBS ID" : "Shopper ID";
+  return `${typeLabel} · ${row.identifierValue}`;
 }
 
 function LocationPill({ value }: { value?: string | null }) {
@@ -1829,7 +1892,8 @@ function createInitialFilters(): AttendanceDailyReportFilters {
     search: "",
     sortBy: "date",
     sortDirection: "asc",
-    status: ""
+    status: "",
+    role: ""
   };
 }
 

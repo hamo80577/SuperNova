@@ -8,6 +8,7 @@ import {
   AssignmentStatus,
   AttendanceCalculatedStatus,
   AttendanceImportBatchStatus,
+  AttendancePersonRole,
   Prisma,
   UserRole
 } from "@prisma/client";
@@ -31,6 +32,10 @@ const MAX_PAGE_SIZE = 100;
 const dailyReportSelect = {
   id: true,
   shopperId: true,
+  personRole: true,
+  identifierType: true,
+  identifierValue: true,
+  personNameSnapshot: true,
   userId: true,
   shiftDate: true,
   pickerNameSnapshot: true,
@@ -102,7 +107,7 @@ type AttendanceDailyReportScope =
   | { kind: "ALL" }
   | { kind: "PICKER"; userId: string }
   | { kind: "REPORTED_CHAINS"; chainIds: string[] }
-  | { kind: "REPORTED_VENDORS"; vendorIds: string[] };
+  | { kind: "CHAMP_SCOPED"; vendorIds: string[]; champUserId: string };
 
 @Injectable()
 export class AttendanceReportService {
@@ -306,7 +311,9 @@ export class AttendanceReportService {
         vendorAssignments.map((assignment) => assignment.vendorId)
       );
 
-      return { kind: "REPORTED_VENDORS", vendorIds };
+      // A champ sees PICKER attendance in their assigned branches plus their
+      // own CHAMP attendance — never other champs' attendance.
+      return { kind: "CHAMP_SCOPED", vendorIds, champUserId: actor.id };
     }
 
     throw new ForbiddenException("You do not have permission for this action.");
@@ -449,6 +456,10 @@ function applyDailyFacetFilters(
     where.calculatedStatus = query.status;
   }
 
+  if (query.role) {
+    where.personRole = query.role;
+  }
+
   if (query.lateOnly === true) {
     where.isLate = true;
   }
@@ -500,8 +511,22 @@ function applyDailyReportScope(
     where.reportedChainId = { in: reportScope.chainIds };
   }
 
-  if (reportScope.kind === "REPORTED_VENDORS") {
-    where.reportedVendorId = { in: reportScope.vendorIds };
+  if (reportScope.kind === "CHAMP_SCOPED") {
+    // Pickers reported in the champ's assigned branches OR the champ's own
+    // attendance. Added via AND so it composes with search/facet filters
+    // without being overwritten by the pickerSearch OR clause.
+    addDailyAnd(where, {
+      OR: [
+        {
+          personRole: AttendancePersonRole.PICKER,
+          reportedVendorId: { in: reportScope.vendorIds }
+        },
+        {
+          personRole: AttendancePersonRole.CHAMP,
+          userId: reportScope.champUserId
+        }
+      ]
+    });
   }
 }
 
@@ -1121,6 +1146,10 @@ function toDailyReportRow(
   return {
     id: record.id,
     shopperId: record.shopperId,
+    personRole: record.personRole,
+    identifierType: record.identifierType,
+    identifierValue: record.identifierValue,
+    personName: record.personNameSnapshot,
     userId: record.userId,
     shiftDate: formatDateOnly(record.shiftDate),
     pickerName: record.pickerNameSnapshot,

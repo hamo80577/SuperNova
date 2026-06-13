@@ -29,6 +29,7 @@ export interface AttendanceDailyReportQuery {
   branch?: string;
   chain?: string;
   status?: AttendanceCalculatedStatus | "";
+  role?: AttendancePersonRole | "";
   lateOnly?: boolean;
   absentOnly?: boolean;
   onLeaveOnly?: boolean;
@@ -201,10 +202,18 @@ export interface AttendanceDailyReportSummary {
   totalChargeableLateMins: number;
 }
 
+export type AttendancePersonRole = "PICKER" | "CHAMP";
+
+export type AttendanceIdentifierType = "SHOPPER_ID" | "IBS_ID";
+
 export interface AttendanceDailyReportRow {
   id: string;
   pickerName: string;
-  shopperId: string;
+  personName: string;
+  personRole: AttendancePersonRole;
+  identifierType: AttendanceIdentifierType;
+  identifierValue: string;
+  shopperId: string | null;
   userId: string;
   shiftDate: string;
   shiftName: string;
@@ -289,6 +298,8 @@ export interface AttendanceValidationPreview {
   egyptRows: number;
   nonEgyptRows: number;
   matchedPickerRows: number;
+  matchedChampRows: number;
+  ambiguousIdentifierRows: number;
   unmatchedRows: number;
   excludedNonPickerRows: number;
   errorRows: number;
@@ -382,6 +393,7 @@ export function buildAttendanceDailyReportPath(
   setString(params, "branch", query.branch);
   setString(params, "chain", query.chain);
   setString(params, "status", query.status);
+  setString(params, "role", query.role);
   setBoolean(params, "lateOnly", query.lateOnly);
   setBoolean(params, "absentOnly", query.absentOnly);
   setBoolean(params, "onLeaveOnly", query.onLeaveOnly);

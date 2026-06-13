@@ -1,23 +1,28 @@
 import type {
+  AttendanceIdentifierType,
   AttendanceImportMode,
   AttendanceIssueCode,
   AttendanceIssueResolutionStatus,
   AttendanceIssueSeverity,
   AttendanceLocationMappingStatus,
+  AttendancePersonRole,
   UserRole
 } from "@prisma/client";
 
 export interface AttendanceMatchedUser {
   id: string;
-  shopperId: string;
   role: UserRole;
+  personRole: AttendancePersonRole;
+  // shopperId for PICKER, ibsId for CHAMP — the value seen in the sheet Identifier column.
+  identifier: string;
+  identifierType: AttendanceIdentifierType;
   nameEn: string;
   branchName: string | null;
   vendorName: string | null;
 }
 
 export interface AttendanceUserLookup {
-  findByShopperIds(shopperIds: string[]): Promise<AttendanceMatchedUser[]>;
+  findByIdentifiers(identifiers: string[]): Promise<AttendanceMatchedUser[]>;
 }
 
 export interface AttendanceValidationOptions {
@@ -103,7 +108,14 @@ export interface AttendanceRowsPreviewItem {
   identifier: string | null;
   shiftDate: string | null;
   division: string | null;
-  matchStatus: "MATCHED_PICKER" | "UNMATCHED_IDENTIFIER" | "EXCLUDED_NOT_PICKER" | "EXCLUDED_NON_EGYPT" | "NOT_EVALUATED";
+  matchStatus:
+    | "MATCHED_PICKER"
+    | "MATCHED_CHAMP"
+    | "AMBIGUOUS_IDENTIFIER"
+    | "UNMATCHED_IDENTIFIER"
+    | "EXCLUDED_NOT_PICKER"
+    | "EXCLUDED_NON_EGYPT"
+    | "NOT_EVALUATED";
   issuesCount: number;
 }
 
@@ -117,6 +129,8 @@ export interface AttendanceValidationPreview {
   egyptRows: number;
   nonEgyptRows: number;
   matchedPickerRows: number;
+  matchedChampRows: number;
+  ambiguousIdentifierRows: number;
   unmatchedRows: number;
   excludedNonPickerRows: number;
   errorRows: number;
