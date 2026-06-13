@@ -480,6 +480,302 @@ function areaManagerFinalizationHarness(request: any) {
   };
 }
 
+const existingChampForRehire = user("old-champ-1", UserRole.CHAMP, {
+  phoneNumber: "01012345678",
+  nationalId: "12345678901234",
+  accountStatus: AccountStatus.ARCHIVED,
+  employmentStatus: EmploymentStatus.RESIGNED,
+  joiningDate: new Date("2024-01-15T00:00:00.000Z")
+});
+
+function adminApprovalList(requestId: string) {
+  return [
+    {
+      id: "admin-approval-1",
+      requestId,
+      step: ApprovalStep.ADMIN_FINAL_APPROVAL,
+      approverRole: UserRole.ADMIN,
+      approverId: null,
+      approver: null,
+      status: ApprovalStatus.PENDING,
+      decisionAt: null,
+      notes: null,
+      createdAt: now,
+      updatedAt: now
+    }
+  ];
+}
+
+function pendingAdminChampRequest(
+  candidateOverrides: Record<string, unknown> = {},
+  payloadOverrides: Record<string, unknown> = {}
+) {
+  const request = newHireRequest(UserRole.CHAMP);
+  request.status = RequestStatus.PENDING_ADMIN;
+  request.currentStep = ApprovalStep.ADMIN_FINAL_APPROVAL;
+  request.payload = {
+    ...request.payload,
+    candidate: { ...request.payload.candidate, ...candidateOverrides },
+    ...payloadOverrides
+  };
+  request.approvals = adminApprovalList(request.id);
+  return request;
+}
+
+function pendingAdminChampRehireRequest(
+  rehireUserId: string,
+  candidateOverrides: Record<string, unknown> = {}
+) {
+  return pendingAdminChampRequest(candidateOverrides, {
+    mode: "REHIRE",
+    rehire: {
+      userId: rehireUserId,
+      matchedBy: ["phoneNumber"],
+      previousAccountStatus: AccountStatus.ARCHIVED,
+      previousEmploymentStatus: EmploymentStatus.RESIGNED,
+      previousBlockStatus: BlockStatus.NO_BLOCK,
+      previousProfileStatus: ProfileStatus.COMPLETE
+    }
+  });
+}
+
+function champTransaction(
+  request: any,
+  targetUser: any,
+  capture: (data: any) => void,
+  mode: "create" | "update"
+) {
+  const assignment = {
+    id: "champ-assignment-1",
+    champId: targetUser.id,
+    vendorId: vendor.id,
+    status: AssignmentStatus.ACTIVE,
+    startDate: now,
+    endDate: null,
+    createdAt: now,
+    updatedAt: now
+  } as any;
+
+  return async (callback: any) =>
+    callback({
+      user: {
+        create: async (args: any) => {
+          if (mode !== "create") {
+            throw new Error("Rehire should update, not create.");
+          }
+          capture(args.data);
+          return { ...targetUser, shopperId: args.data.shopperId };
+        },
+        update: async (args: any) => {
+          if (mode !== "update") {
+            throw new Error("Create path expected for new Champ, not update.");
+          }
+          capture(args.data);
+          return { ...targetUser, ...args.data };
+        }
+      },
+      pickerBranchAssignment: {
+        create: async () => {
+          throw new Error("Picker assignment should not run for Champ.");
+        }
+      },
+      vendorChampAssignment: {
+        create: async () => assignment,
+        findMany: async () => []
+      },
+      requestApproval: { update: async () => ({}) },
+      request: {
+        update: async (args: any) => ({
+          ...request,
+          status: args.data.status,
+          currentStep: args.data.currentStep,
+          completedAt: args.data.completedAt,
+          targetUserId: targetUser.id,
+          targetUser,
+          payload: args.data.payload
+        })
+      },
+      notification: { create: async () => ({}), createMany: async () => ({}) },
+      chainAreaManagerAssignment: { findMany: async () => [] },
+      auditLog: { createMany: async () => ({}) }
+    });
+}
+
+function buildFinalizationService(
+  prisma: any,
+  candidateService: any = {
+    findCandidateUserById: async () => null,
+    evaluateNewHireMatch: () => ({ decision: "ACTIVE_DUPLICATE" })
+  }
+) {
+  return new NewHireFinalizationService(
+    prisma as any,
+    candidateService as any,
+    { generate: () => "TempPass123", encrypt: () => "ciphertext" } as any,
+    noopHrSyncService as any
+  );
+}
+
+function champFinalizationHarness(request: any) {
+  let createdUserData: any = null;
+  const createdUser = user("created-champ", UserRole.CHAMP, {
+    phoneNumber: "01012345678",
+    nationalId: "12345678901234",
+    mustChangePassword: true,
+    profileStatus: ProfileStatus.COMPLETE
+  });
+
+  const prisma = {
+    request: { findUnique: async () => request },
+    user: { findUnique: async () => null },
+    vendor: { findUnique: async () => vendor },
+    vendorChampAssignment: { findFirst: async () => null },
+    $transaction: champTransaction(
+      request,
+      createdUser,
+      (data) => {
+        createdUserData = data;
+      },
+      "create"
+    )
+  };
+
+  return {
+    service: buildFinalizationService(prisma),
+    getCreatedUserData: () => createdUserData
+  };
+}
+
+function champRehireFinalizationHarness(request: any, existingUser: any) {
+  let updatedUserData: any = null;
+
+  const prisma = {
+    request: { findUnique: async () => request },
+    user: {
+      findUnique: async (args: any) =>
+        args.where?.id === existingUser.id ? existingUser : null
+    },
+    vendor: { findUnique: async () => vendor },
+    vendorChampAssignment: { findFirst: async () => null },
+    $transaction: champTransaction(
+      request,
+      existingUser,
+      (data) => {
+        updatedUserData = data;
+      },
+      "update"
+    )
+  };
+
+  return {
+    service: buildFinalizationService(prisma, {
+      findCandidateUserById: async () => existingUser,
+      evaluateNewHireMatch: () => ({ decision: "REHIRE_AVAILABLE" })
+    }),
+    getUpdatedUserData: () => updatedUserData
+  };
+}
+
+const existingPickerForRehire = user("old-picker-1", UserRole.PICKER, {
+  phoneNumber: "01012345678",
+  nationalId: "12345678901234",
+  shopperId: "SHOP_OLD",
+  accountStatus: AccountStatus.ARCHIVED,
+  employmentStatus: EmploymentStatus.RESIGNED,
+  joiningDate: new Date("2023-03-10T00:00:00.000Z")
+});
+
+function pendingAdminPickerRehireRequest(
+  rehireUserId: string,
+  candidateOverrides: Record<string, unknown> = {}
+) {
+  const request = newHireRequest(UserRole.PICKER);
+  request.status = RequestStatus.PENDING_ADMIN;
+  request.currentStep = ApprovalStep.ADMIN_FINAL_APPROVAL;
+  request.payload = {
+    ...request.payload,
+    mode: "REHIRE",
+    candidate: { ...request.payload.candidate, ...candidateOverrides },
+    rehire: {
+      userId: rehireUserId,
+      matchedBy: ["phoneNumber"],
+      previousAccountStatus: AccountStatus.ARCHIVED,
+      previousEmploymentStatus: EmploymentStatus.RESIGNED,
+      previousBlockStatus: BlockStatus.NO_BLOCK,
+      previousProfileStatus: ProfileStatus.COMPLETE
+    }
+  };
+  request.approvals = adminApprovalList(request.id);
+  return request;
+}
+
+function pickerRehireFinalizationHarness(request: any, existingUser: any) {
+  let updatedUserData: any = null;
+  const assignment = {
+    id: "picker-assignment-1",
+    pickerId: existingUser.id,
+    vendorId: vendor.id,
+    status: AssignmentStatus.ACTIVE,
+    startDate: now,
+    endDate: null,
+    createdByRequestId: request.id,
+    createdAt: now,
+    updatedAt: now
+  } as any;
+
+  const prisma = {
+    request: { findUnique: async () => request },
+    user: {
+      findUnique: async (args: any) =>
+        args.where?.id === existingUser.id ? existingUser : null
+    },
+    vendor: { findUnique: async () => vendor },
+    vendorChampAssignment: { findFirst: async () => null },
+    $transaction: async (callback: any) =>
+      callback({
+        user: {
+          create: async () => {
+            throw new Error("Rehire should update, not create.");
+          },
+          update: async (args: any) => {
+            updatedUserData = args.data;
+            return { ...existingUser, ...args.data };
+          }
+        },
+        pickerBranchAssignment: { create: async () => assignment },
+        vendorChampAssignment: {
+          create: async () => {
+            throw new Error("Champ assignment should not run for Picker.");
+          },
+          findMany: async () => []
+        },
+        requestApproval: { update: async () => ({}) },
+        request: {
+          update: async (args: any) => ({
+            ...request,
+            status: args.data.status,
+            currentStep: args.data.currentStep,
+            completedAt: args.data.completedAt,
+            targetUserId: existingUser.id,
+            targetUser: existingUser,
+            payload: args.data.payload
+          })
+        },
+        notification: { create: async () => ({}), createMany: async () => ({}) },
+        chainAreaManagerAssignment: { findMany: async () => [] },
+        auditLog: { createMany: async () => ({}) }
+      })
+  };
+
+  return {
+    service: buildFinalizationService(prisma, {
+      findCandidateUserById: async () => existingUser,
+      evaluateNewHireMatch: () => ({ decision: "REHIRE_AVAILABLE" })
+    }),
+    getUpdatedUserData: () => updatedUserData
+  };
+}
+
 async function run() {
   await assert.rejects(
     () =>
@@ -551,7 +847,179 @@ async function run() {
       {},
       { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
     );
-    assert.equal(harness.getCreatedUserData().shopperId, "SHOP_STORED");
+    const pickerData = harness.getCreatedUserData();
+    assert.equal(pickerData.shopperId, "SHOP_STORED");
+    // Picker joiningDate is sourced from the request actualJoiningDate.
+    assert.equal(
+      (pickerData.joiningDate as Date).toISOString(),
+      "2026-06-01T00:00:00.000Z"
+    );
+    // The finalization service must not construct assignment source-of-truth
+    // fields onto the User write payload (asserted on the create() args).
+    for (const field of [
+      "chainId",
+      "vendorId",
+      "managerId",
+      "areaManagerId",
+      "pickerId",
+      "champId"
+    ]) {
+      assert.equal(field in pickerData, false);
+    }
+  }
+
+  {
+    // Legacy Picker New Hire (request without actualJoiningDate) falls back to
+    // the current finalization timestamp.
+    const harness = finalizationHarness(
+      pendingAdminRequest({
+        candidate: {
+          nameEn: "Candidate",
+          phoneNumber: "01012345678",
+          nationalId: "12345678901234",
+          gender: Gender.UNSPECIFIED
+        },
+        areaManagerDecision: {
+          shopperId: "SHOP_STORED",
+          approvedById: "area-manager-1",
+          approvedAt: now.toISOString()
+        }
+      })
+    );
+    const before = Date.now();
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const after = Date.now();
+    const data = harness.getCreatedUserData();
+    assert.ok(data.joiningDate instanceof Date);
+    const ms = (data.joiningDate as Date).getTime();
+    assert.ok(ms >= before - 1000 && ms <= after + 1000);
+  }
+
+  {
+    // Champ New Hire finalization sources joiningDate from actualJoiningDate.
+    const harness = champFinalizationHarness(
+      pendingAdminChampRequest({ actualJoiningDate: "2026-06-01" })
+    );
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const champData = harness.getCreatedUserData();
+    assert.equal(
+      (champData.joiningDate as Date).toISOString(),
+      "2026-06-01T00:00:00.000Z"
+    );
+    // Champ neither requires nor receives a shopperId.
+    assert.equal(champData.shopperId, null);
+    for (const field of [
+      "chainId",
+      "vendorId",
+      "managerId",
+      "areaManagerId",
+      "pickerId",
+      "champId"
+    ]) {
+      assert.equal(field in champData, false);
+    }
+  }
+
+  {
+    // New Hire without actualJoiningDate falls back to the finalization date.
+    const harness = champFinalizationHarness(pendingAdminChampRequest());
+    const before = Date.now();
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const after = Date.now();
+    const champData = harness.getCreatedUserData();
+    assert.ok(champData.joiningDate instanceof Date);
+    const ms = (champData.joiningDate as Date).getTime();
+    assert.ok(ms >= before - 1000 && ms <= after + 1000);
+  }
+
+  {
+    // Rehire updates joiningDate from the new actualJoiningDate.
+    const harness = champRehireFinalizationHarness(
+      pendingAdminChampRehireRequest("old-champ-1", {
+        actualJoiningDate: "2026-06-05"
+      }),
+      existingChampForRehire
+    );
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const updated = harness.getUpdatedUserData();
+    assert.equal(
+      (updated.joiningDate as Date).toISOString(),
+      "2026-06-05T00:00:00.000Z"
+    );
+  }
+
+  {
+    // Rehire without a new actualJoiningDate preserves the existing joiningDate.
+    const harness = champRehireFinalizationHarness(
+      pendingAdminChampRehireRequest("old-champ-1"),
+      existingChampForRehire
+    );
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const updated = harness.getUpdatedUserData();
+    assert.equal(
+      (updated.joiningDate as Date).toISOString(),
+      "2024-01-15T00:00:00.000Z"
+    );
+  }
+
+  {
+    // Rehire Picker updates joiningDate from the new actualJoiningDate.
+    const harness = pickerRehireFinalizationHarness(
+      pendingAdminPickerRehireRequest("old-picker-1", {
+        actualJoiningDate: "2026-06-05"
+      }),
+      existingPickerForRehire
+    );
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const updated = harness.getUpdatedUserData();
+    assert.equal(
+      (updated.joiningDate as Date).toISOString(),
+      "2026-06-05T00:00:00.000Z"
+    );
+  }
+
+  {
+    // Rehire Picker without a new actualJoiningDate preserves existing joiningDate.
+    const harness = pickerRehireFinalizationHarness(
+      pendingAdminPickerRehireRequest("old-picker-1", {
+        actualJoiningDate: undefined
+      }),
+      existingPickerForRehire
+    );
+    await harness.service.finalizeNewHire(
+      "request-1",
+      {},
+      { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+    );
+    const updated = harness.getUpdatedUserData();
+    assert.equal(
+      (updated.joiningDate as Date).toISOString(),
+      "2023-03-10T00:00:00.000Z"
+    );
   }
 
   {

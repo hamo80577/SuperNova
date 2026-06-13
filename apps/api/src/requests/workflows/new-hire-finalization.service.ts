@@ -863,7 +863,7 @@ export class NewHireFinalizationService {
         targetRole === UserRole.PICKER
           ? (shopperId ?? existingUser?.shopperId ?? null)
           : null,
-      joiningDate: new Date(),
+      joiningDate: this.resolveJoiningDate(targetRole, candidate, existingUser),
       accountStatus: AccountStatus.ACTIVE,
       employmentStatus: EmploymentStatus.ACTIVE,
       passwordHash: temporaryPasswordBundle.passwordHash,
@@ -875,6 +875,28 @@ export class NewHireFinalizationService {
       temporaryPasswordCreatedAt:
         temporaryPasswordBundle.temporaryPasswordCreatedAt
     };
+  }
+
+  // joiningDate is the Annual Leave source of truth for Pickers and Champs:
+  // it must reflect the real joining/start date, not the finalization moment.
+  private resolveJoiningDate(
+    targetRole: NewHireTargetRole,
+    candidate: NormalizedNewHireCandidate,
+    existingUser?: User
+  ): Date {
+    if (targetRole === UserRole.PICKER || targetRole === UserRole.CHAMP) {
+      if (candidate.actualJoiningDate) {
+        return new Date(`${candidate.actualJoiningDate}T00:00:00.000Z`);
+      }
+
+      // Rehire without a new joining date preserves the existing one.
+      if (existingUser?.joiningDate) {
+        return existingUser.joiningDate;
+      }
+    }
+
+    // Legacy request (no actualJoiningDate), fresh-hire fallback, or other roles.
+    return new Date();
   }
 
   private async notifyBranchCredentialHandoff(

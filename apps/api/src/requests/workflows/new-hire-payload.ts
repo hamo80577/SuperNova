@@ -70,7 +70,7 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
       ? (candidatePayload.gender as Gender)
       : undefined;
   const actualJoiningDate =
-    targetRole === UserRole.PICKER
+    targetRole === UserRole.PICKER || targetRole === UserRole.CHAMP
       ? normalizeOptionalDateOnly(
           typeof candidatePayload.actualJoiningDate === "string"
             ? candidatePayload.actualJoiningDate

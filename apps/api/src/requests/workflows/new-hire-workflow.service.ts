@@ -36,7 +36,10 @@ import { NewHireCandidateService } from "./new-hire-candidate.service";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
 import type { BranchNewHireContext, RequestContext } from "./new-hire-workflow.types";
-import { normalizeRequiredDateOnly } from "./request-date";
+import {
+  normalizeOptionalDateOnly,
+  normalizeRequiredDateOnly
+} from "./request-date";
 
 @Injectable()
 export class NewHireWorkflowService {
@@ -320,7 +323,13 @@ export class NewHireWorkflowService {
               "actualJoiningDate is required for Picker New Hire/Rehire."
             )
           )
-        : undefined;
+        : targetRole === UserRole.CHAMP
+          ? // Champ accepts/stores actualJoiningDate the same way; kept optional
+            // for backwards-compatibility, with a safe finalization fallback.
+            this.applyPolicyValidation(() =>
+              normalizeOptionalDateOnly(dto.actualJoiningDate, "actualJoiningDate")
+            )
+          : undefined;
 
     if (!nameEn && !nameAr && !isRehire) {
       throw new BadRequestException("Candidate English or Arabic name is required.");
