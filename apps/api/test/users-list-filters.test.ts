@@ -61,7 +61,7 @@ function serviceHarness(
   };
 
   return {
-    service: new UsersService({} as never, prisma as never, {} as never),
+    service: new UsersService({} as never, prisma as never, {} as never, {} as never),
     getCountWhere: () => countWhere,
     getFindManyWhere: () => findManyWhere,
     getFindManyArgs: () => findManyArgs

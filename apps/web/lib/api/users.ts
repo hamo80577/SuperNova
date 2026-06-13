@@ -98,9 +98,33 @@ export interface AreaManagerChainAssignmentsResponse {
   }>;
 }
 
+export type AnnualLeaveEligibilityStatus =
+  | "ELIGIBLE"
+  | "NOT_ELIGIBLE"
+  | "NOT_APPLICABLE"
+  | "MISSING_JOINING_DATE";
+
+export interface AnnualLeaveBalance {
+  year: number;
+  asOfDate: string;
+  joiningDate: string | null;
+  role: UserRole;
+  eligibilityStatus: AnnualLeaveEligibilityStatus;
+  eligibleFrom: string | null;
+  carriedBalanceDays: number;
+  currentYearAccruedDays: number;
+  accruedPreviewDays: number;
+  annualTakenThisYear: number;
+  remainingDays: number | null;
+  attendanceCoverageFrom: string | null;
+  attendanceCoverageTo: string | null;
+  message: string;
+}
+
 export interface OperationalProfileResponse {
   user: SafeUser;
   workedDays: number | null;
+  annualLeaveBalance: AnnualLeaveBalance;
   permissions: {
     mode: "ADMIN" | "AREA_MANAGER" | "CHAMP" | "SELF";
     canEditProfile: boolean;

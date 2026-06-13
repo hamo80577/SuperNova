@@ -158,6 +158,7 @@ function serviceHarness(options: {
     service: new UsersService(
       { log: async () => undefined } as any,
       prisma as any,
+      {} as any,
       {} as any
     )
   };

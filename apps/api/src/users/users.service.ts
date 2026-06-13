@@ -25,6 +25,7 @@ import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { PrismaService } from "../prisma/prisma.service";
 import { pendingRequestStatuses } from "../requests/request-status-machine";
+import { AnnualLeaveBalanceService } from "./annual-leave-balance.service";
 import type { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignment.dto";
 import type { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import type { ListUsersQueryDto } from "./dto/list-users-query.dto";
@@ -123,7 +124,9 @@ export class UsersService {
     private readonly auditService: AuditService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TemporaryPasswordService)
-    private readonly temporaryPasswordService: TemporaryPasswordService
+    private readonly temporaryPasswordService: TemporaryPasswordService,
+    @Inject(AnnualLeaveBalanceService)
+    private readonly annualLeaveBalanceService: AnnualLeaveBalanceService
   ) {}
 
   getFoundationStatus() {
@@ -376,9 +379,16 @@ export class UsersService {
       take: 50
     });
 
+    const annualLeaveBalance = await this.annualLeaveBalanceService.getForUser({
+      id: user.id,
+      role: user.role,
+      joiningDate: user.joiningDate
+    });
+
     return {
       user: toSafeUser(user),
       workedDays: this.getWorkedDays(user.joiningDate),
+      annualLeaveBalance,
       permissions,
       password: {
         mustChangePassword: user.mustChangePassword,
