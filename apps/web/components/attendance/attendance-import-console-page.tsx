@@ -24,6 +24,7 @@ import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
@@ -728,10 +729,8 @@ function UploadCard({
         ) : (
           <label className="grid gap-1 text-xs font-medium text-[color:var(--sn-body)]">
             Upload date
-            <Input
-              className="h-11 rounded-xl"
-              onChange={(event) => onUploadDateChange(event.target.value)}
-              type="date"
+            <DatePicker
+              onChange={(value) => onUploadDateChange(value)}
               value={uploadDate}
             />
           </label>

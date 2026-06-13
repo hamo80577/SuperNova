@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
@@ -313,20 +314,24 @@ function EditTextField({
         {label}
         {required ? <span className="ml-1 text-[oklch(0.55_0.19_27)]">*</span> : null}
       </span>
-      <Input
-        aria-describedby={error ? errorId : undefined}
-        aria-invalid={Boolean(error)}
-        autoComplete={autoComplete}
-        className={cn(
-          "h-11 rounded-xl bg-[color:var(--sn-card)]",
-          error &&
-            "border-[oklch(0.75_0.1_27)] text-[oklch(0.35_0.15_27)] focus-visible:ring-[oklch(0.88_0.06_27)]"
-        )}
-        onChange={(event) => onChange(event.target.value)}
-        ref={refSetter}
-        type={type}
-        value={value}
-      />
+      {type === "date" ? (
+        <DatePicker onChange={onChange} value={value} />
+      ) : (
+        <Input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={Boolean(error)}
+          autoComplete={autoComplete}
+          className={cn(
+            "h-11 rounded-xl bg-[color:var(--sn-card)]",
+            error &&
+              "border-[oklch(0.75_0.1_27)] text-[oklch(0.35_0.15_27)] focus-visible:ring-[oklch(0.88_0.06_27)]"
+          )}
+          onChange={(event) => onChange(event.target.value)}
+          ref={refSetter}
+          type={type}
+          value={value}
+        />
+      )}
       {error ? (
         <p className="text-xs font-medium text-[oklch(0.55_0.19_27)]" id={errorId}>
           {error}

@@ -19,6 +19,7 @@ import {
 } from "@/components/admin/resource-states";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
@@ -369,10 +370,15 @@ export function AssignmentsAdmin() {
                   ))}
                 </SelectField>
               </FieldError>
-              <Input
-                aria-label="Start date"
-                type="date"
-                {...vendorChampForm.register("startDate")}
+              <DatePicker
+                placeholder="Start date"
+                value={vendorChampForm.watch("startDate") ?? ""}
+                onChange={(value) =>
+                  vendorChampForm.setValue("startDate", value, {
+                    shouldValidate: true,
+                    shouldDirty: true
+                  })
+                }
               />
               <Button disabled={isPending} type="submit">
                 Assign
@@ -419,10 +425,15 @@ export function AssignmentsAdmin() {
                   ))}
                 </SelectField>
               </FieldError>
-              <Input
-                aria-label="Start date"
-                type="date"
-                {...chainAreaManagerForm.register("startDate")}
+              <DatePicker
+                placeholder="Start date"
+                value={chainAreaManagerForm.watch("startDate") ?? ""}
+                onChange={(value) =>
+                  chainAreaManagerForm.setValue("startDate", value, {
+                    shouldValidate: true,
+                    shouldDirty: true
+                  })
+                }
               />
               <Button disabled={isPending} type="submit">
                 Assign

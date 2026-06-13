@@ -14,6 +14,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DetailPanelSkeleton } from "@/components/ui/skeleton";
@@ -395,18 +396,16 @@ export function AdminAuditLogsPage() {
           placeholder="Entity type"
           value={filters.entityType}
         />
-        <Input
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, from: event.target.value }))
+        <DatePicker
+          onChange={(value) =>
+            setFilters((current) => ({ ...current, from: value }))
           }
-          type="date"
           value={filters.from}
         />
-        <Input
-          onChange={(event) =>
-            setFilters((current) => ({ ...current, to: event.target.value }))
+        <DatePicker
+          onChange={(value) =>
+            setFilters((current) => ({ ...current, to: value }))
           }
-          type="date"
           value={filters.to}
         />
         <Button onClick={() => void load()} type="button" variant="outline">
