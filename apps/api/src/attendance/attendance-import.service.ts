@@ -213,6 +213,8 @@ export class AttendanceImportService {
             rowCount: preview.rowCount,
             egyptRows: preview.egyptRows,
             matchedPickerRows: preview.matchedPickerRows,
+            matchedChampRows: preview.matchedChampRows,
+            ambiguousIdentifierRows: preview.ambiguousIdentifierRows,
             unmatchedRows: preview.unmatchedRows,
             excludedNonPickerRows: preview.excludedNonPickerRows,
             excludedNonEgyptRows: preview.nonEgyptRows,
@@ -280,6 +282,9 @@ export class AttendanceImportService {
               coverageEndDate: preview.coverageEndDate,
               expectedCoverageEndDate: preview.expectedCoverageEndDate,
               rowCount: preview.rowCount,
+              matchedPickerRows: preview.matchedPickerRows,
+              matchedChampRows: preview.matchedChampRows,
+              ambiguousIdentifierRows: preview.ambiguousIdentifierRows,
               errorRows,
               warningRows,
               status

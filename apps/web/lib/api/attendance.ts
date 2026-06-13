@@ -266,6 +266,8 @@ export type AttendanceLocationMappingStatus =
 
 export type AttendanceMatchStatus =
   | "MATCHED_PICKER"
+  | "MATCHED_CHAMP"
+  | "AMBIGUOUS_IDENTIFIER"
   | "UNMATCHED_IDENTIFIER"
   | "EXCLUDED_NOT_PICKER"
   | "EXCLUDED_NON_EGYPT"
@@ -329,6 +331,9 @@ export interface AttendanceReportedLocationSummary {
 
 export interface AttendanceDuplicateGroup {
   shopperId: string;
+  identifierValue: string;
+  personName: string | null;
+  personRole: AttendancePersonRole | null;
   userId: string | null;
   pickerName: string | null;
   branchName: string | null;

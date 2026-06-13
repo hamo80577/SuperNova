@@ -329,6 +329,7 @@ function resolveAttendanceMatch(
 type DuplicateTracker = {
   key: string;
   shopperId: string;
+  personRole: AttendancePersonRole | null;
   userId: string | null;
   pickerName: string | null;
   branchName: string | null;
@@ -651,6 +652,7 @@ function trackDuplicate(
   trackers.set(input.key, {
     key: input.key,
     shopperId: input.shopperId,
+    personRole: input.personRole,
     userId: input.userId,
     pickerName: input.pickerName,
     branchName: input.branchName,
@@ -692,6 +694,9 @@ function buildDuplicateGroups(
 
     groups.push({
       shopperId: tracker.shopperId,
+      identifierValue: tracker.shopperId,
+      personName: tracker.pickerName,
+      personRole: tracker.personRole,
       userId: tracker.userId,
       pickerName: tracker.pickerName,
       branchName: tracker.branchName,
@@ -731,6 +736,7 @@ function matchedDuplicateInput(
   return {
     key: matchedKey(row, user),
     shopperId: user.identifier,
+    personRole: user.personRole,
     userId: user.id,
     pickerName: user.nameEn,
     branchName: user.branchName,
@@ -751,6 +757,7 @@ function unmatchedDuplicateInput(
   return {
     key: unmatchedKey(row),
     shopperId: row.identifier,
+    personRole: null,
     userId: null,
     pickerName: null,
     branchName: null,

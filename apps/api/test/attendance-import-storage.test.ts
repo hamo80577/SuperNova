@@ -57,6 +57,8 @@ interface StoredBatch {
   rowCount: number;
   egyptRows: number;
   matchedPickerRows: number;
+  matchedChampRows: number;
+  ambiguousIdentifierRows: number;
   unmatchedRows: number;
   excludedNonPickerRows: number;
   excludedNonEgyptRows: number;
@@ -560,6 +562,9 @@ async function main() {
     assert.equal(result.canConfirm, true);
     assert.equal(result.preview.matchedChampRows, 1);
     assert.equal(result.preview.matchedPickerRows, 0);
+    // Fix 4: the Champ counter is persisted on the batch.
+    assert.equal(store.batches[0]?.matchedChampRows, 1);
+    assert.equal(store.batches[0]?.ambiguousIdentifierRows, 0);
     assert.equal(store.dailyRecords.length, 1);
     assert.equal(
       store.dailyRecords[0]?.["personRole"],
@@ -600,6 +605,46 @@ async function main() {
     assert.equal(
       store.dailyRecords[0]?.["assignmentMismatchStatus"],
       AttendanceAssignmentMismatchStatus.MATCHES_ACTIVE_ASSIGNMENT
+    );
+  }
+
+  {
+    // Fix 6: an identifier that matches BOTH a Picker (shopperId) and a Champ
+    // (ibsId) is ambiguous and BLOCKING. Fix 4: the count is persisted.
+    const { prisma, store } = createStore();
+    store.users.push(
+      {
+        id: "user-dual-picker",
+        shopperId: "DUAL-7",
+        role: UserRole.PICKER,
+        nameEn: "Dual Picker",
+        pickerBranchAssignments: [{ vendor: { vendorName: "Branch A" } }]
+      },
+      {
+        id: "user-dual-champ",
+        shopperId: null,
+        ibsId: "DUAL-7",
+        role: UserRole.CHAMP,
+        nameEn: "Dual Champ",
+        pickerBranchAssignments: [],
+        vendorChampAssignments: []
+      }
+    );
+    const result = await previewRows([baseRow({ Identifier: "DUAL-7" })], {
+      prisma
+    });
+
+    assert.equal(result.status, AttendanceImportBatchStatus.FAILED);
+    assert.equal(result.canConfirm, false);
+    assert.equal(result.preview.ambiguousIdentifierRows, 1);
+    assert.equal(result.preview.matchedPickerRows, 0);
+    assert.equal(result.preview.matchedChampRows, 0);
+    assert.equal(store.batches[0]?.ambiguousIdentifierRows, 1);
+    assert.equal(store.dailyRecords.length, 0);
+    assert.ok(
+      result.preview.issues.some(
+        (issue) => issue.severity === AttendanceIssueSeverity.ERROR
+      )
     );
   }
 
@@ -1018,6 +1063,19 @@ async function main() {
     assert.equal(failedPreview.preview.duplicateGroups.length, 1);
     assert.equal(failedPreview.preview.duplicateGroups[0]?.pickerName, "Picker One");
     assert.equal(failedPreview.preview.duplicateGroups[0]?.branchName, "Branch A");
+    // Fix 5: generic workforce fields populated alongside legacy ones.
+    assert.equal(
+      failedPreview.preview.duplicateGroups[0]?.personName,
+      "Picker One"
+    );
+    assert.equal(
+      failedPreview.preview.duplicateGroups[0]?.identifierValue,
+      "SHOPPER-1"
+    );
+    assert.equal(
+      failedPreview.preview.duplicateGroups[0]?.personRole,
+      AttendancePersonRole.PICKER
+    );
 
     const resolvedPreview = await previewRows([
       baseRow({
@@ -1092,6 +1150,8 @@ async function main() {
       rowCount: 1,
       egyptRows: 1,
       matchedPickerRows: 1,
+      matchedChampRows: 0,
+      ambiguousIdentifierRows: 0,
       unmatchedRows: 0,
       excludedNonPickerRows: 0,
       excludedNonEgyptRows: 0,
@@ -1145,6 +1205,8 @@ async function main() {
       rowCount: 1,
       egyptRows: 1,
       matchedPickerRows: 1,
+      matchedChampRows: 0,
+      ambiguousIdentifierRows: 0,
       unmatchedRows: 0,
       excludedNonPickerRows: 0,
       excludedNonEgyptRows: 0,
@@ -1204,6 +1266,8 @@ async function main() {
       rowCount: 1,
       egyptRows: 1,
       matchedPickerRows: 1,
+      matchedChampRows: 0,
+      ambiguousIdentifierRows: 0,
       unmatchedRows: 0,
       excludedNonPickerRows: 0,
       excludedNonEgyptRows: 0,

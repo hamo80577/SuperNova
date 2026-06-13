@@ -177,7 +177,7 @@ export function AttendanceImportConsolePage({
     if (selectedRows.length !== duplicateGroups.length) {
       setDuplicateSaveState({
         status: "error",
-        error: "Choose one shift for each duplicate Picker."
+        error: "Choose one shift for each duplicate record."
       });
       return;
     }
@@ -454,7 +454,7 @@ function DuplicateResolutionModal({
                 Resolve duplicate shift
               </h2>
               <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
-                {currentIndex + 1} of {groups.length} Pickers
+                {currentIndex + 1} of {groups.length} duplicates
               </p>
             </div>
             <button
@@ -469,7 +469,7 @@ function DuplicateResolutionModal({
 
           <div className="max-h-[calc(92vh-9.5rem)] overflow-y-auto bg-[color:var(--sn-sunken)]/70 p-4 sm:p-5">
             <div className="grid gap-4">
-              <DuplicatePickerCard group={group} />
+              <DuplicatePersonCard group={group} />
 
               <div className="grid gap-3">
                 {group.options.map((option) => (
@@ -530,7 +530,7 @@ function DuplicateResolutionModal({
                 }
                 type="button"
               >
-                Next Picker
+                Next
               </Button>
             )}
           </div>
@@ -540,11 +540,14 @@ function DuplicateResolutionModal({
   );
 }
 
-function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
+function DuplicatePersonCard({ group }: { group: AttendanceDuplicateGroup }) {
   const branchName = group.branchName ?? firstOptionText(group, "sourceLocation");
   const vendorName =
     group.vendorName && group.vendorName !== branchName ? group.vendorName : null;
-  const initials = initialsFromName(group.pickerName ?? group.shopperId);
+  const displayName = group.personName ?? group.pickerName;
+  const identifier = group.identifierValue ?? group.shopperId;
+  const roleLabel = personRoleLabel(group.personRole);
+  const initials = initialsFromName(displayName ?? identifier);
 
   return (
     <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 shadow-sm">
@@ -554,11 +557,12 @@ function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="break-words text-lg font-semibold text-[color:var(--sn-ink)]">
-            {group.pickerName ?? "Unmatched Picker"}
+            {displayName ?? "Unmatched identifier"}
           </h3>
           <div className="mt-2 flex flex-wrap gap-2">
+            {roleLabel ? <MetaPill>{roleLabel}</MetaPill> : null}
             <MetaPill icon={<UserRound className="h-3.5 w-3.5" />}>
-              {group.shopperId}
+              {identifier}
             </MetaPill>
             <MetaPill icon={<MapPin className="h-3.5 w-3.5" />}>
               {branchName ?? "No branch"}
@@ -572,6 +576,18 @@ function DuplicatePickerCard({ group }: { group: AttendanceDuplicateGroup }) {
       </div>
     </section>
   );
+}
+
+function personRoleLabel(role: AttendanceDuplicateGroup["personRole"]) {
+  if (role === "PICKER") {
+    return "Picker";
+  }
+
+  if (role === "CHAMP") {
+    return "Champion";
+  }
+
+  return null;
 }
 
 function DuplicateShiftOptionCard({

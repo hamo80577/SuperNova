@@ -81,6 +81,12 @@ export interface AttendancePreviewIssue {
 
 export interface AttendanceDuplicateGroup {
   shopperId: string;
+  // Generic workforce aliases (Picker or Champ). identifierValue mirrors
+  // shopperId (Picker shopperId / Champ ibsId); personName mirrors pickerName;
+  // personRole is null for unmatched identifiers.
+  identifierValue: string;
+  personName: string | null;
+  personRole: AttendancePersonRole | null;
   userId: string | null;
   pickerName: string | null;
   branchName: string | null;

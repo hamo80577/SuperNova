@@ -734,6 +734,8 @@ model AttendanceImportBatch {
   rowCount                Int                              @default(0)
   egyptRows               Int                              @default(0)
   matchedPickerRows       Int                              @default(0)
+  matchedChampRows        Int                              @default(0)
+  ambiguousIdentifierRows Int                              @default(0)
   unmatchedRows           Int                              @default(0)
   excludedNonPickerRows   Int                              @default(0)
   excludedNonEgyptRows    Int                              @default(0)

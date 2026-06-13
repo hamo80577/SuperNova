@@ -921,6 +921,10 @@ function dailyRow(
     isOver15Hours: false,
     issuesCount: 0,
     ...overrides,
+    personNameSnapshot:
+      overrides.personNameSnapshot ?? overrides.pickerNameSnapshot ?? "Picker One",
+    identifierValue:
+      overrides.identifierValue ?? overrides.shopperId ?? "SHOPPER-001",
     shiftDate: typeof overrides.shiftDate === "string"
       ? date(overrides.shiftDate)
       : overrides.shiftDate ?? date(shiftDate)
@@ -939,7 +943,11 @@ function sortRows(
     ? orderBy
     : orderBy
       ? [orderBy]
-      : [{ shiftDate: "asc" }, { pickerNameSnapshot: "asc" }, { shopperId: "asc" }];
+      : [
+          { shiftDate: "asc" },
+          { personNameSnapshot: "asc" },
+          { identifierValue: "asc" }
+        ];
 
   return rows
     .sort((left, right) => {
@@ -1008,7 +1016,9 @@ function matchesWhere(row: DailyRow, where: Record<string, unknown>): boolean {
 
     if (
       key === "shopperId" ||
+      key === "identifierValue" ||
       key === "pickerNameSnapshot" ||
+      key === "personNameSnapshot" ||
       key === "sourceLocation" ||
       key === "sourceSubDivision" ||
       key === "reportedLocationCode" ||
@@ -1072,8 +1082,10 @@ type DailyRow = {
   periodMonth: string;
   shiftDate: Date;
   shopperId: string;
+  identifierValue: string;
   userId: string;
   pickerNameSnapshot: string;
+  personNameSnapshot: string;
   sourceDesignation: string | null;
   sourceSubDivision: string | null;
   sourceLocation: string | null;

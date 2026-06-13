@@ -4,7 +4,9 @@ import {
   buildAttendanceImportPreviewFormData,
   buildAttendanceDailyReportPath,
   type AttendanceDailyReportResponse,
-  type AttendanceDailyReportQuery
+  type AttendanceDailyReportQuery,
+  type AttendanceDuplicateGroup,
+  type AttendanceMatchStatus
 } from "./attendance";
 
 const assert = {
@@ -280,6 +282,40 @@ const assert = {
     buildAttendanceImportConfirmPath("batch-123"),
     "/attendance/imports/batch-123/confirm"
   );
+}
+
+{
+  // Fix 1: preview match statuses include the Champ + ambiguous cases so the
+  // frontend type stays aligned with the backend rows-preview union.
+  const matchStatuses: AttendanceMatchStatus[] = [
+    "MATCHED_PICKER",
+    "MATCHED_CHAMP",
+    "AMBIGUOUS_IDENTIFIER",
+    "UNMATCHED_IDENTIFIER",
+    "EXCLUDED_NOT_PICKER",
+    "EXCLUDED_NON_EGYPT",
+    "NOT_EVALUATED"
+  ];
+  assert.equal(matchStatuses.includes("MATCHED_CHAMP"), true);
+  assert.equal(matchStatuses.includes("AMBIGUOUS_IDENTIFIER"), true);
+
+  // Fix 5: duplicate groups expose generic workforce fields (Picker or Champ)
+  // alongside the legacy shopperId/pickerName fields.
+  const duplicate: AttendanceDuplicateGroup = {
+    shopperId: "IBS-1",
+    identifierValue: "IBS-1",
+    personName: "Champ One",
+    personRole: "CHAMP",
+    userId: "user-champ-1",
+    pickerName: "Champ One",
+    branchName: "Branch A",
+    vendorName: "Vendor A",
+    shiftDate: "2026-05-01",
+    selectedRawRowNumber: null,
+    options: []
+  };
+  assert.equal(duplicate.personRole, "CHAMP");
+  assert.equal(duplicate.identifierValue, "IBS-1");
 }
 
 void runCacheInvalidationTest();

@@ -346,15 +346,27 @@ function buildDailyReportWhere(
   }
 
   if (query.shopperId?.trim()) {
-    where.shopperId = {
-      contains: query.shopperId.trim(),
-      mode: "insensitive"
-    };
+    // The query param is still called "shopperId" for compatibility, but it
+    // applies to the generic identifierValue (Champ ibsId) as well as the
+    // legacy shopperId. Added via AND so it composes with scope + pickerSearch.
+    const identifier = query.shopperId.trim();
+    addDailyAnd(where, {
+      OR: [
+        { identifierValue: { contains: identifier, mode: "insensitive" } },
+        { shopperId: { contains: identifier, mode: "insensitive" } }
+      ]
+    });
   }
 
   if (query.pickerSearch?.trim()) {
     const search = query.pickerSearch.trim();
     where.OR = [
+      {
+        personNameSnapshot: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
       {
         pickerNameSnapshot: {
           contains: search,
@@ -363,6 +375,12 @@ function buildDailyReportWhere(
       },
       {
         sourceName: {
+          contains: search,
+          mode: "insensitive"
+        }
+      },
+      {
+        identifierValue: {
           contains: search,
           mode: "insensitive"
         }
@@ -557,7 +575,7 @@ function buildDailyOrderBy(
     date: "shiftDate",
     hours: "actualWorkDurationHours",
     location: "reportedLocationName",
-    name: "pickerNameSnapshot",
+    name: "personNameSnapshot",
     status: "calculatedStatus"
   } satisfies Record<
     NonNullable<AttendanceDailyReportQuery["sortBy"]>,
@@ -574,8 +592,8 @@ function buildDailyOrderBy(
 
   order.push(
     { shiftDate: "asc" },
-    { pickerNameSnapshot: "asc" },
-    { shopperId: "asc" }
+    { personNameSnapshot: "asc" },
+    { identifierValue: "asc" }
   );
 
   return order;
