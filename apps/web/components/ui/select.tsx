@@ -247,7 +247,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         {isOpen ? (
           <div
             className={cn(
-              "absolute left-0 top-full z-50 mt-1 max-h-72 w-full min-w-full overflow-y-auto rounded-xl border border-[color:var(--sn-border)] bg-white p-1 text-sm shadow-[0_18px_45px_rgba(65,21,23,0.16)]",
+              "absolute left-0 top-full z-50 mt-1 max-h-72 w-max min-w-full max-w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-[color:var(--sn-border)] bg-white p-1 text-sm shadow-[0_18px_45px_rgba(65,21,23,0.16)]",
               menuClassName
             )}
             role="listbox"
@@ -284,7 +284,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                   role="option"
                   type="button"
                 >
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  <span className="min-w-0 flex-1 break-words">{option.label}</span>
                   {selected ? (
                     <Check className="h-4 w-4 shrink-0 text-primary" />
                   ) : null}
