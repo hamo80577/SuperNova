@@ -337,7 +337,7 @@ model User {
   employmentStatus            EmploymentStatus                 @default(NEW_HIRE_PENDING)
   resignationDate             DateTime?
   accountStatus               AccountStatus                    @default(INACTIVE)
-  profileStatus               ProfileStatus                    @default(INCOMPLETE)
+  profileStatus               ProfileStatus                    @default(COMPLETE)
   blockStatus                 BlockStatus                      @default(NO_BLOCK)
   blockedUntil                DateTime?
   blockReason                 String?

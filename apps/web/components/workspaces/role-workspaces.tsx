@@ -107,21 +107,6 @@ export function PickerWorkspaceDashboard() {
         />
         <Definition label="Chain" value={data.chain?.chainName ?? "Not assigned"} />
       </InfoCard>
-
-      <InfoCard title="Profile Completion">
-        <Definition label="Status" value={data.profileCompletion.status} />
-        {data.profileCompletion.missingFields.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {data.profileCompletion.missingFields.map((field) => (
-              <Badge key={field} variant="outline">
-                {field}
-              </Badge>
-            ))}
-          </div>
-        ) : (
-          <EmptyInline message="No missing profile fields detected." />
-        )}
-      </InfoCard>
     </WorkspaceGrid>
   );
 }

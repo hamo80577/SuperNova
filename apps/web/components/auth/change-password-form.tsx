@@ -29,7 +29,7 @@ function ChangePasswordFormInner() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { changePassword, user } = useAuth();
+  const { changePassword } = useAuth();
   const router = useRouter();
   const submittingRef = useRef(false);
 
@@ -81,13 +81,6 @@ function ChangePasswordFormInner() {
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
-      {user?.role === "PICKER" && user.profileStatus === "INCOMPLETE" ? (
-        <div className="rounded-md border border-[#FFD8BD] bg-[#FFE8D9] px-3 py-2 text-sm text-[color:var(--tlb-orange-900)]">
-          After changing this temporary password, complete your operational
-          Picker profile before opening the full workspace.
-        </div>
-      ) : null}
-
       <PasswordField
         autoComplete="current-password"
         disabled={submitting}

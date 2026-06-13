@@ -25,7 +25,6 @@ import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
 import type { UpdateAdminProfileDto } from "../src/users/dto/admin-profile.dto";
 import type { AreaManagerChainAssignmentDto } from "../src/users/dto/area-manager-chain-assignment.dto";
 import type { ListUsersQueryDto } from "../src/users/dto/list-users-query.dto";
-import type { UpdateProfileCompletionDto } from "../src/users/dto/profile-completion.dto";
 import type { UpdateUserPreferencesDto } from "../src/users/dto/user-preferences.dto";
 import { UsersController } from "../src/users/users.controller";
 import type { UsersService } from "../src/users/users.service";
@@ -98,9 +97,7 @@ const responses = {
   areaManagerAssignments: { assignments: [] },
   adminProfile: { user: { id: "target-user" } },
   temporaryPassword: { temporaryPassword: "redacted" },
-  resetTemporaryPassword: { temporaryPassword: "redacted-reset" },
-  profileCompletion: { user: { id: "current-user" } },
-  updatedProfileCompletion: { user: { id: "current-user" } }
+  resetTemporaryPassword: { temporaryPassword: "redacted-reset" }
 };
 
 const usersService = {
@@ -202,20 +199,6 @@ const usersService = {
       `admin-profile:${targetUserId}:${dto.nameEn ?? "none"}:${currentUser.id}:${context.ipAddress}:${context.userAgent}`
     );
     return responses.adminProfile;
-  },
-  getProfileCompletion: async (userId: string) => {
-    serviceCalls.push(`profile-completion:${userId}`);
-    return responses.profileCompletion;
-  },
-  updateProfileCompletion: async (
-    userId: string,
-    dto: UpdateProfileCompletionDto,
-    context: { ipAddress?: string | null; userAgent?: string | null }
-  ) => {
-    serviceCalls.push(
-      `update-profile-completion:${userId}:${dto.nameEn ?? "none"}:${context.ipAddress}:${context.userAgent}`
-    );
-    return responses.updatedProfileCompletion;
   }
 } as unknown as UsersService;
 
@@ -290,16 +273,12 @@ async function run() {
     JwtAuthGuard,
     RolesGuard
   ]);
-  assert.deepEqual(rolesFor("getProfileCompletion"), [UserRole.PICKER]);
-  assert.deepEqual(rolesFor("updateProfileCompletion"), [UserRole.PICKER]);
   assert.equal(
     requiredPermissionFor("revealTemporaryPassword"),
     undefined
   );
   assert.equal(requiredPermissionFor("resetTemporaryPassword"), undefined);
   assert.equal(requiredPermissionFor("updateAdminProfile"), undefined);
-  assert.equal(requiredPermissionFor("getProfileCompletion"), undefined);
-  assert.equal(requiredPermissionFor("updateProfileCompletion"), undefined);
 
   assert.equal(await controller.getMe(champ), responses.me);
   assert.equal(
@@ -446,37 +425,15 @@ async function run() {
     ),
     responses.adminProfile
   );
-  assert.equal(
-    await controller.getProfileCompletion(picker),
-    responses.profileCompletion
-  );
-  assert.equal(
-    await controller.updateProfileCompletion(
-      picker,
-      { nameEn: "Picker User" },
-      requestFor(picker)
-    ),
-    responses.updatedProfileCompletion
-  );
 
   assert.deepEqual(policyCalls, [
     {
       actor: admin,
       permissionKey: PermissionKeys.USERS_EDIT_PROFILE
-    },
-    {
-      actor: picker,
-      permissionKey: PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
-    },
-    {
-      actor: picker,
-      permissionKey: PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
     }
   ]);
   assert.deepEqual(serviceCalls, [
-    `admin-profile:target-user:Target User:${admin.id}:127.0.0.1:users-access-policy-test`,
-    `profile-completion:${picker.id}`,
-    `update-profile-completion:${picker.id}:Picker User:127.0.0.1:users-access-policy-test`
+    `admin-profile:target-user:Target User:${admin.id}:127.0.0.1:users-access-policy-test`
   ]);
 }
 

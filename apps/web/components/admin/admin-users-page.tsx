@@ -5,9 +5,7 @@ import {
   Download,
   Filter,
   RefreshCw,
-  Search,
-  ShieldCheck,
-  UserCheck,
+  Search,  UserCheck,
   UserRound,
   Users
 } from "lucide-react";
@@ -24,9 +22,7 @@ import { usersApi } from "@/lib/api/users";
 import type {
   AccountStatus,
   BlockStatus,
-  EmploymentStatus,
-  ProfileStatus,
-  SafeUser,
+  EmploymentStatus,  SafeUser,
   UserRole
 } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -55,11 +51,6 @@ const employmentStatuses: EmploymentStatus[] = [
   "RESIGNED",
   "ARCHIVED"
 ];
-const profileStatuses: ProfileStatus[] = [
-  "INCOMPLETE",
-  "PENDING_REVIEW",
-  "COMPLETE"
-];
 const blockStatuses: BlockStatus[] = [
   "NO_BLOCK",
   "TEMPORARY_BLOCK",
@@ -77,7 +68,6 @@ export function AdminUsersPage() {
     role: "" as UserRole | "",
     accountStatus: "" as AccountStatus | "",
     employmentStatus: "" as EmploymentStatus | "",
-    profileStatus: "" as ProfileStatus | "",
     blockStatus: "" as BlockStatus | ""
   });
 
@@ -153,10 +143,9 @@ export function AdminUsersPage() {
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-3">
         <StatCard icon={Users} label="Total users" value={stats.total} />
         <StatCard icon={UserCheck} label="Active accounts" value={stats.active} />
-        <StatCard icon={ShieldCheck} label="Complete profiles" value={stats.complete} />
         <StatCard icon={Archive} label="Archived users" value={stats.archived} />
       </section>
 
@@ -165,7 +154,7 @@ export function AdminUsersPage() {
           <Filter className="h-4 w-4 text-[color:var(--tlb-orange)]" />
           Filters
         </div>
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(140px,1fr))]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(4,minmax(140px,1fr))]">
           <label className="relative">
             <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-[color:var(--sn-muted)]" />
             <Input
@@ -208,17 +197,6 @@ export function AdminUsersPage() {
             value={filters.employmentStatus}
           />
           <SelectFilter
-            label="Profile"
-            onChange={(profileStatus) =>
-              setFilters((current) => ({
-                ...current,
-                profileStatus: profileStatus as ProfileStatus | ""
-              }))
-            }
-            options={profileStatuses}
-            value={filters.profileStatus}
-          />
-          <SelectFilter
             label="Block"
             onChange={(blockStatus) =>
               setFilters((current) => ({
@@ -242,7 +220,6 @@ export function AdminUsersPage() {
                 role: "",
                 accountStatus: "",
                 employmentStatus: "",
-                profileStatus: "",
                 blockStatus: ""
               })
             }
@@ -324,7 +301,6 @@ function UsersStateView({
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Account</th>
               <th className="px-4 py-3">Employment</th>
-              <th className="px-4 py-3">Profile</th>
               <th className="px-4 py-3">IDs</th>
               <th className="px-4 py-3">Last login</th>
             </tr>
@@ -348,9 +324,6 @@ function UsersStateView({
                 </td>
                 <td className="px-4 py-3">
                   <StatusPill status={user.employmentStatus} />
-                </td>
-                <td className="px-4 py-3">
-                  <StatusPill status={user.profileStatus} />
                 </td>
                 <td className="px-4 py-3 text-xs text-[color:var(--sn-muted)]">
                   <p>{user.shopperId ?? "No Shopper ID"}</p>
@@ -378,7 +351,6 @@ function UsersStateView({
               <StatusPill status={user.role} tone="orange" />
               <StatusPill status={user.accountStatus} />
               <StatusPill status={user.employmentStatus} />
-              <StatusPill status={user.profileStatus} />
             </div>
           </button>
         ))}
@@ -495,7 +467,6 @@ function filterUsers(
     role: UserRole | "";
     accountStatus: AccountStatus | "";
     employmentStatus: EmploymentStatus | "";
-    profileStatus: ProfileStatus | "";
     blockStatus: BlockStatus | "";
   }
 ) {
@@ -521,7 +492,6 @@ function filterUsers(
       (!filters.accountStatus || user.accountStatus === filters.accountStatus) &&
       (!filters.employmentStatus ||
         user.employmentStatus === filters.employmentStatus) &&
-      (!filters.profileStatus || user.profileStatus === filters.profileStatus) &&
       (!filters.blockStatus || user.blockStatus === filters.blockStatus)
     );
   });
@@ -531,7 +501,6 @@ function buildStats(users: SafeUser[]) {
   return {
     total: users.length,
     active: users.filter((user) => user.accountStatus === "ACTIVE").length,
-    complete: users.filter((user) => user.profileStatus === "COMPLETE").length,
     archived: users.filter((user) => user.accountStatus === "ARCHIVED").length
   };
 }

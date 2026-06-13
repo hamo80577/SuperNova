@@ -32,7 +32,6 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { UpdateAdminProfileDto } from "./dto/admin-profile.dto";
 import { AreaManagerChainAssignmentDto } from "./dto/area-manager-chain-assignment.dto";
 import { ListUsersQueryDto } from "./dto/list-users-query.dto";
-import { UpdateProfileCompletionDto } from "./dto/profile-completion.dto";
 import { UpdateUserPreferencesDto } from "./dto/user-preferences.dto";
 import { WorkforceSummaryQueryDto } from "./dto/workforce-summary-query.dto";
 import { UsersService } from "./users.service";
@@ -289,34 +288,4 @@ export class UsersController {
     });
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.PICKER)
-  @Get("me/profile-completion")
-  getProfileCompletion(@CurrentUser() user: AuthenticatedUser) {
-    this.accessPolicy.assertCan(
-      user,
-      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
-    );
-
-    return this.usersService.getProfileCompletion(user.id);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.PICKER)
-  @Patch("me/profile-completion")
-  updateProfileCompletion(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: UpdateProfileCompletionDto,
-    @Req() request: AuthenticatedRequest
-  ) {
-    this.accessPolicy.assertCan(
-      user,
-      PermissionKeys.USERS_COMPLETE_OWN_PICKER_PROFILE
-    );
-
-    return this.usersService.updateProfileCompletion(user.id, dto, {
-      ipAddress: request.ip,
-      userAgent: request.headers["user-agent"] ?? null
-    });
-  }
 }

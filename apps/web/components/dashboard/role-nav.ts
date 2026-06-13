@@ -11,7 +11,6 @@ import {
   Map,
   MinusCircle,
   Settings,
-  ShieldCheck,
   Store,
   UploadCloud,
   UserRound,
@@ -66,12 +65,6 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       label: "My Profile",
       disabled: true,
       icon: UserRound,
-      section: "Profile"
-    },
-    {
-      label: "Profile Completion",
-      href: "/picker/profile-completion",
-      icon: ShieldCheck,
       section: "Profile"
     },
     {

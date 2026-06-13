@@ -2258,14 +2258,6 @@ function getLifecycleDisplay(item: UsersAreaItem) {
     };
   }
 
-  if (item.user.profileStatus !== "COMPLETE") {
-    return {
-      label: "Profile incomplete",
-      title: "Profile still requires completion or review",
-      tone: "pending" as const
-    };
-  }
-
   return {
     label: operationalStatus.label,
     title: operationalStatus.title,

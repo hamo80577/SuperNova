@@ -73,25 +73,6 @@ export interface ListUsersParams {
   champId?: string;
 }
 
-export interface ProfileCompletionResponse {
-  user: SafeUser;
-  profileCompletion: {
-    status: SafeUser["profileStatus"];
-    requiredFields: string[];
-    missingFields: string[];
-    complete: boolean;
-  };
-  allowedFields: string[];
-}
-
-export interface UpdateProfileCompletionInput {
-  nameEn?: string;
-  nameAr?: string;
-  nationalId?: string;
-  address?: string;
-  dateOfBirth?: string;
-  gender?: SafeUser["gender"];
-}
 
 export interface UpdateUserPreferencesInput {
   uiTheme: UiTheme;
@@ -312,9 +293,6 @@ export const usersApi = {
       }
     );
   },
-  profileCompletion() {
-    return apiRequest<ProfileCompletionResponse>("/users/me/profile-completion");
-  },
   async updatePreferences(input: UpdateUserPreferencesInput) {
     const response = await apiRequest<{ user: SafeUser }>(
       "/users/me/preferences",
@@ -324,17 +302,6 @@ export const usersApi = {
       }
     );
     clearApiCache();
-    return response;
-  },
-  async updateProfileCompletion(input: UpdateProfileCompletionInput) {
-    const response = await apiRequest<ProfileCompletionResponse>(
-      "/users/me/profile-completion",
-      {
-        method: "PATCH",
-        body: JSON.stringify(input)
-      }
-    );
-    clearApiCache("/workspaces/picker");
     return response;
   }
 };

@@ -32,7 +32,6 @@ export function BranchPickers({
                 <th className="py-3 pr-4">Picker</th>
                 <th className="py-3 pr-4">Phone</th>
                 <th className="py-3 pr-4">Employment</th>
-                <th className="py-3 pr-4">Profile</th>
                 <th className="py-3 pr-4">Account</th>
                 <th className="py-3 text-right">Action</th>
               </tr>
@@ -65,9 +64,6 @@ export function BranchPickers({
                     </td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline">{formatEnum(picker.employmentStatus)}</Badge>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <Badge variant="muted">{formatEnum(picker.profileStatus)}</Badge>
                     </td>
                     <td className="py-3 pr-4">
                       <Badge variant="outline">{formatEnum(picker.accountStatus)}</Badge>

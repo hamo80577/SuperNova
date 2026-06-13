@@ -15,9 +15,7 @@ import {
   MinusCircle,
   MoreHorizontal,
   Plus,
-  Search,
-  ShieldCheck,
-  Trash2,
+  Search,  Trash2,
   UserMinus,
   UserRound,
   X
@@ -964,11 +962,6 @@ function ProfileSummaryPanel({
           icon={<CalendarDays className="h-4 w-4" />}
           label="Worked days"
           value={profile.workedDays === null ? "Not set" : String(profile.workedDays)}
-        />
-        <InfoRow
-          icon={<ShieldCheck className="h-4 w-4" />}
-          label="Profile"
-          value={formatEnum(user.profileStatus)}
         />
         <InfoRow
           icon={<UserRound className="h-4 w-4" />}
