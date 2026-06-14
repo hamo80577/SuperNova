@@ -12,24 +12,11 @@ import {
   parseOffboardingPayload,
   parseTransferPayload
 } from "../shared/request-utils";
-
-type ProgressState =
-  | "cancelled"
-  | "completed"
-  | "current"
-  | "pending"
-  | "rejected"
-  | "skipped";
-
-type ProgressStepKind = "approval" | "completed" | "submitted";
-
-interface ProgressStepDefinition {
-  approvalStep?: ApprovalStep;
-  fallbackActorLabel?: string;
-  id: string;
-  kind: ProgressStepKind;
-  title: string;
-}
+import {
+  buildAnnualLeaveStepDefinitions,
+  type ProgressState,
+  type ProgressStepDefinition
+} from "./approval-steps-indicator-rules";
 
 interface ProgressStep extends ProgressStepDefinition {
   actorLabel?: string;
@@ -380,6 +367,10 @@ function buildStepDefinitions(request: RequestSummary): ProgressStepDefinition[]
         title: "Completed"
       }
     ];
+  }
+
+  if (requestType === "ANNUAL_LEAVE") {
+    return buildAnnualLeaveStepDefinitions(request);
   }
 
   return [

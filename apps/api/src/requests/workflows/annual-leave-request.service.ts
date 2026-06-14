@@ -18,6 +18,7 @@ import {
 
 import { AuditService } from "../../audit/audit.service";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user";
+import { NotificationsService } from "../../notifications/notifications.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   AnnualLeaveBalanceService,
@@ -65,6 +66,11 @@ interface HoldComputation {
   availableToRequest: number;
 }
 
+interface InitialApprovalNotificationTarget {
+  step: ApprovalStep;
+  approverId: string | null;
+}
+
 export interface AnnualLeavePreviewResult {
   requestedDays: number;
   officialRemainingDays: number;
@@ -86,7 +92,9 @@ export class AnnualLeaveRequestService {
     @Inject(RequestApprovalRoutingService)
     private readonly approvalRoutingService: RequestApprovalRoutingService,
     @Inject(AuditService)
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    @Inject(NotificationsService)
+    private readonly notificationsService: NotificationsService
   ) {}
 
   async preview(
@@ -343,6 +351,8 @@ export class AnnualLeaveRequestService {
       userAgent: context.userAgent
     });
 
+    await this.notifyInitialApproval(resolvedSteps[0], created.id, created.type);
+
     return toRequestSummary(created);
   }
 
@@ -490,6 +500,12 @@ export class AnnualLeaveRequestService {
     if (assignments.length === 0) {
       throw new BadRequestException(
         "You have no active branch assignment to request annual leave."
+      );
+    }
+
+    if (assignments.length > 1) {
+      throw new BadRequestException(
+        "You have more than one active branch assignment. Resolve branch assignments before requesting annual leave."
       );
     }
 
@@ -688,6 +704,24 @@ export class AnnualLeaveRequestService {
     });
 
     return Boolean(overlap);
+  }
+
+  private async notifyInitialApproval(
+    approval: InitialApprovalNotificationTarget,
+    requestId: string,
+    requestType: RequestType
+  ) {
+    if (!approval.approverId) {
+      return;
+    }
+
+    await this.notificationsService.create({
+      userId: approval.approverId,
+      type: "APPROVAL_PENDING",
+      title: "Approval pending",
+      body: `${requestType} request requires your approval.`,
+      payload: { requestId, step: approval.step }
+    });
   }
 
   private assertSelfRequestRole(actor: AuthenticatedUser) {

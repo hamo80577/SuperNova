@@ -9,7 +9,6 @@ import { SnAvatar, SnStatusBadge, SnTypeChip } from "@/components/sn/sn-primitiv
 import { approvalsApi, type PendingApproval } from "@/lib/api/approvals";
 import {
   requestsApi,
-  type RequestStatus,
   type RequestSummary,
   type RequestType
 } from "@/lib/api/requests";
@@ -21,8 +20,12 @@ import { NewRequestSheet } from "../forms/new-request-sheet";
 import { EmptyState } from "../shared/request-empty-state";
 import { ErrorState, LoadingState } from "../shared/request-states";
 import { type NewRequestDraft, type OperationsMode } from "../shared/request-types";
-
-const CLOSED_STATUSES: RequestStatus[] = ["COMPLETED", "REJECTED", "CANCELLED"];
+import {
+  canRenderNewRequestSheet,
+  isClosedRequestForOperations,
+  isCompletedRequestForOperations,
+  requestTypeFilters
+} from "./request-operations-center-rules";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   PICKER: "Picker",
@@ -39,13 +42,6 @@ const TYPE_LABELS: Record<RequestType, string> = {
   DEDUCTION: "Deduction",
   ANNUAL_LEAVE: "Annual Leave"
 };
-
-const TYPE_FILTERS: RequestType[] = [
-  "NEW_HIRE",
-  "RESIGNATION",
-  "TRANSFER",
-  "DEDUCTION"
-];
 
 function compactAge(iso: string) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -187,9 +183,9 @@ export function RequestOperationsCenter({
           : mode === "submitted"
             ? true
             : mode === "open"
-              ? !CLOSED_STATUSES.includes(request.status)
+              ? !isClosedRequestForOperations(request)
               : mode === "completed"
-                ? request.status === "COMPLETED"
+                ? isCompletedRequestForOperations(request)
                 : request.status === "REJECTED" || request.status === "CANCELLED";
 
       return matchesQuery && matchesMode;
@@ -198,7 +194,7 @@ export function RequestOperationsCenter({
 
   const viewCounts = useMemo(() => {
     const open = items.filter(
-      (request) => !CLOSED_STATUSES.includes(request.status)
+      (request) => !isClosedRequestForOperations(request)
     ).length;
     return { needsMe: approvals.length, open };
   }, [approvals, items]);
@@ -281,7 +277,7 @@ export function RequestOperationsCenter({
             value={query}
           />
         </label>
-        {TYPE_FILTERS.map((filterType) => (
+        {requestTypeFilters.map((filterType) => (
           <button
             className={`sn-chip${type === filterType ? " is-active" : ""}`}
             key={filterType}
@@ -436,7 +432,11 @@ export function RequestOperationsCenter({
         />
       ) : null}
 
-      {newRequestDraft && canCreateLifecycleRequest ? (
+      {newRequestDraft &&
+      canRenderNewRequestSheet({
+        draftType: newRequestDraft.type,
+        userRole: user?.role
+      }) ? (
         <NewRequestSheet
           draft={newRequestDraft}
           onClose={() => setNewRequestDraft(null)}

@@ -83,6 +83,7 @@ function buildHarness(role: UserRole, options: StoreOptions = {}) {
   const createdApprovals: Record<string, unknown>[][] = [];
   const createdAnnualLeaves: Record<string, unknown>[] = [];
   const auditLogs: Record<string, unknown>[] = [];
+  const notifications: Record<string, unknown>[] = [];
   const forbiddenAttendanceWrites: string[] = [];
   const userWrites: Record<string, unknown>[] = [];
 
@@ -272,11 +273,19 @@ function buildHarness(role: UserRole, options: StoreOptions = {}) {
     }
   };
 
+  const notificationsService = {
+    create: async (params: any) => {
+      notifications.push(params);
+      return { id: "notification-1", ...params };
+    }
+  };
+
   const service = new AnnualLeaveRequestService(
     prisma as never,
     balanceService as never,
     approvalRoutingService as never,
-    auditService as never
+    auditService as never,
+    notificationsService as never
   );
 
   return {
@@ -285,6 +294,7 @@ function buildHarness(role: UserRole, options: StoreOptions = {}) {
     createdApprovals,
     createdAnnualLeaves,
     auditLogs,
+    notifications,
     forbiddenAttendanceWrites,
     userWrites,
     prisma,
@@ -351,6 +361,18 @@ async function run() {
         (log) => log.action === "ANNUAL_LEAVE_REQUEST_CREATED"
       )
     );
+    assert.deepEqual(harness.notifications, [
+      {
+        userId: "champ-9",
+        type: "APPROVAL_PENDING",
+        title: "Approval pending",
+        body: "ANNUAL_LEAVE request requires your approval.",
+        payload: {
+          requestId: "request-1",
+          step: ApprovalStep.CHAMP_APPROVAL
+        }
+      }
+    ]);
     assert.deepEqual(harness.forbiddenAttendanceWrites, []);
     assert.deepEqual(harness.userWrites, []);
   }
@@ -378,6 +400,18 @@ async function run() {
       [ApprovalStep.AREA_MANAGER_APPROVAL, ApprovalStep.ADMIN_FINAL_APPROVAL]
     );
     assert.equal(steps[0].approverId, "am-for-chain-7");
+    assert.deepEqual(harness.notifications, [
+      {
+        userId: "am-for-chain-7",
+        type: "APPROVAL_PENDING",
+        title: "Approval pending",
+        body: "ANNUAL_LEAVE request requires your approval.",
+        payload: {
+          requestId: "request-1",
+          step: ApprovalStep.AREA_MANAGER_APPROVAL
+        }
+      }
+    ]);
     // same-day allowed -> 1 day.
     assert.equal(harness.createdAnnualLeaves.at(-1)!.requestedDays, 1);
     assert.deepEqual(harness.forbiddenAttendanceWrites, []);
@@ -397,6 +431,44 @@ async function run() {
           { actor: actor(UserRole.PICKER), ...context }
         ),
       /no active branch assignment/
+    );
+  }
+
+  // Picker with multiple active branch assignments is ambiguous and must be
+  // cleaned up before annual leave can be requested.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [
+          { vendorId: "vendor-a", chainId: "chain-a" },
+          { vendorId: "vendor-b", chainId: "chain-b" }
+        ],
+        champsByVendor: {
+          "vendor-a": "champ-a",
+          "vendor-b": "champ-b"
+        }
+      })
+    );
+
+    const preview = await harness.service.preview(actor(UserRole.PICKER), {
+      startDate: "2026-07-01",
+      endDate: "2026-07-02",
+      reason: "Trip"
+    });
+
+    assert.ok(
+      preview.blockingReasons.some((reason) =>
+        /more than one active branch assignment/i.test(reason)
+      )
+    );
+    await assert.rejects(
+      () =>
+        harness.service.createSelfRequest(
+          actor(UserRole.PICKER),
+          { startDate: "2026-07-01", endDate: "2026-07-02", reason: "Trip" },
+          { actor: actor(UserRole.PICKER), ...context }
+        ),
+      /more than one active branch assignment/i
     );
   }
 

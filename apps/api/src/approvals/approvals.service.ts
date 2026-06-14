@@ -210,6 +210,9 @@ export class ApprovalsService {
     const nextStatus = nextApproval
       ? this.requestsService.statusForStep(nextApproval.step)
       : RequestStatus.APPROVED;
+    const decisionAt = new Date();
+    const finalAnnualLeaveApproval =
+      approval.request.type === RequestType.ANNUAL_LEAVE && !nextApproval;
     assertRequestTransition(approval.request.status, nextStatus);
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -217,7 +220,7 @@ export class ApprovalsService {
         where: { id: approval.id },
         data: {
           status: ApprovalStatus.APPROVED,
-          decisionAt: new Date(),
+          decisionAt,
           notes: dto.notes,
           approverId: approval.approverId ?? context.actor.id
         }
@@ -227,7 +230,8 @@ export class ApprovalsService {
         where: { id: approval.requestId },
         data: {
           status: nextStatus,
-          currentStep: nextApproval?.step ?? null
+          currentStep: nextApproval?.step ?? null,
+          ...(finalAnnualLeaveApproval ? { completedAt: decisionAt } : {})
         },
         include: approvalInclude.request.include
       });
@@ -265,7 +269,12 @@ export class ApprovalsService {
         entityType: "Request",
         entityId: updated.id,
         oldValue: { status: approval.request.status },
-        newValue: { status: updated.status },
+        newValue: {
+          status: updated.status,
+          ...(finalAnnualLeaveApproval
+            ? { completedAt: decisionAt.toISOString() }
+            : {})
+        },
         ipAddress: context.ipAddress,
         userAgent: context.userAgent
       });
