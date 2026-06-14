@@ -399,6 +399,28 @@ function toQuery(params: Record<string, string | number | undefined>) {
   return serialized ? `?${serialized}` : "";
 }
 
+export interface CreateAnnualLeavePayload {
+  startDate: string;
+  endDate: string;
+  reason: string;
+  contextVendorId?: string;
+}
+
+export interface AnnualLeavePreview {
+  requestedDays: number;
+  officialRemainingDays: number;
+  heldDays: number;
+  availableToRequestDays: number;
+  availableAfterRequestDays: number;
+  eligibilityStatus:
+    | "ELIGIBLE"
+    | "NOT_ELIGIBLE"
+    | "NOT_APPLICABLE"
+    | "MISSING_JOINING_DATE";
+  eligibleFrom: string | null;
+  blockingReasons: string[];
+}
+
 export const requestsApi = {
   list(params: ListRequestsParams = {}) {
     return apiGet<PaginatedRequests>(
@@ -497,6 +519,22 @@ export const requestsApi = {
   },
   async createTransfer(payload: CreateTransferPayload) {
     const created = await apiRequest<RequestSummary>("/requests/transfer", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return created;
+  },
+  previewAnnualLeave(payload: CreateAnnualLeavePayload) {
+    return apiRequest<AnnualLeavePreview>("/requests/annual-leave/preview", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
+  async createAnnualLeave(payload: CreateAnnualLeavePayload) {
+    const created = await apiRequest<RequestSummary>("/requests/annual-leave", {
       method: "POST",
       body: JSON.stringify(payload)
     });

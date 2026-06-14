@@ -58,7 +58,8 @@ export type NewRequestDraft =
       type: "DEDUCTION";
       targetRole?: DeductionDraftTargetRole;
       initialTarget?: InitialDeductionTarget | null;
-    };
+    }
+  | { type: "ANNUAL_LEAVE" };
 
 export type DeductionDraftTargetRole = "PICKER" | "CHAMP";
 
