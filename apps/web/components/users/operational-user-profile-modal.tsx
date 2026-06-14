@@ -297,8 +297,12 @@ function ProfileHeaderActions({
     allowDirectProfileMutation &&
     profile.permissions.canEditProfile &&
     Boolean(onEdit);
-  const canPassword =
-    allowDirectProfileMutation && hasPasswordAccess(profile);
+  // Password copy/reset is a direct, backend-scoped action (Admin/Super Admin
+  // for everyone; Champ/Area Manager only for users in their scope) — not a
+  // request-driven profile mutation. So it is gated purely by the backend
+  // permission scope and stays available on the read-only Users area, even
+  // though other direct profile/assignment edits remain disabled there.
+  const canPassword = hasPasswordAccess(profile);
 
   if (!canTransfer && !canResign && !canDeduct && !canEdit && !canPassword) {
     return null;

@@ -224,6 +224,11 @@ const sparklineHeights = [8, 14, 11, 18, 15, 22] as const;
 
 export function UsersAreaPage() {
   const { user } = useAuth();
+  // Admin / Super Admin manage profiles directly from the Users area (edit +
+  // assignments). Champ / Area Manager stay request-driven here; their scoped
+  // password access is gated separately by the backend in the profile modal.
+  const canDirectlyManageProfiles =
+    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
   const searchParams = useSearchParams();
   const [state, setState] = useState<UsersAreaState>({ status: "loading" });
   const [summaryState, setSummaryState] = useState<WorkforceSummaryState>({
@@ -652,7 +657,7 @@ export function UsersAreaPage() {
                   }
                 : undefined
           }}
-          allowDirectProfileMutation={false}
+          allowDirectProfileMutation={canDirectlyManageProfiles}
           onClose={() => setSelectedUserId(null)}
           onUpdated={refreshUsersArea}
           userId={selectedUserId}

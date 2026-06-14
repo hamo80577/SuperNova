@@ -1,15 +1,8 @@
-import { DashboardFrame } from "@/components/dashboard/dashboard-shell";
-import { UsersAreaPage } from "@/components/users/users-area-page";
+import { redirect } from "next/navigation";
 
-export default function UsersPage() {
-  return (
-    <DashboardFrame
-      allowedRoles={["ADMIN", "SUPER_ADMIN"]}
-      description="Role-specific operational users by assignment."
-      showPageTitle
-      title="Users"
-    >
-      <UsersAreaPage />
-    </DashboardFrame>
-  );
+// /admin/users was a duplicate of /users (both rendered the same UsersAreaPage).
+// User management is now unified under /users, which already scopes what each
+// role sees via backend permissions. Redirect to keep any old links working.
+export default function AdminUsersPage() {
+  redirect("/users");
 }
