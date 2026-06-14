@@ -146,7 +146,7 @@ function serviceHarness(options: {
   return {
     assignmentFindCalls,
     countCalls,
-    service: new UsersService({} as never, prisma as never, {} as never)
+    service: new UsersService({} as never, prisma as never, {} as never, {} as never)
   };
 }
 

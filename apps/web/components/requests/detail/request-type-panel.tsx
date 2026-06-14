@@ -1,6 +1,6 @@
 "use client";
 
-import { MoveRight } from "lucide-react";
+import { CalendarDays, MoveRight } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -29,9 +29,115 @@ export function RequestTypePanel({ request }: { request: RequestDetail }) {
     return <DeductionRequestDetailPanel request={request} />;
   }
 
+  if (request.type === "ANNUAL_LEAVE") {
+    return <AnnualLeaveRequestDetailPanel request={request} />;
+  }
+
   return (
     <ResignationRequestDetailPanel request={request} />
   );
+}
+
+export function AnnualLeaveRequestDetailPanel({ request }: { request: RequestDetail }) {
+  const annualLeave = request.annualLeave;
+
+  if (!annualLeave) {
+    return (
+      <InfoCard title="Annual Leave">
+        <EmptyState message="No Annual Leave context is available." compact />
+      </InfoCard>
+    );
+  }
+
+  const requestedDaysLabel = formatDaysValue(annualLeave.requestedDays);
+  const contextBranch =
+    request.sourceVendor?.vendorName ?? annualLeave.contextVendorId;
+  const contextChain =
+    request.sourceChain?.chainName ?? annualLeave.contextChainId;
+
+  return (
+    <InfoCard title="Annual Leave">
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]">
+              <CalendarDays className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
+                {request.targetUser?.nameEn ?? request.createdBy.nameEn}
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--sn-body)]">
+                {formatDateValue(annualLeave.startDate)} →{" "}
+                {formatDateValue(annualLeave.endDate)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]" variant="outline">
+              {requestedDaysLabel}
+            </Badge>
+            <RequestStatusBadge status={request.status} />
+          </div>
+        </div>
+
+        <div className="grid gap-0 p-4">
+          <ProfileRow label="Start date" value={formatDateValue(annualLeave.startDate)} />
+          <ProfileRow label="End date" value={formatDateValue(annualLeave.endDate)} />
+          <ProfileRow label="Requested days" value={requestedDaysLabel} />
+          <ProfileRow label="Reason" value={annualLeave.reason || "Not provided"} />
+          {contextBranch ? (
+            <ProfileRow label="Context branch" value={contextBranch} />
+          ) : null}
+          {contextChain ? (
+            <ProfileRow label="Context chain" value={contextChain} />
+          ) : null}
+        </div>
+
+        <div className="grid gap-0 border-t border-[color:var(--sn-border)] p-4">
+          <p className="mb-2 text-xs font-semibold uppercase text-[color:var(--sn-muted)]">
+            Balance snapshot
+          </p>
+          <ProfileRow
+            label="Available before"
+            value={formatDaysSnapshot(annualLeave.availableBeforeRequestSnapshot)}
+          />
+          <ProfileRow
+            label="Available after"
+            value={formatDaysSnapshot(annualLeave.availableAfterRequestSnapshot)}
+          />
+          <ProfileRow
+            label="Held"
+            value={formatDaysSnapshot(annualLeave.balanceHeldSnapshot)}
+          />
+          <ProfileRow
+            label="Carried over"
+            value={formatDaysSnapshot(annualLeave.balanceCarriedSnapshot)}
+          />
+          <ProfileRow
+            label="Accrued"
+            value={formatDaysSnapshot(annualLeave.balanceAccruedSnapshot)}
+          />
+          <ProfileRow
+            label="Taken"
+            value={formatDaysSnapshot(annualLeave.balanceTakenSnapshot)}
+          />
+        </div>
+      </div>
+    </InfoCard>
+  );
+}
+
+function formatDaysValue(value: number) {
+  return `${value} day${value === 1 ? "" : "s"}`;
+}
+
+function formatDaysSnapshot(value: number | null) {
+  if (value === null) {
+    return "Not captured";
+  }
+
+  return formatDaysValue(value);
 }
 
 export function DeductionRequestDetailPanel({ request }: { request: RequestDetail }) {

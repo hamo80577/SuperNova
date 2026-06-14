@@ -22,6 +22,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
 import { CancelRequestDto } from "./dto/cancel-request.dto";
+import { CreateAnnualLeaveRequestDto } from "./dto/create-annual-leave-request.dto";
 import { CreateNewHireRequestDto } from "./dto/create-new-hire-request.dto";
 import { CreateOffboardingRequestDto } from "./dto/create-offboarding-request.dto";
 import { CreateRequestDto } from "./dto/create-request.dto";
@@ -176,6 +177,36 @@ export class RequestsController {
     );
 
     return this.requestsService.createTransfer(dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PICKER, UserRole.CHAMP)
+  @Post("annual-leave/preview")
+  previewAnnualLeave(
+    @Body() dto: CreateAnnualLeaveRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.previewAnnualLeave(dto, {
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PICKER, UserRole.CHAMP)
+  @Post("annual-leave")
+  createAnnualLeave(
+    @Body() dto: CreateAnnualLeaveRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.createAnnualLeaveRequest(dto, {
       actor: user,
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null

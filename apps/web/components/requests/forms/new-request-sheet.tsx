@@ -11,6 +11,7 @@ import { NewHireRequestModal } from "./new-hire/new-hire-request-modal";
 import { RequestDiscardDialog } from "./request-discard-dialog";
 import { ResignationRequestForm } from "./resignation/resignation-form";
 import { LifecyclePickerRequestForm } from "./transfer/transfer-form";
+import { AnnualLeaveRequestForm } from "./annual-leave/annual-leave-request-form";
 import { type NewRequestDraft } from "../shared/request-types";
 import { formatEnum } from "../shared/request-utils";
 
@@ -42,7 +43,9 @@ export function NewRequestSheet({
         ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialUser?.id ?? ""}`
         : draft.type === "DEDUCTION"
           ? `${draft.type}:${draft.targetRole ?? "select"}:${draft.initialTarget?.userId ?? ""}`
-          : `${draft.type}:${draft.initialPicker?.user.id ?? ""}:${draft.initialPicker?.assignment?.id ?? ""}`;
+          : draft.type === "ANNUAL_LEAVE"
+            ? draft.type
+            : `${draft.type}:${draft.initialPicker?.user.id ?? ""}:${draft.initialPicker?.assignment?.id ?? ""}`;
 
   if (draft.type === "NEW_HIRE") {
     return (
@@ -134,6 +137,12 @@ export function NewRequestSheet({
           <DeductionRequestForm
             initialTarget={draft.initialTarget}
             initialTargetRole={draft.targetRole}
+            onCancel={requestClose}
+            onCreated={onCreated}
+            onDirtyChange={setIsDirty}
+          />
+        ) : draft.type === "ANNUAL_LEAVE" ? (
+          <AnnualLeaveRequestForm
             onCancel={requestClose}
             onCreated={onCreated}
             onDirtyChange={setIsDirty}

@@ -36,7 +36,8 @@ const TYPE_LABELS: Record<RequestType, string> = {
   NEW_HIRE: "New Hire",
   RESIGNATION: "Resignation",
   TRANSFER: "Transfer",
-  DEDUCTION: "Deduction"
+  DEDUCTION: "Deduction",
+  ANNUAL_LEAVE: "Annual Leave"
 };
 
 const TYPE_FILTERS: RequestType[] = [
@@ -108,6 +109,10 @@ export function RequestOperationsCenter({
 
   const requestId = searchParams.get("requestId");
   const canCreateLifecycleRequest = user?.role !== "PICKER";
+  const canRequestAnnualLeave =
+    user?.role === "PICKER" || user?.role === "CHAMP";
+  const canOpenNewRequestMenu =
+    canCreateLifecycleRequest || canRequestAnnualLeave;
   const allowedNewHireTargetRoles = useMemo(
     () => getAllowedNewHireTargetRoles(user?.role, false),
     [user?.role]
@@ -223,7 +228,7 @@ export function RequestOperationsCenter({
     <div className="sn grid gap-3">
       {/* Actions row */}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {canCreateLifecycleRequest ? (
+        {canOpenNewRequestMenu ? (
           <div className="relative">
             <button
               className="sn-btn sn-btn-sm sn-btn-primary"

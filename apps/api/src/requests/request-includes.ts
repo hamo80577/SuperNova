@@ -10,7 +10,8 @@ export const requestInclude = {
   approvals: {
     include: { approver: true },
     orderBy: { createdAt: "asc" as const }
-  }
+  },
+  annualLeaveRequest: true
 } satisfies Prisma.RequestInclude;
 
 export type RequestWithRelations = Prisma.RequestGetPayload<{

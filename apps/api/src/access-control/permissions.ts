@@ -50,6 +50,7 @@ export const PermissionKeys = {
   DEDUCTIONS_POLICY_MANAGE: "deductions.policy.manage",
   REQUESTS_CANCEL: "requests.cancel",
   APPROVALS_VIEW_PENDING: "approvals.pending.view",
+  APPROVALS_DECIDE_BRANCH: "approvals.branch.decide",
   APPROVALS_DECIDE_CHAIN: "approvals.chain.decide",
   APPROVALS_DECIDE_FINAL_LIFECYCLE: "approvals.final_lifecycle.decide",
 
@@ -246,6 +247,16 @@ export const PERMISSION_DEFINITIONS = [
     label: "View pending approvals",
     description:
       "View approval steps pending for the authenticated actor within workflow scope.",
+    group: PermissionGroups.REQUESTS_APPROVALS,
+    riskLevel: PermissionRiskLevels.MEDIUM,
+    assignable: true,
+    systemOnly: false
+  },
+  {
+    key: PermissionKeys.APPROVALS_DECIDE_BRANCH,
+    label: "Decide branch approvals",
+    description:
+      "Approve or reject branch authority approval steps (e.g. Champ approving a Picker annual leave request) in scope.",
     group: PermissionGroups.REQUESTS_APPROVALS,
     riskLevel: PermissionRiskLevels.MEDIUM,
     assignable: true,

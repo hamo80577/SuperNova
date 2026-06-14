@@ -1097,6 +1097,7 @@ export class TransferWorkflowService {
     approvals: T[]
   ) {
     const priority: Record<ApprovalStep, number> = {
+      [ApprovalStep.CHAMP_APPROVAL]: 0,
       [ApprovalStep.AREA_MANAGER_APPROVAL]: 1,
       [ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL]: 1,
       [ApprovalStep.DESTINATION_AREA_MANAGER_APPROVAL]: 2,

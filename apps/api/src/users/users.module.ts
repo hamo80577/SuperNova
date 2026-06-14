@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 import { AccessControlModule } from "../access-control/access-control.module";
 import { AuditModule } from "../audit/audit.module";
+import { AnnualLeaveBalanceService } from "./annual-leave-balance.service";
 import { TemporaryPasswordService } from "./temporary-password.service";
 import { UsersController } from "./users.controller";
 import { UsersService } from "./users.service";
@@ -14,7 +15,7 @@ import { UsersService } from "./users.service";
     AuditModule
   ],
   controllers: [UsersController],
-  providers: [TemporaryPasswordService, UsersService],
-  exports: [TemporaryPasswordService, UsersService]
+  providers: [TemporaryPasswordService, AnnualLeaveBalanceService, UsersService],
+  exports: [TemporaryPasswordService, AnnualLeaveBalanceService, UsersService]
 })
 export class UsersModule {}

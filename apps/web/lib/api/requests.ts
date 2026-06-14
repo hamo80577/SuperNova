@@ -2,9 +2,15 @@ import type { ChainSummary, UserSummary, VendorSummary } from "@/lib/api/workspa
 import { apiGet, apiRequest, clearApiCache } from "./request";
 import type { PageMeta } from "./organization";
 
-export type RequestType = "NEW_HIRE" | "RESIGNATION" | "TRANSFER" | "DEDUCTION";
+export type RequestType =
+  | "NEW_HIRE"
+  | "RESIGNATION"
+  | "TRANSFER"
+  | "DEDUCTION"
+  | "ANNUAL_LEAVE";
 export type RequestStatus =
   | "DRAFT"
+  | "PENDING_CHAMP"
   | "PENDING_AREA_MANAGER"
   | "PENDING_DESTINATION_AREA_MANAGER"
   | "PENDING_ADMIN"
@@ -14,6 +20,7 @@ export type RequestStatus =
   | "COMPLETED";
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "SKIPPED";
 export type ApprovalStep =
+  | "CHAMP_APPROVAL"
   | "AREA_MANAGER_APPROVAL"
   | "SOURCE_AREA_MANAGER_APPROVAL"
   | "DESTINATION_AREA_MANAGER_APPROVAL"
@@ -70,6 +77,21 @@ export interface RequestApprovalSummary {
   updatedAt: string;
 }
 
+export interface AnnualLeaveRequestSummary {
+  startDate: string;
+  endDate: string;
+  requestedDays: number;
+  reason: string;
+  contextVendorId: string | null;
+  contextChainId: string | null;
+  balanceCarriedSnapshot: number | null;
+  balanceAccruedSnapshot: number | null;
+  balanceTakenSnapshot: number | null;
+  balanceHeldSnapshot: number | null;
+  availableBeforeRequestSnapshot: number | null;
+  availableAfterRequestSnapshot: number | null;
+}
+
 export interface RequestSummary {
   id: string;
   type: RequestType;
@@ -86,6 +108,7 @@ export interface RequestSummary {
   destinationChain: ChainSummary | null;
   destinationVendor: VendorSummary | null;
   approvals: RequestApprovalSummary[];
+  annualLeave: AnnualLeaveRequestSummary | null;
 }
 
 export interface PendingLifecycleRequestSummary {
@@ -376,6 +399,28 @@ function toQuery(params: Record<string, string | number | undefined>) {
   return serialized ? `?${serialized}` : "";
 }
 
+export interface CreateAnnualLeavePayload {
+  startDate: string;
+  endDate: string;
+  reason: string;
+  contextVendorId?: string;
+}
+
+export interface AnnualLeavePreview {
+  requestedDays: number;
+  officialRemainingDays: number;
+  heldDays: number;
+  availableToRequestDays: number;
+  availableAfterRequestDays: number;
+  eligibilityStatus:
+    | "ELIGIBLE"
+    | "NOT_ELIGIBLE"
+    | "NOT_APPLICABLE"
+    | "MISSING_JOINING_DATE";
+  eligibleFrom: string | null;
+  blockingReasons: string[];
+}
+
 export const requestsApi = {
   list(params: ListRequestsParams = {}) {
     return apiGet<PaginatedRequests>(
@@ -474,6 +519,22 @@ export const requestsApi = {
   },
   async createTransfer(payload: CreateTransferPayload) {
     const created = await apiRequest<RequestSummary>("/requests/transfer", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    clearApiCache("/requests");
+    clearApiCache("/approvals");
+    clearApiCache("/workspaces");
+    return created;
+  },
+  previewAnnualLeave(payload: CreateAnnualLeavePayload) {
+    return apiRequest<AnnualLeavePreview>("/requests/annual-leave/preview", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
+  async createAnnualLeave(payload: CreateAnnualLeavePayload) {
+    const created = await apiRequest<RequestSummary>("/requests/annual-leave", {
       method: "POST",
       body: JSON.stringify(payload)
     });

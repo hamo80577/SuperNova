@@ -44,6 +44,8 @@ import { organizationApi, type Chain } from "@/lib/api/organization";
 import { requestsApi, type RequestDetail } from "@/lib/api/requests";
 import {
   usersApi,
+  type AnnualLeaveBalance,
+  type AnnualLeaveEligibilityStatus,
   type AreaManagerChainAssignmentsResponse,
   type OperationalProfileAssignment,
   type OperationalProfileResponse
@@ -456,6 +458,7 @@ function PickerProfileCard({
       {tab === "overview" ? (
         <div className="grid gap-4">
           <PickerProfileOverview profile={profile} whatsappHref={whatsappHref} />
+          <AnnualLeaveBalanceCard balance={profile.annualLeaveBalance} />
           <ResignationStatusSection profile={profile} />
           <ReadOnlyDetails profile={profile} />
         </div>
@@ -496,6 +499,7 @@ function ChampProfileCard({
       {tab === "overview" ? (
         <div className="grid gap-4">
           <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          <AnnualLeaveBalanceCard balance={profile.annualLeaveBalance} />
           <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "branches" ? (
@@ -540,6 +544,7 @@ function AreaManagerProfileCard({
       {tab === "overview" ? (
         <div className="grid gap-4">
           <ProfileSummaryPanel profile={profile} whatsappHref={whatsappHref} />
+          <AnnualLeaveBalanceCard balance={profile.annualLeaveBalance} />
           <ReadOnlyDetails profile={profile} />
         </div>
       ) : tab === "chains" ? (
@@ -1000,6 +1005,132 @@ function InfoRow({
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
+}
+
+function AnnualLeaveBalanceCard({ balance }: { balance: AnnualLeaveBalance }) {
+  // Picker/Champ only — Area Manager / Admin / Super Admin render nothing.
+  if (balance.eligibilityStatus === "NOT_APPLICABLE") {
+    return null;
+  }
+
+  const eligible = balance.eligibilityStatus === "ELIGIBLE";
+
+  return (
+    <section className="rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-[color:var(--sn-ink)]">
+          Annual Leave Balance
+        </h3>
+        <AnnualLeaveStatusBadge status={balance.eligibilityStatus} />
+      </div>
+
+      {balance.eligibilityStatus === "MISSING_JOINING_DATE" ? (
+        <p className="mt-3 text-sm text-[color:var(--sn-muted)]">
+          {balance.message}
+        </p>
+      ) : eligible ? (
+        <div className="mt-4 grid gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <AnnualLeaveStat
+              label="Carried (max 7)"
+              value={`${formatDays(balance.carriedBalanceDays)} d`}
+            />
+            <AnnualLeaveStat
+              label={`Accrued ${balance.year}`}
+              value={`${formatDays(balance.currentYearAccruedDays)} d`}
+            />
+            <AnnualLeaveStat
+              label="Taken this year"
+              value={`${formatDays(balance.annualTakenThisYear)} d`}
+            />
+          </div>
+          <div className="rounded-2xl border border-[oklch(0.88_0.06_150)] bg-[oklch(0.97_0.02_150)] p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[oklch(0.45_0.1_150)]">
+              Remaining balance
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-[oklch(0.42_0.12_150)]">
+              {balance.remainingDays === null
+                ? "—"
+                : `${formatDays(balance.remainingDays)} days`}
+            </p>
+          </div>
+          <p className="text-xs text-[color:var(--sn-muted)]">{balance.message}</p>
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          <p className="text-sm text-[color:var(--sn-body)]">{balance.message}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <AnnualLeaveStat
+              label="Eligible from"
+              value={balance.eligibleFrom ? formatDate(balance.eligibleFrom) : "—"}
+            />
+            <AnnualLeaveStat
+              label="Accrued preview"
+              value={`${formatDays(balance.accruedPreviewDays)} d`}
+            />
+            <AnnualLeaveStat
+              label="Taken this year"
+              value={`${formatDays(balance.annualTakenThisYear)} d`}
+            />
+          </div>
+        </div>
+      )}
+
+      {balance.attendanceCoverageFrom && balance.attendanceCoverageTo ? (
+        <p className="mt-3 text-[11px] text-[color:var(--sn-faint)]">
+          Based on attendance {formatDate(balance.attendanceCoverageFrom)} –{" "}
+          {formatDate(balance.attendanceCoverageTo)}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function AnnualLeaveStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase text-[color:var(--sn-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-semibold text-[color:var(--sn-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AnnualLeaveStatusBadge({
+  status
+}: {
+  status: AnnualLeaveEligibilityStatus;
+}) {
+  const tone =
+    status === "ELIGIBLE"
+      ? "border-[oklch(0.88_0.06_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.45_0.1_150)]"
+      : status === "NOT_ELIGIBLE"
+        ? "border-[oklch(0.85_0.07_70)] bg-[oklch(0.96_0.04_70)] text-[oklch(0.5_0.12_70)]"
+        : "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]";
+  const label =
+    status === "ELIGIBLE"
+      ? "Eligible"
+      : status === "NOT_ELIGIBLE"
+        ? "Not eligible yet"
+        : "No joining date";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+        tone
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function formatDays(value: number) {
+  return `${Number(value.toFixed(2))}`;
 }
 
 function ProfileTabs<TabId extends string>({

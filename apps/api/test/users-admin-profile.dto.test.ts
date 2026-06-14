@@ -86,6 +86,7 @@ async function run() {
         }
       }
     } as never,
+    {} as never,
     {} as never
   );
 

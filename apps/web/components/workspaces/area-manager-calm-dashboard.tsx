@@ -145,7 +145,8 @@ export function AreaManagerCalmDashboard() {
       NEW_HIRE: 0,
       RESIGNATION: 0,
       TRANSFER: 0,
-      DEDUCTION: 0
+      DEDUCTION: 0,
+      ANNUAL_LEAVE: 0
     };
     if (state.status !== "ready") return counts;
     const weekAgo = Date.now() - 7 * 86_400_000;

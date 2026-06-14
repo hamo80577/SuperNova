@@ -2,6 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 import { RequestStatus } from "@prisma/client";
 
 export const pendingRequestStatuses = [
+  RequestStatus.PENDING_CHAMP,
   RequestStatus.PENDING_AREA_MANAGER,
   RequestStatus.PENDING_DESTINATION_AREA_MANAGER,
   RequestStatus.PENDING_ADMIN
@@ -9,9 +10,17 @@ export const pendingRequestStatuses = [
 
 const allowedTransitions: Record<RequestStatus, RequestStatus[]> = {
   [RequestStatus.DRAFT]: [
+    RequestStatus.PENDING_CHAMP,
     RequestStatus.PENDING_AREA_MANAGER,
     RequestStatus.PENDING_DESTINATION_AREA_MANAGER,
     RequestStatus.PENDING_ADMIN,
+    RequestStatus.CANCELLED
+  ],
+  [RequestStatus.PENDING_CHAMP]: [
+    RequestStatus.PENDING_AREA_MANAGER,
+    RequestStatus.PENDING_ADMIN,
+    RequestStatus.APPROVED,
+    RequestStatus.REJECTED,
     RequestStatus.CANCELLED
   ],
   [RequestStatus.PENDING_AREA_MANAGER]: [
