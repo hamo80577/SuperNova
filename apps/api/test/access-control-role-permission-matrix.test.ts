@@ -159,6 +159,9 @@ for (const permissionKey of pickerLifecyclePermissionKeys) {
 }
 
 assertHasPermission(UserRole.CHAMP, PermissionKeys.APPROVALS_VIEW_PENDING);
+// Champs approve the Picker annual-leave branch step — granted via the matrix,
+// which is the source the system-role seed/sync writes to the DB.
+assertHasPermission(UserRole.CHAMP, PermissionKeys.APPROVALS_DECIDE_BRANCH);
 
 for (const permissionKey of [
   ...champLifecyclePermissionKeys,

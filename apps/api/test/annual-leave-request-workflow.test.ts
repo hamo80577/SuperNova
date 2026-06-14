@@ -56,7 +56,7 @@ interface StoreOptions {
   pickerAssignments?: Array<{ vendorId: string; chainId: string }>;
   champAssignments?: Array<{ vendorId: string; chainId: string }>;
   // Champs on each vendor (for resolving the Champ approver of a Picker).
-  champsByVendor?: Record<string, string | null>;
+  champsByVendor?: Record<string, string | string[] | null>;
   // Other active-hold annual leave requests for this user.
   otherLeaves?: Array<{
     requestId: string;
@@ -132,15 +132,20 @@ function buildHarness(role: UserRole, options: StoreOptions = {}) {
         }))
     },
     vendorChampAssignment: {
-      findMany: async () =>
-        champAssignments.map((assignment) => ({
+      findMany: async (args: any) => {
+        const vendorId = args?.where?.vendorId;
+        if (vendorId) {
+          // resolveChampStep: active Champs on the picker's branch vendor.
+          const entry = options.champsByVendor?.[vendorId];
+          const champIds =
+            entry == null ? [] : Array.isArray(entry) ? entry : [entry];
+          return champIds.map((champId) => ({ champId }));
+        }
+        // resolveChampContext: the Champ's own active assignments.
+        return champAssignments.map((assignment) => ({
           vendorId: assignment.vendorId,
           vendor: { id: assignment.vendorId, chainId: assignment.chainId }
-        })),
-      findFirst: async (args: any) => {
-        const vendorId = args.where?.vendorId;
-        const champId = options.champsByVendor?.[vendorId] ?? null;
-        return champId ? { champId } : null;
+        }));
       }
     },
     annualLeaveRequest: {
@@ -822,6 +827,100 @@ async function run() {
           { actor: actor(UserRole.PICKER), ...context }
         ),
       BadRequestException
+    );
+  }
+
+  // Fix 2: Picker request blocked when the branch has NO active Champ.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+        champsByVendor: { "vendor-1": [] }
+      })
+    );
+    await assert.rejects(
+      harness.service.createSelfRequest(
+        actor(UserRole.PICKER),
+        { startDate: "2026-07-01", endDate: "2026-07-02", reason: "Trip" },
+        { actor: actor(UserRole.PICKER) }
+      ),
+      /No active Champ/
+    );
+  }
+
+  // Fix 2: Picker request blocked when the branch has MULTIPLE active Champs.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+        champsByVendor: { "vendor-1": ["champ-1", "champ-2"] }
+      })
+    );
+    await assert.rejects(
+      harness.service.createSelfRequest(
+        actor(UserRole.PICKER),
+        { startDate: "2026-07-01", endDate: "2026-07-02", reason: "Trip" },
+        { actor: actor(UserRole.PICKER) }
+      ),
+      /more than one active Champ/
+    );
+  }
+
+  // Fix 2: Picker request succeeds with exactly one active Champ; first step
+  // is that Champ.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+        champsByVendor: { "vendor-1": "champ-9" }
+      })
+    );
+    await harness.service.createSelfRequest(
+      actor(UserRole.PICKER),
+      { startDate: "2026-07-01", endDate: "2026-07-02", reason: "Trip" },
+      { actor: actor(UserRole.PICKER) }
+    );
+    const approvals = harness.createdApprovals.at(-1) as Array<{
+      step: ApprovalStep;
+      approverId: string | null;
+    }>;
+    assert.equal(approvals[0].step, ApprovalStep.CHAMP_APPROVAL);
+    assert.equal(approvals[0].approverId, "champ-9");
+  }
+
+  // Fix 3: Preview blocks a range outside the current year without throwing.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+        champsByVendor: { "vendor-1": "champ-9" }
+      })
+    );
+    const preview = await harness.service.preview(actor(UserRole.PICKER), {
+      startDate: "2099-01-01",
+      endDate: "2099-01-02",
+      reason: "Future"
+    });
+    assert.ok(
+      preview.blockingReasons.some((reason) => /current year/i.test(reason))
+    );
+  }
+
+  // Fix 3: Create throws for a range outside the current year.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        pickerAssignments: [{ vendorId: "vendor-1", chainId: "chain-1" }],
+        champsByVendor: { "vendor-1": "champ-9" }
+      })
+    );
+    await assert.rejects(
+      harness.service.createSelfRequest(
+        actor(UserRole.PICKER),
+        { startDate: "2099-01-01", endDate: "2099-01-02", reason: "Future" },
+        { actor: actor(UserRole.PICKER) }
+      ),
+      /current year/i
     );
   }
 

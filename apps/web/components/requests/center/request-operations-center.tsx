@@ -36,7 +36,8 @@ const TYPE_LABELS: Record<RequestType, string> = {
   NEW_HIRE: "New Hire",
   RESIGNATION: "Resignation",
   TRANSFER: "Transfer",
-  DEDUCTION: "Deduction"
+  DEDUCTION: "Deduction",
+  ANNUAL_LEAVE: "Annual Leave"
 };
 
 const TYPE_FILTERS: RequestType[] = [

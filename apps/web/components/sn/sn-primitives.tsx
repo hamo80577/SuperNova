@@ -15,6 +15,7 @@ const STATUS_META: Record<RequestStatus, [BadgeTone, string]> = {
   PENDING_AREA_MANAGER: ["pending", "Pending Area Manager"],
   PENDING_DESTINATION_AREA_MANAGER: ["pending", "Pending Dest. AM"],
   PENDING_ADMIN: ["pending", "Pending Admin"],
+  PENDING_CHAMP: ["pending", "Pending Champ"],
   APPROVED: ["approved", "Approved"],
   COMPLETED: ["approved", "Completed"],
   REJECTED: ["rejected", "Rejected"],
@@ -37,7 +38,8 @@ const TYPE_META: Record<RequestType, [TypeTone, string, SnIconName]> = {
   NEW_HIRE: ["hire", "New Hire", "plus"],
   RESIGNATION: ["resign", "Resignation", "minus"],
   TRANSFER: ["transfer", "Transfer", "swap"],
-  DEDUCTION: ["deduct", "Deduction", "doc"]
+  DEDUCTION: ["deduct", "Deduction", "doc"],
+  ANNUAL_LEAVE: ["transfer", "Annual Leave", "doc"]
 };
 
 export function SnTypeChip({

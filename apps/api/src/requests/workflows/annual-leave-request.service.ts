@@ -127,6 +127,13 @@ export class AnnualLeaveRequestService {
       blockingReasons.push("A reason is required for an annual leave request.");
     }
 
+    if (computed) {
+      const yearViolation = this.currentYearViolation(computed, asOf);
+      if (yearViolation) {
+        blockingReasons.push(yearViolation);
+      }
+    }
+
     try {
       await this.resolveContext(actor, dto);
     } catch (error) {
@@ -193,6 +200,11 @@ export class AnnualLeaveRequestService {
       throw new BadRequestException(
         "A reason is required for an annual leave request."
       );
+    }
+
+    const yearViolation = this.currentYearViolation(computed, asOf);
+    if (yearViolation) {
+      throw new BadRequestException(yearViolation);
     }
 
     const leaveContext = await this.resolveContext(actor, dto);
@@ -417,6 +429,23 @@ export class AnnualLeaveRequestService {
     };
   }
 
+  // V1 policy: annual leave can only be requested within the current (asOf)
+  // year. Next-year balance accrual is out of scope.
+  private currentYearViolation(
+    computed: ComputedRequest,
+    asOf: Date
+  ): string | null {
+    const year = asOf.getUTCFullYear();
+    if (
+      computed.startDateUtc.getUTCFullYear() !== year ||
+      computed.endDateUtc.getUTCFullYear() !== year
+    ) {
+      return `Annual leave requests are limited to ${year}. Choose start and end dates within the current year.`;
+    }
+
+    return null;
+  }
+
   private toUtcDate(value: string, fieldName: string): Date {
     const parsed = new Date(`${value}T00:00:00.000Z`);
     if (
@@ -516,18 +545,30 @@ export class AnnualLeaveRequestService {
   }
 
   private async resolveChampStep(vendorId: string): Promise<string> {
-    const assignment = await this.prisma.vendorChampAssignment.findFirst({
+    const assignments = await this.prisma.vendorChampAssignment.findMany({
       where: { vendorId, status: AssignmentStatus.ACTIVE },
       select: { champId: true }
     });
 
-    if (!assignment) {
+    // Deterministic V1: a branch must have exactly one active Champ to route
+    // the Picker's leave approval. Never pick arbitrarily.
+    const champIds = [
+      ...new Set(assignments.map((assignment) => assignment.champId))
+    ];
+
+    if (champIds.length === 0) {
       throw new BadRequestException(
         "No active Champ on your branch to approve annual leave."
       );
     }
 
-    return assignment.champId;
+    if (champIds.length > 1) {
+      throw new BadRequestException(
+        "Your branch has more than one active Champ. A single active Champ is required before annual leave can be requested."
+      );
+    }
+
+    return champIds[0];
   }
 
   private async computeHold(
