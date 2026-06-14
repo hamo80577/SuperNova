@@ -8,6 +8,7 @@ import {
   BlockStatus,
   EmploymentStatus,
   Gender,
+  OrdersKpiImportBatchStatus,
   OrdersKpiPickerMatchStatus,
   OrdersKpiVendorMatchStatus,
   ProfileStatus,
@@ -128,6 +129,7 @@ const assignments = [
 
 const kpiRecords = [
   kpi("picker-1", "vendor-a", 100, 2),
+  kpi("picker-1", "vendor-a", 500, 0, OrdersKpiImportBatchStatus.VALIDATED),
   // Worse raw UHO than picker-1 but within 0.5pp and higher volume, so it ranks higher.
   kpi("picker-2", "vendor-a", 220, 5),
   kpi("picker-low", "vendor-a", 10, 0),
@@ -167,12 +169,14 @@ function kpi(
   pickerId: string,
   vendorId: string,
   totalOrders: number,
-  unhealthyOrders: number
+  unhealthyOrders: number,
+  batchStatus = OrdersKpiImportBatchStatus.CONFIRMED
 ) {
   const vendor = vendors.find((item) => item.id === vendorId)!;
   return {
     id: `${pickerId}-${vendorId}`,
     sourceBatchId: "batch-1",
+    sourceBatch: { status: batchStatus },
     kpiDate: d("2026-06-15"),
     sourceVendorId: vendorId,
     matchedVendorId: vendorId,
@@ -305,9 +309,24 @@ function matchesAssignmentWhere(
 }
 
 function matchesDateAndUser(
-  record: { userId: string | null; kpiDate?: Date; shiftDate?: Date },
+  record: {
+    userId: string | null;
+    kpiDate?: Date;
+    shiftDate?: Date;
+    sourceBatch?: { status: OrdersKpiImportBatchStatus };
+  },
   where: Record<string, unknown>
 ) {
+  const sourceBatchWhere = where.sourceBatch as
+    | { is?: { status?: OrdersKpiImportBatchStatus } }
+    | undefined;
+  if (
+    sourceBatchWhere?.is?.status &&
+    record.sourceBatch?.status !== sourceBatchWhere.is.status
+  ) {
+    return false;
+  }
+
   const userIdFilter = where.userId as string | { in?: string[] } | undefined;
   if (typeof userIdFilter === "string" && record.userId !== userIdFilter) {
     return false;

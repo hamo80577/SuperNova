@@ -285,47 +285,56 @@ function AttendanceHealthCard({
       step="1"
       title="Attendance / Shift Health"
     >
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
-        <div>
-          <p className="text-xs font-medium text-[color:var(--sn-muted)]">
-            Attendance Rate
-          </p>
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
-              {formatPercent(attendance.attendanceRate)}
-            </p>
-            <DeltaBadge value={attendance.attendanceRateDelta} />
+      {attendance.available ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
+            <div>
+              <p className="text-xs font-medium text-[color:var(--sn-muted)]">
+                Attendance Rate
+              </p>
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
+                  {formatPercent(attendance.attendanceRate)}
+                </p>
+                <DeltaBadge value={attendance.attendanceRateDelta} />
+              </div>
+            </div>
+            <MetricGauge
+              color="#2e7d32"
+              label={`${attendance.attendedShifts} / ${attendance.scheduledShifts} shifts`}
+              value={attendance.attendanceRate}
+            />
           </div>
-        </div>
-        <MetricGauge
-          color="#2e7d32"
-          label={`${attendance.attendedShifts} / ${attendance.scheduledShifts} shifts`}
-          value={attendance.attendanceRate}
-        />
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <PickerMicroStat
-          icon={AlertCircle}
-          label="Total Shift Errors"
-          value={attendance.totalShiftErrors}
-        />
-        <PickerMicroStat icon={Clock3} label="Late" value={attendance.lateCount} />
-        <PickerMicroStat
-          icon={UserRound}
-          label="Absent"
-          value={attendance.absentCount}
-        />
-        <PickerMicroStat
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <PickerMicroStat
+              icon={AlertCircle}
+              label="Total Shift Errors"
+              value={attendance.totalShiftErrors}
+            />
+            <PickerMicroStat icon={Clock3} label="Late" value={attendance.lateCount} />
+            <PickerMicroStat
+              icon={UserRound}
+              label="Absent"
+              value={attendance.absentCount}
+            />
+            <PickerMicroStat
+              icon={CalendarDays}
+              label="Under 8"
+              value={attendance.under8HoursCount}
+            />
+            <PickerMicroStat
+              icon={ShieldCheck}
+              label="Over 15"
+              value={attendance.over15HoursCount}
+            />
+          </div>
+        </>
+      ) : (
+        <PickerUnavailableState
           icon={CalendarDays}
-          label="Under 8"
-          value={attendance.under8HoursCount}
+          message="No confirmed attendance shifts are available for this period."
         />
-        <PickerMicroStat
-          icon={ShieldCheck}
-          label="Over 15"
-          value={attendance.over15HoursCount}
-        />
-      </div>
+      )}
     </PickerPanel>
   );
 }
@@ -343,43 +352,52 @@ function OrdersPerformanceCard({
       step="2"
       title="Orders Performance / UHO Target"
     >
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
-        <div>
-          <p className="text-xs font-medium text-[color:var(--sn-muted)]">UHO %</p>
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
-              {formatPercent(orders.unhealthyRate)}
-            </p>
-            <TargetBadge status={orders.target.status} />
+      {orders.available ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
+            <div>
+              <p className="text-xs font-medium text-[color:var(--sn-muted)]">UHO %</p>
+              <div className="mt-2 flex flex-wrap items-end gap-3">
+                <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
+                  {formatPercent(orders.unhealthyRate)}
+                </p>
+                <TargetBadge status={orders.target.status} />
+              </div>
+              <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
+                Target {orders.target.unhealthyRateTarget ?? "-"}%
+              </p>
+            </div>
+            <MetricGauge
+              color="#5b4ac8"
+              label={`${orders.unhealthyOrders} unhealthy / ${formatNumber(orders.totalOrders)} orders`}
+              target={orders.target.unhealthyRateTarget}
+              value={orders.unhealthyRate}
+            />
           </div>
-          <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
-            Target {orders.target.unhealthyRateTarget ?? "-"}%
-          </p>
-        </div>
-        <MetricGauge
-          color="#5b4ac8"
-          label={`${orders.unhealthyOrders} unhealthy / ${formatNumber(orders.totalOrders)} orders`}
-          target={orders.target.unhealthyRateTarget}
-          value={orders.unhealthyRate}
-        />
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <PickerMicroStat
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <PickerMicroStat
+              icon={ShoppingBag}
+              label="Total Orders"
+              value={formatNumber(orders.totalOrders)}
+            />
+            <PickerMicroStat
+              icon={Target}
+              label="UHO Count"
+              value={orders.unhealthyOrders}
+            />
+            <PickerMicroStat
+              icon={Clock3}
+              label="Not on Time"
+              value={orders.orderNotOnTime}
+            />
+          </div>
+        </>
+      ) : (
+        <PickerUnavailableState
           icon={ShoppingBag}
-          label="Total Orders"
-          value={formatNumber(orders.totalOrders)}
+          message="No confirmed Orders KPI records are available for this period."
         />
-        <PickerMicroStat
-          icon={Target}
-          label="UHO Count"
-          value={orders.unhealthyOrders}
-        />
-        <PickerMicroStat
-          icon={Clock3}
-          label="Not on Time"
-          value={orders.orderNotOnTime}
-        />
-      </div>
+      )}
     </PickerPanel>
   );
 }
@@ -396,7 +414,8 @@ function RankingCard({ summary }: { summary: PickerPerformanceSummary }) {
             Your Performance Position
           </h2>
           <p className="text-xs text-[color:var(--sn-muted)]">
-            Ranked by UHO %, volume threshold, then attendance.
+            Ranked by UHO %, volume threshold, then attendance. Minimum{" "}
+            {formatNumber(summary.ranking.minOrders)} orders for this range.
           </p>
         </div>
       </div>
@@ -446,6 +465,11 @@ function RankScopeCard({
         <span>{formatNumber(rank.totalOrders)} orders</span>
         <span>{formatPercent(rank.unhealthyRate)} UHO</span>
       </div>
+      <p className="mt-2 text-xs text-[color:var(--sn-muted)]">
+        {rank.reason === "LOW_ORDER_VOLUME"
+          ? `${formatNumber(rank.totalOrders)} of ${formatNumber(rank.minOrders)} required orders`
+          : `Minimum ${formatNumber(rank.minOrders)} orders`}
+      </p>
     </div>
   );
 }
@@ -491,27 +515,34 @@ function AnnualLeaveSummaryCard({
       icon={Umbrella}
       title="Annual Leave"
     >
-      <div className="grid grid-cols-3 gap-2">
-        <LeaveStat
-          label="Balance"
-          tone="green"
-          value={formatDays(summary.annualLeave.balanceDays)}
+      {summary.annualLeave.available ? (
+        <div className="grid grid-cols-3 gap-2">
+          <LeaveStat
+            label="Balance"
+            tone="green"
+            value={formatDays(summary.annualLeave.balanceDays)}
+          />
+          <LeaveStat
+            label="Taken"
+            tone="purple"
+            value={formatDays(summary.annualLeave.takenDays)}
+          />
+          <LeaveStat
+            label="Remaining"
+            tone="orange"
+            value={
+              summary.annualLeave.remainingDays === null
+                ? "-"
+                : formatDays(summary.annualLeave.remainingDays)
+            }
+          />
+        </div>
+      ) : (
+        <PickerUnavailableState
+          icon={Umbrella}
+          message={summary.annualLeave.message}
         />
-        <LeaveStat
-          label="Taken"
-          tone="purple"
-          value={formatDays(summary.annualLeave.takenDays)}
-        />
-        <LeaveStat
-          label="Remaining"
-          tone="orange"
-          value={
-            summary.annualLeave.remainingDays === null
-              ? "-"
-              : formatDays(summary.annualLeave.remainingDays)
-          }
-        />
-      </div>
+      )}
     </PickerSmallPanel>
   );
 }
@@ -659,6 +690,23 @@ function PickerMicroStat({
       </p>
       <p className="mt-1 text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
         {value}
+      </p>
+    </div>
+  );
+}
+
+function PickerUnavailableState({
+  icon: Icon,
+  message
+}: {
+  icon: typeof Users;
+  message: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
+      <Icon className="h-5 w-5 text-[color:var(--sn-muted)]" />
+      <p className="mt-3 text-sm font-medium leading-6 text-[color:var(--sn-body)]">
+        {message}
       </p>
     </div>
   );

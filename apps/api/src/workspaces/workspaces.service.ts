@@ -11,6 +11,7 @@ import {
   ChainStatus,
   DeductionCaseStatus,
   EmploymentStatus,
+  OrdersKpiImportBatchStatus,
   OrdersKpiPickerMatchStatus,
   Prisma,
   RequestStatus,
@@ -965,7 +966,8 @@ function ordersKpiWhereForUsers(
   return {
     userId: { in: userIds },
     pickerMatchStatus: OrdersKpiPickerMatchStatus.MATCHED_PICKER,
-    kpiDate: { gte: dateFrom, lt: dateToExclusive }
+    kpiDate: { gte: dateFrom, lt: dateToExclusive },
+    sourceBatch: { is: { status: OrdersKpiImportBatchStatus.CONFIRMED } }
   };
 }
 
