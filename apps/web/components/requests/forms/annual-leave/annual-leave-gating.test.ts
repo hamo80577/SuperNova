@@ -1,5 +1,8 @@
 import { type AnnualLeavePreview } from "@/lib/api/requests";
-import { isAnnualLeaveSubmitBlocked } from "./annual-leave-gating";
+import {
+  canPreviewAnnualLeave,
+  isAnnualLeaveSubmitBlocked
+} from "./annual-leave-gating";
 
 function preview(overrides: Partial<AnnualLeavePreview> = {}): AnnualLeavePreview {
   return {
@@ -76,3 +79,100 @@ if (failures > 0) {
 }
 
 console.log(`annual-leave gating: ${cases.length} cases passed.`);
+
+const complete = {
+  startDate: "2026-07-01",
+  endDate: "2026-07-03",
+  reason: "Family trip"
+};
+
+const previewCases: Array<{
+  scenario: string;
+  input: Parameters<typeof canPreviewAnnualLeave>[0];
+  canPreview: boolean;
+}> = [
+  {
+    scenario:
+      "no selection needed (picker or single-branch champ) previews once the form is complete",
+    input: {
+      ...complete,
+      branchContextReady: true,
+      needsBranchSelection: false,
+      contextVendorId: ""
+    },
+    canPreview: true
+  },
+  {
+    scenario: "champ branches still loading blocks preview",
+    input: {
+      ...complete,
+      branchContextReady: false,
+      needsBranchSelection: false,
+      contextVendorId: ""
+    },
+    canPreview: false
+  },
+  {
+    scenario: "multi-branch champ without a selected branch blocks preview",
+    input: {
+      ...complete,
+      branchContextReady: true,
+      needsBranchSelection: true,
+      contextVendorId: ""
+    },
+    canPreview: false
+  },
+  {
+    scenario: "multi-branch champ with a selected branch previews",
+    input: {
+      ...complete,
+      branchContextReady: true,
+      needsBranchSelection: true,
+      contextVendorId: "vendor-2"
+    },
+    canPreview: true
+  },
+  {
+    scenario: "missing reason blocks preview even with a branch selected",
+    input: {
+      startDate: "2026-07-01",
+      endDate: "2026-07-03",
+      reason: "   ",
+      branchContextReady: true,
+      needsBranchSelection: true,
+      contextVendorId: "vendor-2"
+    },
+    canPreview: false
+  },
+  {
+    scenario: "missing end date blocks preview",
+    input: {
+      startDate: "2026-07-01",
+      endDate: "",
+      reason: "Family trip",
+      branchContextReady: true,
+      needsBranchSelection: false,
+      contextVendorId: ""
+    },
+    canPreview: false
+  }
+];
+
+let previewFailures = 0;
+for (const testCase of previewCases) {
+  const actual = canPreviewAnnualLeave(testCase.input);
+  if (actual !== testCase.canPreview) {
+    previewFailures += 1;
+    console.error(
+      `FAIL: ${testCase.scenario} — expected canPreview=${testCase.canPreview}, got ${actual}`
+    );
+  }
+}
+
+if (previewFailures > 0) {
+  throw new Error(`${previewFailures} annual-leave preview-gating case(s) failed.`);
+}
+
+console.log(
+  `annual-leave preview gating: ${previewCases.length} cases passed.`
+);

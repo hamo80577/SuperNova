@@ -1,15 +1,24 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { Store } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Select } from "@/components/ui/select";
 import {
   requestsApi,
   type AnnualLeavePreview,
   type RequestSummary
 } from "@/lib/api/requests";
-import { isAnnualLeaveSubmitBlocked } from "./annual-leave-gating";
+import { workspacesApi } from "@/lib/api/workspaces";
+import {
+  canPreviewAnnualLeave,
+  isAnnualLeaveSubmitBlocked
+} from "./annual-leave-gating";
+
+type BranchOption = { id: string; label: string };
 
 export function AnnualLeaveRequestForm({
   onCancel,
@@ -28,10 +37,68 @@ export function AnnualLeaveRequestForm({
   const [previewing, setPreviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [contextVendorId, setContextVendorId] = useState("");
+  const [branches, setBranches] = useState<BranchOption[] | null>(null);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
+
+  const { user } = useAuth();
+  const isChamp = user?.role === "CHAMP";
 
   const trimmedReason = reason.trim();
   const dirty = Boolean(startDate || endDate || trimmedReason);
-  const canPreview = Boolean(startDate && endDate && trimmedReason);
+
+  // Champs can be assigned to more than one branch; the backend then requires an
+  // explicit contextVendorId. Load the champ's active branches so we can offer a
+  // selector. Pickers and single-branch champs resolve automatically server-side.
+  useEffect(() => {
+    if (!isChamp) {
+      return;
+    }
+
+    let cancelled = false;
+    setBranches(null);
+    setBranchesError(null);
+    workspacesApi
+      .champBranches()
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        setBranches(
+          response.branches
+            .filter((branch) => branch.assignment.status === "ACTIVE")
+            .map((branch) => ({
+              id: branch.vendor.id,
+              label: `${branch.vendor.vendorName} · ${branch.chain.chainName}`
+            }))
+        );
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setBranchesError(
+            error instanceof Error ? error.message : "Unable to load your branches."
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isChamp]);
+
+  const branchOptions = useMemo(() => branches ?? [], [branches]);
+  const needsBranchSelection =
+    isChamp && branches !== null && branchOptions.length > 1;
+  const branchContextReady = !isChamp || branches !== null;
+
+  const canPreview = canPreviewAnnualLeave({
+    branchContextReady,
+    contextVendorId,
+    endDate,
+    needsBranchSelection,
+    reason,
+    startDate
+  });
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -47,11 +114,19 @@ export function AnnualLeaveRequestForm({
     }
 
     let cancelled = false;
+    // Drop any prior result so the loading state (not the previous branch's or
+    // date range's numbers) shows while this refetch is in flight.
+    setPreview(null);
     setPreviewing(true);
     setPreviewError(null);
     const handle = setTimeout(() => {
       requestsApi
-        .previewAnnualLeave({ startDate, endDate, reason: trimmedReason })
+        .previewAnnualLeave({
+          startDate,
+          endDate,
+          reason: trimmedReason,
+          contextVendorId: needsBranchSelection ? contextVendorId : undefined
+        })
         .then((result) => {
           if (!cancelled) {
             setPreview(result);
@@ -76,7 +151,14 @@ export function AnnualLeaveRequestForm({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [startDate, endDate, trimmedReason, canPreview]);
+  }, [
+    canPreview,
+    contextVendorId,
+    endDate,
+    needsBranchSelection,
+    startDate,
+    trimmedReason
+  ]);
 
   const blocked = isAnnualLeaveSubmitBlocked({ canPreview, preview, previewing });
 
@@ -92,7 +174,8 @@ export function AnnualLeaveRequestForm({
       const created = await requestsApi.createAnnualLeave({
         startDate,
         endDate,
-        reason: trimmedReason
+        reason: trimmedReason,
+        contextVendorId: needsBranchSelection ? contextVendorId : undefined
       });
       onCreated(created);
     } catch (error) {
@@ -105,6 +188,15 @@ export function AnnualLeaveRequestForm({
 
   return (
     <form className="grid gap-4" onSubmit={onSubmit}>
+      <ChampBranchField
+        branches={branches}
+        branchesError={branchesError}
+        isChamp={isChamp}
+        needsBranchSelection={needsBranchSelection}
+        onChange={setContextVendorId}
+        value={contextVendorId}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1.5 text-xs font-medium text-[color:var(--sn-body)]">
           Start date
@@ -167,6 +259,73 @@ export function AnnualLeaveRequestForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function ChampBranchField({
+  branches,
+  branchesError,
+  isChamp,
+  needsBranchSelection,
+  onChange,
+  value
+}: {
+  branches: BranchOption[] | null;
+  branchesError: string | null;
+  isChamp: boolean;
+  needsBranchSelection: boolean;
+  onChange: (vendorId: string) => void;
+  value: string;
+}) {
+  if (!isChamp) {
+    return null;
+  }
+
+  if (branchesError) {
+    return (
+      <div className="rounded-xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.96_0.03_27)] p-3 text-sm text-[oklch(0.5_0.17_27)]">
+        {branchesError} Reload the page and try again.
+      </div>
+    );
+  }
+
+  if (branches === null) {
+    return (
+      <div className="rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 text-sm text-[color:var(--sn-muted)]">
+        Loading your branches…
+      </div>
+    );
+  }
+
+  if (!needsBranchSelection) {
+    return null;
+  }
+
+  return (
+    <label className="grid gap-1.5 text-xs font-medium text-[color:var(--sn-body)]">
+      Branch
+      <Select
+        aria-label="Branch for this annual leave request"
+        leadingIcon={<Store className="h-4 w-4" />}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Select a branch"
+        searchable={branches.length > 6}
+        value={value}
+      >
+        <option disabled value="">
+          Select a branch
+        </option>
+        {branches.map((branch) => (
+          <option key={branch.id} value={branch.id}>
+            {branch.label}
+          </option>
+        ))}
+      </Select>
+      <span className="text-[11px] font-normal text-[color:var(--sn-muted)]">
+        You are assigned to multiple branches — choose which one this request
+        applies to.
+      </span>
+    </label>
   );
 }
 
