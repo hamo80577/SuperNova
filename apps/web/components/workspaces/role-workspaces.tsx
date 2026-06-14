@@ -4,7 +4,11 @@ import {
   AlertCircle,
   ArrowRight,
   Archive,
+  Bell,
+  CalendarDays,
+  CheckCircle2,
   ClipboardCheck,
+  Clock3,
   FileSearch,
   GitBranch,
   Inbox,
@@ -13,7 +17,10 @@ import {
   MoveRight,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   Store,
+  Target,
+  Umbrella,
   X,
   UserRound,
   Users
@@ -31,11 +38,17 @@ import {
   DetailPanelSkeleton,
   StatsCardSkeleton
 } from "@/components/ui/skeleton";
+import {
+  notificationsApi,
+  type NotificationItem
+} from "@/lib/api/notifications";
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
   type AssignmentStatus,
   type EntityStatus,
+  type PickerPerformanceSummary,
+  type PickerRankSummary,
   type UserSummary,
   type VendorSummary,
   workspacesApi
@@ -47,67 +60,719 @@ type AsyncState<T> =
   | { status: "ready"; data: T; error?: never };
 
 export function PickerWorkspaceDashboard() {
-  const state = useWorkspaceData(workspacesApi.picker);
+  const [rangeKey, setRangeKey] =
+    useState<PickerDashboardRange>("THIS_MONTH");
+  const [summaryState, setSummaryState] = useState<
+    AsyncState<PickerPerformanceSummary>
+  >({ status: "loading" });
+  const [notificationsState, setNotificationsState] = useState<
+    AsyncState<NotificationItem[]>
+  >({ status: "loading" });
+  const selectedRange = getPickerDateRange(rangeKey);
 
-  if (state.status !== "ready") {
-    return <WorkspaceState state={state} />;
-  }
+  useEffect(() => {
+    let mounted = true;
 
-  const data = state.data;
+    async function loadSummary() {
+      setSummaryState({ status: "loading" });
+
+      try {
+        const data = await workspacesApi.pickerPerformanceSummary({
+          dateFrom: selectedRange.dateFrom,
+          dateTo: selectedRange.dateTo,
+          period: rangeKey
+        });
+
+        if (mounted) {
+          setSummaryState({ status: "ready", data });
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setSummaryState({
+            status: "error",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load Picker performance summary."
+          });
+        }
+      }
+    }
+
+    void loadSummary();
+
+    return () => {
+      mounted = false;
+    };
+  }, [rangeKey, selectedRange.dateFrom, selectedRange.dateTo]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      try {
+        const response = await notificationsApi.list({ page: 1, pageSize: 3 });
+
+        if (mounted) {
+          setNotificationsState({ status: "ready", data: response.items });
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setNotificationsState({
+            status: "error",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load notifications."
+          });
+        }
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
-    <WorkspaceGrid>
-      <HeroCard
-        badge="Picker workspace"
-        description="Your profile and operational branch context are derived from active assignments."
-        title={data.profile.nameEn}
-      />
-      <MetricCard icon={UserRound} label="Profile status" value={data.profile.profileStatus} />
-      <MetricCard
-        icon={Store}
-        label="Assigned branch"
-        value={data.branch?.vendorName ?? "No active branch"}
-      />
-      <MetricCard
-        icon={GitBranch}
-        label="Assigned chain"
-        value={data.chain?.chainName ?? "No active chain"}
-      />
+    <div className="mx-auto grid w-full max-w-[1240px] gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-[34px]">
+            My Workday
+          </h1>
+          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
+            {formatDateRangeLabel(selectedRange.dateFrom, selectedRange.dateTo)}
+          </p>
+        </div>
+        <PickerRangeSelector value={rangeKey} onChange={setRangeKey} />
+      </div>
 
-      <InfoCard title="My Profile">
-        <Definition label="Phone" value={data.profile.phoneNumber} />
-        <Definition label="IBS ID" value={data.profile.ibsId ?? "Not set"} />
-        <Definition label="Shopper ID" value={data.profile.shopperId ?? "Not set"} />
-        <Definition label="Employment" value={data.profile.employmentStatus} />
-        <Definition label="Account" value={data.profile.accountStatus} />
-      </InfoCard>
-
-      <InfoCard title="My Branch">
-        {data.branch ? (
-          <>
-            <Definition label="Branch" value={data.branch.vendorName} />
-            <Definition label="Code" value={data.branch.vendorCode} />
-            <Definition label="Area" value={data.branch.area ?? "Not set"} />
-            <Definition label="City" value={data.branch.city ?? "Not set"} />
-            <Definition
-              label="Assignment start"
-              value={formatDate(data.currentAssignment?.startDate)}
-            />
-          </>
-        ) : (
-          <EmptyInline message="No active branch assignment is available." />
-        )}
-      </InfoCard>
-
-      <InfoCard title="My Managers">
-        <Definition label="Champ" value={data.champ?.nameEn ?? "Not assigned"} />
-        <Definition
-          label="Area Manager"
-          value={data.areaManager?.nameEn ?? "Not assigned"}
+      {summaryState.status === "ready" ? (
+        <PickerDashboardContent
+          notificationsState={notificationsState}
+          summary={summaryState.data}
         />
-        <Definition label="Chain" value={data.chain?.chainName ?? "Not assigned"} />
-      </InfoCard>
-    </WorkspaceGrid>
+      ) : (
+        <WorkspaceState state={summaryState} />
+      )}
+    </div>
+  );
+}
+
+const pickerRangeOptions = [
+  { key: "LAST_WEEK", label: "Last Week" },
+  { key: "THIS_MONTH", label: "This Month" },
+  { key: "THIS_QUARTER", label: "This Quarter" }
+] as const;
+
+type PickerDashboardRange = (typeof pickerRangeOptions)[number]["key"];
+
+function PickerRangeSelector({
+  onChange,
+  value
+}: {
+  onChange: (value: PickerDashboardRange) => void;
+  value: PickerDashboardRange;
+}) {
+  return (
+    <div
+      aria-label="Performance period"
+      className="grid grid-cols-3 rounded-xl border border-[color:var(--sn-border)] bg-white p-1 shadow-[0_1px_2px_rgba(65,21,23,0.04)]"
+      role="group"
+    >
+      {pickerRangeOptions.map((option) => (
+        <button
+          className={
+            option.key === value
+              ? "h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-[0_6px_14px_rgba(238,81,35,0.24)] sm:text-sm"
+              : "h-9 rounded-lg px-3 text-xs font-semibold text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)] sm:text-sm"
+          }
+          key={option.key}
+          onClick={() => onChange(option.key)}
+          type="button"
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PickerDashboardContent({
+  notificationsState,
+  summary
+}: {
+  notificationsState: AsyncState<NotificationItem[]>;
+  summary: PickerPerformanceSummary;
+}) {
+  return (
+    <>
+      <PickerIdentityCard summary={summary} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <AttendanceHealthCard summary={summary} />
+        <OrdersPerformanceCard summary={summary} />
+      </div>
+      <RankingCard summary={summary} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DeductionsSummaryCard summary={summary} />
+        <AnnualLeaveSummaryCard summary={summary} />
+        <LatestNotificationsCard state={notificationsState} />
+      </div>
+    </>
+  );
+}
+
+function PickerIdentityCard({ summary }: { summary: PickerPerformanceSummary }) {
+  const identity = summary.identity;
+
+  return (
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center">
+        <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b0719,#8a0e26)] text-xl font-semibold text-white shadow-[0_10px_24px_rgba(91,7,25,0.24)]">
+          {getInitials(identity.pickerName)}
+        </div>
+        <div className="grid min-w-0 gap-3 lg:grid-cols-6">
+          <IdentityMetric label="Picker Name" value={identity.pickerName} />
+          <IdentityMetric label="Role" value="Picker" />
+          <IdentityMetric
+            label="Branch"
+            value={identity.branchName ?? "Not assigned"}
+          />
+          <IdentityMetric
+            label="Chain"
+            value={identity.chainName ?? "Not assigned"}
+          />
+          <IdentityMetric
+            label="Area Manager"
+            value={identity.areaManagerName ?? "Not assigned"}
+          />
+          <IdentityMetric
+            label="Shopper ID"
+            value={identity.shopperId ?? "Not set"}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function IdentityMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border-[color:var(--sn-border)] lg:border-l lg:pl-4 lg:first:border-l-0 lg:first:pl-0">
+      <p className="text-xs font-medium text-[color:var(--sn-muted)]">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AttendanceHealthCard({
+  summary
+}: {
+  summary: PickerPerformanceSummary;
+}) {
+  const attendance = summary.attendance;
+
+  return (
+    <PickerPanel
+      actionHref="/picker/attendance"
+      actionLabel="View attendance"
+      icon={CalendarDays}
+      step="1"
+      title="Attendance / Shift Health"
+    >
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
+        <div>
+          <p className="text-xs font-medium text-[color:var(--sn-muted)]">
+            Attendance Rate
+          </p>
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
+              {formatPercent(attendance.attendanceRate)}
+            </p>
+            <DeltaBadge value={attendance.attendanceRateDelta} />
+          </div>
+        </div>
+        <MetricGauge
+          color="#2e7d32"
+          label={`${attendance.attendedShifts} / ${attendance.scheduledShifts} shifts`}
+          value={attendance.attendanceRate}
+        />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <PickerMicroStat
+          icon={AlertCircle}
+          label="Total Shift Errors"
+          value={attendance.totalShiftErrors}
+        />
+        <PickerMicroStat icon={Clock3} label="Late" value={attendance.lateCount} />
+        <PickerMicroStat
+          icon={UserRound}
+          label="Absent"
+          value={attendance.absentCount}
+        />
+        <PickerMicroStat
+          icon={CalendarDays}
+          label="Under 8"
+          value={attendance.under8HoursCount}
+        />
+        <PickerMicroStat
+          icon={ShieldCheck}
+          label="Over 15"
+          value={attendance.over15HoursCount}
+        />
+      </div>
+    </PickerPanel>
+  );
+}
+
+function OrdersPerformanceCard({
+  summary
+}: {
+  summary: PickerPerformanceSummary;
+}) {
+  const orders = summary.ordersKpi;
+
+  return (
+    <PickerPanel
+      icon={ShoppingBag}
+      step="2"
+      title="Orders Performance / UHO Target"
+    >
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
+        <div>
+          <p className="text-xs font-medium text-[color:var(--sn-muted)]">UHO %</p>
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
+              {formatPercent(orders.unhealthyRate)}
+            </p>
+            <TargetBadge status={orders.target.status} />
+          </div>
+          <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
+            Target {orders.target.unhealthyRateTarget ?? "-"}%
+          </p>
+        </div>
+        <MetricGauge
+          color="#5b4ac8"
+          label={`${orders.unhealthyOrders} unhealthy / ${formatNumber(orders.totalOrders)} orders`}
+          target={orders.target.unhealthyRateTarget}
+          value={orders.unhealthyRate}
+        />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <PickerMicroStat
+          icon={ShoppingBag}
+          label="Total Orders"
+          value={formatNumber(orders.totalOrders)}
+        />
+        <PickerMicroStat
+          icon={Target}
+          label="UHO Count"
+          value={orders.unhealthyOrders}
+        />
+        <PickerMicroStat
+          icon={Clock3}
+          label="Not on Time"
+          value={orders.orderNotOnTime}
+        />
+      </div>
+    </PickerPanel>
+  );
+}
+
+function RankingCard({ summary }: { summary: PickerPerformanceSummary }) {
+  return (
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-[#ff8b6a] text-sm font-semibold text-white">
+          3
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
+            Your Performance Position
+          </h2>
+          <p className="text-xs text-[color:var(--sn-muted)]">
+            Ranked by UHO %, volume threshold, then attendance.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <RankScopeCard label="In Your Branch" rank={summary.ranking.branch} />
+        <RankScopeCard label="In Your Chain" rank={summary.ranking.chain} />
+        <RankScopeCard label="In All Team" rank={summary.ranking.allTeam} />
+      </div>
+    </section>
+  );
+}
+
+function RankScopeCard({
+  label,
+  rank
+}: {
+  label: string;
+  rank: PickerRankSummary;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{label}</p>
+          <p className="mt-2 text-[26px] font-semibold leading-none tracking-normal text-[#5b0719]">
+            {rank.displayLabel}
+          </p>
+        </div>
+        <Badge
+          className={
+            rank.ranked
+              ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+              : undefined
+          }
+          variant={rank.ranked ? "outline" : "muted"}
+        >
+          {rank.percentileLabel ?? "Not ranked"}
+        </Badge>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--sn-sunken)]">
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${rankProgress(rank)}%` }}
+        />
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[color:var(--sn-muted)]">
+        <span>{formatNumber(rank.totalOrders)} orders</span>
+        <span>{formatPercent(rank.unhealthyRate)} UHO</span>
+      </div>
+    </div>
+  );
+}
+
+function DeductionsSummaryCard({
+  summary
+}: {
+  summary: PickerPerformanceSummary;
+}) {
+  return (
+    <PickerSmallPanel
+      actionHref="/deductions"
+      actionLabel="View deductions"
+      icon={AlertCircle}
+      title="Deductions (Days)"
+    >
+      <p className="text-[36px] font-semibold leading-none tracking-normal text-[#5b0719]">
+        {formatDays(summary.deductions.totalEffectiveDays)}
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Definition
+          label="Effective"
+          value={formatDays(summary.deductions.totalEffectiveDays)}
+        />
+        <Definition
+          label="Cases"
+          value={summary.deductions.effectiveCasesCount}
+        />
+      </div>
+    </PickerSmallPanel>
+  );
+}
+
+function AnnualLeaveSummaryCard({
+  summary
+}: {
+  summary: PickerPerformanceSummary;
+}) {
+  return (
+    <PickerSmallPanel
+      actionHref="/tickets"
+      actionLabel="Open requests"
+      icon={Umbrella}
+      title="Annual Leave"
+    >
+      <div className="grid grid-cols-3 gap-2">
+        <LeaveStat
+          label="Balance"
+          tone="green"
+          value={formatDays(summary.annualLeave.balanceDays)}
+        />
+        <LeaveStat
+          label="Taken"
+          tone="purple"
+          value={formatDays(summary.annualLeave.takenDays)}
+        />
+        <LeaveStat
+          label="Remaining"
+          tone="orange"
+          value={
+            summary.annualLeave.remainingDays === null
+              ? "-"
+              : formatDays(summary.annualLeave.remainingDays)
+          }
+        />
+      </div>
+    </PickerSmallPanel>
+  );
+}
+
+function LatestNotificationsCard({
+  state
+}: {
+  state: AsyncState<NotificationItem[]>;
+}) {
+  return (
+    <PickerSmallPanel
+      actionHref="/notifications"
+      actionLabel="View all"
+      icon={Bell}
+      title="Latest Notifications"
+    >
+      {state.status === "loading" ? (
+        <div className="grid gap-2">
+          <div className="h-9 rounded-lg bg-[color:var(--sn-sunken)]" />
+          <div className="h-9 rounded-lg bg-[color:var(--sn-sunken)]" />
+          <div className="h-9 rounded-lg bg-[color:var(--sn-sunken)]" />
+        </div>
+      ) : state.status === "error" ? (
+        <p className="text-sm text-destructive">{state.error}</p>
+      ) : state.data.length ? (
+        <div className="grid gap-3">
+          {state.data.map((notification) => (
+            <div
+              className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-start gap-3"
+              key={notification.id}
+            >
+              <CheckCircle2 className="mt-0.5 h-4 w-4 text-[oklch(0.56_0.15_150)]" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-[color:var(--sn-ink)]">
+                  {notification.title}
+                </p>
+                <p className="truncate text-xs text-[color:var(--sn-muted)]">
+                  {notification.body}
+                </p>
+              </div>
+              <span className="text-xs text-[color:var(--sn-muted)]">
+                {formatNotificationTime(notification.createdAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyInline message="No notifications yet." />
+      )}
+    </PickerSmallPanel>
+  );
+}
+
+function PickerPanel({
+  actionHref,
+  actionLabel,
+  children,
+  icon: Icon,
+  step,
+  title
+}: {
+  actionHref?: string;
+  actionLabel?: string;
+  children: ReactNode;
+  icon: typeof Users;
+  step: string;
+  title: string;
+}) {
+  return (
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#ff8b6a] text-sm font-semibold text-white">
+            {step}
+          </span>
+          <Icon className="h-4 w-4 shrink-0 text-primary" />
+          <h2 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
+            {title}
+          </h2>
+        </div>
+        {actionHref && actionLabel ? (
+          <Link
+            className="text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
+            href={actionHref}
+            prefetch
+          >
+            {actionLabel}
+          </Link>
+        ) : null}
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function PickerSmallPanel({
+  actionHref,
+  actionLabel,
+  children,
+  icon: Icon,
+  title
+}: {
+  actionHref: string;
+  actionLabel: string;
+  children: ReactNode;
+  icon: typeof Users;
+  title: string;
+}) {
+  return (
+    <section className="min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon className="h-4 w-4 shrink-0 text-primary" />
+          <h2 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
+            {title}
+          </h2>
+        </div>
+        <Link
+          className="shrink-0 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
+          href={actionHref}
+          prefetch
+        >
+          {actionLabel}
+        </Link>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function PickerMicroStat({
+  icon: Icon,
+  label,
+  value
+}: {
+  icon: typeof Users;
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
+      <Icon className="h-4 w-4 text-primary" />
+      <p className="mt-2 truncate text-xs font-medium text-[color:var(--sn-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-semibold tracking-normal text-[color:var(--sn-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MetricGauge({
+  color,
+  label,
+  target,
+  value
+}: {
+  color: string;
+  label: string;
+  target?: number | null;
+  value: number | null;
+}) {
+  const gaugeWidth = clampPercent(value);
+  const targetPosition = target === null || target === undefined ? null : clampPercent(target);
+
+  return (
+    <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
+      <div className="flex items-center justify-between gap-3 text-xs font-medium text-[color:var(--sn-muted)]">
+        <span>{label}</span>
+        <span>{formatPercent(value)}</span>
+      </div>
+      <div className="relative mt-4 h-3 overflow-visible rounded-full bg-white">
+        <div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color, width: `${gaugeWidth}%` }}
+        />
+        {targetPosition !== null ? (
+          <span
+            className="absolute top-[-5px] h-5 w-0.5 rounded-full bg-[color:var(--sn-ink)]"
+            style={{ left: `${targetPosition}%` }}
+          />
+        ) : null}
+      </div>
+      {targetPosition !== null ? (
+        <p className="mt-3 text-xs text-[color:var(--sn-muted)]">
+          Target {target}%
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DeltaBadge({ value }: { value: number | null }) {
+  if (value === null) {
+    return <Badge variant="muted">No previous</Badge>;
+  }
+
+  return (
+    <Badge
+      className={
+        value >= 0
+          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+      }
+      variant="outline"
+    >
+      {value >= 0 ? "+" : ""}
+      {value.toFixed(1)}%
+    </Badge>
+  );
+}
+
+function TargetBadge({
+  status
+}: {
+  status: PickerPerformanceSummary["ordersKpi"]["target"]["status"];
+}) {
+  if (status === "NO_TARGET") {
+    return <Badge variant="muted">No target</Badge>;
+  }
+
+  return (
+    <Badge
+      className={
+        status === "IN_TARGET"
+          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+      }
+      variant="outline"
+    >
+      {status === "IN_TARGET" ? "In Target" : "Out of Target"}
+    </Badge>
+  );
+}
+
+function LeaveStat({
+  label,
+  tone,
+  value
+}: {
+  label: string;
+  tone: "green" | "orange" | "purple";
+  value: string;
+}) {
+  const toneClass =
+    tone === "green"
+      ? "text-[oklch(0.48_0.14_150)]"
+      : tone === "purple"
+        ? "text-[oklch(0.48_0.12_285)]"
+        : "text-primary";
+
+  return (
+    <div className="min-w-0 border-l border-[color:var(--sn-border)] pl-3 first:border-l-0 first:pl-0">
+      <p className="truncate text-xs font-medium text-[color:var(--sn-muted)]">
+        {label}
+      </p>
+      <p className={`mt-2 text-2xl font-semibold tracking-normal ${toneClass}`}>
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -969,12 +1634,112 @@ function EmptyInline({ message }: { message: string }) {
   return <p className="text-sm leading-6 text-muted-foreground">{message}</p>;
 }
 
-function formatDate(value?: string | null) {
-  if (!value) {
-    return "Not available";
+function getPickerDateRange(range: PickerDashboardRange) {
+  const today = new Date();
+  const dateTo = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dateFrom = new Date(dateTo);
+
+  if (range === "LAST_WEEK") {
+    dateFrom.setDate(dateTo.getDate() - 6);
+  } else if (range === "THIS_MONTH") {
+    dateFrom.setDate(1);
+  } else {
+    dateFrom.setMonth(Math.floor(dateTo.getMonth() / 3) * 3, 1);
   }
 
-  return new Date(value).toLocaleDateString();
+  return {
+    dateFrom: toDateOnly(dateFrom),
+    dateTo: toDateOnly(dateTo)
+  };
+}
+
+function toDateOnly(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateRangeLabel(dateFrom: string, dateTo: string) {
+  return `${formatShortDate(dateFrom)} - ${formatShortDate(dateTo)}`;
+}
+
+function formatShortDate(value: string) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (!parts.length) {
+    return "SN";
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function formatPercent(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function formatDays(value: number) {
+  const formatted = value % 1 === 0 ? String(value) : value.toFixed(1);
+  return `${formatted} ${value === 1 ? "day" : "days"}`;
+}
+
+function clampPercent(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, value));
+}
+
+function rankProgress(rank: PickerRankSummary) {
+  if (!rank.ranked || !rank.rank || rank.totalEligible <= 0) {
+    return 0;
+  }
+
+  return Math.max(
+    8,
+    100 - ((rank.rank - 1) / Math.max(rank.totalEligible, 1)) * 100
+  );
+}
+
+function formatNotificationTime(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  if (sameDay) {
+    return date.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
 }
 
 function formatEnum(value: string) {

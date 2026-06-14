@@ -1,4 +1,12 @@
-import { Controller, Get, Inject, Param, ParseUUIDPipe, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  UseGuards
+} from "@nestjs/common";
 import { UserRole } from "@prisma/client";
 
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -6,6 +14,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { PickerPerformanceSummaryQueryDto } from "./dto/picker-performance-summary-query.dto";
 import { WorkspacesService } from "./workspaces.service";
 
 @Controller("workspaces")
@@ -20,6 +29,15 @@ export class WorkspacesController {
   @Roles(UserRole.PICKER)
   getPickerWorkspace(@CurrentUser() user: AuthenticatedUser) {
     return this.workspacesService.getPickerWorkspace(user.id);
+  }
+
+  @Get("picker/performance-summary")
+  @Roles(UserRole.PICKER)
+  getPickerPerformanceSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PickerPerformanceSummaryQueryDto
+  ) {
+    return this.workspacesService.getPickerPerformanceSummary(user.id, query);
   }
 
   @Get("champ")

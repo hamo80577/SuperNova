@@ -5,8 +5,8 @@ export default function PickerDashboardPage() {
   return (
     <DashboardFrame
       allowedRoles={["PICKER"]}
-      description="Profile, branch, and manager context."
-      title="Picker Workspace"
+      description="Personal attendance, orders, ranking, deductions, leave, and notifications."
+      title="My Workday"
     >
       <PickerWorkspaceDashboard />
     </DashboardFrame>
