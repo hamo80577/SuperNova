@@ -166,15 +166,22 @@ function SidebarHeader({
   collapsed: boolean;
   compact?: boolean;
 }) {
+  const logoSize = compact ? 36 : 42;
+  const logoType = compact ? 19 : 24;
+
   return (
     <div
       className={cn(
         "flex items-center",
-        compact ? "p-0" : "px-4 pb-2 pt-4",
-        collapsed && !compact && "justify-center px-3"
+        compact ? "p-0" : "justify-center px-4 pb-5 pt-8",
+        collapsed && !compact && "px-3"
       )}
     >
-      {collapsed && !compact ? <SnMark size={32} /> : <SnLogo size={32} type={17} />}
+      {collapsed && !compact ? (
+        <SnMark size={36} />
+      ) : (
+        <SnLogo size={logoSize} type={logoType} />
+      )}
     </div>
   );
 }

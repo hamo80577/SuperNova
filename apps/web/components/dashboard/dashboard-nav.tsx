@@ -71,12 +71,7 @@ function DashboardNavItem({
   const countChip =
     !collapsed && hasCount ? (
       <span
-        className={cn(
-          "ml-auto rounded-full px-1.5 py-px text-[10px] font-bold font-[family-name:var(--font-data)] leading-none",
-          isActive
-            ? "bg-white/25 text-white"
-            : "bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
-        )}
+        className="ml-auto grid min-h-5 min-w-5 place-items-center rounded-full bg-[color:var(--tlb-orange)] px-1 text-[10px] font-bold font-[family-name:var(--font-data)] leading-none text-white"
       >
         {countLabel}
       </span>
@@ -89,7 +84,7 @@ function DashboardNavItem({
     "flex min-h-11 items-center rounded-[10px] border text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/25",
     collapsed ? "justify-center px-0" : "gap-3 px-3",
     isActive
-      ? "border-transparent bg-[color:var(--tlb-orange)] font-semibold text-white shadow-[0_4px_12px_rgba(255,89,0,0.28)]"
+      ? "border-[#FFE1CF] bg-[#FFF3EB] font-semibold text-[color:var(--tlb-orange)] shadow-[0_8px_18px_rgba(255,89,0,0.08)]"
       : "border-transparent font-medium text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)] hover:text-[color:var(--sn-ink)]",
     item.disabled &&
       "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-[color:var(--sn-body)]",
@@ -97,7 +92,7 @@ function DashboardNavItem({
   );
   const iconClassName = cn(
     "h-[18px] w-[18px] shrink-0",
-    isActive ? "text-white" : "text-[color:var(--sn-faint)]"
+    isActive ? "text-[color:var(--tlb-orange)]" : "text-[color:var(--sn-ink)]"
   );
 
   if (!item.href || item.disabled) {
