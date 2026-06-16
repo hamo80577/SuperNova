@@ -45,6 +45,7 @@ import {
   DetailPanelSkeleton,
   StatsCardSkeleton
 } from "@/components/ui/skeleton";
+import { ChampPerformanceDashboard } from "@/components/workspaces/champ/champ-performance-dashboard";
 import {
   notificationsApi,
   type NotificationItem
@@ -1027,98 +1028,7 @@ function LeaveStat({
 }
 
 export function ChampWorkspaceDashboard() {
-  const state = useWorkspaceData(workspacesApi.champ);
-
-  if (state.status !== "ready") {
-    return <WorkspaceState state={state} />;
-  }
-
-  const data = state.data;
-  const singleBranch = data.branches.length === 1 ? data.branches[0] : null;
-
-  return (
-    <WorkspaceGrid>
-      <HeroCard
-        badge="Champ workspace"
-        description={`Welcome ${data.champ.nameEn}. Champ operations are Branch-first: open a Branch before starting any future lifecycle action.`}
-        title="Branch Operations"
-      />
-      <MetricCard icon={Store} label="Assigned branches" value={data.totals.branches} />
-      <MetricCard icon={Users} label="Active Pickers" value={data.totals.activePickers} />
-      <MetricCard
-        icon={ShieldCheck}
-        label="Pending requests"
-        value={data.totals.pendingRequests}
-      />
-      <MetricCard
-        icon={Inbox}
-        label="Recent branch requests"
-        value={data.totals.recentRequests}
-      />
-
-      <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] lg:col-span-4">
-        <SectionHeader
-          description={
-            singleBranch
-              ? "You have one active Branch. Use it as your primary operations workspace."
-              : "Use the global dashboard for totals only. Open one Branch before taking future workflow actions."
-          }
-          title={singleBranch ? "Primary Branch Workspace" : "Assigned Branches"}
-        />
-        {data.branches.length ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {data.branches.map((branch) => (
-              <div
-                className={
-                  singleBranch
-                    ? "rounded-lg border border-primary/30 bg-primary/5 p-5 md:col-span-2 xl:col-span-3"
-                    : "rounded-md border bg-background p-4"
-                }
-                key={branch.assignment.id}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{branch.vendor.vendorName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {branch.vendor.vendorCode} · {branch.chain.chainName} ·{" "}
-                      {[branch.vendor.area, branch.vendor.city]
-                        .filter(Boolean)
-                        .join(", ") || "No area set"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">{branch.activePickerCount} Pickers</Badge>
-                    <Badge variant="muted">
-                      {branch.pendingRequestCount} pending
-                    </Badge>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Future New Hire, Transfer, and Resignation actions
-                  will run inside this selected Branch context.
-                </p>
-                <div className="mt-4">
-                  <Link
-                    className={buttonVariants({ size: "sm" })}
-                    href={`/champ/branches/${branch.vendor.id}`}
-                    prefetch
-                  >
-                    {singleBranch ? "Open Branch Workspace" : "Open Branch"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyBlock message="No active branch assignments are available." />
-        )}
-      </section>
-
-      <PlaceholderCard title="Branch-first requests" value={data.placeholders.requests} />
-      <PlaceholderCard title="Lifecycle actions" value={data.placeholders.actions} />
-    </WorkspaceGrid>
-  );
+  return <ChampPerformanceDashboard />;
 }
 
 export function AreaManagerWorkspaceDashboard() {

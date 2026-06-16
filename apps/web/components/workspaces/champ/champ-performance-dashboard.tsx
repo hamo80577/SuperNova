@@ -1,0 +1,1448 @@
+"use client";
+
+import {
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  FileMinus,
+  Info,
+  Medal,
+  MoreHorizontal,
+  Minus,
+  Repeat2,
+  ShieldCheck,
+  ShoppingBag,
+  SlidersHorizontal,
+  Store,
+  Target,
+  Trophy,
+  UserPlus,
+  Users,
+  X
+} from "lucide-react";
+import Link from "next/link";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type PointerEvent,
+  type ReactNode
+} from "react";
+
+import { SnAvatar, SnStatusBadge, SnTypeChip } from "@/components/sn/sn-primitives";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import {
+  type ChampBranchRankSummary,
+  type ChampPerformanceSummary,
+  type ChampPickerPerformanceRow,
+  workspacesApi
+} from "@/lib/api/workspaces";
+import { cn } from "@/lib/utils";
+
+type AsyncState<T> =
+  | { status: "loading"; data?: never; error?: never }
+  | { status: "error"; error: string; data?: never }
+  | { status: "ready"; data: T; error?: never };
+
+const champRangeOptions = [
+  { key: "YESTERDAY", label: "Yesterday" },
+  { key: "LAST_WEEK", label: "Last Week" },
+  { key: "THIS_MONTH", label: "This Month" },
+  { key: "LAST_QUARTER", label: "Last Quarter" }
+] as const;
+
+type ChampRangeKey = (typeof champRangeOptions)[number]["key"];
+
+const pickerStatusLabels: Record<ChampPickerPerformanceRow["status"], string> = {
+  IN_TARGET: "In Target",
+  WATCH: "Watch",
+  NEEDS_ACTION: "Needs Action",
+  LOW_VOLUME: "Low Volume",
+  NO_KPI: "No KPI"
+};
+
+const requestActionLabels = {
+  newHire: "New Hire",
+  transfer: "Transfer",
+  deduction: "Deduction",
+  resignation: "Resign"
+} as const;
+
+const requestActionIcons = {
+  newHire: UserPlus,
+  transfer: Repeat2,
+  deduction: Minus,
+  resignation: FileMinus
+} as const;
+
+export function ChampPerformanceDashboard() {
+  const [rangeKey, setRangeKey] = useState<ChampRangeKey>("YESTERDAY");
+  const [requestedVendorId, setRequestedVendorId] = useState<string | undefined>();
+  const selectedRange = useMemo(() => getChampDateRange(rangeKey), [rangeKey]);
+  const [summaryState, setSummaryState] = useState<
+    AsyncState<ChampPerformanceSummary>
+  >({ status: "loading" });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSummary() {
+      setSummaryState({ status: "loading" });
+
+      try {
+        const data = await workspacesApi.champPerformanceSummary({
+          dateFrom: selectedRange.dateFrom,
+          dateTo: selectedRange.dateTo,
+          vendorId: requestedVendorId
+        });
+
+        if (mounted) {
+          setSummaryState({ status: "ready", data });
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setSummaryState({
+            status: "error",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load Champ performance summary."
+          });
+        }
+      }
+    }
+
+    void loadSummary();
+
+    return () => {
+      mounted = false;
+    };
+  }, [requestedVendorId, selectedRange.dateFrom, selectedRange.dateTo]);
+
+  const summary = summaryState.status === "ready" ? summaryState.data : null;
+  const selectedVendorId =
+    requestedVendorId ?? summary?.scope.selectedVendorId ?? "";
+
+  return (
+    <div className="sn mx-auto grid w-full max-w-[1480px] gap-4 overflow-hidden">
+      <ChampDashboardHeader
+        branches={summary?.scope.branches ?? []}
+        loading={summaryState.status === "loading"}
+        onBranchChange={(vendorId) => setRequestedVendorId(vendorId)}
+        onRangeChange={setRangeKey}
+        rangeKey={rangeKey}
+        selectedVendorId={selectedVendorId}
+      />
+
+      {summaryState.status === "ready" ? (
+        <ChampDashboardContent summary={summaryState.data} />
+      ) : summaryState.status === "error" ? (
+        <ChampDashboardError message={summaryState.error} />
+      ) : (
+        <ChampDashboardSkeleton />
+      )}
+    </div>
+  );
+}
+
+function ChampDashboardHeader({
+  branches,
+  loading,
+  onBranchChange,
+  onRangeChange,
+  rangeKey,
+  selectedVendorId
+}: {
+  branches: ChampPerformanceSummary["scope"]["branches"];
+  loading: boolean;
+  onBranchChange: (vendorId: string) => void;
+  onRangeChange: (range: ChampRangeKey) => void;
+  rangeKey: ChampRangeKey;
+  selectedVendorId: string;
+}) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const selectedRangeLabel =
+    champRangeOptions.find((option) => option.key === rangeKey)?.label ?? "Range";
+  const selectedBranchLabel =
+    branches.find((branch) => branch.vendorId === selectedVendorId)?.vendorName ??
+    "Branch";
+
+  const branchSelect = (
+    <Select
+      aria-label="Select branch"
+      className="h-10 rounded-xl bg-white text-sm sm:h-11"
+      disabled={loading || branches.length <= 1}
+      leadingIcon={<Store className="h-4 w-4" />}
+      onChange={(event) => onBranchChange(event.target.value)}
+      value={selectedVendorId}
+    >
+      {branches.length ? (
+        branches.map((branch) => (
+          <option key={branch.vendorId} value={branch.vendorId}>
+            {branch.vendorName}
+          </option>
+        ))
+      ) : (
+        <option value="">Loading Branch</option>
+      )}
+    </Select>
+  );
+
+  const rangeSelect = (
+    <Select
+      aria-label="Select date range"
+      className="h-10 rounded-xl bg-white text-sm sm:h-11"
+      leadingIcon={<CalendarDays className="h-4 w-4" />}
+      onChange={(event) => onRangeChange(event.target.value as ChampRangeKey)}
+      value={rangeKey}
+    >
+      {champRangeOptions.map((option) => (
+        <option key={option.key} value={option.key}>
+          {option.label}
+        </option>
+      ))}
+    </Select>
+  );
+
+  return (
+    <section className="flex min-w-0 items-start justify-end gap-3 sm:justify-between lg:items-start">
+      <div className="hidden min-w-0 sm:block">
+        <h1 className="text-[26px] font-semibold leading-8 tracking-normal text-[color:var(--sn-ink)] sm:text-[34px] sm:leading-9">
+          Dashboard
+        </h1>
+        <p className="mt-0.5 hidden text-sm text-[color:var(--sn-muted)] sm:block">
+          Branch performance overview
+        </p>
+      </div>
+      <div className="hidden min-w-0 gap-2 sm:grid sm:grid-cols-2 lg:w-[520px]">
+        {branchSelect}
+        {rangeSelect}
+      </div>
+      <div className="relative shrink-0 sm:hidden">
+        <button
+          aria-expanded={mobileFiltersOpen}
+          className="inline-flex h-9 max-w-[168px] items-center gap-2 rounded-xl border border-[color:var(--sn-border)] bg-white/85 px-3 text-xs font-semibold text-[color:var(--sn-body)] shadow-[0_1px_2px_rgba(65,21,23,0.04)]"
+          onClick={() => setMobileFiltersOpen((current) => !current)}
+          type="button"
+        >
+          {mobileFiltersOpen ? (
+            <X className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <span className="truncate">{selectedRangeLabel}</span>
+        </button>
+        {mobileFiltersOpen ? (
+          <div className="absolute right-0 top-11 z-30 grid w-[min(92vw,330px)] gap-2 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 shadow-[0_18px_45px_rgba(65,21,23,0.14)]">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="truncate text-xs font-semibold text-[color:var(--sn-muted)]">
+                {selectedBranchLabel}
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-primary">
+                {selectedRangeLabel}
+              </span>
+            </div>
+            {branchSelect}
+            {rangeSelect}
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function ChampDashboardContent({
+  summary
+}: {
+  summary: ChampPerformanceSummary;
+}) {
+  return (
+    <>
+      <BranchInfoStrip summary={summary} />
+      <div className="grid gap-4 xl:grid-cols-[1.48fr_0.8fr_0.84fr]">
+        <UhoPerformanceCard summary={summary} />
+        <AttendanceHealthCard summary={summary} />
+        <BranchRankingCard summary={summary} />
+      </div>
+      <div className="grid gap-4 2xl:grid-cols-[1.52fr_0.8fr]">
+        <PickerPerformancePanel summary={summary} />
+        <RecentRequestsPanel summary={summary} />
+      </div>
+    </>
+  );
+}
+
+function BranchInfoStrip({ summary }: { summary: ChampPerformanceSummary }) {
+  const branch = summary.scope.selectedBranch;
+
+  if (!branch) {
+    return (
+      <ChampCard className="p-4">
+        <SectionUnavailable message="No Branch is selected for this dashboard." />
+      </ChampCard>
+    );
+  }
+
+  return (
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-4">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#fff3eb] text-primary ring-1 ring-[#ffd8bd] sm:h-12 sm:w-12">
+                <Store className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-[color:var(--sn-muted)]">
+                  Branch
+                </p>
+                <h2 className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--sn-ink)] sm:text-base">
+                  {branch.vendorName}
+                </h2>
+              </div>
+            </div>
+            <div className="shrink-0 lg:hidden">
+              <QuickActionsMenu summary={summary} />
+            </div>
+          </div>
+          <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <InfoStripItem label="Chain" value={branch.chainName} />
+            <InfoStripItem
+              label="Manager / Area Manager"
+              value={branch.areaManagerName ?? "Unassigned"}
+            />
+            <InfoStripItem
+              icon={<Users className="h-3.5 w-3.5" />}
+              label="Active Pickers"
+              value={formatNumber(branch.activePickersCount)}
+            />
+          </div>
+        </div>
+        <div className="hidden lg:block">
+          <QuickActionsMenu summary={summary} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function InfoStripItem({
+  icon,
+  label,
+  value
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[#fffdfa] px-3 py-2 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+      <p className="text-[11px] font-medium text-[color:var(--sn-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 flex min-w-0 items-center gap-1.5 break-words text-sm font-semibold text-[color:var(--sn-ink)]">
+        {icon}
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function QuickActionsMenu({ summary }: { summary: ChampPerformanceSummary }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative justify-self-end">
+      <button
+        aria-expanded={open}
+        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary px-3 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(255,89,0,0.16)] transition hover:bg-[#e85100] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        {open ? (
+          <X className="h-4 w-4" />
+        ) : (
+          <MoreHorizontal className="h-4 w-4" />
+        )}
+        Actions
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-12 z-30 grid w-[228px] gap-1 rounded-2xl border border-[color:var(--sn-border)] bg-white p-2 shadow-[0_18px_45px_rgba(65,21,23,0.16)]">
+          {(Object.keys(requestActionLabels) as Array<
+            keyof typeof requestActionLabels
+          >).map((actionKey) => (
+            <QuickActionMenuItem
+              actionKey={actionKey}
+              key={actionKey}
+              onSelect={() => setOpen(false)}
+              summary={summary}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function QuickActionMenuItem({
+  actionKey,
+  onSelect,
+  summary
+}: {
+  actionKey: keyof typeof requestActionLabels;
+  onSelect: () => void;
+  summary: ChampPerformanceSummary;
+}) {
+  const Icon = requestActionIcons[actionKey];
+  const href = resolveQuickActionHref(actionKey, summary);
+  const className = cn(
+    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+    actionKey === "newHire"
+      ? "bg-[#fff3eb] text-primary hover:bg-[#ffe8d9]"
+      : actionKey === "resignation"
+        ? "text-[oklch(0.52_0.18_27)] hover:bg-[oklch(0.96_0.04_27)]"
+        : "text-[color:var(--sn-body)] hover:bg-[#fffaf6]"
+  );
+
+  if (!href) {
+    return (
+      <button
+        className={cn(className, "cursor-not-allowed opacity-50")}
+        disabled
+        title="This action is unavailable for the selected Branch."
+        type="button"
+      >
+        <Icon className="h-4 w-4" />
+        {requestActionLabels[actionKey]}
+      </button>
+    );
+  }
+
+  return (
+    <Link className={className} href={href} onClick={onSelect} prefetch>
+      <Icon className="h-4 w-4" />
+      {requestActionLabels[actionKey]}
+    </Link>
+  );
+}
+
+function UhoPerformanceCard({ summary }: { summary: ChampPerformanceSummary }) {
+  const orders = summary.ordersKpi;
+  const target = orders.target;
+  const trendPoints =
+    orders.trend?.map((point) => ({
+      date: point.date,
+      value: point.unhealthyRate
+    })) ?? [];
+
+  return (
+    <DashboardMetricCard
+      icon={<Info className="h-3.5 w-3.5" />}
+      title="UHO Performance"
+    >
+      {!orders.available ? (
+        <SectionUnavailable message={orders.reason ?? "No KPI data for this period."} />
+      ) : (
+        <div className="grid gap-4">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,0.62fr)_minmax(220px,1fr)] md:items-center">
+            <div className="min-w-0">
+              <p className="sn-num text-[42px] leading-none text-[color:var(--sn-ink)]">
+                {formatPercent(orders.unhealthyRate ?? null)}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {target ? <TargetBadge status={target.status} /> : null}
+                <span className="text-xs font-medium text-[color:var(--sn-muted)]">
+                  Target:{" "}
+                  {target?.configured
+                    ? `<= ${formatPercent(target.unhealthyRateTarget)}`
+                    : "No target"}
+                </span>
+              </div>
+            </div>
+            {trendPoints.length ? (
+              <TrendLine
+                ariaLabel="UHO trend by day"
+                color="#ff5900"
+                points={trendPoints}
+                target={target?.unhealthyRateTarget ?? null}
+              />
+            ) : (
+              <div className="grid h-[132px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] text-xs font-medium text-[color:var(--sn-muted)]">
+                No trend data for this period.
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-3">
+            <MetricFootnote
+              icon={<ShoppingBag className="h-4 w-4" />}
+              label="Total Orders"
+              value={formatNumber(orders.totalOrders ?? 0)}
+            />
+            <MetricFootnote
+              icon={<Target className="h-4 w-4" />}
+              label="UHO Count"
+              value={formatNumber(orders.unhealthyOrders ?? 0)}
+            />
+            <MetricFootnote
+              icon={<Clock3 className="h-4 w-4" />}
+              label="Not on Time"
+              value={formatNumber(orders.orderNotOnTime ?? 0)}
+            />
+          </div>
+        </div>
+      )}
+    </DashboardMetricCard>
+  );
+}
+
+function AttendanceHealthCard({
+  summary
+}: {
+  summary: ChampPerformanceSummary;
+}) {
+  const attendance = summary.attendance;
+  const rate = attendance.attendanceHealthRate ?? null;
+
+  return (
+    <DashboardMetricCard
+      icon={<Info className="h-3.5 w-3.5" />}
+      title="Attendance Health"
+    >
+      {!attendance.available ? (
+        <SectionUnavailable
+          message={attendance.reason ?? "No attendance records for this period."}
+        />
+      ) : (
+        <div className="grid gap-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_104px] items-center gap-4">
+            <div className="min-w-0">
+              <p className="sn-num text-[42px] leading-none text-[color:var(--sn-ink)]">
+                {formatPercent(rate)}
+              </p>
+              <p className="mt-3 text-sm text-[color:var(--sn-muted)]">
+                Clean shifts
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--sn-ink)]">
+                {formatNumber(attendance.cleanShifts ?? 0)} /{" "}
+                {formatNumber(attendance.totalShifts ?? 0)}
+              </p>
+              <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
+                {formatIssueShiftCount(attendance.issueShifts ?? 0)}
+              </p>
+            </div>
+            <AttendanceDonut value={rate} />
+          </div>
+          <div className="grid grid-cols-4 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-3">
+            <IssueMetric label="Late" tone="orange" value={attendance.lateCount ?? 0} />
+            <IssueMetric label="Absent" tone="red" value={attendance.absentCount ?? 0} />
+            <IssueMetric label="Under 8" tone="orange" value={attendance.under8Count ?? 0} />
+            <IssueMetric label="Over 15" tone="red" value={attendance.over15Count ?? 0} />
+          </div>
+        </div>
+      )}
+    </DashboardMetricCard>
+  );
+}
+
+function BranchRankingCard({ summary }: { summary: ChampPerformanceSummary }) {
+  const ranking = summary.branchRanking;
+
+  return (
+    <DashboardMetricCard
+      icon={<Info className="h-3.5 w-3.5" />}
+      title="Branch Ranking"
+    >
+      {!ranking.available && !ranking.chain && !ranking.allBranches ? (
+        <SectionUnavailable
+          message={ranking.reason ?? "Branch is not ranked for this period."}
+        />
+      ) : (
+        <div className="grid gap-3">
+          <RankTile
+            icon={<Trophy className="h-5 w-5" />}
+            label="Rank in Chain"
+            rank={ranking.chain}
+          />
+          <RankTile
+            icon={<Medal className="h-5 w-5" />}
+            label="Rank in All Branches"
+            rank={ranking.allBranches}
+          />
+          <p className="flex items-center gap-2 text-xs text-[color:var(--sn-muted)]">
+            <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--sn-sunken)]" />
+            Ranking is based on UHO% + order volume
+          </p>
+        </div>
+      )}
+    </DashboardMetricCard>
+  );
+}
+
+function PickerPerformancePanel({
+  summary
+}: {
+  summary: ChampPerformanceSummary;
+}) {
+  const rows = summary.pickerPerformance.rows.slice(0, 6);
+  const totalRows = summary.pickerPerformance.totalRows;
+  const branchHref = summary.scope.selectedVendorId
+    ? `/champ/branches/${summary.scope.selectedVendorId}`
+    : null;
+
+  return (
+    <ChampCard className="overflow-hidden">
+      <PanelHeader
+        actionHref={branchHref ?? undefined}
+        actionLabel="View all pickers"
+        title="Picker Performance"
+      />
+      {!summary.pickerPerformance.available ? (
+        <div className="p-4">
+          <SectionUnavailable
+            message={
+              summary.pickerPerformance.reason ??
+              "No active Pickers are assigned to this Branch."
+            }
+          />
+        </div>
+      ) : (
+        <>
+          <div className="hidden lg:block">
+            <table className="sn-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Picker</th>
+                  <th>Shopper ID</th>
+                  <th>Total Orders</th>
+                  <th>UHO %</th>
+                  <th>Attendance Health</th>
+                  <th>Issues</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.userId}>
+                    <td>
+                      <PickerRankMark rank={row.rank} />
+                    </td>
+                    <td>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <SnAvatar name={row.pickerName} />
+                        <span className="min-w-0 truncate font-semibold text-[color:var(--sn-ink)]">
+                          {row.pickerName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="sn-mono text-[color:var(--sn-muted)]">
+                      {row.shopperId ?? "-"}
+                    </td>
+                    <td className="sn-mono font-semibold">
+                      {formatNumber(row.totalOrders)}
+                    </td>
+                    <td className={uhoToneClass(row.unhealthyRate)}>
+                      {formatPercent(row.unhealthyRate)}
+                    </td>
+                    <td className={healthToneClass(row.attendanceHealthRate)}>
+                      {formatPercent(row.attendanceHealthRate)}
+                    </td>
+                    <td className="sn-mono font-semibold">
+                      {formatNumber(row.totalShiftErrors)}
+                    </td>
+                    <td>
+                      <PickerStatusBadge status={row.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="grid gap-2 p-3 lg:hidden">
+            {rows.map((row) => (
+              <PickerMobileCard key={row.userId} row={row} />
+            ))}
+          </div>
+          <PanelFooter
+            actionHref={branchHref ?? undefined}
+            actionLabel="View all pickers"
+            label={`Showing ${formatNumber(rows.length)} of ${formatNumber(
+              totalRows
+            )} pickers`}
+          />
+        </>
+      )}
+    </ChampCard>
+  );
+}
+
+function RecentRequestsPanel({
+  summary
+}: {
+  summary: ChampPerformanceSummary;
+}) {
+  const rows = summary.recentRequests.rows.slice(0, 6);
+
+  return (
+    <ChampCard className="overflow-hidden">
+      <PanelHeader
+        actionHref="/tickets"
+        actionLabel="View all requests"
+        title="Recent Branch Requests"
+      />
+      {!summary.recentRequests.available ? (
+        <div className="p-4">
+          <SectionUnavailable
+            message={
+              summary.recentRequests.reason ??
+              "No recent Branch requests are available."
+            }
+          />
+        </div>
+      ) : (
+        <>
+          <div className="hidden md:block">
+            <table className="sn-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Picker</th>
+                  <th>Status</th>
+                  <th>Requested By</th>
+                  <th>Age</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((request) => (
+                  <tr key={request.id}>
+                    <td>
+                      <SnTypeChip type={request.type} />
+                    </td>
+                    <td className="font-semibold text-[color:var(--sn-ink)]">
+                      {request.targetUserName ?? "No picker"}
+                    </td>
+                    <td>
+                      <SnStatusBadge status={request.status} />
+                    </td>
+                    <td>{request.requestedByName}</td>
+                    <td className="sn-mono text-[color:var(--sn-muted)]">
+                      {request.ageLabel}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="grid gap-2 p-3 md:hidden">
+            {rows.map((request) => (
+              <Link
+                className="grid gap-2 rounded-xl border border-[color:var(--sn-border)] bg-white p-3 transition hover:border-primary/25 hover:bg-[#fffaf6]"
+                href={`/tickets?requestId=${request.id}`}
+                key={request.id}
+                prefetch
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <SnTypeChip type={request.type} />
+                  <span className="sn-mono text-xs text-[color:var(--sn-muted)]">
+                    {request.ageLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
+                      {request.targetUserName ?? "No picker"}
+                    </p>
+                    <p className="truncate text-xs text-[color:var(--sn-muted)]">
+                      Requested by {request.requestedByName}
+                    </p>
+                  </div>
+                  <SnStatusBadge status={request.status} />
+                </div>
+              </Link>
+            ))}
+          </div>
+          <PanelFooter
+            actionHref="/tickets"
+            actionLabel="View all requests"
+            label={`Showing ${formatNumber(rows.length)} recent requests`}
+          />
+        </>
+      )}
+    </ChampCard>
+  );
+}
+
+function DashboardMetricCard({
+  children,
+  icon,
+  title
+}: {
+  children: ReactNode;
+  icon?: ReactNode;
+  title: string;
+}) {
+  return (
+    <ChampCard className="p-4 sm:p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
+          {title}
+        </h2>
+        {icon ? (
+          <span className="grid h-5 w-5 place-items-center rounded-full text-[color:var(--sn-muted)]">
+            {icon}
+          </span>
+        ) : null}
+      </div>
+      {children}
+    </ChampCard>
+  );
+}
+
+function ChampCard({
+  children,
+  className
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
+        className
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+function PanelHeader({
+  actionHref,
+  actionLabel,
+  title
+}: {
+  actionHref?: string;
+  actionLabel?: string;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <h2 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
+          {title}
+        </h2>
+        <Info className="h-3.5 w-3.5 shrink-0 text-[color:var(--sn-muted)]" />
+      </div>
+      {actionHref && actionLabel ? (
+        <Link
+          className="hidden shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)] sm:inline-flex"
+          href={actionHref}
+          prefetch
+        >
+          {actionLabel}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function PanelFooter({
+  actionHref,
+  actionLabel,
+  label
+}: {
+  actionHref?: string;
+  actionLabel?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-[color:var(--sn-border)] px-4 py-3 text-xs text-[color:var(--sn-muted)] sm:flex-row sm:items-center sm:justify-between">
+      <span>{label}</span>
+      {actionHref && actionLabel ? (
+        <Link
+          className="inline-flex items-center gap-1 font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
+          href={actionHref}
+          prefetch
+        >
+          {actionLabel}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function MetricFootnote({
+  icon,
+  label,
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 px-3 first:pl-0 last:pr-0">
+      <div className="flex min-w-0 items-center gap-2 text-[color:var(--sn-muted)]">
+        {icon}
+        <span className="min-w-0 text-[11px] leading-tight sm:text-xs">
+          {label}
+        </span>
+      </div>
+      <p className="sn-num mt-2 text-xl text-[color:var(--sn-ink)]">{value}</p>
+    </div>
+  );
+}
+
+function IssueMetric({
+  label,
+  tone,
+  value
+}: {
+  label: string;
+  tone: "orange" | "red";
+  value: number;
+}) {
+  return (
+    <div className="px-3 first:pl-0 last:pr-0">
+      <p className="truncate text-xs text-[color:var(--sn-muted)]">{label}</p>
+      <p
+        className={cn(
+          "sn-num mt-1 text-lg",
+          tone === "red" ? "text-[color:var(--sn-danger)]" : "text-primary"
+        )}
+      >
+        {formatNumber(value)}
+      </p>
+    </div>
+  );
+}
+
+function RankTile({
+  icon,
+  label,
+  rank
+}: {
+  icon: ReactNode;
+  label: string;
+  rank?: ChampBranchRankSummary;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_48px] items-center gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[#fbf9f5] p-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-[color:var(--sn-body)]">
+          {label}
+        </p>
+        <p className="sn-num mt-2 text-3xl leading-none text-[color:var(--sn-ink)]">
+          {formatBranchRank(rank)}
+        </p>
+        {!rank?.ranked ? (
+          <p className="mt-2 text-xs text-[color:var(--sn-muted)]">
+            {formatRankReason(rank)}
+          </p>
+        ) : null}
+      </div>
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#fff3eb] text-primary">
+        {icon}
+      </span>
+    </div>
+  );
+}
+
+function PickerRankMark({
+  compact = false,
+  rank
+}: {
+  compact?: boolean;
+  rank: number | null;
+}) {
+  if (!rank) {
+    return (
+      <span
+        className={cn(
+          "sn-mono inline-grid place-items-center rounded-full bg-[color:var(--sn-sunken)] font-semibold text-[color:var(--sn-muted)]",
+          compact ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm"
+        )}
+      >
+        -
+      </span>
+    );
+  }
+
+  if (rank <= 3) {
+    const tone =
+      rank === 1
+        ? "bg-[#fff3c7] text-[#bd7a00] ring-[#f0bf39]"
+        : rank === 2
+          ? "bg-[#eef2f5] text-[#66737f] ring-[#c8d0d8]"
+          : "bg-[#ffe3d2] text-[#b65c2b] ring-[#e0a071]";
+
+    return (
+      <span
+        aria-label={`Rank ${rank}`}
+        className={cn(
+          "relative inline-grid shrink-0 place-items-center rounded-full ring-1",
+          tone,
+          compact ? "h-8 w-8" : "h-9 w-9"
+        )}
+      >
+        <Medal
+          className={compact ? "h-4.5 w-4.5" : "h-5 w-5"}
+          fill="currentColor"
+          strokeWidth={1.8}
+        />
+        <span className="sn-mono absolute -bottom-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-white px-1 text-[10px] font-bold leading-none shadow-sm">
+          {rank}
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-label={`Rank ${rank}`}
+      className={cn(
+        "sn-mono inline-grid shrink-0 place-items-center rounded-full bg-white font-semibold text-[color:var(--sn-ink)] ring-1 ring-[color:var(--sn-border)]",
+        compact ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm"
+      )}
+    >
+      {rank}
+    </span>
+  );
+}
+
+function PickerMobileCard({ row }: { row: ChampPickerPerformanceRow }) {
+  return (
+    <article className="rounded-xl border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.03)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <PickerRankMark compact rank={row.rank} />
+          <SnAvatar name={row.pickerName} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
+              {row.pickerName}
+            </p>
+            <p className="sn-mono truncate text-xs text-[color:var(--sn-muted)]">
+              {row.shopperId ?? "No shopper ID"}
+            </p>
+          </div>
+        </div>
+        <PickerStatusBadge status={row.status} />
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+        <CompactMetric label="Orders" value={formatNumber(row.totalOrders)} />
+        <CompactMetric label="UHO" value={formatPercent(row.unhealthyRate)} />
+        <CompactMetric
+          label="Health"
+          value={formatPercent(row.attendanceHealthRate)}
+        />
+        <CompactMetric label="Issues" value={formatNumber(row.totalShiftErrors)} />
+      </div>
+    </article>
+  );
+}
+
+function CompactMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-[#fbf9f5] px-2 py-2">
+      <p className="truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
+        {label}
+      </p>
+      <p className="sn-mono mt-1 truncate text-xs font-bold text-[color:var(--sn-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function AttendanceDonut({ value }: { value: number | null }) {
+  const percent = Math.max(0, Math.min(100, value ?? 0));
+
+  return (
+    <div
+      aria-label={`Attendance health ${formatPercent(value)}`}
+      className="relative grid h-[104px] w-[104px] place-items-center rounded-full"
+      role="img"
+      style={{
+        background: `conic-gradient(var(--sn-success) ${percent * 3.6}deg, #f1ece4 0deg)`
+      }}
+    >
+      <div className="grid h-[66px] w-[66px] place-items-center rounded-full bg-white text-[color:var(--sn-success)] shadow-inner">
+        <ShieldCheck className="h-6 w-6" />
+      </div>
+    </div>
+  );
+}
+
+type TrendPoint = {
+  date: string;
+  value: number | null;
+};
+
+function TrendLine({
+  ariaLabel,
+  color,
+  points,
+  target
+}: {
+  ariaLabel: string;
+  color: string;
+  points: TrendPoint[];
+  target?: number | null;
+}) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const chartWidth = 320;
+  const chartHeight = 132;
+  const paddingX = 14;
+  const paddingY = 16;
+  const values = points
+    .map((point) => point.value)
+    .filter((value): value is number => value !== null);
+  const yMax = Math.max(
+    5,
+    Math.ceil((Math.max(...values, target ?? 0, 10) * 1.2) / 5) * 5
+  );
+  const plotWidth = chartWidth - paddingX * 2;
+  const plotHeight = chartHeight - paddingY * 2;
+  const plottedPoints = points
+    .map((point, index) => {
+      if (point.value === null) return null;
+      const x =
+        paddingX +
+        (points.length <= 1 ? plotWidth : (index / (points.length - 1)) * plotWidth);
+      const y =
+        paddingY + plotHeight - (Math.min(point.value, yMax) / yMax) * plotHeight;
+
+      return { ...point, index, x, y };
+    })
+    .filter(
+      (
+        point
+      ): point is TrendPoint & { index: number; x: number; y: number } =>
+        Boolean(point)
+    );
+  const activePoint =
+    activeIndex === null
+      ? null
+      : plottedPoints.find((point) => point.index === activeIndex) ?? null;
+  const linePath = plottedPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const targetY =
+    target === null || target === undefined
+      ? null
+      : paddingY + plotHeight - (Math.min(target, yMax) / yMax) * plotHeight;
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (!plottedPoints.length) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * chartWidth;
+    const nearest = plottedPoints.reduce((closest, point) =>
+      Math.abs(point.x - x) < Math.abs(closest.x - x) ? point : closest
+    );
+
+    setActiveIndex(nearest.index);
+  }
+
+  return (
+    <div className="relative min-h-[132px] rounded-xl bg-[#fffaf6] px-2 py-1">
+      <div
+        className={cn(
+          "pointer-events-none absolute right-3 top-2 z-10 rounded-lg border border-[color:var(--sn-border)] bg-white/95 px-2 py-1 text-[11px] font-semibold text-[color:var(--sn-ink)] shadow-[0_6px_18px_rgba(65,21,23,0.08)] transition-all duration-150",
+          activePoint ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
+        )}
+      >
+        {activePoint ? (
+          <>
+            <span className="text-[color:var(--sn-muted)]">
+              {formatShortDate(activePoint.date)}
+            </span>{" "}
+            {formatPercent(activePoint.value)}
+          </>
+        ) : null}
+      </div>
+      <svg
+        aria-label={ariaLabel}
+        className="h-[120px] w-full touch-pan-y"
+        onBlur={() => setActiveIndex(null)}
+        onPointerLeave={() => setActiveIndex(null)}
+        onPointerMove={handlePointerMove}
+        role="img"
+        tabIndex={0}
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+      >
+        <line
+          stroke="var(--sn-border)"
+          strokeWidth="1"
+          x1={paddingX}
+          x2={chartWidth - paddingX}
+          y1={chartHeight - paddingY}
+          y2={chartHeight - paddingY}
+        />
+        {targetY !== null ? (
+          <line
+            stroke={color}
+            strokeDasharray="4 5"
+            strokeOpacity="0.5"
+            strokeWidth="1.4"
+            x1={paddingX}
+            x2={chartWidth - paddingX}
+            y1={targetY}
+            y2={targetY}
+          />
+        ) : null}
+        {linePath ? (
+          <path
+            d={linePath}
+            fill="none"
+            stroke={color}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="3"
+          />
+        ) : null}
+        {activePoint ? (
+          <line
+            stroke={color}
+            strokeOpacity="0.25"
+            strokeWidth="1"
+            x1={activePoint.x}
+            x2={activePoint.x}
+            y1={paddingY}
+            y2={chartHeight - paddingY}
+          />
+        ) : null}
+        {plottedPoints.map((point) => (
+          <circle
+            cx={point.x}
+            cy={point.y}
+            fill="white"
+            key={`${point.date}-${point.index}`}
+            r={activePoint?.index === point.index ? 4.8 : 3.3}
+            stroke={color}
+            strokeWidth={activePoint?.index === point.index ? 2.6 : 2}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function TargetBadge({
+  status
+}: {
+  status: NonNullable<ChampPerformanceSummary["ordersKpi"]["target"]>["status"];
+}) {
+  if (status === "NO_TARGET") {
+    return <Badge variant="muted">No Target</Badge>;
+  }
+
+  return (
+    <Badge
+      className={
+        status === "IN_TARGET"
+          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+      }
+      variant="outline"
+    >
+      {status === "IN_TARGET" ? "In Target" : "Out of Target"}
+    </Badge>
+  );
+}
+
+function PickerStatusBadge({
+  status
+}: {
+  status: ChampPickerPerformanceRow["status"];
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 items-center rounded-lg px-2.5 text-[11px] font-semibold",
+        status === "IN_TARGET" &&
+          "bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]",
+        status === "WATCH" &&
+          "bg-[oklch(0.95_0.05_80)] text-[oklch(0.5_0.12_70)]",
+        status === "NEEDS_ACTION" &&
+          "bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]",
+        (status === "LOW_VOLUME" || status === "NO_KPI") &&
+          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
+      )}
+    >
+      {pickerStatusLabels[status]}
+    </span>
+  );
+}
+
+function SectionUnavailable({ message }: { message: string }) {
+  return (
+    <div className="grid min-h-[132px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] p-4 text-center">
+      <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function ChampDashboardSkeleton() {
+  return (
+    <div aria-busy="true" className="grid gap-4" role="status">
+      <div className="h-[84px] rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05)]" />
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="h-[264px] rounded-[16px] border border-[color:var(--sn-border)] bg-white" />
+        <div className="h-[264px] rounded-[16px] border border-[color:var(--sn-border)] bg-white" />
+        <div className="h-[264px] rounded-[16px] border border-[color:var(--sn-border)] bg-white" />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.35fr_0.92fr]">
+        <div className="h-[340px] rounded-[16px] border border-[color:var(--sn-border)] bg-white" />
+        <div className="h-[340px] rounded-[16px] border border-[color:var(--sn-border)] bg-white" />
+      </div>
+    </div>
+  );
+}
+
+function ChampDashboardError({ message }: { message: string }) {
+  return (
+    <div className="rounded-[16px] border border-[oklch(0.85_0.08_27)] bg-[oklch(0.95_0.035_27)] p-4 text-sm text-[oklch(0.55_0.19_27)]">
+      {message}
+    </div>
+  );
+}
+
+function resolveQuickActionHref(
+  actionKey: keyof typeof requestActionLabels,
+  summary: ChampPerformanceSummary
+) {
+  const branchId = summary.scope.selectedVendorId;
+  const action = summary.quickActions[actionKey];
+
+  if (!branchId || !action.enabled || !action.href) {
+    return null;
+  }
+
+  const expectedHref = {
+    newHire: `/champ/branches/${branchId}/new-hire`,
+    transfer: `/champ/branches/${branchId}/transfer`,
+    deduction: "/deductions",
+    resignation: `/champ/branches/${branchId}/resignation`
+  }[actionKey];
+
+  return action.href === expectedHref ? action.href : null;
+}
+
+function getChampDateRange(range: ChampRangeKey) {
+  const today = startOfLocalDay(new Date());
+
+  if (range === "YESTERDAY") {
+    const yesterday = addLocalDays(today, -1);
+    return {
+      dateFrom: toDateOnly(yesterday),
+      dateTo: toDateOnly(yesterday)
+    };
+  }
+
+  if (range === "LAST_WEEK") {
+    const dateTo = addLocalDays(today, -1);
+    return {
+      dateFrom: toDateOnly(addLocalDays(dateTo, -6)),
+      dateTo: toDateOnly(dateTo)
+    };
+  }
+
+  if (range === "LAST_QUARTER") {
+    const currentQuarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+    const dateFrom = new Date(today.getFullYear(), currentQuarterStartMonth - 3, 1);
+    const dateTo = new Date(today.getFullYear(), currentQuarterStartMonth, 0);
+
+    return {
+      dateFrom: toDateOnly(dateFrom),
+      dateTo: toDateOnly(dateTo)
+    };
+  }
+
+  return {
+    dateFrom: toDateOnly(new Date(today.getFullYear(), today.getMonth(), 1)),
+    dateTo: toDateOnly(today)
+  };
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addLocalDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(date.getDate() + days);
+  return next;
+}
+
+function toDateOnly(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatShortDate(value: string | undefined) {
+  if (!value) return "";
+
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+
+  return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
+function formatIssueShiftCount(value: number) {
+  return `${formatNumber(value)} ${value === 1 ? "issue shift" : "issue shifts"}`;
+}
+
+function formatBranchRank(rank: ChampBranchRankSummary | undefined) {
+  if (!rank) return "-";
+  if (rank.ranked) {
+    return rank.displayLabel ?? `#${rank.rank} / ${rank.totalEligible}`;
+  }
+  return "-";
+}
+
+function formatRankReason(rank: ChampBranchRankSummary | undefined) {
+  if (!rank) return "No ranking data";
+  if (rank.reason === "LOW_ORDER_VOLUME") {
+    return `${formatNumber(rank.totalOrders)} orders, minimum volume not met`;
+  }
+  if (rank.reason === "NO_KPI_RECORDS") {
+    return "No confirmed KPI records";
+  }
+  return "Not ranked";
+}
+
+function uhoToneClass(value: number | null) {
+  if (value === null) return "sn-mono font-semibold text-[color:var(--sn-muted)]";
+  if (value <= 8) return "sn-mono font-semibold text-[color:var(--sn-success)]";
+  if (value <= 12) return "sn-mono font-semibold text-[color:var(--sn-warn)]";
+  return "sn-mono font-semibold text-[color:var(--sn-danger)]";
+}
+
+function healthToneClass(value: number | null) {
+  if (value === null) return "sn-mono font-semibold text-[color:var(--sn-muted)]";
+  if (value >= 85) return "sn-mono font-semibold text-[color:var(--sn-success)]";
+  if (value >= 70) return "sn-mono font-semibold text-[color:var(--sn-warn)]";
+  return "sn-mono font-semibold text-[color:var(--sn-danger)]";
+}

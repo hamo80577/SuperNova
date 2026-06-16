@@ -5,8 +5,8 @@ export default function ChampDashboardPage() {
   return (
     <DashboardFrame
       allowedRoles={["CHAMP"]}
-      description="Assigned branches and active Pickers."
-      title="Champ Workspace"
+      description="Branch performance overview."
+      title="Dashboard"
     >
       <ChampWorkspaceDashboard />
     </DashboardFrame>
