@@ -107,6 +107,7 @@ const attendanceSummarySelect = {
   isAbsent: true,
   isUnder8Hours: true,
   isOver15Hours: true,
+  issuesCount: true,
   lateBucket: true
 } satisfies Prisma.AttendanceDailyRecordSelect;
 
@@ -334,7 +335,12 @@ export class WorkspacesService {
     const activePickerIds = uniqueActiveAssignments.map(
       (assignment) => assignment.pickerId
     );
-    const [rankingKpiRecords, rankingAttendanceRecords] = activePickerIds.length
+    const [
+      rankingKpiRecords,
+      rankingAttendanceRecords,
+      previousRankingKpiRecords,
+      previousRankingAttendanceRecords
+    ] = activePickerIds.length
       ? await Promise.all([
           this.prisma.ordersKpiDailyRecord.findMany({
             where: ordersKpiWhereForUsers(
@@ -351,15 +357,36 @@ export class WorkspacesService {
               period.dateToValue
             ),
             select: attendanceSummarySelect
+          }),
+          this.prisma.ordersKpiDailyRecord.findMany({
+            where: ordersKpiWhereForUsers(
+              activePickerIds,
+              period.previousDateFromValue,
+              addUtcDays(period.previousDateToValue, 1)
+            ),
+            select: ordersKpiSummarySelect
+          }),
+          this.prisma.attendanceDailyRecord.findMany({
+            where: activeAttendanceWhere(
+              activePickerIds,
+              period.previousDateFromValue,
+              period.previousDateToValue
+            ),
+            select: attendanceSummarySelect
           })
         ])
-      : [[], []];
+      : [[], [], [], []];
 
     const pickerKpi = summarizeOrdersKpi(pickerKpiRecords);
     const rankingMetrics = buildRankingMetrics(
       uniqueActiveAssignments,
       rankingKpiRecords,
       rankingAttendanceRecords
+    );
+    const previousRankingMetrics = buildRankingMetrics(
+      uniqueActiveAssignments,
+      previousRankingKpiRecords,
+      previousRankingAttendanceRecords
     );
     const minOrders = rankingOrderThresholds[period.label];
 
@@ -382,12 +409,13 @@ export class WorkspacesService {
         attendanceRecords,
         previousAttendanceRecords
       ),
-      ordersKpi: buildOrdersKpiSummary(pickerKpi, targetSettings),
+      ordersKpi: buildOrdersKpiSummary(pickerKpi, targetSettings, pickerKpiRecords),
       ranking: buildPickerRankingSummary({
         activeAssignments: uniqueActiveAssignments,
         currentAssignment: pickerAssignment,
         currentPickerId: userId,
         metricsByPickerId: rankingMetrics,
+        previousMetricsByPickerId: previousRankingMetrics,
         minOrders
       }),
       deductions: {
@@ -977,20 +1005,32 @@ function buildAttendanceSummary(
 ) {
   const current = summarizeAttendanceRecords(records);
   const previous = summarizeAttendanceRecords(previousRecords);
-  const attendanceRate = percentage(current.attendedShifts, current.scheduledShifts);
-  const previousAttendanceRate = percentage(
-    previous.attendedShifts,
-    previous.scheduledShifts
+  const attendanceHealthRate = percentage(
+    current.cleanShifts,
+    current.totalShifts
   );
+  const previousAttendanceHealthRate = percentage(
+    previous.cleanShifts,
+    previous.totalShifts
+  );
+  const attendanceHealthRateDelta =
+    attendanceHealthRate === null || previousAttendanceHealthRate === null
+      ? null
+      : roundTwoDecimals(attendanceHealthRate - previousAttendanceHealthRate);
 
   return {
-    available: current.scheduledShifts > 0,
-    attendanceRate,
-    previousAttendanceRate,
-    attendanceRateDelta:
-      attendanceRate === null || previousAttendanceRate === null
-        ? null
-        : roundTwoDecimals(attendanceRate - previousAttendanceRate),
+    available: current.totalShifts > 0,
+    attendanceRate: attendanceHealthRate,
+    previousAttendanceRate: previousAttendanceHealthRate,
+    attendanceRateDelta: attendanceHealthRateDelta,
+    attendanceHealthRate,
+    previousAttendanceHealthRate,
+    attendanceHealthRateDelta,
+    presenceRate: percentage(current.attendedShifts, current.scheduledShifts),
+    totalShifts: current.totalShifts,
+    cleanShifts: current.cleanShifts,
+    issueShifts: current.issueShifts,
+    series: buildAttendanceTrend(records),
     scheduledShifts: current.scheduledShifts,
     attendedShifts: current.attendedShifts,
     totalShiftErrors:
@@ -1000,14 +1040,19 @@ function buildAttendanceSummary(
       current.over15HoursCount,
     lateCount: current.lateCount,
     absentCount: current.absentCount,
+    under8Count: current.under8HoursCount,
+    over15Count: current.over15HoursCount,
     under8HoursCount: current.under8HoursCount,
     over15HoursCount: current.over15HoursCount
   };
 }
 
 function summarizeAttendanceRecords(records: AttendanceSummaryRecord[]) {
+  let totalShifts = 0;
   let scheduledShifts = 0;
   let attendedShifts = 0;
+  let cleanShifts = 0;
+  let issueShifts = 0;
   let lateCount = 0;
   let absentCount = 0;
   let under8HoursCount = 0;
@@ -1015,10 +1060,21 @@ function summarizeAttendanceRecords(records: AttendanceSummaryRecord[]) {
 
   for (const record of records) {
     const attended = isAttendedShift(record);
-    const absent = record.isAbsent || record.calculatedStatus === "ABSENT";
+    const absent = isAbsentShift(record);
+    const issue = isIssueShift(record);
 
     if (attended || absent) {
       scheduledShifts += 1;
+    }
+
+    if (attended || absent || issue) {
+      totalShifts += 1;
+
+      if (issue) {
+        issueShifts += 1;
+      } else {
+        cleanShifts += 1;
+      }
     }
 
     if (attended) {
@@ -1043,8 +1099,11 @@ function summarizeAttendanceRecords(records: AttendanceSummaryRecord[]) {
   }
 
   return {
+    totalShifts,
     scheduledShifts,
     attendedShifts,
+    cleanShifts,
+    issueShifts,
     lateCount,
     absentCount,
     under8HoursCount,
@@ -1053,6 +1112,10 @@ function summarizeAttendanceRecords(records: AttendanceSummaryRecord[]) {
 }
 
 function isAttendedShift(record: AttendanceSummaryRecord) {
+  if (isAbsentShift(record)) {
+    return false;
+  }
+
   return (
     record.isOnTime ||
     record.isLate ||
@@ -1063,8 +1126,46 @@ function isAttendedShift(record: AttendanceSummaryRecord) {
   );
 }
 
+function isAbsentShift(record: AttendanceSummaryRecord) {
+  return record.isAbsent || record.calculatedStatus === "ABSENT";
+}
+
+function isIssueShift(record: AttendanceSummaryRecord) {
+  return (
+    isAbsentShift(record) ||
+    isLateShift(record) ||
+    record.isUnder8Hours ||
+    record.isOver15Hours ||
+    record.issuesCount > 0
+  );
+}
+
 function isLateShift(record: AttendanceSummaryRecord) {
   return record.isLate || record.calculatedStatus === "LATE";
+}
+
+function buildAttendanceTrend(records: AttendanceSummaryRecord[]) {
+  return Array.from(groupBy(records, (record) => dateKey(record.shiftDate)))
+    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+    .map(([date, dailyRecords]) => {
+      const summary = summarizeAttendanceRecords(dailyRecords);
+
+      return {
+        date,
+        totalShifts: summary.totalShifts,
+        cleanShifts: summary.cleanShifts,
+        issueShifts: summary.issueShifts,
+        attendanceHealthRate: percentage(
+          summary.cleanShifts,
+          summary.totalShifts
+        ),
+        totalShiftErrors:
+          summary.lateCount +
+          summary.absentCount +
+          summary.under8HoursCount +
+          summary.over15HoursCount
+      };
+    });
 }
 
 function summarizeOrdersKpi(records: OrdersKpiSummaryRecord[]) {
@@ -1092,7 +1193,8 @@ function summarizeOrdersKpi(records: OrdersKpiSummaryRecord[]) {
 
 function buildOrdersKpiSummary(
   summary: ReturnType<typeof summarizeOrdersKpi>,
-  targetSettings: OrdersKpiTargetSettingsForSummary
+  targetSettings: OrdersKpiTargetSettingsForSummary,
+  records: OrdersKpiSummaryRecord[] = []
 ) {
   const unhealthyRate = percentage(summary.unhealthyOrders, summary.totalOrders);
   const orderNotOnTimeRate = percentage(
@@ -1115,6 +1217,7 @@ function buildOrdersKpiSummary(
     partialRefund: summary.partialRefund,
     outOfStock: summary.outOfStock,
     priceModified: summary.priceModified,
+    series: buildOrdersKpiTrend(records),
     target: {
       configured: targetAvailable,
       unhealthyRateTarget,
@@ -1126,6 +1229,21 @@ function buildOrdersKpiSummary(
             : "OUT_OF_TARGET"
     }
   };
+}
+
+function buildOrdersKpiTrend(records: OrdersKpiSummaryRecord[]) {
+  return Array.from(groupBy(records, (record) => dateKey(record.kpiDate)))
+    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+    .map(([date, dailyRecords]) => {
+      const summary = summarizeOrdersKpi(dailyRecords);
+
+      return {
+        date,
+        totalOrders: summary.totalOrders,
+        unhealthyOrders: summary.unhealthyOrders,
+        unhealthyRate: percentage(summary.unhealthyOrders, summary.totalOrders)
+      };
+    });
 }
 
 function uniquePickerAssignments(assignments: ActivePickerRankingAssignment[]) {
@@ -1184,6 +1302,7 @@ function buildPickerRankingSummary({
   currentAssignment,
   currentPickerId,
   metricsByPickerId,
+  previousMetricsByPickerId,
   minOrders
 }: {
   activeAssignments: ActivePickerRankingAssignment[];
@@ -1194,6 +1313,7 @@ function buildPickerRankingSummary({
   } | null;
   currentPickerId: string;
   metricsByPickerId: Map<string, PickerRankingMetric>;
+  previousMetricsByPickerId: Map<string, PickerRankingMetric>;
   minOrders: number;
 }) {
   const branchAssignments = currentAssignment
@@ -1215,18 +1335,21 @@ function buildPickerRankingSummary({
       branchAssignments,
       currentPickerId,
       metricsByPickerId,
+      previousMetricsByPickerId,
       minOrders
     ),
     chain: buildRankSummary(
       chainAssignments,
       currentPickerId,
       metricsByPickerId,
+      previousMetricsByPickerId,
       minOrders
     ),
     allTeam: buildRankSummary(
       activeAssignments,
       currentPickerId,
       metricsByPickerId,
+      previousMetricsByPickerId,
       minOrders
     )
   };
@@ -1236,19 +1359,18 @@ function buildRankSummary(
   assignments: ActivePickerRankingAssignment[],
   currentPickerId: string,
   metricsByPickerId: Map<string, PickerRankingMetric>,
+  previousMetricsByPickerId: Map<string, PickerRankingMetric>,
   minOrders: number
 ) {
   const scopePickerIds = new Set(
     assignments.map((assignment) => assignment.pickerId)
   );
   const currentMetric = metricsByPickerId.get(currentPickerId);
-  const eligible = assignments
-    .map((assignment) => metricsByPickerId.get(assignment.pickerId) ?? null)
-    .filter(
-      (metric): metric is PickerRankingMetric =>
-        metric !== null && metric.totalOrders >= minOrders
-    )
-    .sort(compareRankingMetrics);
+  const eligible = buildEligibleRankingMetrics(
+    assignments,
+    metricsByPickerId,
+    minOrders
+  );
 
   if (!scopePickerIds.has(currentPickerId)) {
     return unrankedSummary(
@@ -1281,10 +1403,18 @@ function buildRankSummary(
   }
 
   const rank = eligible.findIndex((metric) => metric.pickerId === currentPickerId) + 1;
+  const previousRank = rankInScope(
+    assignments,
+    currentPickerId,
+    previousMetricsByPickerId,
+    minOrders
+  );
 
   return {
     ranked: true,
     rank,
+    previousRank,
+    rankChange: previousRank === null ? null : previousRank - rank,
     totalEligible: eligible.length,
     displayLabel: `#${rank} / ${eligible.length}`,
     percentile: Math.ceil((rank / Math.max(eligible.length, 1)) * 100),
@@ -1296,6 +1426,38 @@ function buildRankSummary(
     unhealthyRate: roundTwoDecimals(currentMetric.unhealthyRate),
     attendanceRate: currentMetric.attendanceRate
   };
+}
+
+function buildEligibleRankingMetrics(
+  assignments: ActivePickerRankingAssignment[],
+  metricsByPickerId: Map<string, PickerRankingMetric>,
+  minOrders: number
+) {
+  return assignments
+    .map((assignment) => metricsByPickerId.get(assignment.pickerId) ?? null)
+    .filter(
+      (metric): metric is PickerRankingMetric =>
+        metric !== null && metric.totalOrders >= minOrders
+    )
+    .sort(compareRankingMetrics);
+}
+
+function rankInScope(
+  assignments: ActivePickerRankingAssignment[],
+  currentPickerId: string,
+  metricsByPickerId: Map<string, PickerRankingMetric>,
+  minOrders: number
+) {
+  const eligible = buildEligibleRankingMetrics(
+    assignments,
+    metricsByPickerId,
+    minOrders
+  );
+  const rankIndex = eligible.findIndex(
+    (metric) => metric.pickerId === currentPickerId
+  );
+
+  return rankIndex === -1 ? null : rankIndex + 1;
 }
 
 function compareRankingMetrics(
@@ -1332,6 +1494,8 @@ function unrankedSummary(
   return {
     ranked: false,
     rank: null,
+    previousRank: null,
+    rankChange: null,
     totalEligible,
     displayLabel,
     percentile: null,
@@ -1369,6 +1533,10 @@ function groupBy<T, K>(items: T[], getKey: (item: T) => K) {
   }
 
   return grouped;
+}
+
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function percentage(numerator: number, denominator: number) {

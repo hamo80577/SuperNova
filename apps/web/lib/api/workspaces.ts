@@ -69,6 +69,8 @@ export type PickerRankReason =
 export interface PickerRankSummary {
   ranked: boolean;
   rank: number | null;
+  previousRank: number | null;
+  rankChange: number | null;
   totalEligible: number;
   displayLabel: string;
   percentile: number | null;
@@ -101,11 +103,28 @@ export interface PickerPerformanceSummary {
     attendanceRate: number | null;
     previousAttendanceRate: number | null;
     attendanceRateDelta: number | null;
+    attendanceHealthRate: number | null;
+    previousAttendanceHealthRate: number | null;
+    attendanceHealthRateDelta: number | null;
+    presenceRate: number | null;
+    totalShifts: number;
+    cleanShifts: number;
+    issueShifts: number;
+    series: Array<{
+      date: string;
+      totalShifts: number;
+      cleanShifts: number;
+      issueShifts: number;
+      attendanceHealthRate: number | null;
+      totalShiftErrors: number;
+    }>;
     scheduledShifts: number;
     attendedShifts: number;
     totalShiftErrors: number;
     lateCount: number;
     absentCount: number;
+    under8Count: number;
+    over15Count: number;
     under8HoursCount: number;
     over15HoursCount: number;
   };
@@ -120,6 +139,12 @@ export interface PickerPerformanceSummary {
     partialRefund: number;
     outOfStock: number;
     priceModified: number;
+    series: Array<{
+      date: string;
+      totalOrders: number;
+      unhealthyOrders: number;
+      unhealthyRate: number | null;
+    }>;
     target: {
       configured: boolean;
       unhealthyRateTarget: number | null;

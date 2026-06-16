@@ -13,7 +13,6 @@ import {
   Settings,
   Store,
   UploadCloud,
-  UserRound,
   Users
 } from "lucide-react";
 
@@ -60,12 +59,6 @@ export const roleNavigation: Record<UserRole, NavItem[]> = {
       href: "/picker/attendance",
       icon: CalendarDays,
       section: "Operations"
-    },
-    {
-      label: "My Profile",
-      disabled: true,
-      icon: UserRound,
-      section: "Profile"
     },
     {
       label: "Settings",

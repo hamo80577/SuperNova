@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, ChevronsUpDown, X } from "lucide-react";
 
-import { SnLogo, SnMark, PoweredBy } from "@/components/sn/sn-brand";
+import { SnLogo, SnMark } from "@/components/sn/sn-brand";
 import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -270,18 +270,6 @@ function SidebarFooter({
           >
             {cardInner}
           </div>
-        )}
-      </div>
-      <div className="flex justify-center rounded-[9px] bg-[color:var(--sn-bg)] px-2 py-1.5">
-        {collapsed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src="/brand/talabat-logo.png"
-            alt="talabat"
-            className="h-[11px] -rotate-[4.7deg] opacity-85"
-          />
-        ) : (
-          <PoweredBy />
         )}
       </div>
     </div>

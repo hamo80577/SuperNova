@@ -139,9 +139,20 @@ const kpiRecords = [
 
 const attendanceRecords = [
   attendance("picker-1", "2026-06-01", { isOnTime: true }),
-  attendance("picker-1", "2026-06-02", { isLate: true, lateBucket: "LATE_1" }),
-  attendance("picker-1", "2026-06-03", { isAbsent: true }),
-  attendance("picker-1", "2026-06-04", { isOnTime: true, isUnder8Hours: true }),
+  attendance("picker-1", "2026-06-02", { isOnTime: true }),
+  attendance("picker-1", "2026-06-03", { isOnTime: true }),
+  attendance("picker-1", "2026-06-04", { isOnTime: true }),
+  attendance("picker-1", "2026-06-05", { isOnTime: true }),
+  attendance("picker-1", "2026-06-06", { isOnTime: true }),
+  attendance("picker-1", "2026-06-07", {
+    isLate: true,
+    isUnder8Hours: true,
+    lateBucket: "LATE_1"
+  }),
+  attendance("picker-1", "2026-06-08", {
+    isAbsent: true,
+    isOver15Hours: true
+  }),
   attendance("picker-2", "2026-06-01", { isOnTime: true }),
   attendance("picker-2", "2026-06-02", { isOnTime: true }),
   attendance("picker-chain", "2026-06-01", { isLate: true, lateBucket: "LATE_1" }),
@@ -214,6 +225,7 @@ function attendance(
     isAbsent?: boolean;
     isUnder8Hours?: boolean;
     isOver15Hours?: boolean;
+    issuesCount?: number;
     lateBucket?: "LATE_1" | "LATE_2" | "LATE_3";
   }
 ) {
@@ -225,6 +237,7 @@ function attendance(
     isAbsent: flags.isAbsent ?? false,
     isUnder8Hours: flags.isUnder8Hours ?? false,
     isOver15Hours: flags.isOver15Hours ?? false,
+    issuesCount: flags.issuesCount ?? 0,
     lateBucket: flags.lateBucket ?? null,
     calculatedStatus: flags.isAbsent ? "ABSENT" : flags.isLate ? "LATE" : "ON_TIME"
   };
@@ -427,9 +440,67 @@ async function testSummaryUsesAssignmentContextAndOwnMetrics() {
   assert.equal(summary.ordersKpi.totalOrders, 100);
   assert.equal(summary.ordersKpi.unhealthyOrders, 2);
   assert.equal(summary.ordersKpi.target.status, "IN_TARGET");
-  assert.equal(summary.attendance.totalShiftErrors, 3);
+  assert.deepEqual(summary.ordersKpi.series, [
+    {
+      date: "2026-06-15",
+      totalOrders: 100,
+      unhealthyOrders: 2,
+      unhealthyRate: 2
+    }
+  ]);
+  assert.equal(summary.attendance.totalShiftErrors, 4);
   assert.equal(summary.attendance.lateCount, 1);
   assert.equal(summary.attendance.absentCount, 1);
+  assert.equal(summary.attendance.under8HoursCount, 1);
+  assert.equal(summary.attendance.over15HoursCount, 1);
+}
+
+async function testAttendanceHealthUsesCleanShiftRateAndCountsMultiIssueShiftOnce() {
+  const service = createService();
+  const summary = await service.getPickerPerformanceSummary("picker-1", {
+    dateFrom,
+    dateTo
+  });
+
+  assert.equal(summary.attendance.available, true);
+  assert.equal(summary.attendance.totalShifts, 8);
+  assert.equal(summary.attendance.cleanShifts, 6);
+  assert.equal(summary.attendance.issueShifts, 2);
+  assert.equal(summary.attendance.attendanceHealthRate, 75);
+  assert.equal(summary.attendance.attendanceRate, 75);
+  assert.equal(summary.attendance.presenceRate, 87.5);
+  assert.equal(summary.attendance.totalShiftErrors, 4);
+  assert.equal(summary.attendance.lateCount, 1);
+  assert.equal(summary.attendance.absentCount, 1);
+  assert.equal(summary.attendance.under8Count, 1);
+  assert.equal(summary.attendance.over15Count, 1);
+  assert.equal(summary.attendance.under8HoursCount, 1);
+  assert.equal(summary.attendance.over15HoursCount, 1);
+  assert.equal(summary.attendance.series.length, 8);
+  assert.deepEqual(summary.attendance.series[0], {
+    date: "2026-06-01",
+    totalShifts: 1,
+    cleanShifts: 1,
+    issueShifts: 0,
+    attendanceHealthRate: 100,
+    totalShiftErrors: 0
+  });
+  assert.deepEqual(summary.attendance.series[6], {
+    date: "2026-06-07",
+    totalShifts: 1,
+    cleanShifts: 0,
+    issueShifts: 1,
+    attendanceHealthRate: 0,
+    totalShiftErrors: 2
+  });
+  assert.deepEqual(summary.attendance.series[7], {
+    date: "2026-06-08",
+    totalShifts: 1,
+    cleanShifts: 0,
+    issueShifts: 1,
+    attendanceHealthRate: 0,
+    totalShiftErrors: 2
+  });
 }
 
 async function testRankingIsVolumeAwareAndServerScoped() {
@@ -441,6 +512,8 @@ async function testRankingIsVolumeAwareAndServerScoped() {
 
   assert.equal(summary.ranking.basis, "UHO_VOLUME_AWARE");
   assert.equal(summary.ranking.branch.rank, 2);
+  assert.equal(summary.ranking.branch.previousRank, null);
+  assert.equal(summary.ranking.branch.rankChange, null);
   assert.equal(summary.ranking.branch.totalEligible, 2);
   assert.equal(summary.ranking.branch.totalOrders, 100);
   assert.equal(summary.ranking.branch.unhealthyRate, 2);
@@ -476,6 +549,7 @@ async function testPendingDeductionsRemainHiddenFromPickerSummary() {
 async function main() {
   await testControllerIsPickerOnly();
   await testSummaryUsesAssignmentContextAndOwnMetrics();
+  await testAttendanceHealthUsesCleanShiftRateAndCountsMultiIssueShiftOnce();
   await testRankingIsVolumeAwareAndServerScoped();
   await testLowVolumePickerIsNotRanked();
   await testPendingDeductionsRemainHiddenFromPickerSummary();

@@ -26,7 +26,14 @@ import {
   Users
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useTransition,
+  type FormEvent,
+  type PointerEvent,
+  type ReactNode
+} from "react";
 
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -137,13 +144,13 @@ export function PickerWorkspaceDashboard() {
   }, []);
 
   return (
-    <div className="mx-auto grid w-full max-w-[1240px] gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-[34px]">
+    <div className="mx-auto grid w-full max-w-[1240px] gap-3 sm:gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-[24px] font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-[34px]">
             My Workday
           </h1>
-          <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
+          <p className="mt-0.5 text-xs text-[color:var(--sn-muted)] sm:mt-1 sm:text-sm">
             {formatDateRangeLabel(selectedRange.dateFrom, selectedRange.dateTo)}
           </p>
         </div>
@@ -163,9 +170,9 @@ export function PickerWorkspaceDashboard() {
 }
 
 const pickerRangeOptions = [
-  { key: "LAST_WEEK", label: "Last Week" },
-  { key: "THIS_MONTH", label: "This Month" },
-  { key: "THIS_QUARTER", label: "This Quarter" }
+  { key: "LAST_WEEK", label: "Last Week", shortLabel: "Week" },
+  { key: "THIS_MONTH", label: "This Month", shortLabel: "Month" },
+  { key: "THIS_QUARTER", label: "This Quarter", shortLabel: "Quarter" }
 ] as const;
 
 type PickerDashboardRange = (typeof pickerRangeOptions)[number]["key"];
@@ -180,21 +187,22 @@ function PickerRangeSelector({
   return (
     <div
       aria-label="Performance period"
-      className="grid grid-cols-3 rounded-xl border border-[color:var(--sn-border)] bg-white p-1 shadow-[0_1px_2px_rgba(65,21,23,0.04)]"
+      className="grid shrink-0 grid-cols-3 rounded-xl border border-[color:var(--sn-border)] bg-white p-0.5 shadow-[0_1px_2px_rgba(65,21,23,0.04)] sm:p-1"
       role="group"
     >
       {pickerRangeOptions.map((option) => (
         <button
           className={
             option.key === value
-              ? "h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-[0_6px_14px_rgba(238,81,35,0.24)] sm:text-sm"
-              : "h-9 rounded-lg px-3 text-xs font-semibold text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)] sm:text-sm"
+              ? "h-8 rounded-lg bg-primary px-2 text-[11px] font-semibold text-white shadow-[0_6px_14px_rgba(238,81,35,0.2)] sm:h-9 sm:px-3 sm:text-sm"
+              : "h-8 rounded-lg px-2 text-[11px] font-semibold text-[color:var(--sn-body)] hover:bg-[color:var(--sn-sunken)] sm:h-9 sm:px-3 sm:text-sm"
           }
           key={option.key}
           onClick={() => onChange(option.key)}
           type="button"
         >
-          {option.label}
+          <span className="sm:hidden">{option.shortLabel}</span>
+          <span className="hidden sm:inline">{option.label}</span>
         </button>
       ))}
     </div>
@@ -212,8 +220,8 @@ function PickerDashboardContent({
     <>
       <PickerIdentityCard summary={summary} />
       <div className="grid gap-4 xl:grid-cols-2">
-        <AttendanceHealthCard summary={summary} />
         <OrdersPerformanceCard summary={summary} />
+        <AttendanceHealthCard summary={summary} />
       </div>
       <RankingCard summary={summary} />
       <div className="grid gap-4 lg:grid-cols-3">
@@ -229,13 +237,24 @@ function PickerIdentityCard({ summary }: { summary: PickerPerformanceSummary }) 
   const identity = summary.identity;
 
   return (
-    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center">
-        <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[linear-gradient(135deg,#5b0719,#8a0e26)] text-xl font-semibold text-white shadow-[0_10px_24px_rgba(91,7,25,0.24)]">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.04),0_6px_18px_rgba(65,21,23,0.05)] sm:p-5">
+      <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-3 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center sm:gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-xl bg-[linear-gradient(135deg,#5b0719,#8a0e26)] text-base font-semibold text-white shadow-[0_10px_24px_rgba(91,7,25,0.2)] sm:h-16 sm:w-16 sm:rounded-2xl sm:text-xl">
           {getInitials(identity.pickerName)}
         </div>
-        <div className="grid min-w-0 gap-3 lg:grid-cols-6">
-          <IdentityMetric label="Picker Name" value={identity.pickerName} />
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="min-w-0 break-words text-sm font-semibold leading-5 text-[color:var(--sn-ink)] sm:text-base">
+              {identity.pickerName}
+            </p>
+            <Badge variant="muted">Picker</Badge>
+          </div>
+          <p className="mt-1 truncate text-xs text-[color:var(--sn-muted)]">
+            {identity.branchName ?? "No branch"} · {identity.shopperId ?? "No shopper ID"}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 sm:mt-4 sm:grid-cols-5 lg:gap-x-5">
           <IdentityMetric label="Role" value="Picker" />
           <IdentityMetric
             label="Branch"
@@ -253,7 +272,6 @@ function PickerIdentityCard({ summary }: { summary: PickerPerformanceSummary }) 
             label="Shopper ID"
             value={identity.shopperId ?? "Not set"}
           />
-        </div>
       </div>
     </section>
   );
@@ -261,9 +279,9 @@ function PickerIdentityCard({ summary }: { summary: PickerPerformanceSummary }) 
 
 function IdentityMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 border-[color:var(--sn-border)] lg:border-l lg:pl-4 lg:first:border-l-0 lg:first:pl-0">
+    <div className="min-w-0 border-l border-[color:var(--sn-border)] pl-3 first:border-l-0 first:pl-0 odd:border-l-0 odd:pl-0 sm:odd:border-l sm:odd:pl-3 sm:first:border-l-0 sm:first:pl-0">
       <p className="text-xs font-medium text-[color:var(--sn-muted)]">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
+      <p className="mt-1 whitespace-normal break-words text-[13px] font-semibold leading-5 text-[color:var(--sn-ink)] sm:text-sm">
         {value}
       </p>
     </div>
@@ -276,13 +294,20 @@ function AttendanceHealthCard({
   summary: PickerPerformanceSummary;
 }) {
   const attendance = summary.attendance;
+  const cleanShiftLabel = `${formatNumber(attendance.cleanShifts)} / ${formatNumber(
+    attendance.totalShifts
+  )} clean shifts`;
+  const trend = attendance.series.map((point) => ({
+    date: point.date,
+    value: point.attendanceHealthRate
+  }));
 
   return (
     <PickerPanel
       actionHref="/picker/attendance"
       actionLabel="View attendance"
       icon={CalendarDays}
-      step="1"
+      step="2"
       title="Attendance / Shift Health"
     >
       {attendance.available ? (
@@ -290,19 +315,23 @@ function AttendanceHealthCard({
           <div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(160px,1fr)] sm:items-end">
             <div>
               <p className="text-xs font-medium text-[color:var(--sn-muted)]">
-                Attendance Rate
+                Attendance Health
               </p>
               <div className="mt-2 flex flex-wrap items-end gap-3">
                 <p className="text-[48px] font-semibold leading-none tracking-normal text-[#5b0719]">
-                  {formatPercent(attendance.attendanceRate)}
+                  {formatPercent(attendance.attendanceHealthRate)}
                 </p>
-                <DeltaBadge value={attendance.attendanceRateDelta} />
+                <DeltaBadge value={attendance.attendanceHealthRateDelta} />
               </div>
+              <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
+                {cleanShiftLabel} · {formatIssueShiftCount(attendance.issueShifts)}
+              </p>
             </div>
-            <MetricGauge
+            <TimeSeriesChart
+              ariaLabel="Attendance health daily trend"
               color="#2e7d32"
-              label={`${attendance.attendedShifts} / ${attendance.scheduledShifts} shifts`}
-              value={attendance.attendanceRate}
+              maxValue={100}
+              points={trend}
             />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -320,12 +349,12 @@ function AttendanceHealthCard({
             <PickerMicroStat
               icon={CalendarDays}
               label="Under 8"
-              value={attendance.under8HoursCount}
+              value={attendance.under8Count}
             />
             <PickerMicroStat
               icon={ShieldCheck}
               label="Over 15"
-              value={attendance.over15HoursCount}
+              value={attendance.over15Count}
             />
           </div>
         </>
@@ -345,11 +374,15 @@ function OrdersPerformanceCard({
   summary: PickerPerformanceSummary;
 }) {
   const orders = summary.ordersKpi;
+  const trend = orders.series.map((point) => ({
+    date: point.date,
+    value: point.unhealthyRate
+  }));
 
   return (
     <PickerPanel
       icon={ShoppingBag}
-      step="2"
+      step="1"
       title="Orders Performance / UHO Target"
     >
       {orders.available ? (
@@ -363,15 +396,12 @@ function OrdersPerformanceCard({
                 </p>
                 <TargetBadge status={orders.target.status} />
               </div>
-              <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
-                Target {orders.target.unhealthyRateTarget ?? "-"}%
-              </p>
             </div>
-            <MetricGauge
+            <TimeSeriesChart
+              ariaLabel="UHO daily trend"
               color="#5b4ac8"
-              label={`${orders.unhealthyOrders} unhealthy / ${formatNumber(orders.totalOrders)} orders`}
+              points={trend}
               target={orders.target.unhealthyRateTarget}
-              value={orders.unhealthyRate}
             />
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -404,18 +434,18 @@ function OrdersPerformanceCard({
 
 function RankingCard({ summary }: { summary: PickerPerformanceSummary }) {
   return (
-    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04),0_6px_18px_rgba(65,21,23,0.05)] sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="grid h-7 w-7 place-items-center rounded-full bg-[#ff8b6a] text-sm font-semibold text-white">
           3
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Your Performance Position
           </h2>
           <p className="text-xs text-[color:var(--sn-muted)]">
-            Ranked by UHO %, volume threshold, then attendance. Minimum{" "}
-            {formatNumber(summary.ranking.minOrders)} orders for this range.
+            Ranked by UHO %, volume, then attendance. Minimum{" "}
+            {formatNumber(summary.ranking.minOrders)} orders.
           </p>
         </div>
       </div>
@@ -435,42 +465,70 @@ function RankScopeCard({
   label: string;
   rank: PickerRankSummary;
 }) {
+  const showPercentileBadge = rank.ranked && rank.totalEligible >= 10;
+  const showNotRankedBadge = !rank.ranked;
+
   return (
-    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white p-4">
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{label}</p>
           <p className="mt-2 text-[26px] font-semibold leading-none tracking-normal text-[#5b0719]">
             {rank.displayLabel}
           </p>
+          <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
+            {formatNumber(rank.totalOrders)} orders · {formatPercent(rank.unhealthyRate)} UHO
+          </p>
         </div>
-        <Badge
-          className={
-            rank.ranked
-              ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
-              : undefined
-          }
-          variant={rank.ranked ? "outline" : "muted"}
-        >
-          {rank.percentileLabel ?? "Not ranked"}
-        </Badge>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <RankMovementBadge change={rank.rankChange} />
+          {showPercentileBadge || showNotRankedBadge ? (
+            <Badge
+              className={
+                rank.ranked
+                  ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+                  : undefined
+              }
+              variant={rank.ranked ? "outline" : "muted"}
+            >
+              {rank.percentileLabel ?? "Not ranked"}
+            </Badge>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--sn-sunken)]">
-        <div
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${rankProgress(rank)}%` }}
-        />
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[color:var(--sn-muted)]">
-        <span>{formatNumber(rank.totalOrders)} orders</span>
-        <span>{formatPercent(rank.unhealthyRate)} UHO</span>
-      </div>
-      <p className="mt-2 text-xs text-[color:var(--sn-muted)]">
+      <p className="mt-3 text-xs text-[color:var(--sn-muted)]">
         {rank.reason === "LOW_ORDER_VOLUME"
           ? `${formatNumber(rank.totalOrders)} of ${formatNumber(rank.minOrders)} required orders`
-          : `Minimum ${formatNumber(rank.minOrders)} orders`}
+          : rank.previousRank
+            ? `Previous rank #${rank.previousRank}`
+            : "No previous rank"}
       </p>
     </div>
+  );
+}
+
+function RankMovementBadge({ change }: { change: number | null }) {
+  if (change === null) {
+    return <Badge variant="muted">No previous</Badge>;
+  }
+
+  if (change === 0) {
+    return <Badge variant="muted">No change</Badge>;
+  }
+
+  const improved = change > 0;
+
+  return (
+    <Badge
+      className={
+        improved
+          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+      }
+      variant="outline"
+    >
+      {improved ? "Up" : "Down"} {Math.abs(change)}
+    </Badge>
   );
 }
 
@@ -612,7 +670,7 @@ function PickerPanel({
   title: string;
 }) {
   return (
-    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04),0_6px_18px_rgba(65,21,23,0.05)] sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#ff8b6a] text-sm font-semibold text-white">
@@ -652,7 +710,7 @@ function PickerSmallPanel({
   title: string;
 }) {
   return (
-    <section className="min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_8px_26px_rgba(65,21,23,0.06)] sm:p-5">
+    <section className="min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04),0_6px_18px_rgba(65,21,23,0.05)] sm:p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-primary" />
@@ -683,7 +741,7 @@ function PickerMicroStat({
   value: ReactNode;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3">
+    <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.03)]">
       <Icon className="h-4 w-4 text-primary" />
       <p className="mt-2 truncate text-xs font-medium text-[color:var(--sn-muted)]">
         {label}
@@ -703,7 +761,7 @@ function PickerUnavailableState({
   message: string;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
+    <div className="rounded-xl border border-dashed border-[color:var(--sn-border)] bg-white p-4">
       <Icon className="h-5 w-5 text-[color:var(--sn-muted)]" />
       <p className="mt-3 text-sm font-medium leading-6 text-[color:var(--sn-body)]">
         {message}
@@ -712,43 +770,187 @@ function PickerUnavailableState({
   );
 }
 
-function MetricGauge({
-  color,
-  label,
-  target,
-  value
-}: {
-  color: string;
-  label: string;
-  target?: number | null;
+type TimeSeriesPoint = {
+  date: string;
   value: number | null;
+};
+
+function TimeSeriesChart({
+  color,
+  ariaLabel,
+  maxValue,
+  points,
+  target,
+}: {
+  ariaLabel: string;
+  color: string;
+  maxValue?: number;
+  points: TimeSeriesPoint[];
+  target?: number | null;
 }) {
-  const gaugeWidth = clampPercent(value);
-  const targetPosition = target === null || target === undefined ? null : clampPercent(target);
+  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
+  const chartWidth = 260;
+  const chartHeight = 92;
+  const paddingX = 12;
+  const paddingY = 12;
+  const values = points
+    .map((point) => point.value)
+    .filter((value): value is number => value !== null);
+  const hasTrend = values.length > 0;
+  const dynamicMax = Math.max(...values, target ?? 0, 10);
+  const yMax =
+    maxValue ?? Math.max(5, Math.ceil((dynamicMax * 1.2) / 5) * 5);
+  const plotWidth = chartWidth - paddingX * 2;
+  const plotHeight = chartHeight - paddingY * 2;
+  const plottedPoints = points
+    .map((point, index) => {
+      if (point.value === null) {
+        return null;
+      }
+
+      const x =
+        paddingX +
+        (points.length <= 1 ? plotWidth : (index / (points.length - 1)) * plotWidth);
+      const y =
+        paddingY + plotHeight - (Math.min(point.value, yMax) / yMax) * plotHeight;
+
+      return { ...point, index, x, y };
+    })
+    .filter(
+      (
+        point
+      ): point is TimeSeriesPoint & { index: number; x: number; y: number } =>
+        Boolean(point)
+    );
+  const activePoint =
+    activePointIndex === null
+      ? null
+      : plottedPoints.find((point) => point.index === activePointIndex) ?? null;
+  const linePath = plottedPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+  const areaPath =
+    plottedPoints.length > 1
+      ? `${linePath} L ${plottedPoints[plottedPoints.length - 1].x} ${
+          chartHeight - paddingY
+        } L ${plottedPoints[0].x} ${chartHeight - paddingY} Z`
+      : "";
+  const targetY =
+    target === null || target === undefined
+      ? null
+      : paddingY + plotHeight - (Math.min(target, yMax) / yMax) * plotHeight;
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (!plottedPoints.length) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * chartWidth;
+    const nearest = plottedPoints.reduce((closest, point) =>
+      Math.abs(point.x - x) < Math.abs(closest.x - x) ? point : closest
+    );
+
+    setActivePointIndex(nearest.index);
+  }
 
   return (
-    <div className="rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
-      <div className="flex items-center justify-between gap-3 text-xs font-medium text-[color:var(--sn-muted)]">
-        <span>{label}</span>
-        <span>{formatPercent(value)}</span>
-      </div>
-      <div className="relative mt-4 h-3 overflow-visible rounded-full bg-white">
-        <div
-          className="h-full rounded-full"
-          style={{ backgroundColor: color, width: `${gaugeWidth}%` }}
-        />
-        {targetPosition !== null ? (
-          <span
-            className="absolute top-[-5px] h-5 w-0.5 rounded-full bg-[color:var(--sn-ink)]"
-            style={{ left: `${targetPosition}%` }}
-          />
-        ) : null}
-      </div>
-      {targetPosition !== null ? (
-        <p className="mt-3 text-xs text-[color:var(--sn-muted)]">
-          Target {target}%
-        </p>
-      ) : null}
+    <div className="relative min-h-[116px] rounded-xl border border-[color:var(--sn-border)] bg-white px-3 py-2 shadow-[0_1px_2px_rgba(65,21,23,0.03)]">
+      {hasTrend ? (
+        <>
+          <div
+            className={`pointer-events-none absolute right-3 top-2 z-10 rounded-lg border border-[color:var(--sn-border)] bg-white/95 px-2 py-1 text-[11px] font-semibold text-[color:var(--sn-ink)] shadow-[0_6px_18px_rgba(65,21,23,0.08)] transition-all duration-150 ${
+              activePoint
+                ? "translate-y-0 opacity-100"
+                : "-translate-y-1 opacity-0"
+            }`}
+          >
+            {activePoint ? (
+              <>
+                <span className="text-[color:var(--sn-muted)]">
+                  {formatShortDate(activePoint.date)}
+                </span>{" "}
+                {formatPercent(activePoint.value)}
+              </>
+            ) : null}
+          </div>
+          <svg
+            aria-label={ariaLabel}
+            className="h-[92px] w-full"
+            onBlur={() => setActivePointIndex(null)}
+            onPointerLeave={() => setActivePointIndex(null)}
+            onPointerMove={handlePointerMove}
+            role="img"
+            tabIndex={0}
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          >
+            <line
+              stroke="var(--sn-border)"
+              strokeWidth="1"
+              x1={paddingX}
+              x2={chartWidth - paddingX}
+              y1={chartHeight - paddingY}
+              y2={chartHeight - paddingY}
+            />
+            {targetY !== null ? (
+              <line
+                stroke="#ff5900"
+                strokeDasharray="4 4"
+                strokeWidth="1.5"
+                x1={paddingX}
+                x2={chartWidth - paddingX}
+                y1={targetY}
+                y2={targetY}
+              />
+            ) : null}
+            {areaPath ? (
+              <path d={areaPath} fill={color} opacity="0.1" />
+            ) : null}
+            {linePath ? (
+              <path
+                className="transition-all duration-150"
+                d={linePath}
+                fill="none"
+                stroke={color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="3"
+              />
+            ) : null}
+            {activePoint ? (
+              <line
+                stroke={color}
+                strokeOpacity="0.25"
+                strokeWidth="1"
+                x1={activePoint.x}
+                x2={activePoint.x}
+                y1={paddingY}
+                y2={chartHeight - paddingY}
+              />
+            ) : null}
+            {plottedPoints.map((point) => (
+              <circle
+                className="transition-all duration-150"
+                cx={point.x}
+                cy={point.y}
+                fill="white"
+                key={`${point.date}-${point.x}`}
+                r={activePoint?.index === point.index ? "4.5" : "3"}
+                stroke={color}
+                strokeWidth={activePoint?.index === point.index ? "2.5" : "2"}
+              />
+            ))}
+          </svg>
+          <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-[color:var(--sn-muted)]">
+            <span>{formatShortDate(points[0]?.date)}</span>
+            <span>{formatShortDate(points[points.length - 1]?.date)}</span>
+          </div>
+        </>
+      ) : (
+        <div className="flex h-[92px] items-center justify-center text-xs font-medium text-[color:var(--sn-muted)]">
+          No trend data
+        </div>
+      )}
     </div>
   );
 }
@@ -1713,7 +1915,11 @@ function formatDateRangeLabel(dateFrom: string, dateTo: string) {
   return `${formatShortDate(dateFrom)} - ${formatShortDate(dateTo)}`;
 }
 
-function formatShortDate(value: string) {
+function formatShortDate(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric"
@@ -1750,23 +1956,8 @@ function formatDays(value: number) {
   return `${formatted} ${value === 1 ? "day" : "days"}`;
 }
 
-function clampPercent(value: number | null) {
-  if (value === null || Number.isNaN(value)) {
-    return 0;
-  }
-
-  return Math.min(100, Math.max(0, value));
-}
-
-function rankProgress(rank: PickerRankSummary) {
-  if (!rank.ranked || !rank.rank || rank.totalEligible <= 0) {
-    return 0;
-  }
-
-  return Math.max(
-    8,
-    100 - ((rank.rank - 1) / Math.max(rank.totalEligible, 1)) * 100
-  );
+function formatIssueShiftCount(value: number) {
+  return `${formatNumber(value)} ${value === 1 ? "issue shift" : "issue shifts"}`;
 }
 
 function formatNotificationTime(value: string) {
