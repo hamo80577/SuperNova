@@ -14,6 +14,7 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { ChampPerformanceSummaryQueryDto } from "./dto/champ-performance-summary-query.dto";
 import { PickerPerformanceSummaryQueryDto } from "./dto/picker-performance-summary-query.dto";
 import { WorkspacesService } from "./workspaces.service";
 
@@ -44,6 +45,15 @@ export class WorkspacesController {
   @Roles(UserRole.CHAMP)
   getChampWorkspace(@CurrentUser() user: AuthenticatedUser) {
     return this.workspacesService.getChampWorkspace(user.id);
+  }
+
+  @Get("champ/performance-summary")
+  @Roles(UserRole.CHAMP)
+  getChampPerformanceSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ChampPerformanceSummaryQueryDto
+  ) {
+    return this.workspacesService.getChampPerformanceSummary(user.id, query);
   }
 
   @Get("champ/branches")

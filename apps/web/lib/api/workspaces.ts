@@ -226,6 +226,121 @@ export interface ChampBranchDetail extends ChampBranch {
   recentRequests: RequestSummary[];
 }
 
+export interface ChampPerformanceSummary {
+  period: {
+    dateFrom: string;
+    dateTo: string;
+  };
+  scope: {
+    champName: string;
+    selectedVendorId: string | null;
+    selectedBranch: {
+      vendorId: string;
+      vendorName: string;
+      chainId: string;
+      chainName: string;
+      areaManagerName: string | null;
+      activePickersCount: number;
+    } | null;
+    branches: Array<{
+      vendorId: string;
+      vendorName: string;
+      chainId: string;
+      chainName: string;
+    }>;
+  };
+  quickActions: Record<
+    "newHire" | "transfer" | "deduction" | "resignation",
+    { enabled: boolean; href?: string }
+  >;
+  attendance: {
+    available: boolean;
+    reason?: string;
+    attendanceHealthRate?: number | null;
+    totalShifts?: number;
+    cleanShifts?: number;
+    issueShifts?: number;
+    totalShiftErrors?: number;
+    lateCount?: number;
+    absentCount?: number;
+    under8Count?: number;
+    over15Count?: number;
+  };
+  ordersKpi: {
+    available: boolean;
+    reason?: string;
+    totalOrders?: number;
+    unhealthyOrders?: number;
+    unhealthyRate?: number | null;
+    orderNotOnTime?: number;
+    orderNotOnTimeRate?: number | null;
+    target?: {
+      configured: boolean;
+      unhealthyRateTarget: number | null;
+      status: "IN_TARGET" | "OUT_OF_TARGET" | "NO_TARGET";
+    };
+    trend?: Array<{
+      date: string;
+      unhealthyRate: number;
+      totalOrders: number;
+      unhealthyOrders: number;
+    }>;
+  };
+  branchRanking: {
+    available: boolean;
+    basis: "UHO_VOLUME_AWARE";
+    minOrdersRequired: number;
+    reason?: string;
+    chain?: ChampBranchRankSummary;
+    allBranches?: ChampBranchRankSummary;
+  };
+  pickerPerformance: {
+    available: boolean;
+    rows: ChampPickerPerformanceRow[];
+    totalRows: number;
+    reason?: string;
+  };
+  recentRequests: {
+    available: boolean;
+    rows: Array<{
+      id: string;
+      type: RequestSummary["type"];
+      targetUserName: string | null;
+      targetShopperId: string | null;
+      requestedByName: string;
+      status: RequestSummary["status"];
+      ageLabel: string;
+      createdAt: string;
+    }>;
+    reason?: string;
+  };
+}
+
+export interface ChampBranchRankSummary {
+  ranked: boolean;
+  rank?: number;
+  totalEligible: number;
+  displayLabel?: string;
+  reason?: "NO_KPI_RECORDS" | "LOW_ORDER_VOLUME";
+  totalOrders: number;
+  unhealthyRate: number | null;
+}
+
+export interface ChampPickerPerformanceRow {
+  rank: number | null;
+  userId: string;
+  pickerName: string;
+  shopperId: string | null;
+  totalOrders: number;
+  unhealthyOrders: number;
+  unhealthyRate: number | null;
+  attendanceHealthRate: number | null;
+  issueShifts: number;
+  totalShiftErrors: number;
+  status: "IN_TARGET" | "WATCH" | "NEEDS_ACTION" | "LOW_VOLUME" | "NO_KPI";
+  reasonLabels: string[];
+}
+
 export interface AreaManagerVendor {
   vendor: VendorSummary;
   activePickerCount: number;
@@ -304,6 +419,24 @@ export const workspacesApi = {
   },
   champBranchDetail(vendorId: string) {
     return apiGet<ChampBranchDetail>(`/workspaces/champ/branches/${vendorId}`);
+  },
+  champPerformanceSummary(params: {
+    dateFrom: string;
+    dateTo: string;
+    vendorId?: string;
+  }) {
+    const query = new URLSearchParams({
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo
+    });
+
+    if (params.vendorId) {
+      query.set("vendorId", params.vendorId);
+    }
+
+    return apiGet<ChampPerformanceSummary>(
+      `/workspaces/champ/performance-summary?${query}`
+    );
   },
   areaManager() {
     return apiGet<AreaManagerWorkspace>("/workspaces/area-manager");

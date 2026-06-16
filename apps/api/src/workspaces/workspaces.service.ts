@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException
@@ -13,6 +14,7 @@ import {
   EmploymentStatus,
   OrdersKpiImportBatchStatus,
   OrdersKpiPickerMatchStatus,
+  OrdersKpiVendorMatchStatus,
   Prisma,
   RequestStatus,
   RequestType,
@@ -28,10 +30,14 @@ import {
 } from "../assignments/assignment-response.utils";
 import { OrdersKpisTargetSettingsService } from "../orders-kpis/orders-kpis-target-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { requestInclude as workspaceRequestInclude } from "../requests/request-includes";
+import {
+  requestInclude as workspaceRequestInclude,
+  type RequestWithRelations
+} from "../requests/request-includes";
 import { toRequestSummary } from "../requests/request-response.utils";
 import { AnnualLeaveBalanceService } from "../users/annual-leave-balance.service";
 import { toSafeUser } from "../users/dto/safe-user.dto";
+import type { ChampPerformanceSummaryQueryDto } from "./dto/champ-performance-summary-query.dto";
 import type { PickerPerformanceSummaryQueryDto } from "./dto/picker-performance-summary-query.dto";
 
 const activePickerAssignmentInclude = {
@@ -181,6 +187,30 @@ type PickerRankingMetric = {
   unhealthyOrders: number;
   unhealthyRate: number;
   attendanceRate: number | null;
+};
+
+type BranchRankingMetric = {
+  vendorId: string;
+  chainId: string | null;
+  totalOrders: number;
+  unhealthyOrders: number;
+  unhealthyRate: number;
+  attendanceHealthRate: number | null;
+};
+
+type PickerPerformanceStatus =
+  | "IN_TARGET"
+  | "WATCH"
+  | "NEEDS_ACTION"
+  | "LOW_VOLUME"
+  | "NO_KPI";
+
+const pickerPerformanceStatusWeight: Record<PickerPerformanceStatus, number> = {
+  NEEDS_ACTION: 0,
+  WATCH: 1,
+  LOW_VOLUME: 2,
+  NO_KPI: 3,
+  IN_TARGET: 4
 };
 
 @Injectable()
@@ -453,6 +483,139 @@ export class WorkspacesService {
         requests: "Request history is visible here; lifecycle forms launch from a selected Branch context.",
         actions: "New Hire, Resignation, and Transfer remain request-based and Branch-contextual."
       }
+    };
+  }
+
+  async getChampPerformanceSummary(
+    userId: string,
+    query: ChampPerformanceSummaryQueryDto
+  ) {
+    const period = parseChampPerformancePeriod(query);
+    const champ = await this.getUserOrThrow(userId);
+    const assignments = await this.prisma.vendorChampAssignment.findMany({
+      where: { champId: userId, status: AssignmentStatus.ACTIVE },
+      include: champBranchInclude
+    });
+    const sortedAssignments = sortChampAssignmentsByBranchName(assignments);
+    const selectedAssignment = resolveChampSelectedAssignment(
+      sortedAssignments,
+      query.vendorId
+    );
+    const branches = sortedAssignments.map(toChampPerformanceBranchOption);
+
+    if (!selectedAssignment) {
+      return emptyChampPerformanceSummary(champ.nameEn, period, branches);
+    }
+
+    const selectedVendorId = selectedAssignment.vendorId;
+    const selectedPickerAssignments =
+      selectedAssignment.vendor.pickerAssignments;
+    const selectedPickerIds = selectedPickerAssignments.map(
+      (assignment) => assignment.pickerId
+    );
+    const minBranchOrders = branchRankingMinOrdersForRange(period.days);
+    const minPickerOrders = pickerRankingMinOrdersForRange(period.days);
+
+    const [
+      areaManagerAssignment,
+      attendanceRecords,
+      selectedBranchKpiRecords,
+      rankingKpiRecords,
+      targetSettings,
+      recentRequests
+    ] = await Promise.all([
+      this.prisma.chainAreaManagerAssignment.findFirst({
+        where: {
+          chainId: selectedAssignment.vendor.chainId,
+          status: AssignmentStatus.ACTIVE
+        },
+        include: { areaManager: true }
+      }),
+      selectedPickerIds.length
+        ? this.prisma.attendanceDailyRecord.findMany({
+            where: activeAttendanceWhere(
+              selectedPickerIds,
+              period.dateFromValue,
+              period.dateToValue
+            ),
+            select: attendanceSummarySelect
+          })
+        : Promise.resolve([]),
+      this.prisma.ordersKpiDailyRecord.findMany({
+        where: ordersKpiWhereForVendors(
+          [selectedVendorId],
+          period.dateFromValue,
+          period.dateToExclusiveValue
+        ),
+        select: ordersKpiSummarySelect
+      }),
+      this.prisma.ordersKpiDailyRecord.findMany({
+        where: ordersKpiWhereForBranchRanking(
+          period.dateFromValue,
+          period.dateToExclusiveValue
+        ),
+        select: ordersKpiSummarySelect
+      }),
+      this.ordersKpiTargetSettingsService.getTargetSettingsForReport(),
+      this.prisma.request.findMany({
+        where: {
+          type: { not: RequestType.DEDUCTION },
+          OR: [
+            { sourceVendorId: selectedVendorId },
+            { destinationVendorId: selectedVendorId }
+          ]
+        },
+        include: workspaceRequestInclude,
+        orderBy: { createdAt: "desc" },
+        take: 6
+      })
+    ]);
+
+    const attendance = buildChampAttendanceSummary(attendanceRecords);
+    const selectedKpi = summarizeOrdersKpi(selectedBranchKpiRecords);
+    const ordersKpi = buildChampOrdersKpiSummary(
+      selectedKpi,
+      targetSettings,
+      selectedBranchKpiRecords
+    );
+
+    return {
+      period: {
+        dateFrom: period.dateFrom,
+        dateTo: period.dateTo
+      },
+      scope: {
+        champName: champ.nameEn,
+        selectedVendorId,
+        selectedBranch: {
+          vendorId: selectedAssignment.vendorId,
+          vendorName: selectedAssignment.vendor.vendorName,
+          chainId: selectedAssignment.vendor.chainId,
+          chainName: selectedAssignment.vendor.chain.chainName,
+          areaManagerName:
+            areaManagerAssignment?.areaManager.nameEn ?? null,
+          activePickersCount: selectedPickerAssignments.length
+        },
+        branches
+      },
+      quickActions: buildChampQuickActions(selectedVendorId),
+      attendance,
+      ordersKpi,
+      branchRanking: buildBranchRankingSummary({
+        records: rankingKpiRecords,
+        selectedVendorId,
+        selectedChainId: selectedAssignment.vendor.chainId,
+        selectedAttendanceHealthRate: attendance.attendanceHealthRate ?? null,
+        minOrdersRequired: minBranchOrders
+      }),
+      pickerPerformance: buildPickerPerformanceSummaryRows({
+        assignments: selectedPickerAssignments,
+        attendanceRecords,
+        kpiRecords: selectedBranchKpiRecords,
+        minOrders: minPickerOrders,
+        targetSettings
+      }),
+      recentRequests: buildChampRecentRequests(recentRequests)
     };
   }
 
@@ -896,6 +1059,24 @@ function parsePickerPerformancePeriod(query: PickerPerformanceSummaryQueryDto) {
   };
 }
 
+function parseChampPerformancePeriod(query: ChampPerformanceSummaryQueryDto) {
+  const dateFromValue = parseDateOnly(query.dateFrom, "dateFrom");
+  const dateToValue = parseDateOnly(query.dateTo, "dateTo");
+
+  if (dateToValue < dateFromValue) {
+    throw new BadRequestException("dateTo must be on or after dateFrom.");
+  }
+
+  return {
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+    dateFromValue,
+    dateToValue,
+    dateToExclusiveValue: addUtcDays(dateToValue, 1),
+    days: inclusiveDays(dateFromValue, dateToValue)
+  };
+}
+
 function periodLabelForRange(
   dateFrom: Date,
   dateTo: Date
@@ -994,6 +1175,31 @@ function ordersKpiWhereForUsers(
   return {
     userId: { in: userIds },
     pickerMatchStatus: OrdersKpiPickerMatchStatus.MATCHED_PICKER,
+    kpiDate: { gte: dateFrom, lt: dateToExclusive },
+    sourceBatch: { is: { status: OrdersKpiImportBatchStatus.CONFIRMED } }
+  };
+}
+
+function ordersKpiWhereForVendors(
+  vendorIds: string[],
+  dateFrom: Date,
+  dateToExclusive: Date
+): Prisma.OrdersKpiDailyRecordWhereInput {
+  return {
+    matchedVendorId: { in: vendorIds },
+    vendorMatchStatus: OrdersKpiVendorMatchStatus.MATCHED_VENDOR,
+    kpiDate: { gte: dateFrom, lt: dateToExclusive },
+    sourceBatch: { is: { status: OrdersKpiImportBatchStatus.CONFIRMED } }
+  };
+}
+
+function ordersKpiWhereForBranchRanking(
+  dateFrom: Date,
+  dateToExclusive: Date
+): Prisma.OrdersKpiDailyRecordWhereInput {
+  return {
+    matchedVendorId: { not: null },
+    vendorMatchStatus: OrdersKpiVendorMatchStatus.MATCHED_VENDOR,
     kpiDate: { gte: dateFrom, lt: dateToExclusive },
     sourceBatch: { is: { status: OrdersKpiImportBatchStatus.CONFIRMED } }
   };
@@ -1520,6 +1726,637 @@ function buildAnnualLeaveSummary(balance: AnnualLeaveBalanceForSummary) {
     remainingDays: balance.remainingDays,
     message: balance.message
   };
+}
+
+function sortChampAssignmentsByBranchName(assignments: ChampBranchAssignment[]) {
+  return [...assignments].sort((left, right) =>
+    left.vendor.vendorName.localeCompare(right.vendor.vendorName, undefined, {
+      numeric: true,
+      sensitivity: "base"
+    })
+  );
+}
+
+function resolveChampSelectedAssignment(
+  assignments: ChampBranchAssignment[],
+  vendorId?: string
+) {
+  if (!vendorId) {
+    return assignments[0] ?? null;
+  }
+
+  const assignment = assignments.find((item) => item.vendorId === vendorId);
+
+  if (!assignment) {
+    throw new ForbiddenException("You do not have access to this Branch.");
+  }
+
+  return assignment;
+}
+
+function toChampPerformanceBranchOption(assignment: ChampBranchAssignment) {
+  return {
+    vendorId: assignment.vendorId,
+    vendorName: assignment.vendor.vendorName,
+    chainId: assignment.vendor.chainId,
+    chainName: assignment.vendor.chain.chainName
+  };
+}
+
+function emptyChampPerformanceSummary(
+  champName: string,
+  period: ReturnType<typeof parseChampPerformancePeriod>,
+  branches: ReturnType<typeof toChampPerformanceBranchOption>[]
+) {
+  return {
+    period: {
+      dateFrom: period.dateFrom,
+      dateTo: period.dateTo
+    },
+    scope: {
+      champName,
+      selectedVendorId: null,
+      selectedBranch: null,
+      branches
+    },
+    quickActions: buildDisabledChampQuickActions(),
+    attendance: {
+      available: false,
+      reason: "No assigned Branch is available."
+    },
+    ordersKpi: {
+      available: false,
+      reason: "No assigned Branch is available."
+    },
+    branchRanking: {
+      available: false,
+      basis: "UHO_VOLUME_AWARE",
+      minOrdersRequired: branchRankingMinOrdersForRange(period.days),
+      reason: "No assigned Branch is available."
+    },
+    pickerPerformance: {
+      available: false,
+      rows: [],
+      totalRows: 0,
+      reason: "No assigned Branch is available."
+    },
+    recentRequests: {
+      available: false,
+      rows: [],
+      reason: "No assigned Branch is available."
+    }
+  };
+}
+
+function buildChampQuickActions(vendorId: string) {
+  return {
+    newHire: {
+      enabled: true,
+      href: `/champ/branches/${vendorId}/new-hire`
+    },
+    transfer: {
+      enabled: true,
+      href: `/champ/branches/${vendorId}/transfer`
+    },
+    deduction: {
+      enabled: true,
+      href: "/deductions"
+    },
+    resignation: {
+      enabled: true,
+      href: `/champ/branches/${vendorId}/resignation`
+    }
+  };
+}
+
+function buildDisabledChampQuickActions() {
+  return {
+    newHire: { enabled: false },
+    transfer: { enabled: false },
+    deduction: { enabled: false },
+    resignation: { enabled: false }
+  };
+}
+
+function branchRankingMinOrdersForRange(days: number) {
+  if (days <= 1) return 50;
+  if (days <= 7) return 300;
+  if (days <= 31) return 1000;
+  return 3000;
+}
+
+function pickerRankingMinOrdersForRange(days: number) {
+  if (days <= 1) return 5;
+  if (days <= 7) return 20;
+  if (days <= 31) return 60;
+  return 180;
+}
+
+function buildChampAttendanceSummary(records: AttendanceSummaryRecord[]) {
+  const summary = summarizeAttendanceRecords(records);
+
+  if (summary.totalShifts <= 0) {
+    return {
+      available: false,
+      reason: "No active attendance shifts are available for this period."
+    };
+  }
+
+  return {
+    available: true,
+    attendanceHealthRate: percentage(summary.cleanShifts, summary.totalShifts),
+    totalShifts: summary.totalShifts,
+    cleanShifts: summary.cleanShifts,
+    issueShifts: summary.issueShifts,
+    totalShiftErrors:
+      summary.lateCount +
+      summary.absentCount +
+      summary.under8HoursCount +
+      summary.over15HoursCount,
+    lateCount: summary.lateCount,
+    absentCount: summary.absentCount,
+    under8Count: summary.under8HoursCount,
+    over15Count: summary.over15HoursCount
+  };
+}
+
+function buildChampOrdersKpiSummary(
+  summary: ReturnType<typeof summarizeOrdersKpi>,
+  targetSettings: OrdersKpiTargetSettingsForSummary,
+  records: OrdersKpiSummaryRecord[]
+) {
+  if (summary.totalOrders <= 0) {
+    return {
+      available: false,
+      reason: "No confirmed Orders KPI records are available for this period."
+    };
+  }
+
+  const unhealthyRate = percentage(summary.unhealthyOrders, summary.totalOrders);
+  const orderNotOnTimeRate = percentage(
+    summary.orderNotOnTime,
+    summary.totalOrders
+  );
+  const targetAvailable = targetSettings.source === "SAVED";
+  const unhealthyRateTarget = targetAvailable
+    ? targetSettings.targets.uhoRateTarget
+    : null;
+
+  return {
+    available: true,
+    totalOrders: summary.totalOrders,
+    unhealthyOrders: summary.unhealthyOrders,
+    unhealthyRate,
+    orderNotOnTime: summary.orderNotOnTime,
+    orderNotOnTimeRate,
+    target: {
+      configured: targetAvailable,
+      unhealthyRateTarget,
+      status:
+        !targetAvailable || unhealthyRate === null || unhealthyRateTarget === null
+          ? "NO_TARGET"
+          : unhealthyRate <= unhealthyRateTarget
+            ? "IN_TARGET"
+            : "OUT_OF_TARGET"
+    },
+    trend: buildOrdersKpiTrend(records).map((point) => ({
+      date: point.date,
+      unhealthyRate: point.unhealthyRate ?? 0,
+      totalOrders: point.totalOrders,
+      unhealthyOrders: point.unhealthyOrders
+    }))
+  };
+}
+
+function buildBranchRankingSummary({
+  records,
+  selectedAttendanceHealthRate,
+  selectedChainId,
+  selectedVendorId,
+  minOrdersRequired
+}: {
+  records: OrdersKpiSummaryRecord[];
+  selectedAttendanceHealthRate: number | null;
+  selectedChainId: string;
+  selectedVendorId: string;
+  minOrdersRequired: number;
+}) {
+  const metrics = buildBranchRankingMetrics(
+    records,
+    selectedVendorId,
+    selectedAttendanceHealthRate
+  );
+  const chainMetrics = metrics.filter(
+    (metric) => metric.chainId === selectedChainId
+  );
+  const chain = buildBranchRankSummary(
+    chainMetrics,
+    selectedVendorId,
+    minOrdersRequired
+  );
+  const allBranches = buildBranchRankSummary(
+    metrics,
+    selectedVendorId,
+    minOrdersRequired
+  );
+
+  return {
+    available: chain.reason !== "NO_KPI_RECORDS",
+    basis: "UHO_VOLUME_AWARE",
+    minOrdersRequired,
+    chain,
+    allBranches
+  };
+}
+
+function buildBranchRankingMetrics(
+  records: OrdersKpiSummaryRecord[],
+  selectedVendorId: string,
+  selectedAttendanceHealthRate: number | null
+) {
+  return Array.from(
+    groupBy(
+      records.filter(
+        (
+          record
+        ): record is OrdersKpiSummaryRecord & {
+          matchedVendorId: string;
+        } => typeof record.matchedVendorId === "string"
+      ),
+      (record) => record.matchedVendorId
+    )
+  ).map(([vendorId, vendorRecords]) => {
+    const summary = summarizeOrdersKpi(vendorRecords);
+
+    return {
+      vendorId,
+      chainId: vendorRecords[0]?.matchedChainId ?? null,
+      totalOrders: summary.totalOrders,
+      unhealthyOrders: summary.unhealthyOrders,
+      unhealthyRate: percentage(summary.unhealthyOrders, summary.totalOrders) ?? 0,
+      attendanceHealthRate:
+        vendorId === selectedVendorId ? selectedAttendanceHealthRate : null
+    };
+  });
+}
+
+function buildBranchRankSummary(
+  metrics: BranchRankingMetric[],
+  selectedVendorId: string,
+  minOrdersRequired: number
+) {
+  const selectedMetric = metrics.find(
+    (metric) => metric.vendorId === selectedVendorId
+  );
+  const eligible = metrics
+    .filter((metric) => metric.totalOrders >= minOrdersRequired)
+    .sort(compareBranchRankingMetrics);
+
+  if (!selectedMetric) {
+    return {
+      ranked: false,
+      totalEligible: eligible.length,
+      reason: "NO_KPI_RECORDS" as const,
+      totalOrders: 0,
+      unhealthyRate: null
+    };
+  }
+
+  if (selectedMetric.totalOrders < minOrdersRequired) {
+    return {
+      ranked: false,
+      totalEligible: eligible.length,
+      reason: "LOW_ORDER_VOLUME" as const,
+      totalOrders: selectedMetric.totalOrders,
+      unhealthyRate: roundTwoDecimals(selectedMetric.unhealthyRate)
+    };
+  }
+
+  const rank = eligible.findIndex(
+    (metric) => metric.vendorId === selectedVendorId
+  ) + 1;
+
+  return {
+    ranked: true,
+    rank,
+    totalEligible: eligible.length,
+    totalOrders: selectedMetric.totalOrders,
+    unhealthyRate: roundTwoDecimals(selectedMetric.unhealthyRate),
+    displayLabel: `#${rank} / ${eligible.length}`
+  };
+}
+
+function compareBranchRankingMetrics(
+  left: BranchRankingMetric,
+  right: BranchRankingMetric
+) {
+  const rateDiff = left.unhealthyRate - right.unhealthyRate;
+
+  if (Math.abs(rateDiff) > 0.5) {
+    return rateDiff;
+  }
+
+  if (left.totalOrders !== right.totalOrders) {
+    return right.totalOrders - left.totalOrders;
+  }
+
+  if (rateDiff !== 0) {
+    return rateDiff;
+  }
+
+  return (
+    (right.attendanceHealthRate ?? -1) - (left.attendanceHealthRate ?? -1) ||
+    left.vendorId.localeCompare(right.vendorId)
+  );
+}
+
+function buildPickerPerformanceSummaryRows({
+  assignments,
+  attendanceRecords,
+  kpiRecords,
+  minOrders,
+  targetSettings
+}: {
+  assignments: ChampBranchAssignment["vendor"]["pickerAssignments"];
+  attendanceRecords: AttendanceSummaryRecord[];
+  kpiRecords: OrdersKpiSummaryRecord[];
+  minOrders: number;
+  targetSettings: OrdersKpiTargetSettingsForSummary;
+}) {
+  const kpiByPickerId = groupBy(
+    kpiRecords.filter(
+      (record): record is OrdersKpiSummaryRecord & { userId: string } =>
+        typeof record.userId === "string" &&
+        record.pickerMatchStatus === OrdersKpiPickerMatchStatus.MATCHED_PICKER
+    ),
+    (record) => record.userId
+  );
+  const attendanceByPickerId = groupBy(attendanceRecords, (record) => record.userId);
+  const rankMap = buildPickerPerformanceRankMap(
+    assignments,
+    kpiByPickerId,
+    attendanceByPickerId,
+    minOrders
+  );
+  const target =
+    targetSettings.source === "SAVED" ? targetSettings.targets.uhoRateTarget : null;
+  const rows = assignments
+    .map((assignment) => {
+      const pickerKpiRecords = kpiByPickerId.get(assignment.pickerId) ?? [];
+      const hasKpi = pickerKpiRecords.length > 0;
+      const kpi = summarizeOrdersKpi(pickerKpiRecords);
+      const attendance = summarizeAttendanceRecords(
+        attendanceByPickerId.get(assignment.pickerId) ?? []
+      );
+      const attendanceHealthRate = percentage(
+        attendance.cleanShifts,
+        attendance.totalShifts
+      );
+      const totalShiftErrors =
+        attendance.lateCount +
+        attendance.absentCount +
+        attendance.under8HoursCount +
+        attendance.over15HoursCount;
+      const unhealthyRate = percentage(kpi.unhealthyOrders, kpi.totalOrders);
+      const status = resolvePickerPerformanceStatus({
+        attendanceHealthRate,
+        hasKpi,
+        issueShifts: attendance.issueShifts,
+        minOrders,
+        target,
+        totalOrders: kpi.totalOrders,
+        totalShiftErrors,
+        unhealthyRate
+      });
+
+      return {
+        rank: rankMap.get(assignment.pickerId) ?? null,
+        userId: assignment.pickerId,
+        pickerName: assignment.picker.nameEn,
+        shopperId: assignment.picker.shopperId,
+        totalOrders: kpi.totalOrders,
+        unhealthyOrders: kpi.unhealthyOrders,
+        unhealthyRate,
+        attendanceHealthRate,
+        issueShifts: attendance.issueShifts,
+        totalShiftErrors,
+        status,
+        reasonLabels: pickerPerformanceReasonLabels({
+          attendanceHealthRate,
+          hasKpi,
+          minOrders,
+          status,
+          target,
+          totalOrders: kpi.totalOrders,
+          totalShiftErrors,
+          unhealthyRate
+        })
+      };
+    })
+    .sort(comparePickerPerformanceRows);
+
+  return {
+    available: rows.length > 0,
+    rows,
+    totalRows: rows.length,
+    reason: rows.length ? undefined : "No active Pickers are assigned to this Branch."
+  };
+}
+
+function buildPickerPerformanceRankMap(
+  assignments: ChampBranchAssignment["vendor"]["pickerAssignments"],
+  kpiByPickerId: Map<string, OrdersKpiSummaryRecord[]>,
+  attendanceByPickerId: Map<string, AttendanceSummaryRecord[]>,
+  minOrders: number
+) {
+  const metrics = assignments
+    .map((assignment) => {
+      const kpi = summarizeOrdersKpi(kpiByPickerId.get(assignment.pickerId) ?? []);
+      const attendance = summarizeAttendanceRecords(
+        attendanceByPickerId.get(assignment.pickerId) ?? []
+      );
+
+      if (kpi.totalOrders < minOrders) {
+        return null;
+      }
+
+      return {
+        pickerId: assignment.pickerId,
+        totalOrders: kpi.totalOrders,
+        unhealthyOrders: kpi.unhealthyOrders,
+        unhealthyRate: percentage(kpi.unhealthyOrders, kpi.totalOrders) ?? 0,
+        attendanceRate: percentage(attendance.cleanShifts, attendance.totalShifts)
+      };
+    })
+    .filter((metric): metric is PickerRankingMetric => metric !== null)
+    .sort(compareRankingMetrics);
+  const rankMap = new Map<string, number>();
+
+  metrics.forEach((metric, index) => {
+    rankMap.set(metric.pickerId, index + 1);
+  });
+
+  return rankMap;
+}
+
+function resolvePickerPerformanceStatus({
+  attendanceHealthRate,
+  hasKpi,
+  issueShifts,
+  minOrders,
+  target,
+  totalOrders,
+  totalShiftErrors,
+  unhealthyRate
+}: {
+  attendanceHealthRate: number | null;
+  hasKpi: boolean;
+  issueShifts: number;
+  minOrders: number;
+  target: number | null;
+  totalOrders: number;
+  totalShiftErrors: number;
+  unhealthyRate: number | null;
+}): PickerPerformanceStatus {
+  if (!hasKpi) {
+    return "NO_KPI";
+  }
+
+  if (totalOrders < minOrders) {
+    return "LOW_VOLUME";
+  }
+
+  if (
+    (target !== null && unhealthyRate !== null && unhealthyRate > target) ||
+    (attendanceHealthRate !== null && attendanceHealthRate < 70) ||
+    totalShiftErrors >= 3
+  ) {
+    return "NEEDS_ACTION";
+  }
+
+  if (
+    (target !== null && unhealthyRate !== null && unhealthyRate >= target * 0.9) ||
+    (attendanceHealthRate !== null && attendanceHealthRate < 85) ||
+    issueShifts > 0
+  ) {
+    return "WATCH";
+  }
+
+  return "IN_TARGET";
+}
+
+function pickerPerformanceReasonLabels({
+  attendanceHealthRate,
+  hasKpi,
+  minOrders,
+  status,
+  target,
+  totalOrders,
+  totalShiftErrors,
+  unhealthyRate
+}: {
+  attendanceHealthRate: number | null;
+  hasKpi: boolean;
+  minOrders: number;
+  status: PickerPerformanceStatus;
+  target: number | null;
+  totalOrders: number;
+  totalShiftErrors: number;
+  unhealthyRate: number | null;
+}) {
+  const reasons: string[] = [];
+
+  if (!hasKpi) {
+    reasons.push("No confirmed KPI records");
+  } else if (totalOrders < minOrders) {
+    reasons.push(`${totalOrders} of ${minOrders} required orders`);
+  }
+
+  if (target !== null && unhealthyRate !== null && unhealthyRate > target) {
+    reasons.push("Out of UHO target");
+  } else if (
+    target !== null &&
+    unhealthyRate !== null &&
+    unhealthyRate >= target * 0.9
+  ) {
+    reasons.push("Near UHO target");
+  }
+
+  if (attendanceHealthRate !== null && attendanceHealthRate < 70) {
+    reasons.push("Attendance health low");
+  } else if (attendanceHealthRate !== null && attendanceHealthRate < 85) {
+    reasons.push("Attendance watch");
+  }
+
+  if (totalShiftErrors > 0) {
+    reasons.push(`${totalShiftErrors} shift issues`);
+  }
+
+  if (!reasons.length && status === "IN_TARGET") {
+    reasons.push("In target");
+  }
+
+  return reasons;
+}
+
+function comparePickerPerformanceRows(
+  left: {
+    rank: number | null;
+    totalOrders: number;
+    unhealthyRate: number | null;
+    attendanceHealthRate: number | null;
+    status: PickerPerformanceStatus;
+  },
+  right: {
+    rank: number | null;
+    totalOrders: number;
+    unhealthyRate: number | null;
+    attendanceHealthRate: number | null;
+    status: PickerPerformanceStatus;
+  }
+) {
+  return (
+    pickerPerformanceStatusWeight[left.status] -
+      pickerPerformanceStatusWeight[right.status] ||
+    (left.rank ?? Number.MAX_SAFE_INTEGER) -
+      (right.rank ?? Number.MAX_SAFE_INTEGER) ||
+    (left.unhealthyRate ?? Number.MAX_SAFE_INTEGER) -
+      (right.unhealthyRate ?? Number.MAX_SAFE_INTEGER) ||
+    right.totalOrders - left.totalOrders ||
+    (right.attendanceHealthRate ?? -1) - (left.attendanceHealthRate ?? -1)
+  );
+}
+
+function buildChampRecentRequests(requests: RequestWithRelations[]) {
+  const rows = requests.map((request) => ({
+    id: request.id,
+    type: request.type,
+    targetUserName: request.targetUser?.nameEn ?? null,
+    targetShopperId: request.targetUser?.shopperId ?? null,
+    requestedByName: request.createdBy.nameEn,
+    status: request.status,
+    ageLabel: requestAgeLabel(request.createdAt),
+    createdAt: request.createdAt.toISOString()
+  }));
+
+  return {
+    available: rows.length > 0,
+    rows,
+    reason: rows.length ? undefined : "No recent Branch requests are available."
+  };
+}
+
+function requestAgeLabel(createdAt: Date) {
+  const days = Math.max(
+    0,
+    Math.floor((Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000))
+  );
+
+  if (days === 0) {
+    return "Today";
+  }
+
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
 function groupBy<T, K>(items: T[], getKey: (item: T) => K) {
