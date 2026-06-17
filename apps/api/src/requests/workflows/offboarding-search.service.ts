@@ -196,6 +196,7 @@ export class OffboardingSearchService {
         { picker: { nameEn: { contains: search, mode: "insensitive" } } },
         { picker: { nameAr: { contains: search, mode: "insensitive" } } },
         { picker: { phoneNumber: { contains: search } } },
+        { picker: { nationalId: { contains: search } } },
         { picker: { shopperId: { contains: search, mode: "insensitive" } } },
         { picker: { ibsId: { contains: search, mode: "insensitive" } } },
         { vendor: { vendorName: { contains: search, mode: "insensitive" } } },
@@ -260,6 +261,7 @@ export class OffboardingSearchService {
         { champ: { nameEn: { contains: search, mode: "insensitive" } } },
         { champ: { nameAr: { contains: search, mode: "insensitive" } } },
         { champ: { phoneNumber: { contains: search } } },
+        { champ: { nationalId: { contains: search } } },
         { vendor: { vendorName: { contains: search, mode: "insensitive" } } },
         { vendor: { vendorCode: { contains: search, mode: "insensitive" } } },
         {
@@ -301,6 +303,7 @@ export class OffboardingSearchService {
         { areaManager: { nameEn: { contains: search, mode: "insensitive" } } },
         { areaManager: { nameAr: { contains: search, mode: "insensitive" } } },
         { areaManager: { phoneNumber: { contains: search } } },
+        { areaManager: { nationalId: { contains: search } } },
         { chain: { chainName: { contains: search, mode: "insensitive" } } },
         { chain: { chainCode: { contains: search, mode: "insensitive" } } }
       ];

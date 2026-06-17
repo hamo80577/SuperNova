@@ -30,7 +30,7 @@ type CsvRow = {
   nameAr: string | null;
   phoneNumber: string;
   role: string;
-  nationalId: string | null;
+  nationalId: string;
   gender: Gender;
   dateOfBirth: Date | null;
   address: string | null;
@@ -244,8 +244,9 @@ async function parsePickerCsv(filePath: string) {
     const nameEn = clean(row[0]);
     const phoneNumber = clean(row[2]);
     const role = clean(row[3]).toLowerCase();
+    const nationalId = clean(row[4]);
 
-    if (!nameEn || !phoneNumber || !role) {
+    if (!nameEn || !phoneNumber || !role || !nationalId) {
       skippedBlankIdentityRows += 1;
       continue;
     }
@@ -260,7 +261,7 @@ async function parsePickerCsv(filePath: string) {
       nameAr: cleanNullable(row[1]),
       phoneNumber,
       role,
-      nationalId: cleanNullable(row[4]),
+      nationalId,
       gender: parseGender(row[5]),
       dateOfBirth: parseSheetDate(row[6]),
       address: cleanNullable(row[7]),
@@ -576,6 +577,7 @@ async function writeImportReport(
       "nameEn",
       "nameAr",
       "phoneNumber",
+      "nationalId",
       "shopperId",
       "ibsId",
       "vendorCode",
@@ -592,6 +594,7 @@ async function writeImportReport(
         row.nameEn,
         row.nameAr ?? "",
         row.phoneNumber,
+        row.nationalId,
         row.shopperId ?? "",
         row.ibsId ?? "",
         row.vendorCode ?? "",
@@ -690,7 +693,7 @@ function cleanNullable(value: string | undefined) {
   return cleaned.length ? cleaned : null;
 }
 
-function collectUnique(values: Array<string | null>) {
+function collectUnique(values: Array<string | null | undefined>) {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 

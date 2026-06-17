@@ -186,7 +186,7 @@ export function AdminProfileEditDialog({
                 label="National ID"
                 onChange={(value) => updateField("nationalId", value)}
                 refSetter={setFieldRef("nationalId")}
-                required={user.role === "PICKER"}
+                required
                 value={form.nationalId ?? ""}
               />
               <EditTextField

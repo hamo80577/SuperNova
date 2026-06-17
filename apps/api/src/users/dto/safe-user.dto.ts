@@ -17,7 +17,7 @@ export interface SafeUserDto {
   nameEn: string;
   nameAr: string | null;
   phoneNumber: string;
-  nationalId: string | null;
+  nationalId: string;
   address: string | null;
   dateOfBirth: Date | null;
   gender: Gender;

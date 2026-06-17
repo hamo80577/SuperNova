@@ -19,7 +19,7 @@ interface AuthContextValue {
   user: SafeUser | null;
   loading: boolean;
   login: (
-    phoneNumber: string,
+    nationalId: string,
     password: string,
     rememberMe?: boolean
   ) => Promise<AuthResponse>;
@@ -58,9 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
-      async login(phoneNumber, password, rememberMe = false) {
+      async login(nationalId, password, rememberMe = false) {
         clearApiCache();
-        const response = await authApi.login(phoneNumber, password, rememberMe);
+        const response = await authApi.login(nationalId, password, rememberMe);
         setUser(response.user);
         return response;
       },

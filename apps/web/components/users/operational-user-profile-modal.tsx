@@ -15,7 +15,9 @@ import {
   MinusCircle,
   MoreHorizontal,
   Plus,
-  Search,  Trash2,
+  Search,
+  ShieldCheck,
+  Trash2,
   UserMinus,
   UserRound,
   X
@@ -966,6 +968,21 @@ function ProfileSummaryPanel({
               <MessageCircle className="h-4 w-4" />
             </a>
           }
+        />
+        <InfoRow
+          action={
+            user.nationalId ? (
+              <CopyButton
+                aria-label="Copy National ID"
+                className="h-10 w-10 p-0"
+                iconOnly
+                text={user.nationalId}
+              />
+            ) : null
+          }
+          icon={<ShieldCheck className="h-4 w-4" />}
+          label="National ID"
+          value={user.nationalId || "Not set"}
         />
         <InfoRow
           icon={<CalendarDays className="h-4 w-4" />}

@@ -148,6 +148,12 @@ export class UsersService {
     });
   }
 
+  async findByNationalId(nationalId: string) {
+    return this.prisma.user.findUnique({
+      where: { nationalId }
+    });
+  }
+
   async list(query: ListUsersQueryDto) {
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, query.pageSize ?? 20));
@@ -650,7 +656,13 @@ export class UsersService {
     if (trimmed.nameEn !== undefined) data.nameEn = trimmed.nameEn;
     if (trimmed.nameAr !== undefined) data.nameAr = trimmed.nameAr || null;
     if (trimmed.phoneNumber !== undefined) data.phoneNumber = trimmed.phoneNumber;
-    if (trimmed.nationalId !== undefined) data.nationalId = trimmed.nationalId || null;
+    if (trimmed.nationalId !== undefined) {
+      if (!trimmed.nationalId) {
+        throw new BadRequestException("National ID is required.");
+      }
+
+      data.nationalId = trimmed.nationalId;
+    }
     if (trimmed.address !== undefined) data.address = trimmed.address || null;
     if (trimmed.shopperId !== undefined) data.shopperId = trimmed.shopperId || null;
     if (trimmed.ibsId !== undefined) data.ibsId = trimmed.ibsId || null;
@@ -2218,6 +2230,7 @@ export class UsersService {
           { nameEn: { contains: search, mode: "insensitive" } },
           { nameAr: { contains: search, mode: "insensitive" } },
           { phoneNumber: { contains: search, mode: "insensitive" } },
+          { nationalId: { contains: search } },
           { ibsId: { contains: search, mode: "insensitive" } },
           { shopperId: { contains: search, mode: "insensitive" } }
         ]

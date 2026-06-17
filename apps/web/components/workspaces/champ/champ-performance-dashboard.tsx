@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   CalendarDays,
   ChevronRight,
   Clock3,
@@ -29,16 +30,24 @@ import {
   type ReactNode
 } from "react";
 
+import { DeductionRequestForm } from "@/components/deductions/deduction-request-form";
+import { RequestDiscardDialog } from "@/components/requests/forms/request-discard-dialog";
+import { NewHireRequestModal } from "@/components/requests/request-components";
 import { SnAvatar, SnStatusBadge, SnTypeChip } from "@/components/sn/sn-primitives";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import type { RequestSummary } from "@/lib/api/requests";
 import {
+  type ChampBranchDetail,
   type ChampBranchRankSummary,
   type ChampPerformanceSummary,
   type ChampPickerPerformanceRow,
   workspacesApi
 } from "@/lib/api/workspaces";
 import { cn } from "@/lib/utils";
+import { ChampLifecycleRequestModal } from "./champ-lifecycle-request-modal";
 
 type AsyncState<T> =
   | { status: "loading"; data?: never; error?: never }
@@ -58,8 +67,7 @@ const pickerStatusLabels: Record<ChampPickerPerformanceRow["status"], string> = 
   IN_TARGET: "In Target",
   WATCH: "Watch",
   NEEDS_ACTION: "Needs Action",
-  LOW_VOLUME: "Low Volume",
-  NO_KPI: "No KPI"
+  LOW_VOLUME: "Low Volume"
 };
 
 const requestActionLabels = {
@@ -76,9 +84,15 @@ const requestActionIcons = {
   resignation: FileMinus
 } as const;
 
+type ChampDashboardAction = keyof typeof requestActionLabels;
+
 export function ChampPerformanceDashboard() {
   const [rangeKey, setRangeKey] = useState<ChampRangeKey>("YESTERDAY");
   const [requestedVendorId, setRequestedVendorId] = useState<string | undefined>();
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [activeAction, setActiveAction] = useState<ChampDashboardAction | null>(
+    null
+  );
   const selectedRange = useMemo(() => getChampDateRange(rangeKey), [rangeKey]);
   const [summaryState, setSummaryState] = useState<
     AsyncState<ChampPerformanceSummary>
@@ -118,7 +132,7 @@ export function ChampPerformanceDashboard() {
     return () => {
       mounted = false;
     };
-  }, [requestedVendorId, selectedRange.dateFrom, selectedRange.dateTo]);
+  }, [reloadNonce, requestedVendorId, selectedRange.dateFrom, selectedRange.dateTo]);
 
   const summary = summaryState.status === "ready" ? summaryState.data : null;
   const selectedVendorId =
@@ -136,12 +150,27 @@ export function ChampPerformanceDashboard() {
       />
 
       {summaryState.status === "ready" ? (
-        <ChampDashboardContent summary={summaryState.data} />
+        <ChampDashboardContent
+          onQuickAction={setActiveAction}
+          summary={summaryState.data}
+        />
       ) : summaryState.status === "error" ? (
         <ChampDashboardError message={summaryState.error} />
       ) : (
         <ChampDashboardSkeleton />
       )}
+
+      {activeAction && summary ? (
+        <ChampDashboardActionModal
+          actionKey={activeAction}
+          onClose={() => setActiveAction(null)}
+          onCreated={() => {
+            setActiveAction(null);
+            setReloadNonce((current) => current + 1);
+          }}
+          summary={summary}
+        />
+      ) : null}
     </div>
   );
 }
@@ -253,13 +282,15 @@ function ChampDashboardHeader({
 }
 
 function ChampDashboardContent({
+  onQuickAction,
   summary
 }: {
+  onQuickAction: (action: ChampDashboardAction) => void;
   summary: ChampPerformanceSummary;
 }) {
   return (
     <>
-      <BranchInfoStrip summary={summary} />
+      <BranchInfoStrip onQuickAction={onQuickAction} summary={summary} />
       <div className="grid gap-4 xl:grid-cols-[1.48fr_0.8fr_0.84fr]">
         <UhoPerformanceCard summary={summary} />
         <AttendanceHealthCard summary={summary} />
@@ -273,7 +304,13 @@ function ChampDashboardContent({
   );
 }
 
-function BranchInfoStrip({ summary }: { summary: ChampPerformanceSummary }) {
+function BranchInfoStrip({
+  onQuickAction,
+  summary
+}: {
+  onQuickAction: (action: ChampDashboardAction) => void;
+  summary: ChampPerformanceSummary;
+}) {
   const branch = summary.scope.selectedBranch;
 
   if (!branch) {
@@ -303,7 +340,7 @@ function BranchInfoStrip({ summary }: { summary: ChampPerformanceSummary }) {
               </div>
             </div>
             <div className="shrink-0 lg:hidden">
-              <QuickActionsMenu summary={summary} />
+              <QuickActionsMenu onAction={onQuickAction} summary={summary} />
             </div>
           </div>
           <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -320,7 +357,7 @@ function BranchInfoStrip({ summary }: { summary: ChampPerformanceSummary }) {
           </div>
         </div>
         <div className="hidden lg:block">
-          <QuickActionsMenu summary={summary} />
+          <QuickActionsMenu onAction={onQuickAction} summary={summary} />
         </div>
       </div>
     </section>
@@ -349,7 +386,13 @@ function InfoStripItem({
   );
 }
 
-function QuickActionsMenu({ summary }: { summary: ChampPerformanceSummary }) {
+function QuickActionsMenu({
+  onAction,
+  summary
+}: {
+  onAction: (action: ChampDashboardAction) => void;
+  summary: ChampPerformanceSummary;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -375,7 +418,10 @@ function QuickActionsMenu({ summary }: { summary: ChampPerformanceSummary }) {
             <QuickActionMenuItem
               actionKey={actionKey}
               key={actionKey}
-              onSelect={() => setOpen(false)}
+              onSelect={(selectedAction) => {
+                setOpen(false);
+                onAction(selectedAction);
+              }}
               summary={summary}
             />
           ))}
@@ -390,12 +436,12 @@ function QuickActionMenuItem({
   onSelect,
   summary
 }: {
-  actionKey: keyof typeof requestActionLabels;
-  onSelect: () => void;
+  actionKey: ChampDashboardAction;
+  onSelect: (action: ChampDashboardAction) => void;
   summary: ChampPerformanceSummary;
 }) {
   const Icon = requestActionIcons[actionKey];
-  const href = resolveQuickActionHref(actionKey, summary);
+  const available = isQuickActionAvailable(actionKey, summary);
   const className = cn(
     "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
     actionKey === "newHire"
@@ -405,7 +451,7 @@ function QuickActionMenuItem({
         : "text-[color:var(--sn-body)] hover:bg-[#fffaf6]"
   );
 
-  if (!href) {
+  if (!available) {
     return (
       <button
         className={cn(className, "cursor-not-allowed opacity-50")}
@@ -420,10 +466,230 @@ function QuickActionMenuItem({
   }
 
   return (
-    <Link className={className} href={href} onClick={onSelect} prefetch>
+    <button
+      className={className}
+      onClick={() => onSelect(actionKey)}
+      type="button"
+    >
       <Icon className="h-4 w-4" />
       {requestActionLabels[actionKey]}
-    </Link>
+    </button>
+  );
+}
+
+function ChampDashboardActionModal({
+  actionKey,
+  onClose,
+  onCreated,
+  summary
+}: {
+  actionKey: ChampDashboardAction;
+  onClose: () => void;
+  onCreated: (request: RequestSummary) => void;
+  summary: ChampPerformanceSummary;
+}) {
+  const branchId = summary.scope.selectedVendorId;
+
+  if (!branchId) {
+    return null;
+  }
+
+  if (actionKey === "newHire") {
+    return (
+      <ChampDashboardNewHireModal
+        onClose={onClose}
+        onCreated={onCreated}
+        vendorId={branchId}
+      />
+    );
+  }
+
+  if (actionKey === "deduction") {
+    return (
+      <ChampDashboardDeductionModal
+        onClose={onClose}
+        onCreated={onCreated}
+      />
+    );
+  }
+
+  return (
+    <ChampLifecycleRequestModal
+      onClose={onClose}
+      onCreated={onCreated}
+      type={actionKey === "transfer" ? "TRANSFER" : "RESIGNATION"}
+      vendorId={branchId}
+    />
+  );
+}
+
+function ChampDashboardNewHireModal({
+  onClose,
+  onCreated,
+  vendorId
+}: {
+  onClose: () => void;
+  onCreated: (request: RequestSummary) => void;
+  vendorId: string;
+}) {
+  const [branchState, setBranchState] = useState<AsyncState<ChampBranchDetail>>({
+    status: "loading"
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBranch() {
+      try {
+        const branch = await workspacesApi.champBranchDetail(vendorId);
+        if (mounted) {
+          setBranchState({ status: "ready", data: branch });
+        }
+      } catch (caughtError) {
+        if (mounted) {
+          setBranchState({
+            status: "error",
+            error:
+              caughtError instanceof Error
+                ? caughtError.message
+                : "Unable to load Branch context."
+          });
+        }
+      }
+    }
+
+    void loadBranch();
+
+    return () => {
+      mounted = false;
+    };
+  }, [vendorId]);
+
+  if (branchState.status !== "ready") {
+    return (
+      <DashboardActionShell onClose={onClose} title="Picker New Hire request">
+        {branchState.status === "loading" ? (
+          <SectionUnavailable message="Loading selected Branch context." />
+        ) : (
+          <SectionUnavailable message={branchState.error} />
+        )}
+      </DashboardActionShell>
+    );
+  }
+
+  const branch = branchState.data;
+
+  return (
+    <NewHireRequestModal
+      description="Create a Branch-scoped New Hire request without leaving the Champ Dashboard."
+      fixedSourceVendorId={branch.vendor.id}
+      initialTargetRole="PICKER"
+      lockedBranchContext={branch}
+      lockTargetRole
+      onClose={onClose}
+      onCreated={onCreated}
+      title="Picker New Hire request"
+    />
+  );
+}
+
+function ChampDashboardDeductionModal({
+  onClose,
+  onCreated
+}: {
+  onClose: () => void;
+  onCreated: (request: RequestSummary) => void;
+}) {
+  const [isDirty, setIsDirty] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+
+  function requestClose() {
+    if (isDirty) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
+    onClose();
+  }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (isDirty) {
+          setConfirmCloseOpen(true);
+          return;
+        }
+
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDirty, onClose]);
+
+  return (
+    <DashboardActionShell onClose={requestClose} title="Deduction request">
+      <DeductionRequestForm
+        initialTargetRole="PICKER"
+        onCancel={requestClose}
+        onCreated={onCreated}
+        onDirtyChange={setIsDirty}
+      />
+      <RequestDiscardDialog
+        onConfirm={onClose}
+        onKeepEditing={() => setConfirmCloseOpen(false)}
+        open={confirmCloseOpen}
+      />
+    </DashboardActionShell>
+  );
+}
+
+function DashboardActionShell({
+  children,
+  onClose,
+  title
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <ModalPortal>
+      <div
+        aria-modal="true"
+        className="fixed inset-0 z-[160] grid place-items-end bg-[rgba(65,21,23,0.45)] p-0 backdrop-blur-[2px] sm:place-items-center sm:p-4"
+        role="dialog"
+      >
+        <section className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-[color:var(--sn-border)] bg-white shadow-2xl sm:max-w-5xl sm:rounded-[1.75rem]">
+          <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] p-4 sm:p-5">
+            <div className="min-w-0">
+              <Badge
+                className="border-[#FFD8BD] bg-[#FFE8D9] text-[color:var(--tlb-orange-900)]"
+                variant="outline"
+              >
+                Champ Dashboard
+              </Badge>
+              <h2 className="mt-2 truncate text-lg font-semibold text-[color:var(--sn-ink)] sm:text-xl">
+                {title}
+              </h2>
+            </div>
+            <Button
+              aria-label={`Close ${title}`}
+              className="h-10 w-10 shrink-0 rounded-xl p-0"
+              onClick={onClose}
+              type="button"
+              variant="outline"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 [scrollbar-width:none] sm:p-5 [&::-webkit-scrollbar]:hidden">
+            {children}
+          </div>
+        </section>
+      </div>
+    </ModalPortal>
   );
 }
 
@@ -586,14 +852,12 @@ function PickerPerformancePanel({
 }) {
   const rows = summary.pickerPerformance.rows.slice(0, 6);
   const totalRows = summary.pickerPerformance.totalRows;
-  const branchHref = summary.scope.selectedVendorId
-    ? `/champ/branches/${summary.scope.selectedVendorId}`
-    : null;
+  const reportHref = buildPickerReportHref(summary);
 
   return (
     <ChampCard className="overflow-hidden">
       <PanelHeader
-        actionHref={branchHref ?? undefined}
+        actionHref={reportHref}
         actionLabel="View all pickers"
         title="Picker Performance"
       />
@@ -609,15 +873,14 @@ function PickerPerformancePanel({
       ) : (
         <>
           <div className="hidden lg:block">
-            <table className="sn-table">
+            <table className="sn-table [&_td]:px-3 [&_th]:px-3">
               <thead>
                 <tr>
                   <th>Rank</th>
                   <th>Picker</th>
-                  <th>Shopper ID</th>
-                  <th>Total Orders</th>
+                  <th>Orders</th>
                   <th>UHO %</th>
-                  <th>Attendance Health</th>
+                  <th>Health</th>
                   <th>Issues</th>
                   <th>Status</th>
                 </tr>
@@ -629,15 +892,10 @@ function PickerPerformancePanel({
                       <PickerRankMark rank={row.rank} />
                     </td>
                     <td>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <SnAvatar name={row.pickerName} />
-                        <span className="min-w-0 truncate font-semibold text-[color:var(--sn-ink)]">
-                          {row.pickerName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="sn-mono text-[color:var(--sn-muted)]">
-                      {row.shopperId ?? "-"}
+                      <PickerIdentity
+                        href={buildPickerReportHref(summary, row)}
+                        row={row}
+                      />
                     </td>
                     <td className="sn-mono font-semibold">
                       {formatNumber(row.totalOrders)}
@@ -661,12 +919,14 @@ function PickerPerformancePanel({
           </div>
           <div className="grid gap-2 p-3 lg:hidden">
             {rows.map((row) => (
-              <PickerMobileCard key={row.userId} row={row} />
+              <PickerMobileCard
+                href={buildPickerReportHref(summary, row)}
+                key={row.userId}
+                row={row}
+              />
             ))}
           </div>
           <PanelFooter
-            actionHref={branchHref ?? undefined}
-            actionLabel="View all pickers"
             label={`Showing ${formatNumber(rows.length)} of ${formatNumber(
               totalRows
             )} pickers`}
@@ -702,69 +962,35 @@ function RecentRequestsPanel({
         </div>
       ) : (
         <>
-          <div className="hidden md:block">
-            <table className="sn-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Picker</th>
-                  <th>Status</th>
-                  <th>Requested By</th>
-                  <th>Age</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((request) => (
-                  <tr key={request.id}>
-                    <td>
-                      <SnTypeChip type={request.type} />
-                    </td>
-                    <td className="font-semibold text-[color:var(--sn-ink)]">
-                      {request.targetUserName ?? "No picker"}
-                    </td>
-                    <td>
-                      <SnStatusBadge status={request.status} />
-                    </td>
-                    <td>{request.requestedByName}</td>
-                    <td className="sn-mono text-[color:var(--sn-muted)]">
-                      {request.ageLabel}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid gap-2 p-3 md:hidden">
+          <div className="grid gap-2 p-3">
             {rows.map((request) => (
               <Link
-                className="grid gap-2 rounded-xl border border-[color:var(--sn-border)] bg-white p-3 transition hover:border-primary/25 hover:bg-[#fffaf6]"
+                className="grid gap-2 rounded-xl border border-[color:var(--sn-border)] bg-white p-3 transition hover:border-primary/25 hover:bg-[#fffaf6] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 href={`/tickets?requestId=${request.id}`}
                 key={request.id}
                 prefetch
               >
-                <div className="flex items-center justify-between gap-2">
-                  <SnTypeChip type={request.type} />
-                  <span className="sn-mono text-xs text-[color:var(--sn-muted)]">
-                    {request.ageLabel}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <SnTypeChip type={request.type} />
+                    <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
                       {request.targetUserName ?? "No picker"}
                     </p>
-                    <p className="truncate text-xs text-[color:var(--sn-muted)]">
-                      Requested by {request.requestedByName}
-                    </p>
                   </div>
+                  <p className="mt-1 truncate text-xs text-[color:var(--sn-muted)]">
+                    Requested by {request.requestedByName}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
                   <SnStatusBadge status={request.status} />
+                  <span className="sn-mono shrink-0 text-xs text-[color:var(--sn-muted)]">
+                    {request.ageLabel}
+                  </span>
                 </div>
               </Link>
             ))}
           </div>
           <PanelFooter
-            actionHref="/tickets"
-            actionLabel="View all requests"
             label={`Showing ${formatNumber(rows.length)} recent requests`}
           />
         </>
@@ -837,7 +1063,7 @@ function PanelHeader({
       </div>
       {actionHref && actionLabel ? (
         <Link
-          className="hidden shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)] sm:inline-flex"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
           href={actionHref}
           prefetch
         >
@@ -1014,21 +1240,60 @@ function PickerRankMark({
   );
 }
 
-function PickerMobileCard({ row }: { row: ChampPickerPerformanceRow }) {
+function PickerIdentity({
+  href,
+  row
+}: {
+  href: string;
+  row: ChampPickerPerformanceRow;
+}) {
+  return (
+    <Link
+      className="flex min-w-0 items-center gap-2 rounded-lg transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
+      href={href}
+      prefetch
+    >
+      <SnAvatar name={row.pickerName} />
+      <span className="min-w-0">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 truncate font-semibold text-[color:var(--sn-ink)]">
+            {row.pickerName}
+          </span>
+          {row.assignmentMismatch ? <WrongAssignmentMarker /> : null}
+        </span>
+        <span className="sn-mono mt-0.5 block truncate text-[11px] text-[color:var(--sn-muted)]">
+          {row.shopperId ?? "No shopper ID"}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function WrongAssignmentMarker() {
+  return (
+    <span
+      aria-label="Wrong Branch assignment"
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[oklch(0.96_0.05_80)] text-[oklch(0.55_0.13_70)] ring-1 ring-[oklch(0.86_0.08_80)]"
+      title="Orders are under this Branch, but the Picker is not actively assigned here."
+    >
+      <AlertTriangle className="h-3 w-3" />
+    </span>
+  );
+}
+
+function PickerMobileCard({
+  href,
+  row
+}: {
+  href: string;
+  row: ChampPickerPerformanceRow;
+}) {
   return (
     <article className="rounded-xl border border-[color:var(--sn-border)] bg-white p-3 shadow-[0_1px_2px_rgba(65,21,23,0.03)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <PickerRankMark compact rank={row.rank} />
-          <SnAvatar name={row.pickerName} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[color:var(--sn-ink)]">
-              {row.pickerName}
-            </p>
-            <p className="sn-mono truncate text-xs text-[color:var(--sn-muted)]">
-              {row.shopperId ?? "No shopper ID"}
-            </p>
-          </div>
+          <PickerIdentity href={href} row={row} />
         </div>
         <PickerStatusBadge status={row.status} />
       </div>
@@ -1270,7 +1535,7 @@ function PickerStatusBadge({
           "bg-[oklch(0.95_0.05_80)] text-[oklch(0.5_0.12_70)]",
         status === "NEEDS_ACTION" &&
           "bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]",
-        (status === "LOW_VOLUME" || status === "NO_KPI") &&
+        status === "LOW_VOLUME" &&
           "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
       )}
     >
@@ -1314,15 +1579,15 @@ function ChampDashboardError({ message }: { message: string }) {
   );
 }
 
-function resolveQuickActionHref(
-  actionKey: keyof typeof requestActionLabels,
+function isQuickActionAvailable(
+  actionKey: ChampDashboardAction,
   summary: ChampPerformanceSummary
 ) {
   const branchId = summary.scope.selectedVendorId;
   const action = summary.quickActions[actionKey];
 
   if (!branchId || !action.enabled || !action.href) {
-    return null;
+    return false;
   }
 
   const expectedHref = {
@@ -1332,7 +1597,31 @@ function resolveQuickActionHref(
     resignation: `/champ/branches/${branchId}/resignation`
   }[actionKey];
 
-  return action.href === expectedHref ? action.href : null;
+  return action.href === expectedHref;
+}
+
+function buildPickerReportHref(
+  summary: ChampPerformanceSummary,
+  row?: ChampPickerPerformanceRow
+) {
+  const params = new URLSearchParams({
+    dateFrom: summary.period.dateFrom,
+    dateTo: summary.period.dateTo,
+    sortBy: "totalOrders",
+    sortDirection: "desc",
+    view: "PICKER"
+  });
+
+  if (summary.scope.selectedVendorId) {
+    params.set("vendorId", summary.scope.selectedVendorId);
+  }
+
+  if (row) {
+    params.set("pickerId", row.userId);
+    params.set("pickerLabel", row.pickerName);
+  }
+
+  return `/champ/reports/orders-kpi?${params.toString()}`;
 }
 
 function getChampDateRange(range: ChampRangeKey) {

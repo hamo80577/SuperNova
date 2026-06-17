@@ -55,22 +55,22 @@ export class AuthService {
       userAgent?: string | null;
     }
   ) {
-    const phoneNumber = loginDto.phoneNumber.trim();
-    const user = await this.usersService.findByPhoneNumber(phoneNumber);
+    const nationalId = loginDto.nationalId.trim();
+    const user = await this.usersService.findByNationalId(nationalId);
 
     if (!user) {
-      await this.logFailedLogin(phoneNumber, context);
-      throw new UnauthorizedException("Invalid phone number or password.");
+      await this.logFailedLogin(nationalId, context);
+      throw new UnauthorizedException("Invalid national ID or password.");
     }
 
     const accessFailure = getAccountAccessFailure(user);
     if (accessFailure) {
-      await this.logFailedLogin(phoneNumber, context, user.id);
+      await this.logFailedLogin(nationalId, context, user.id);
       throw new UnauthorizedException(accessFailure);
     }
 
     if (this.hasExpiredTemporaryPassword(user)) {
-      await this.logFailedLogin(phoneNumber, context, user.id);
+      await this.logFailedLogin(nationalId, context, user.id);
       throw new UnauthorizedException("Temporary password has expired.");
     }
 
@@ -80,8 +80,8 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
-      await this.logFailedLogin(phoneNumber, context, user.id);
-      throw new UnauthorizedException("Invalid phone number or password.");
+      await this.logFailedLogin(nationalId, context, user.id);
+      throw new UnauthorizedException("Invalid national ID or password.");
     }
 
     const updatedUser = await this.prisma.user.update({
@@ -309,23 +309,34 @@ export class AuthService {
   }
 
   private async logFailedLogin(
-    phoneNumber: string,
+    nationalId: string,
     context: {
       ipAddress?: string | null;
       userAgent?: string | null;
     },
     userId?: string
   ) {
+    const maskedNationalId = maskNationalId(nationalId);
+
     await this.auditService.log({
       actorUserId: userId ?? null,
       action: "LOGIN_FAILED",
       entityType: userId ? "User" : "Auth",
-      entityId: userId ?? phoneNumber,
+      entityId: userId ?? maskedNationalId,
       newValue: {
-        phoneNumber
+        nationalId: maskedNationalId
       },
       ipAddress: context.ipAddress,
       userAgent: context.userAgent
     });
   }
+}
+
+function maskNationalId(nationalId: string) {
+  const trimmed = nationalId.trim();
+  if (trimmed.length <= 4) {
+    return "*".repeat(trimmed.length);
+  }
+
+  return `${"*".repeat(trimmed.length - 4)}${trimmed.slice(-4)}`;
 }

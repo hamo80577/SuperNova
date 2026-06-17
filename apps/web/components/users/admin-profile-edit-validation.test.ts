@@ -34,9 +34,23 @@ function validate(role: UserRole, form: UpdateAdminProfileInput) {
 
   assert.deepEqual(result.errors, {
     nameEn: "English name is required.",
-    phoneNumber: "Phone is required."
+    phoneNumber: "Phone is required.",
+    nationalId: "National ID is required."
   } satisfies AdminProfileEditFieldErrors);
   assert.equal(result.firstInvalidField, "nameEn");
+}
+
+{
+  const result = validate("AREA_MANAGER", {
+    nameEn: "Area Manager",
+    phoneNumber: "01000000000",
+    nationalId: ""
+  });
+
+  assert.deepEqual(result.errors, {
+    nationalId: "National ID is required."
+  } satisfies AdminProfileEditFieldErrors);
+  assert.equal(result.firstInvalidField, "nationalId");
 }
 
 {
@@ -50,7 +64,7 @@ function validate(role: UserRole, form: UpdateAdminProfileInput) {
   });
 
   assert.deepEqual(result.errors, {
-    nationalId: "National ID is required for Pickers.",
+    nationalId: "National ID is required.",
     dateOfBirth: "Date of birth is required for Pickers.",
     joiningDate: "Joining date is required for Pickers.",
     address: "Address is required for Pickers."
