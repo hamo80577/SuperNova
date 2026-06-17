@@ -14,6 +14,8 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { AreaManagerPerformanceSummaryService } from "./area-manager-performance-summary.service";
+import { AreaManagerPerformanceSummaryQueryDto } from "./dto/area-manager-performance-summary-query.dto";
 import { ChampPerformanceSummaryQueryDto } from "./dto/champ-performance-summary-query.dto";
 import { PickerPerformanceSummaryQueryDto } from "./dto/picker-performance-summary-query.dto";
 import { WorkspacesService } from "./workspaces.service";
@@ -23,7 +25,9 @@ import { WorkspacesService } from "./workspaces.service";
 export class WorkspacesController {
   constructor(
     @Inject(WorkspacesService)
-    private readonly workspacesService: WorkspacesService
+    private readonly workspacesService: WorkspacesService,
+    @Inject(AreaManagerPerformanceSummaryService)
+    private readonly areaManagerPerformanceSummaryService: AreaManagerPerformanceSummaryService
   ) {}
 
   @Get("picker")
@@ -75,6 +79,15 @@ export class WorkspacesController {
   @Roles(UserRole.AREA_MANAGER)
   getAreaManagerWorkspace(@CurrentUser() user: AuthenticatedUser) {
     return this.workspacesService.getAreaManagerWorkspace(user.id);
+  }
+
+  @Get("area-manager/performance-summary")
+  @Roles(UserRole.AREA_MANAGER)
+  getAreaManagerPerformanceSummary(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: AreaManagerPerformanceSummaryQueryDto
+  ) {
+    return this.areaManagerPerformanceSummaryService.getSummary(user.id, query);
   }
 
   @Get("admin")
