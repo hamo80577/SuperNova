@@ -17,6 +17,7 @@ import { AuthService } from "../src/auth/auth.service";
 
 async function run() {
   await testLoginUsesNationalIdOnly();
+  await testLoginSafeUserDoesNotExposeFullNationalId();
   await testFailedLoginAuditMasksNationalId();
   console.log("auth national id login tests passed");
 }
@@ -43,9 +44,27 @@ async function testLoginUsesNationalIdOnly() {
   );
 
   assert.equal(result.user.id, user.id);
-  assert.equal(result.user.nationalId, user.nationalId);
+  assert.equal(result.user.nationalIdMasked, "**********4123");
   assert.equal(response.cookies.length, 1);
   assert.equal(auditLogs.at(-1)?.action, "LOGIN_SUCCESS");
+}
+
+async function testLoginSafeUserDoesNotExposeFullNationalId() {
+  const user = await buildUser();
+  const auditLogs: Array<Record<string, unknown>> = [];
+  const service = createService({ auditLogs, user });
+
+  const result = await service.login(
+    {
+      nationalId: user.nationalId,
+      password: "Password123",
+      rememberMe: false
+    } as never,
+    { response: createResponse() }
+  );
+
+  assert.equal("nationalId" in result.user, false);
+  assert.equal(result.user.nationalIdMasked, "**********4123");
 }
 
 async function testFailedLoginAuditMasksNationalId() {

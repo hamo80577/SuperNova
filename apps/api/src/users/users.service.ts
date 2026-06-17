@@ -392,7 +392,10 @@ export class UsersService {
     });
 
     return {
-      user: toSafeUser(user),
+      user: {
+        ...toSafeUser(user),
+        nationalId: user.nationalId
+      },
       workedDays: this.getWorkedDays(user.joiningDate),
       annualLeaveBalance,
       permissions,

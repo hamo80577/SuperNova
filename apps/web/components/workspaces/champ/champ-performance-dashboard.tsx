@@ -67,7 +67,8 @@ const pickerStatusLabels: Record<ChampPickerPerformanceRow["status"], string> = 
   IN_TARGET: "In Target",
   WATCH: "Watch",
   NEEDS_ACTION: "Needs Action",
-  LOW_VOLUME: "Low Volume"
+  LOW_VOLUME: "Low Volume",
+  NO_KPI: "No KPI"
 };
 
 const requestActionLabels = {
@@ -853,6 +854,14 @@ function PickerPerformancePanel({
   const rows = summary.pickerPerformance.rows.slice(0, 6);
   const totalRows = summary.pickerPerformance.totalRows;
   const reportHref = buildPickerReportHref(summary);
+  const footerLabel =
+    summary.pickerPerformance.rows.length > totalRows
+      ? `Showing ${formatNumber(rows.length)} rows · ${formatNumber(
+          totalRows
+        )} active pickers`
+      : `Showing ${formatNumber(rows.length)} of ${formatNumber(
+          totalRows
+        )} pickers`;
 
   return (
     <ChampCard className="overflow-hidden">
@@ -926,11 +935,7 @@ function PickerPerformancePanel({
               />
             ))}
           </div>
-          <PanelFooter
-            label={`Showing ${formatNumber(rows.length)} of ${formatNumber(
-              totalRows
-            )} pickers`}
-          />
+          <PanelFooter label={footerLabel} />
         </>
       )}
     </ChampCard>
@@ -1536,6 +1541,8 @@ function PickerStatusBadge({
         status === "NEEDS_ACTION" &&
           "bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]",
         status === "LOW_VOLUME" &&
+          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]",
+        status === "NO_KPI" &&
           "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
       )}
     >

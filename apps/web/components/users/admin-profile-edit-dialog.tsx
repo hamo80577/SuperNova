@@ -13,7 +13,11 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
-import { usersApi, type UpdateAdminProfileInput } from "@/lib/api/users";
+import {
+  usersApi,
+  type OperationalProfileUser,
+  type UpdateAdminProfileInput
+} from "@/lib/api/users";
 import type { SafeUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import {
@@ -31,7 +35,7 @@ export function AdminProfileEditDialog({
 }: {
   onClose: () => void;
   onSaved: () => void;
-  user: SafeUser;
+  user: OperationalProfileUser;
 }) {
   const [form, setForm] = useState<UpdateAdminProfileInput>(() =>
     toEditForm(user)
@@ -358,7 +362,7 @@ function normalizeEditForm(
   };
 }
 
-function toEditForm(user: SafeUser): UpdateAdminProfileInput {
+function toEditForm(user: OperationalProfileUser): UpdateAdminProfileInput {
   return {
     nameEn: user.nameEn,
     nameAr: user.nameAr ?? "",

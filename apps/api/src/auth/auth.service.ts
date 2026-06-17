@@ -15,6 +15,7 @@ import type { StringValue } from "ms";
 import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { toSafeUser } from "../users/dto/safe-user.dto";
+import { maskNationalId } from "../users/national-id.utils";
 import { UsersService } from "../users/users.service";
 import { getAccountAccessFailure } from "./account-access.utils";
 import type { ChangePasswordDto } from "./dto/change-password.dto";
@@ -330,13 +331,4 @@ export class AuthService {
       userAgent: context.userAgent
     });
   }
-}
-
-function maskNationalId(nationalId: string) {
-  const trimmed = nationalId.trim();
-  if (trimmed.length <= 4) {
-    return "*".repeat(trimmed.length);
-  }
-
-  return `${"*".repeat(trimmed.length - 4)}${trimmed.slice(-4)}`;
 }

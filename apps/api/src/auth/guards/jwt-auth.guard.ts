@@ -8,6 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 
+import { maskNationalId } from "../../users/national-id.utils";
 import { UsersService } from "../../users/users.service";
 import { getAccountAccessFailure } from "../account-access.utils";
 import type { AuthenticatedRequest } from "../types/authenticated-request";
@@ -58,7 +59,7 @@ export class JwtAuthGuard implements CanActivate {
       role: user.role,
       nameEn: user.nameEn,
       phoneNumber: user.phoneNumber,
-      nationalId: user.nationalId,
+      nationalIdMasked: maskNationalId(user.nationalId),
       accountStatus: user.accountStatus,
       employmentStatus: user.employmentStatus,
       profileStatus: user.profileStatus,

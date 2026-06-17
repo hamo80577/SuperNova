@@ -9,6 +9,8 @@ import type {
   UserRole
 } from "@prisma/client";
 
+import { maskNationalId } from "../national-id.utils";
+
 export interface SafeUserDto {
   id: string;
   ibsId: string | null;
@@ -17,7 +19,7 @@ export interface SafeUserDto {
   nameEn: string;
   nameAr: string | null;
   phoneNumber: string;
-  nationalId: string;
+  nationalIdMasked: string;
   address: string | null;
   dateOfBirth: Date | null;
   gender: Gender;
@@ -44,7 +46,7 @@ export function toSafeUser(user: User): SafeUserDto {
     nameEn: user.nameEn,
     nameAr: user.nameAr,
     phoneNumber: user.phoneNumber,
-    nationalId: user.nationalId,
+    nationalIdMasked: maskNationalId(user.nationalId),
     address: user.address,
     dateOfBirth: user.dateOfBirth,
     gender: user.gender,

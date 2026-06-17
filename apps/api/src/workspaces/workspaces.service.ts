@@ -205,13 +205,15 @@ type PickerPerformanceStatus =
   | "IN_TARGET"
   | "WATCH"
   | "NEEDS_ACTION"
-  | "LOW_VOLUME";
+  | "LOW_VOLUME"
+  | "NO_KPI";
 
 const pickerPerformanceStatusWeight: Record<PickerPerformanceStatus, number> = {
   NEEDS_ACTION: 0,
   WATCH: 1,
   LOW_VOLUME: 2,
-  IN_TARGET: 3
+  IN_TARGET: 3,
+  NO_KPI: 4
 };
 
 @Injectable()
@@ -2121,83 +2123,127 @@ function buildPickerPerformanceSummaryRows({
   );
   const target =
     targetSettings.source === "SAVED" ? targetSettings.targets.uhoRateTarget : null;
-  const rows = Array.from(kpiByPickerId.entries())
-    .map(([pickerId, pickerKpiRecords]) => {
-      const assignment = assignmentByPickerId.get(pickerId);
-      const firstKpiRecord = pickerKpiRecords[0];
-      const kpi = summarizeOrdersKpi(pickerKpiRecords);
-      const attendance = summarizeAttendanceRecords(
-        attendanceByPickerId.get(pickerId) ?? []
-      );
-      const attendanceHealthRate = percentage(
-        attendance.cleanShifts,
-        attendance.totalShifts
-      );
-      const totalShiftErrors =
-        attendance.lateCount +
-        attendance.absentCount +
-        attendance.under8HoursCount +
-        attendance.over15HoursCount;
-      const unhealthyRate = percentage(kpi.unhealthyOrders, kpi.totalOrders);
-      const status = resolvePickerPerformanceStatus({
-        attendanceHealthRate,
-        issueShifts: attendance.issueShifts,
+  const assignedRows = assignments.map((assignment) => {
+    const pickerId = assignment.pickerId;
+    const pickerKpiRecords = kpiByPickerId.get(pickerId) ?? [];
+    return buildPickerPerformanceRow({
+      assignment,
+      attendanceRecords: attendanceByPickerId.get(pickerId) ?? [],
+      minOrders,
+      pickerId,
+      pickerKpiRecords,
+      rank: rankMap.get(pickerId) ?? null,
+      target
+    });
+  });
+  const mismatchRows = Array.from(kpiByPickerId.entries())
+    .filter(([pickerId]) => !assignmentByPickerId.has(pickerId))
+    .map(([pickerId, pickerKpiRecords]) =>
+      buildPickerPerformanceRow({
+        attendanceRecords: attendanceByPickerId.get(pickerId) ?? [],
         minOrders,
-        target,
-        totalOrders: kpi.totalOrders,
-        totalShiftErrors,
-        unhealthyRate
-      });
-      const assignmentMismatch = !assignment;
-      const reasonLabels = pickerPerformanceReasonLabels({
-        attendanceHealthRate,
-        minOrders,
-        status,
-        target,
-        totalOrders: kpi.totalOrders,
-        totalShiftErrors,
-        unhealthyRate
-      });
-
-      if (assignmentMismatch) {
-        reasonLabels.push("Wrong Branch assignment");
-      }
-
-      return {
+        pickerId,
+        pickerKpiRecords,
         rank: rankMap.get(pickerId) ?? null,
-        userId: pickerId,
-        pickerName:
-          assignment?.picker.nameEn ??
-          firstKpiRecord?.pickerNameSnapshot ??
-          firstKpiRecord?.sourcePickerKey ??
-          pickerId,
-        shopperId:
-          assignment?.picker.shopperId ??
-          firstKpiRecord?.sourceShopperId ??
-          null,
-        totalOrders: kpi.totalOrders,
-        unhealthyOrders: kpi.unhealthyOrders,
-        unhealthyRate,
-        attendanceHealthRate,
-        issueShifts: attendance.issueShifts,
-        totalShiftErrors,
-        status,
-        assignmentMismatch,
-        assignmentMismatchReason: assignmentMismatch
-          ? "WRONG_BRANCH_ASSIGNMENT"
-          : null,
-        reasonLabels
-      };
-    })
-    .sort(comparePickerPerformanceRows);
+        target
+      })
+    );
+  const rows = [...assignedRows, ...mismatchRows].sort(
+    comparePickerPerformanceRows
+  );
 
   return {
     available: rows.length > 0,
     rows,
-    totalRows: rows.length,
+    totalRows: assignments.length,
     reason: rows.length
       ? undefined
-      : "No confirmed Picker KPI records are available for this Branch."
+      : "No active Pickers are assigned to this Branch."
+  };
+}
+
+function buildPickerPerformanceRow({
+  assignment,
+  attendanceRecords,
+  minOrders,
+  pickerId,
+  pickerKpiRecords,
+  rank,
+  target
+}: {
+  assignment?: ChampBranchAssignment["vendor"]["pickerAssignments"][number];
+  attendanceRecords: AttendanceSummaryRecord[];
+  minOrders: number;
+  pickerId: string;
+  pickerKpiRecords: OrdersKpiSummaryRecord[];
+  rank: number | null;
+  target: number | null;
+}) {
+  const kpi = summarizeOrdersKpi(pickerKpiRecords);
+  const firstKpiRecord = pickerKpiRecords[0];
+  const attendance = summarizeAttendanceRecords(attendanceRecords);
+  const attendanceHealthRate = percentage(
+    attendance.cleanShifts,
+    attendance.totalShifts
+  );
+  const totalShiftErrors =
+    attendance.lateCount +
+    attendance.absentCount +
+    attendance.under8HoursCount +
+    attendance.over15HoursCount;
+  const unhealthyRate = percentage(kpi.unhealthyOrders, kpi.totalOrders);
+  const status: PickerPerformanceStatus = pickerKpiRecords.length
+    ? resolvePickerPerformanceStatus({
+        attendanceHealthRate,
+        issueShifts: attendance.issueShifts,
+        minOrders,
+        target,
+        totalOrders: kpi.totalOrders,
+        totalShiftErrors,
+        unhealthyRate
+      })
+    : "NO_KPI";
+  const assignmentMismatch = !assignment;
+  const reasonLabels = pickerKpiRecords.length
+    ? pickerPerformanceReasonLabels({
+        attendanceHealthRate,
+        minOrders,
+        status,
+        target,
+        totalOrders: kpi.totalOrders,
+        totalShiftErrors,
+        unhealthyRate
+      })
+    : ["No KPI records"];
+
+  if (assignmentMismatch) {
+    reasonLabels.push("Wrong Branch assignment");
+  }
+
+  return {
+    rank: pickerKpiRecords.length ? rank : null,
+    userId: pickerId,
+    pickerName:
+      assignment?.picker.nameEn ??
+      firstKpiRecord?.pickerNameSnapshot ??
+      firstKpiRecord?.sourcePickerKey ??
+      pickerId,
+    shopperId:
+      assignment?.picker.shopperId ??
+      firstKpiRecord?.sourceShopperId ??
+      null,
+    totalOrders: kpi.totalOrders,
+    unhealthyOrders: kpi.unhealthyOrders,
+    unhealthyRate,
+    attendanceHealthRate,
+    issueShifts: attendance.issueShifts,
+    totalShiftErrors,
+    status,
+    assignmentMismatch,
+    assignmentMismatchReason: assignmentMismatch
+      ? "WRONG_BRANCH_ASSIGNMENT"
+      : null,
+    reasonLabels
   };
 }
 

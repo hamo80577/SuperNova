@@ -337,7 +337,7 @@ export interface ChampPickerPerformanceRow {
   attendanceHealthRate: number | null;
   issueShifts: number;
   totalShiftErrors: number;
-  status: "IN_TARGET" | "WATCH" | "NEEDS_ACTION" | "LOW_VOLUME";
+  status: "IN_TARGET" | "WATCH" | "NEEDS_ACTION" | "LOW_VOLUME" | "NO_KPI";
   reasonLabels: string[];
   assignmentMismatch: boolean;
   assignmentMismatchReason: "WRONG_BRANCH_ASSIGNMENT" | null;

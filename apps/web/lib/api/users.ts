@@ -121,8 +121,12 @@ export interface AnnualLeaveBalance {
   message: string;
 }
 
+export type OperationalProfileUser = SafeUser & {
+  nationalId: string;
+};
+
 export interface OperationalProfileResponse {
-  user: SafeUser;
+  user: OperationalProfileUser;
   workedDays: number | null;
   annualLeaveBalance: AnnualLeaveBalance;
   permissions: {

@@ -102,6 +102,7 @@ const users = [
   user("picker-1"),
   user("picker-2"),
   user("picker-low"),
+  user("picker-no-kpi"),
   user("picker-branch-b"),
   user("picker-wrong-assignment"),
   user("picker-out")
@@ -172,6 +173,7 @@ const pickerAssignments = [
   { id: "pa-1", pickerId: "picker-1", vendorId: "vendor-a" },
   { id: "pa-2", pickerId: "picker-2", vendorId: "vendor-a" },
   { id: "pa-low", pickerId: "picker-low", vendorId: "vendor-a" },
+  { id: "pa-no-kpi", pickerId: "picker-no-kpi", vendorId: "vendor-a" },
   { id: "pa-b", pickerId: "picker-branch-b", vendorId: "vendor-b" },
   {
     id: "pa-wrong",
@@ -644,7 +646,7 @@ async function testChampCanAccessAssignedBranchSummary() {
   assert.equal(summary.scope.selectedVendorId, "vendor-a");
   assert.equal(summary.scope.selectedBranch.vendorName, "Northpoint DC");
   assert.equal(summary.scope.selectedBranch.areaManagerName, "Area Manager 1");
-  assert.equal(summary.scope.selectedBranch.activePickersCount, 3);
+  assert.equal(summary.scope.selectedBranch.activePickersCount, 4);
   assert.deepEqual(
     summary.scope.branches.map((branch: { vendorId: string }) => branch.vendorId),
     ["vendor-b", "vendor-a"]
@@ -768,7 +770,13 @@ async function testPickerPerformanceRowsAreSelectedBranchScopedAndSorted() {
   assert.equal(summary.pickerPerformance.totalRows, 4);
   assert.deepEqual(
     summary.pickerPerformance.rows.map((row: { userId: string }) => row.userId),
-    ["picker-2", "picker-wrong-assignment", "picker-1", "picker-low"]
+    [
+      "picker-2",
+      "picker-wrong-assignment",
+      "picker-1",
+      "picker-low",
+      "picker-no-kpi"
+    ]
   );
   assert.equal(summary.pickerPerformance.rows[0].status, "IN_TARGET");
   assert.equal(summary.pickerPerformance.rows[0].rank, 1);
@@ -782,6 +790,14 @@ async function testPickerPerformanceRowsAreSelectedBranchScopedAndSorted() {
   assert.equal(summary.pickerPerformance.rows[2].status, "NEEDS_ACTION");
   assert.equal(summary.pickerPerformance.rows[2].rank, 3);
   assert.equal(summary.pickerPerformance.rows[3].status, "LOW_VOLUME");
+  assert.equal(summary.pickerPerformance.rows[4].status, "NO_KPI");
+  assert.equal(summary.pickerPerformance.rows[4].rank, null);
+  assert.equal(summary.pickerPerformance.rows[4].totalOrders, 0);
+  assert.equal(summary.pickerPerformance.rows[4].unhealthyOrders, 0);
+  assert.equal(summary.pickerPerformance.rows[4].unhealthyRate, null);
+  assert.deepEqual(summary.pickerPerformance.rows[4].reasonLabels, [
+    "No KPI records"
+  ]);
   assert.equal(
     summary.pickerPerformance.rows.some(
       (row: { userId: string }) => row.userId === "picker-out"
