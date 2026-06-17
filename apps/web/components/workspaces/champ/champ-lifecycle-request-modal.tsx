@@ -17,12 +17,14 @@ export function ChampLifecycleRequestModal({
   initialPickerId,
   onClose,
   onCreated,
-  type
+  type,
+  vendorId
 }: {
   initialPickerId?: string;
   onClose: () => void;
   onCreated: (request: RequestSummary) => void;
   type: LifecycleActionType;
+  vendorId?: string;
 }) {
   const [isDirty, setIsDirty] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -103,6 +105,7 @@ export function ChampLifecycleRequestModal({
                 onCancel={requestClose}
                 onCreated={onCreated}
                 onDirtyChange={setIsDirty}
+                vendorId={vendorId}
               />
             ) : (
               <ChampOffboardingForm
@@ -112,6 +115,7 @@ export function ChampLifecycleRequestModal({
                 onCreated={onCreated}
                 onDirtyChange={setIsDirty}
                 type="RESIGNATION"
+                vendorId={vendorId}
               />
             )}
           </div>

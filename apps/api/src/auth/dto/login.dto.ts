@@ -1,9 +1,17 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches
+} from "class-validator";
 
 export class LoginDto {
   @IsString()
   @IsNotEmpty()
-  phoneNumber!: string;
+  @Matches(/^\d+$/, { message: "nationalId must contain numbers only." })
+  @Matches(/^\d{14}$/, { message: "nationalId must be exactly 14 digits." })
+  nationalId!: string;
 
   @IsString()
   @IsNotEmpty()

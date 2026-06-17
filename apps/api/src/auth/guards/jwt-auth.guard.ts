@@ -58,6 +58,7 @@ export class JwtAuthGuard implements CanActivate {
       role: user.role,
       nameEn: user.nameEn,
       phoneNumber: user.phoneNumber,
+      nationalId: user.nationalId,
       accountStatus: user.accountStatus,
       employmentStatus: user.employmentStatus,
       profileStatus: user.profileStatus,

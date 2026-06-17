@@ -331,7 +331,7 @@ model User {
   nameEn                      String
   nameAr                      String?
   phoneNumber                 String                           @unique
-  nationalId                  String?                          @unique
+  nationalId                  String                           @unique
   address                     String?
   dateOfBirth                 DateTime?
   gender                      Gender                           @default(UNSPECIFIED)

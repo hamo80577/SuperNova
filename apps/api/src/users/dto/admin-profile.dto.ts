@@ -5,6 +5,7 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  Matches,
   MaxLength
 } from "class-validator";
 
@@ -26,7 +27,8 @@ export class UpdateAdminProfileDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(40)
+  @Matches(/^\d+$/, { message: "nationalId must contain numbers only." })
+  @Matches(/^\d{14}$/, { message: "nationalId must be exactly 14 digits." })
   nationalId?: string;
 
   @IsOptional()

@@ -27,6 +27,7 @@ export function validateAdminProfileEditForm({
   role: UserRole;
 }) {
   const errors: AdminProfileEditFieldErrors = {};
+  const nationalId = form.nationalId?.trim() ?? "";
 
   if (isBlank(form.nameEn)) {
     errors.nameEn = "English name is required.";
@@ -36,11 +37,13 @@ export function validateAdminProfileEditForm({
     errors.phoneNumber = "Phone is required.";
   }
 
-  if (role === "PICKER") {
-    if (isBlank(form.nationalId)) {
-      errors.nationalId = "National ID is required for Pickers.";
-    }
+  if (!nationalId) {
+    errors.nationalId = "National ID is required.";
+  } else if (!/^\d{14}$/.test(nationalId)) {
+    errors.nationalId = "National ID must be exactly 14 digits.";
+  }
 
+  if (role === "PICKER") {
     if (isBlank(form.dateOfBirth)) {
       errors.dateOfBirth = "Date of birth is required for Pickers.";
     }

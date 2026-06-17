@@ -44,17 +44,20 @@ export function ChampTransferForm({
   mode = "page",
   onCancel,
   onCreated,
-  onDirtyChange
+  onDirtyChange,
+  vendorId
 }: {
   initialPickerId?: string | null;
   mode?: "modal" | "page";
   onCancel?: () => void;
   onCreated?: (request: RequestSummary) => void;
   onDirtyChange?: (isDirty: boolean) => void;
+  vendorId?: string;
 }) {
-  const params = useParams<{ vendorId: string }>();
+  const params = useParams<{ vendorId?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const activeVendorId = vendorId ?? params.vendorId;
   const preselectedPickerId = initialPickerId ?? searchParams.get("pickerId");
   const [state, setState] = useState<
     AsyncState<{ branch: ChampBranchDetail; vendors: Vendor[] }>
@@ -78,9 +81,17 @@ export function ChampTransferForm({
     let mounted = true;
 
     async function loadTransferContext() {
+      if (!activeVendorId) {
+        setState({
+          status: "error",
+          error: "No source Branch is selected for this Transfer request."
+        });
+        return;
+      }
+
       try {
         const [branch, vendorsResponse] = await Promise.all([
-          workspacesApi.champBranchDetail(params.vendorId),
+          workspacesApi.champBranchDetail(activeVendorId),
           organizationApi.listVendors({ status: "ACTIVE", pageSize: 100 })
         ]);
 
@@ -90,7 +101,7 @@ export function ChampTransferForm({
             data: {
               branch,
               vendors: vendorsResponse.items.filter(
-                (vendor) => vendor.id !== params.vendorId
+                (vendor) => vendor.id !== activeVendorId
               )
             }
           });
@@ -113,7 +124,7 @@ export function ChampTransferForm({
     return () => {
       mounted = false;
     };
-  }, [params.vendorId]);
+  }, [activeVendorId]);
 
   useEffect(() => {
     if (!preselectedPickerId || state.status !== "ready") {
@@ -163,11 +174,16 @@ export function ChampTransferForm({
   }, [state, selectedDestinationId]);
 
   function onSubmit(values: TransferFormValues) {
+    if (!activeVendorId) {
+      setSubmitError("No source Branch is selected for this Transfer request.");
+      return;
+    }
+
     startTransition(async () => {
       setSubmitError(null);
       try {
         const created = await requestsApi.createTransfer({
-          sourceVendorId: params.vendorId,
+          sourceVendorId: activeVendorId,
           targetUserId: values.targetUserId,
           destinationVendorId: values.destinationVendorId,
           reason: values.reason,

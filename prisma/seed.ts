@@ -20,20 +20,26 @@ const BRANCH_DATA_PATH = path.join(process.cwd(), "prisma", "data", "branches.cs
 
 async function main() {
   const phoneNumber = process.env.SEED_ADMIN_PHONE?.trim();
+  const nationalId = process.env.SEED_ADMIN_NATIONAL_ID?.trim();
   const password = process.env.SEED_ADMIN_PASSWORD;
   const nameEn = process.env.SEED_ADMIN_NAME?.trim() || "SuperNova Admin";
 
-  if (!phoneNumber || !password) {
-    console.log("Skipping admin seed: SEED_ADMIN_PHONE or SEED_ADMIN_PASSWORD is not set.");
+  if (!phoneNumber || !nationalId || !password) {
+    console.log(
+      "Skipping admin seed: SEED_ADMIN_PHONE, SEED_ADMIN_NATIONAL_ID, or SEED_ADMIN_PASSWORD is not set."
+    );
   } else if (password.length < 10) {
     throw new Error("SEED_ADMIN_PASSWORD must be at least 10 characters.");
+  } else if (!/^\d{14}$/.test(nationalId)) {
+    throw new Error("SEED_ADMIN_NATIONAL_ID must be exactly 14 digits.");
   } else {
     const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
 
     await prisma.user.upsert({
-      where: { phoneNumber },
+      where: { nationalId },
       update: {
         nameEn,
+        phoneNumber,
         passwordHash,
         role: UserRole.SUPER_ADMIN,
         accountStatus: AccountStatus.ACTIVE,
@@ -44,6 +50,7 @@ async function main() {
       },
       create: {
         phoneNumber,
+        nationalId,
         nameEn,
         passwordHash,
         role: UserRole.SUPER_ADMIN,
@@ -88,14 +95,7 @@ async function removeLocalDemoData() {
   });
   const demoUsers = await prisma.user.findMany({
     where: {
-      OR: [
-        { nameEn: { contains: "Demo", mode: "insensitive" } },
-        {
-          phoneNumber: {
-            in: ["+10000000011", "+10000000012", "+10000000013", "+10000000014"]
-          }
-        }
-      ]
+      nameEn: { contains: "Demo", mode: "insensitive" }
     },
     select: { id: true }
   });

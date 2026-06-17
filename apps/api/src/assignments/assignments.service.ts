@@ -493,6 +493,7 @@ export class AssignmentsService {
             OR: [
               { picker: { nameEn: { contains: search, mode: "insensitive" } } },
               { picker: { phoneNumber: { contains: search, mode: "insensitive" } } },
+              { picker: { nationalId: { contains: search } } },
               { vendor: { vendorName: { contains: search, mode: "insensitive" } } },
               { vendor: { vendorCode: { contains: search, mode: "insensitive" } } },
               {
@@ -523,6 +524,7 @@ export class AssignmentsService {
             OR: [
               { champ: { nameEn: { contains: search, mode: "insensitive" } } },
               { champ: { phoneNumber: { contains: search, mode: "insensitive" } } },
+              { champ: { nationalId: { contains: search } } },
               { vendor: { vendorName: { contains: search, mode: "insensitive" } } },
               { vendor: { vendorCode: { contains: search, mode: "insensitive" } } },
               {
@@ -559,6 +561,11 @@ export class AssignmentsService {
               {
                 areaManager: {
                   phoneNumber: { contains: search, mode: "insensitive" }
+                }
+              },
+              {
+                areaManager: {
+                  nationalId: { contains: search }
                 }
               },
               { chain: { chainName: { contains: search, mode: "insensitive" } } },

@@ -95,21 +95,21 @@ export function PickerProfileOverview({
           label="IBS ID"
           value={user.ibsId ?? "Not set"}
         />
-        {user.nationalId ? (
-          <ProfileInfoRow
-            action={
+        <ProfileInfoRow
+          action={
+            user.nationalId ? (
               <CopyButton
                 aria-label="Copy National ID"
                 className="h-10 w-10 p-0"
                 iconOnly
                 text={user.nationalId}
               />
-            }
-            icon={<ShieldCheck className="h-4 w-4" />}
-            label="National ID"
-            value={user.nationalId}
-          />
-        ) : null}
+            ) : null
+          }
+          icon={<ShieldCheck className="h-4 w-4" />}
+          label="National ID"
+          value={user.nationalId || "Not set"}
+        />
       </ProfilePanel>
 
       <ProfilePanel

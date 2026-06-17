@@ -30,6 +30,34 @@ function d(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
+async function withFrozenNow<T>(isoTimestamp: string, callback: () => Promise<T>) {
+  const RealDate = Date;
+  const frozenTime = new RealDate(isoTimestamp).getTime();
+
+  class FrozenDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      if (arguments.length === 0) {
+        super(frozenTime);
+        return;
+      }
+
+      super(value as string | number | Date);
+    }
+
+    static now() {
+      return frozenTime;
+    }
+  }
+
+  globalThis.Date = FrozenDate as DateConstructor;
+
+  try {
+    return await callback();
+  } finally {
+    globalThis.Date = RealDate;
+  }
+}
+
 function user(id: string, role = UserRole.PICKER) {
   return {
     id,
@@ -75,6 +103,7 @@ const users = [
   user("picker-2"),
   user("picker-low"),
   user("picker-branch-b"),
+  user("picker-wrong-assignment"),
   user("picker-out")
 ];
 
@@ -144,6 +173,11 @@ const pickerAssignments = [
   { id: "pa-2", pickerId: "picker-2", vendorId: "vendor-a" },
   { id: "pa-low", pickerId: "picker-low", vendorId: "vendor-a" },
   { id: "pa-b", pickerId: "picker-branch-b", vendorId: "vendor-b" },
+  {
+    id: "pa-wrong",
+    pickerId: "picker-wrong-assignment",
+    vendorId: "vendor-b"
+  },
   { id: "pa-out", pickerId: "picker-out", vendorId: "vendor-c" }
 ].map((assignment) => ({
   ...assignment,
@@ -159,6 +193,7 @@ const kpiRecords = [
   kpi("picker-1", "vendor-a", 500, 0, OrdersKpiImportBatchStatus.VALIDATED),
   kpi("picker-2", "vendor-a", 170, 8),
   kpi("picker-low", "vendor-a", 10, 0),
+  kpi("picker-wrong-assignment", "vendor-a", 150, 12),
   kpi("picker-branch-b", "vendor-b", 320, 20),
   kpi("picker-out", "vendor-c", 900, 90),
   kpi(null, "vendor-low", 200, 0)
@@ -675,18 +710,18 @@ async function testOrdersKpiUsesConfirmedSourceBatchesOnly() {
   });
 
   assert.equal(summary.ordersKpi.available, true);
-  assert.equal(summary.ordersKpi.totalOrders, 360);
-  assert.equal(summary.ordersKpi.unhealthyOrders, 26);
-  assert.equal(summary.ordersKpi.unhealthyRate, 7.22);
-  assert.equal(summary.ordersKpi.orderNotOnTime, 26);
-  assert.equal(summary.ordersKpi.orderNotOnTimeRate, 7.22);
+  assert.equal(summary.ordersKpi.totalOrders, 510);
+  assert.equal(summary.ordersKpi.unhealthyOrders, 38);
+  assert.equal(summary.ordersKpi.unhealthyRate, 7.45);
+  assert.equal(summary.ordersKpi.orderNotOnTime, 38);
+  assert.equal(summary.ordersKpi.orderNotOnTimeRate, 7.45);
   assert.equal(summary.ordersKpi.target.status, "IN_TARGET");
   assert.deepEqual(summary.ordersKpi.trend, [
     {
       date: "2026-06-03",
-      unhealthyRate: 7.22,
-      totalOrders: 360,
-      unhealthyOrders: 26
+      unhealthyRate: 7.45,
+      totalOrders: 510,
+      unhealthyOrders: 38
     }
   ]);
 }
@@ -701,11 +736,24 @@ async function testBranchRankingExcludesLowVolumeBranches() {
 
   assert.equal(summary.branchRanking.available, true);
   assert.equal(summary.branchRanking.basis, "UHO_VOLUME_AWARE");
-  assert.equal(summary.branchRanking.minOrdersRequired, 300);
-  assert.equal(summary.branchRanking.chain.rank, 2);
-  assert.equal(summary.branchRanking.chain.totalEligible, 3);
-  assert.equal(summary.branchRanking.chain.displayLabel, "#2 / 3");
-  assert.equal(summary.branchRanking.allBranches.rank, 2);
+  assert.equal(summary.branchRanking.minOrdersRequired, 350);
+  assert.equal(summary.branchRanking.chain.rank, 1);
+  assert.equal(summary.branchRanking.chain.totalEligible, 2);
+  assert.equal(summary.branchRanking.chain.displayLabel, "#1 / 2");
+  assert.equal(summary.branchRanking.allBranches.rank, 1);
+}
+
+async function testBranchRankingMinOrdersUsesCompletedDaysOnly() {
+  const summary = await withFrozenNow("2026-06-16T12:00:00.000Z", async () => {
+    const service = createService();
+    return service.getChampPerformanceSummary("champ-1", {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-16",
+      vendorId: "vendor-a"
+    });
+  });
+
+  assert.equal(summary.branchRanking.minOrdersRequired, 750);
 }
 
 async function testPickerPerformanceRowsAreSelectedBranchScopedAndSorted() {
@@ -717,15 +765,23 @@ async function testPickerPerformanceRowsAreSelectedBranchScopedAndSorted() {
   });
 
   assert.equal(summary.pickerPerformance.available, true);
-  assert.equal(summary.pickerPerformance.totalRows, 3);
+  assert.equal(summary.pickerPerformance.totalRows, 4);
   assert.deepEqual(
     summary.pickerPerformance.rows.map((row: { userId: string }) => row.userId),
-    ["picker-1", "picker-low", "picker-2"]
+    ["picker-2", "picker-wrong-assignment", "picker-1", "picker-low"]
   );
-  assert.equal(summary.pickerPerformance.rows[0].status, "NEEDS_ACTION");
-  assert.equal(summary.pickerPerformance.rows[0].rank, 2);
-  assert.equal(summary.pickerPerformance.rows[1].status, "LOW_VOLUME");
-  assert.equal(summary.pickerPerformance.rows[2].status, "IN_TARGET");
+  assert.equal(summary.pickerPerformance.rows[0].status, "IN_TARGET");
+  assert.equal(summary.pickerPerformance.rows[0].rank, 1);
+  assert.equal(summary.pickerPerformance.rows[1].status, "WATCH");
+  assert.equal(summary.pickerPerformance.rows[1].rank, 2);
+  assert.equal(summary.pickerPerformance.rows[1].assignmentMismatch, true);
+  assert.equal(
+    summary.pickerPerformance.rows[1].assignmentMismatchReason,
+    "WRONG_BRANCH_ASSIGNMENT"
+  );
+  assert.equal(summary.pickerPerformance.rows[2].status, "NEEDS_ACTION");
+  assert.equal(summary.pickerPerformance.rows[2].rank, 3);
+  assert.equal(summary.pickerPerformance.rows[3].status, "LOW_VOLUME");
   assert.equal(
     summary.pickerPerformance.rows.some(
       (row: { userId: string }) => row.userId === "picker-out"
@@ -757,6 +813,7 @@ async function main() {
   await testAttendanceHealthUsesCleanShiftRate();
   await testOrdersKpiUsesConfirmedSourceBatchesOnly();
   await testBranchRankingExcludesLowVolumeBranches();
+  await testBranchRankingMinOrdersUsesCompletedDaysOnly();
   await testPickerPerformanceRowsAreSelectedBranchScopedAndSorted();
   await testRecentRequestsAreBranchScoped();
   console.log("champ performance summary tests passed");

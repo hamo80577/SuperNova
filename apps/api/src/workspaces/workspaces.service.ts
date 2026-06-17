@@ -122,6 +122,9 @@ const ordersKpiSummarySelect = {
   kpiDate: true,
   matchedVendorId: true,
   matchedChainId: true,
+  sourceShopperId: true,
+  sourcePickerKey: true,
+  pickerNameSnapshot: true,
   pickerMatchStatus: true,
   totalOrders: true,
   unhealthyOrders: true,
@@ -202,15 +205,13 @@ type PickerPerformanceStatus =
   | "IN_TARGET"
   | "WATCH"
   | "NEEDS_ACTION"
-  | "LOW_VOLUME"
-  | "NO_KPI";
+  | "LOW_VOLUME";
 
 const pickerPerformanceStatusWeight: Record<PickerPerformanceStatus, number> = {
   NEEDS_ACTION: 0,
   WATCH: 1,
   LOW_VOLUME: 2,
-  NO_KPI: 3,
-  IN_TARGET: 4
+  IN_TARGET: 3
 };
 
 @Injectable()
@@ -513,7 +514,10 @@ export class WorkspacesService {
     const selectedPickerIds = selectedPickerAssignments.map(
       (assignment) => assignment.pickerId
     );
-    const minBranchOrders = branchRankingMinOrdersForRange(period.days);
+    const minBranchOrders = branchRankingMinOrdersForRange(
+      period.dateFromValue,
+      period.dateToValue
+    );
     const minPickerOrders = pickerRankingMinOrdersForRange(period.days);
 
     const [
@@ -1791,7 +1795,10 @@ function emptyChampPerformanceSummary(
     branchRanking: {
       available: false,
       basis: "UHO_VOLUME_AWARE",
-      minOrdersRequired: branchRankingMinOrdersForRange(period.days),
+      minOrdersRequired: branchRankingMinOrdersForRange(
+        period.dateFromValue,
+        period.dateToValue
+      ),
       reason: "No assigned Branch is available."
     },
     pickerPerformance: {
@@ -1838,11 +1845,23 @@ function buildDisabledChampQuickActions() {
   };
 }
 
-function branchRankingMinOrdersForRange(days: number) {
-  if (days <= 1) return 50;
-  if (days <= 7) return 300;
-  if (days <= 31) return 1000;
-  return 3000;
+function branchRankingMinOrdersForRange(
+  dateFrom: Date,
+  dateTo: Date,
+  now = new Date()
+) {
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  const lastCompletedDay = addUtcDays(today, -1);
+  const effectiveDateTo =
+    dateTo > lastCompletedDay ? lastCompletedDay : dateTo;
+
+  if (effectiveDateTo < dateFrom) {
+    return 0;
+  }
+
+  return inclusiveDays(dateFrom, effectiveDateTo) * 50;
 }
 
 function pickerRankingMinOrdersForRange(days: number) {
@@ -2091,22 +2110,24 @@ function buildPickerPerformanceSummaryRows({
     ),
     (record) => record.userId
   );
+  const assignmentByPickerId = new Map(
+    assignments.map((assignment) => [assignment.pickerId, assignment])
+  );
   const attendanceByPickerId = groupBy(attendanceRecords, (record) => record.userId);
   const rankMap = buildPickerPerformanceRankMap(
-    assignments,
     kpiByPickerId,
     attendanceByPickerId,
     minOrders
   );
   const target =
     targetSettings.source === "SAVED" ? targetSettings.targets.uhoRateTarget : null;
-  const rows = assignments
-    .map((assignment) => {
-      const pickerKpiRecords = kpiByPickerId.get(assignment.pickerId) ?? [];
-      const hasKpi = pickerKpiRecords.length > 0;
+  const rows = Array.from(kpiByPickerId.entries())
+    .map(([pickerId, pickerKpiRecords]) => {
+      const assignment = assignmentByPickerId.get(pickerId);
+      const firstKpiRecord = pickerKpiRecords[0];
       const kpi = summarizeOrdersKpi(pickerKpiRecords);
       const attendance = summarizeAttendanceRecords(
-        attendanceByPickerId.get(assignment.pickerId) ?? []
+        attendanceByPickerId.get(pickerId) ?? []
       );
       const attendanceHealthRate = percentage(
         attendance.cleanShifts,
@@ -2120,7 +2141,6 @@ function buildPickerPerformanceSummaryRows({
       const unhealthyRate = percentage(kpi.unhealthyOrders, kpi.totalOrders);
       const status = resolvePickerPerformanceStatus({
         attendanceHealthRate,
-        hasKpi,
         issueShifts: attendance.issueShifts,
         minOrders,
         target,
@@ -2128,12 +2148,33 @@ function buildPickerPerformanceSummaryRows({
         totalShiftErrors,
         unhealthyRate
       });
+      const assignmentMismatch = !assignment;
+      const reasonLabels = pickerPerformanceReasonLabels({
+        attendanceHealthRate,
+        minOrders,
+        status,
+        target,
+        totalOrders: kpi.totalOrders,
+        totalShiftErrors,
+        unhealthyRate
+      });
+
+      if (assignmentMismatch) {
+        reasonLabels.push("Wrong Branch assignment");
+      }
 
       return {
-        rank: rankMap.get(assignment.pickerId) ?? null,
-        userId: assignment.pickerId,
-        pickerName: assignment.picker.nameEn,
-        shopperId: assignment.picker.shopperId,
+        rank: rankMap.get(pickerId) ?? null,
+        userId: pickerId,
+        pickerName:
+          assignment?.picker.nameEn ??
+          firstKpiRecord?.pickerNameSnapshot ??
+          firstKpiRecord?.sourcePickerKey ??
+          pickerId,
+        shopperId:
+          assignment?.picker.shopperId ??
+          firstKpiRecord?.sourceShopperId ??
+          null,
         totalOrders: kpi.totalOrders,
         unhealthyOrders: kpi.unhealthyOrders,
         unhealthyRate,
@@ -2141,16 +2182,11 @@ function buildPickerPerformanceSummaryRows({
         issueShifts: attendance.issueShifts,
         totalShiftErrors,
         status,
-        reasonLabels: pickerPerformanceReasonLabels({
-          attendanceHealthRate,
-          hasKpi,
-          minOrders,
-          status,
-          target,
-          totalOrders: kpi.totalOrders,
-          totalShiftErrors,
-          unhealthyRate
-        })
+        assignmentMismatch,
+        assignmentMismatchReason: assignmentMismatch
+          ? "WRONG_BRANCH_ASSIGNMENT"
+          : null,
+        reasonLabels
       };
     })
     .sort(comparePickerPerformanceRows);
@@ -2159,21 +2195,22 @@ function buildPickerPerformanceSummaryRows({
     available: rows.length > 0,
     rows,
     totalRows: rows.length,
-    reason: rows.length ? undefined : "No active Pickers are assigned to this Branch."
+    reason: rows.length
+      ? undefined
+      : "No confirmed Picker KPI records are available for this Branch."
   };
 }
 
 function buildPickerPerformanceRankMap(
-  assignments: ChampBranchAssignment["vendor"]["pickerAssignments"],
   kpiByPickerId: Map<string, OrdersKpiSummaryRecord[]>,
   attendanceByPickerId: Map<string, AttendanceSummaryRecord[]>,
   minOrders: number
 ) {
-  const metrics = assignments
-    .map((assignment) => {
-      const kpi = summarizeOrdersKpi(kpiByPickerId.get(assignment.pickerId) ?? []);
+  const metrics = Array.from(kpiByPickerId.entries())
+    .map(([pickerId, records]) => {
+      const kpi = summarizeOrdersKpi(records);
       const attendance = summarizeAttendanceRecords(
-        attendanceByPickerId.get(assignment.pickerId) ?? []
+        attendanceByPickerId.get(pickerId) ?? []
       );
 
       if (kpi.totalOrders < minOrders) {
@@ -2181,7 +2218,7 @@ function buildPickerPerformanceRankMap(
       }
 
       return {
-        pickerId: assignment.pickerId,
+        pickerId,
         totalOrders: kpi.totalOrders,
         unhealthyOrders: kpi.unhealthyOrders,
         unhealthyRate: percentage(kpi.unhealthyOrders, kpi.totalOrders) ?? 0,
@@ -2201,7 +2238,6 @@ function buildPickerPerformanceRankMap(
 
 function resolvePickerPerformanceStatus({
   attendanceHealthRate,
-  hasKpi,
   issueShifts,
   minOrders,
   target,
@@ -2210,7 +2246,6 @@ function resolvePickerPerformanceStatus({
   unhealthyRate
 }: {
   attendanceHealthRate: number | null;
-  hasKpi: boolean;
   issueShifts: number;
   minOrders: number;
   target: number | null;
@@ -2218,10 +2253,6 @@ function resolvePickerPerformanceStatus({
   totalShiftErrors: number;
   unhealthyRate: number | null;
 }): PickerPerformanceStatus {
-  if (!hasKpi) {
-    return "NO_KPI";
-  }
-
   if (totalOrders < minOrders) {
     return "LOW_VOLUME";
   }
@@ -2247,7 +2278,6 @@ function resolvePickerPerformanceStatus({
 
 function pickerPerformanceReasonLabels({
   attendanceHealthRate,
-  hasKpi,
   minOrders,
   status,
   target,
@@ -2256,7 +2286,6 @@ function pickerPerformanceReasonLabels({
   unhealthyRate
 }: {
   attendanceHealthRate: number | null;
-  hasKpi: boolean;
   minOrders: number;
   status: PickerPerformanceStatus;
   target: number | null;
@@ -2266,9 +2295,7 @@ function pickerPerformanceReasonLabels({
 }) {
   const reasons: string[] = [];
 
-  if (!hasKpi) {
-    reasons.push("No confirmed KPI records");
-  } else if (totalOrders < minOrders) {
+  if (totalOrders < minOrders) {
     reasons.push(`${totalOrders} of ${minOrders} required orders`);
   }
 
@@ -2316,10 +2343,10 @@ function comparePickerPerformanceRows(
   }
 ) {
   return (
-    pickerPerformanceStatusWeight[left.status] -
-      pickerPerformanceStatusWeight[right.status] ||
     (left.rank ?? Number.MAX_SAFE_INTEGER) -
       (right.rank ?? Number.MAX_SAFE_INTEGER) ||
+    pickerPerformanceStatusWeight[left.status] -
+      pickerPerformanceStatusWeight[right.status] ||
     (left.unhealthyRate ?? Number.MAX_SAFE_INTEGER) -
       (right.unhealthyRate ?? Number.MAX_SAFE_INTEGER) ||
     right.totalOrders - left.totalOrders ||

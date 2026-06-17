@@ -29,7 +29,8 @@ export function ChampOffboardingForm({
   onCancel,
   onCreated,
   onDirtyChange,
-  type
+  type,
+  vendorId
 }: {
   initialPickerId?: string | null;
   mode?: "modal" | "page";
@@ -37,10 +38,12 @@ export function ChampOffboardingForm({
   onCreated?: (request: RequestSummary) => void;
   onDirtyChange?: (isDirty: boolean) => void;
   type: OffboardingType;
+  vendorId?: string;
 }) {
-  const params = useParams<{ vendorId: string }>();
+  const params = useParams<{ vendorId?: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const activeVendorId = vendorId ?? params.vendorId;
   const preselectedPickerId = initialPickerId ?? searchParams.get("pickerId");
   const [formDirty, setFormDirty] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -51,8 +54,16 @@ export function ChampOffboardingForm({
   useEffect(() => {
     let mounted = true;
     async function loadBranch() {
+      if (!activeVendorId) {
+        setBranchState({
+          status: "error",
+          error: "No source Branch is selected for this request."
+        });
+        return;
+      }
+
       try {
-        const branch = await workspacesApi.champBranchDetail(params.vendorId);
+        const branch = await workspacesApi.champBranchDetail(activeVendorId);
         if (mounted) setBranchState({ status: "ready", data: branch });
       } catch (caughtError) {
         if (mounted) {
@@ -70,7 +81,7 @@ export function ChampOffboardingForm({
     return () => {
       mounted = false;
     };
-  }, [params.vendorId]);
+  }, [activeVendorId]);
 
   const preselectedPicker = useMemo(() => {
     if (branchState.status !== "ready" || !preselectedPickerId) return null;

@@ -10,6 +10,7 @@ export interface AuthenticatedUser {
   role: UserRole;
   nameEn: string;
   phoneNumber: string;
+  nationalId: string;
   accountStatus: AccountStatus;
   employmentStatus: EmploymentStatus;
   profileStatus: ProfileStatus;

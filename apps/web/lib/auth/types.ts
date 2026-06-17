@@ -30,7 +30,7 @@ export interface SafeUser {
   nameEn: string;
   nameAr: string | null;
   phoneNumber: string;
-  nationalId: string | null;
+  nationalId: string;
   address: string | null;
   dateOfBirth: string | null;
   gender: Gender;

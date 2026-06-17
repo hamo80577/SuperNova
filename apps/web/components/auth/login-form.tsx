@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2, LockKeyhole, Phone } from "lucide-react";
+import { Eye, EyeOff, IdCard, Loader2, LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { replaceRoute } from "@/lib/navigation";
 import { hideGlobalLoading, showGlobalLoading } from "@/lib/navigation-loading";
 
 export function LoginForm() {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,8 +36,15 @@ export function LoginForm() {
       return;
     }
 
-    if (!phoneNumber.trim() || !password) {
-      setError("Phone number and password are required.");
+    const trimmedNationalId = nationalId.trim();
+
+    if (!trimmedNationalId || !password) {
+      setError("National ID and password are required.");
+      return;
+    }
+
+    if (!/^\d{14}$/.test(trimmedNationalId)) {
+      setError("National ID must be exactly 14 digits.");
       return;
     }
 
@@ -46,7 +53,7 @@ export function LoginForm() {
     showGlobalLoading("Signing in");
 
     try {
-      const response = await login(phoneNumber, password, rememberMe);
+      const response = await login(trimmedNationalId, password, rememberMe);
       replaceRoute(router, response.redirectTo);
     } catch (caughtError) {
       submittingRef.current = false;
@@ -63,19 +70,25 @@ export function LoginForm() {
   return (
     <form className="space-y-5" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-[color:var(--sn-ink)]" htmlFor="phone">
-          Phone number
+        <label
+          className="text-sm font-medium text-[color:var(--sn-ink)]"
+          htmlFor="national-id"
+        >
+          National ID
         </label>
         <div className="relative">
-          <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--sn-muted)]" />
+          <IdCard className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--sn-muted)]" />
           <Input
-            autoComplete="tel"
+            autoComplete="username"
             className="h-[46px] rounded-xl border-[color:var(--sn-border)] bg-[color:var(--sn-card)] pl-11 text-base shadow-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
             disabled={busy}
-            id="phone"
-            inputMode="tel"
-            onChange={(event) => setPhoneNumber(event.target.value)}
-            value={phoneNumber}
+            id="national-id"
+            inputMode="numeric"
+            maxLength={14}
+            onChange={(event) =>
+              setNationalId(event.target.value.replace(/\D/g, ""))
+            }
+            value={nationalId}
           />
         </div>
       </div>

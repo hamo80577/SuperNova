@@ -97,6 +97,7 @@ export class DeductionsScopeService {
         { nameAr: { contains: search, mode: "insensitive" } },
         { shopperId: { contains: search, mode: "insensitive" } },
         { ibsId: { contains: search, mode: "insensitive" } },
+        { nationalId: { contains: search } },
         { phoneNumber: { contains: search } }
       ]
     };
