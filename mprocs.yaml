@@ -1,0 +1,20 @@
+proc_list_title: SuperNova
+
+procs:
+  prisma:
+    cmd: ["npm.cmd", "run", "prisma:generate"]
+    cwd: "<CONFIG_DIR>"
+
+  api:
+    cmd:
+      ["npm.cmd", "run", "dev", "--workspace", "@supernova/api"]
+    cwd: "<CONFIG_DIR>"
+    deps: ["prisma"]
+    stop: hard-kill
+
+  web:
+    cmd:
+      ["npm.cmd", "run", "dev", "--workspace", "@supernova/web"]
+    cwd: "<CONFIG_DIR>"
+    deps: ["prisma"]
+    stop: hard-kill
