@@ -13,6 +13,7 @@ import {
 import {
   AreaManagerCard,
   PerformanceStatusBadge,
+  SectionEmptyState,
   SectionHeader,
   SectionUnavailable
 } from "./area-manager-metric-card";
@@ -40,6 +41,10 @@ export function AreaManagerBranchesTable({
             }
           />
         </div>
+      ) : rows.length === 0 ? (
+        <SectionEmptyState
+          message="No branch performance rows for this period."
+        />
       ) : (
         <>
           <div className="hidden xl:block">

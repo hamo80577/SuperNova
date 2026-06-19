@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Info } from "lucide-react";
+import { AlertTriangle, Inbox, Info } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { AreaManagerPerformanceStatus } from "@/lib/api/area-manager-performance";
@@ -73,6 +73,21 @@ export function SectionUnavailable({ message }: { message: string }) {
     <div className="grid min-h-[112px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] p-4 text-center">
       <div className="grid justify-items-center gap-2">
         <AlertTriangle className="h-5 w-5 text-[color:var(--sn-muted)]" />
+        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
+          {message}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function SectionEmptyState({ message }: { message: string }) {
+  return (
+    <div className="grid min-h-[112px] place-items-center p-4 text-center">
+      <div className="grid justify-items-center gap-2">
+        <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
+          <Inbox className="h-4 w-4" />
+        </span>
         <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
           {message}
         </p>

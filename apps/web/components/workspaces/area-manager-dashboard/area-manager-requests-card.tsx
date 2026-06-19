@@ -8,6 +8,7 @@ import type { AreaManagerPerformanceSummary } from "@/lib/api/area-manager-perfo
 import { formatNumber } from "./area-manager-dashboard-utils";
 import {
   AreaManagerCard,
+  SectionEmptyState,
   SectionHeader,
   SectionUnavailable
 } from "./area-manager-metric-card";
@@ -38,6 +39,8 @@ export function AreaManagerRequestsCard({
             }
           />
         </div>
+      ) : rows.length === 0 ? (
+        <SectionEmptyState message="No recent requests in this period." />
       ) : (
         <>
           <div className="hidden md:block">

@@ -16,6 +16,7 @@ import {
 import {
   AreaManagerCard,
   InfoPill,
+  SectionEmptyState,
   SectionHeader,
   SectionUnavailable
 } from "./area-manager-metric-card";
@@ -45,65 +46,77 @@ export function AreaManagerRankingCard({
         <>
           {current ? <CurrentRankSummary row={current} /> : null}
 
-          <div className="hidden 2xl:block">
-            <table className="sn-table [&_td]:px-3 [&_th]:px-3">
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>Area Manager</th>
-                  <th>Chains</th>
-                  <th>Orders</th>
-                  <th>UHO %</th>
-                  <th>Att. Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranking.rows.map((row) => (
-                  <tr
-                    className={cn(
-                      row.isCurrentUser &&
-                        "bg-[#fff5ed] hover:bg-[#fff1e5]"
-                    )}
-                    key={row.areaManagerId}
-                  >
-                    <td>
-                      <RankMark rank={row.rank} />
-                    </td>
-                    <td>
-                      <div className="min-w-0">
-                        <p className="max-w-[190px] truncate font-semibold text-[color:var(--sn-ink)]">
-                          {row.areaManagerName}
-                        </p>
-                        {row.isCurrentUser ? (
-                          <p className="text-[11px] font-semibold text-[color:var(--tlb-orange)]">
-                            You
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="sn-mono font-semibold">
-                      {formatNumber(row.chainsCount)}
-                    </td>
-                    <td className="sn-mono font-semibold">
-                      {formatNumber(row.totalOrders)}
-                    </td>
-                    <td className={uhoToneClass(row.unhealthyRate)}>
-                      {formatPercent(row.unhealthyRate)}
-                    </td>
-                    <td className={healthToneClass(row.attendanceHealthRate)}>
-                      {formatPercent(row.attendanceHealthRate)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {ranking.rows.length === 0 ? (
+            <SectionEmptyState
+              message="Ranking is available but no ranking rows were returned."
+            />
+          ) : (
+            <>
+              <div className="hidden xl:block">
+                <table className="sn-table [&_td]:px-3 [&_th]:px-3">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Area Manager</th>
+                      <th>Chains</th>
+                      <th>Orders</th>
+                      <th>UHO %</th>
+                      <th>Att. Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ranking.rows.map((row) => (
+                      <tr
+                        className={cn(
+                          row.isCurrentUser &&
+                            "bg-[#fff5ed] hover:bg-[#fff1e5]"
+                        )}
+                        key={row.areaManagerId}
+                      >
+                        <td>
+                          <RankMark rank={row.rank} />
+                        </td>
+                        <td>
+                          <div className="min-w-0">
+                            <p className="max-w-[190px] truncate font-semibold text-[color:var(--sn-ink)]">
+                              {row.areaManagerName}
+                            </p>
+                            {row.isCurrentUser ? (
+                              <p className="text-[11px] font-semibold text-[color:var(--tlb-orange)]">
+                                You
+                              </p>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="sn-mono font-semibold">
+                          {formatNumber(row.chainsCount)}
+                        </td>
+                        <td className="sn-mono font-semibold">
+                          {formatNumber(row.totalOrders)}
+                        </td>
+                        <td className={uhoToneClass(row.unhealthyRate)}>
+                          {formatPercent(row.unhealthyRate)}
+                        </td>
+                        <td
+                          className={healthToneClass(
+                            row.attendanceHealthRate
+                          )}
+                        >
+                          {formatPercent(row.attendanceHealthRate)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          <div className="grid gap-2 p-3 2xl:hidden">
-            {ranking.rows.map((row) => (
-              <RankingMobileRow key={row.areaManagerId} row={row} />
-            ))}
-          </div>
+              <div className="grid gap-2 p-3 xl:hidden">
+                {ranking.rows.map((row) => (
+                  <RankingMobileRow key={row.areaManagerId} row={row} />
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
     </AreaManagerCard>
