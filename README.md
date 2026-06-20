@@ -106,6 +106,7 @@ Typical local flow:
 
 ```powershell
 npm install
+docker compose up -d
 npm run prisma:generate
 npm run prisma:validate
 npm run prisma:migrate

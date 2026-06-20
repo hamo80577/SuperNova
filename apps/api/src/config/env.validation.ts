@@ -19,6 +19,10 @@ export function validateEnvironment(config: EnvironmentConfig) {
   const hrSyncEnabled = readBooleanString(config, "HR_SYNC_ENABLED", errors);
   const hrSyncWebAppUrl = readOptionalString(config, "HR_SYNC_WEB_APP_URL");
   const hrSyncSecret = readOptionalString(config, "HR_SYNC_SECRET");
+  const redisUrl =
+    readOptionalString(config, "REDIS_URL") ?? "redis://localhost:6379";
+  const importMaxFileSizeBytes =
+    readOptionalString(config, "IMPORT_MAX_FILE_SIZE_BYTES") ?? "104857600";
 
   if (jwtSecret && jwtSecret.length < MIN_SECRET_LENGTH) {
     errors.push(`JWT_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`);
@@ -26,6 +30,17 @@ export function validateEnvironment(config: EnvironmentConfig) {
 
   if (!/^\d+$/.test(apiPort)) {
     errors.push("API_PORT must be a number.");
+  }
+
+  if (!isValidRedisUrl(redisUrl)) {
+    errors.push("REDIS_URL must be a valid redis:// or rediss:// URL.");
+  }
+
+  if (
+    !/^\d+$/.test(importMaxFileSizeBytes) ||
+    Number(importMaxFileSizeBytes) <= 0
+  ) {
+    errors.push("IMPORT_MAX_FILE_SIZE_BYTES must be a positive integer.");
   }
 
   const normalizedWebOrigin = normalizeOrigin(webOrigin);
@@ -74,6 +89,8 @@ export function validateEnvironment(config: EnvironmentConfig) {
     NODE_ENV: nodeEnv,
     API_PORT: apiPort,
     JWT_EXPIRES_IN: jwtExpiresIn,
+    REDIS_URL: redisUrl,
+    IMPORT_MAX_FILE_SIZE_BYTES: importMaxFileSizeBytes,
     HR_SYNC_ENABLED: hrSyncEnabled ? "true" : "false",
     ...(hrSyncWebAppUrl ? { HR_SYNC_WEB_APP_URL: hrSyncWebAppUrl } : {}),
     ...(hrSyncSecret ? { HR_SYNC_SECRET: hrSyncSecret } : {}),
@@ -148,6 +165,15 @@ function isValidHttpsUrl(value: string) {
   try {
     const url = new URL(value);
     return url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isValidRedisUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "redis:" || url.protocol === "rediss:";
   } catch {
     return false;
   }

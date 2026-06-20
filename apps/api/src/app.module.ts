@@ -14,6 +14,7 @@ import { ChainsModule } from "./chains/chains.module";
 import { DeductionsModule } from "./deductions/deductions.module";
 import { HealthModule } from "./health/health.module";
 import { HrSyncModule } from "./hr-sync/hr-sync.module";
+import { ImportJobsModule } from "./import-jobs/import-jobs.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { OrdersKpisModule } from "./orders-kpis/orders-kpis.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -33,6 +34,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
       validate: validateEnvironment
     }),
     PrismaModule,
+    ImportJobsModule,
     HealthModule,
     AuthModule,
     UsersModule,

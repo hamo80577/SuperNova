@@ -23,6 +23,7 @@ import {
 } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { createManyInChunks } from "../common/database/create-many-in-chunks";
 import { AttendanceCalculationService } from "./attendance-calculation.service";
 import type {
   AttendanceCalculationInputRow,
@@ -115,6 +116,22 @@ export class AttendanceImportService {
     buffer: Buffer,
     options: AttendanceImportPreviewOptions
   ): Promise<AttendanceImportPreviewResult> {
+    return this.processImport(buffer, options);
+  }
+
+  async processQueuedImport(
+    batchId: string,
+    buffer: Buffer,
+    options: AttendanceImportPreviewOptions
+  ): Promise<AttendanceImportPreviewResult> {
+    return this.processImport(buffer, options, batchId);
+  }
+
+  private async processImport(
+    buffer: Buffer,
+    options: AttendanceImportPreviewOptions,
+    queuedBatchId?: string
+  ): Promise<AttendanceImportPreviewResult> {
     assertAttendanceImportActor(options.actor);
 
     if (buffer.length === 0) {
@@ -130,7 +147,7 @@ export class AttendanceImportService {
     const now = normalizeDateTime(options.now);
     const uploadDate = options.uploadDate ?? now;
     const workbook = await this.parser.parseWorkbook(buffer);
-    const preview = await this.validator.validateWorkbook(buffer, {
+    const preview = await this.validator.validateParsedWorkbook(workbook, {
       duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
       importMode: options.importMode,
       periodMonth: options.periodMonth,
@@ -201,66 +218,89 @@ export class AttendanceImportService {
 
     const batch = await this.prisma.$transaction(
       async (tx) => {
-        const createdBatch = await tx.attendanceImportBatch.create({
-          data: {
-            periodMonth: preview.periodMonth ?? periodMonthFromUploadDate(uploadDate),
-            fileName: normalizeFileName(options.fileName),
-            fileHash: hashBuffer(buffer),
-            importMode: preview.importMode,
-            uploadedByUserId: options.actor.id,
-            uploadedAt: now,
-            status,
-            rowCount: preview.rowCount,
-            egyptRows: preview.egyptRows,
-            matchedPickerRows: preview.matchedPickerRows,
-            matchedChampRows: preview.matchedChampRows,
-            ambiguousIdentifierRows: preview.ambiguousIdentifierRows,
-            unmatchedRows: preview.unmatchedRows,
-            excludedNonPickerRows: preview.excludedNonPickerRows,
-            excludedNonEgyptRows: preview.nonEgyptRows,
-            errorRows,
-            warningRows,
-            coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
-            coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
-            expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
-              preview.expectedCoverageEndDate
-            ),
-            replaceOfBatchId: null,
-            confirmedByUserId: null,
-            confirmedAt: null
-          }
-        });
+        if (queuedBatchId) {
+          await tx.attendanceImportIssue.deleteMany({
+            where: { batchId: queuedBatchId }
+          });
+          await tx.attendanceDailyRecord.deleteMany({
+            where: { importBatchId: queuedBatchId }
+          });
+          await tx.attendancePickerMonthlySummary.deleteMany({
+            where: { sourceBatchId: queuedBatchId }
+          });
+        }
+
+        const batchData = {
+          periodMonth: preview.periodMonth ?? periodMonthFromUploadDate(uploadDate),
+          fileName: normalizeFileName(options.fileName),
+          fileHash: hashBuffer(buffer),
+          importMode: preview.importMode,
+          uploadedByUserId: options.actor.id,
+          status,
+          rowCount: preview.rowCount,
+          egyptRows: preview.egyptRows,
+          matchedPickerRows: preview.matchedPickerRows,
+          matchedChampRows: preview.matchedChampRows,
+          ambiguousIdentifierRows: preview.ambiguousIdentifierRows,
+          unmatchedRows: preview.unmatchedRows,
+          excludedNonPickerRows: preview.excludedNonPickerRows,
+          excludedNonEgyptRows: preview.nonEgyptRows,
+          errorRows,
+          warningRows,
+          failureReason: null,
+          coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
+          coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
+          expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
+            preview.expectedCoverageEndDate
+          ),
+          replaceOfBatchId: null,
+          confirmedByUserId: null,
+          confirmedAt: null
+        };
+        const createdBatch = queuedBatchId
+          ? await tx.attendanceImportBatch.update({
+              where: { id: queuedBatchId },
+              data: batchData
+            })
+          : await tx.attendanceImportBatch.create({
+              data: { ...batchData, uploadedAt: now }
+            });
 
         if (combinedIssues.length > 0) {
-          await tx.attendanceImportIssue.createMany({
-            data: combinedIssues.map((issue) => ({
-              batchId: createdBatch.id,
-              rowNumber: issue.rowNumber,
-              shopperId: issue.shopperId,
-              severity: issue.severity,
-              issueCode: issue.issueCode,
-              fieldName: issue.fieldName,
-              message: issue.message,
-              resolutionStatus: issue.resolutionStatus
-            }))
-          });
+          const issueRows = combinedIssues.map((issue) => ({
+            batchId: createdBatch.id,
+            rowNumber: issue.rowNumber,
+            shopperId: issue.shopperId,
+            severity: issue.severity,
+            issueCode: issue.issueCode,
+            fieldName: issue.fieldName,
+            message: issue.message,
+            resolutionStatus: issue.resolutionStatus
+          }));
+          await createManyInChunks(issueRows, (chunk) =>
+            tx.attendanceImportIssue.createMany({ data: chunk })
+          );
         }
 
         if (status === AttendanceImportBatchStatus.VALIDATED) {
           if (calculationResult.dailyRecords.length > 0) {
-            await tx.attendanceDailyRecord.createMany({
-              data: calculationResult.dailyRecords.map((record) =>
+            const dailyRecordRows = calculationResult.dailyRecords.map(
+              (record) =>
                 mapDailyRecordForCreate(createdBatch.id, record)
-              )
-            });
+            );
+            await createManyInChunks(dailyRecordRows, (chunk) =>
+              tx.attendanceDailyRecord.createMany({ data: chunk })
+            );
           }
 
           if (calculationResult.monthlySummaries.length > 0) {
-            await tx.attendancePickerMonthlySummary.createMany({
-              data: calculationResult.monthlySummaries.map((summary) =>
+            const monthlySummaryRows = calculationResult.monthlySummaries.map(
+              (summary) =>
                 mapMonthlySummaryForCreate(createdBatch.id, summary)
-              )
-            });
+            );
+            await createManyInChunks(monthlySummaryRows, (chunk) =>
+              tx.attendancePickerMonthlySummary.createMany({ data: chunk })
+            );
           }
         }
 

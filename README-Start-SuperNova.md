@@ -27,6 +27,7 @@ The runner:
   - `.env.example` to `.env`
   - `apps\api\.env.example` to `apps\api\.env`
   - `apps\web\.env.example` to `apps\web\.env.local`
+- Expects `docker compose up -d` to have started PostgreSQL, Redis, and PgBouncer.
 - Checks Node and npm availability and prints their versions.
 - Checks whether PostgreSQL is accepting connections on `localhost:5432`.
 - Detects a Windows PostgreSQL service when PostgreSQL is not reachable.
@@ -66,23 +67,23 @@ For normal frontend and API code changes, you usually do not need to restart. Ne
 
 `Ctrl+C` still works as a last-resort terminal interrupt. If Windows asks whether to terminate the batch job, type `Y` and press Enter.
 
-## Fix PostgreSQL Not Running
+## Fix Database or Queue Infrastructure
 
-`npm run dev` does not start PostgreSQL by itself. PostgreSQL must already be installed and reachable on `localhost:5432`.
+`npm run dev` does not start infrastructure containers. Start PostgreSQL, Redis, and PgBouncer from the repository root:
 
-If the runner says PostgreSQL is not reachable:
+```powershell
+docker compose up -d
+```
 
-1. Open Windows Services.
-2. Find the PostgreSQL service, usually named like `postgresql-x64-16`.
-3. Start the service.
-4. Rerun `Start-SuperNova.bat`.
+The required local ports are PostgreSQL `5432`, Redis `6379`, and PgBouncer `6432`.
 
-If the runner detects the service but cannot start it because PowerShell is not running as Administrator, either start PostgreSQL from Windows Services or right-click `Start-SuperNova.bat` and choose `Run as administrator`.
+If any service is unavailable, inspect `docker compose ps` and `docker compose logs`, correct the container error, and rerun `docker compose up -d`. A standalone Windows PostgreSQL service is insufficient because imports also require Redis and PgBouncer.
 
-Also confirm that `DATABASE_URL` points to the expected local database:
+Runtime Prisma traffic must use PgBouncer, while migrations use PostgreSQL directly:
 
 ```text
-postgresql://postgres:postgres@localhost:5432/supernova
+DATABASE_URL=postgresql://postgres:postgres@localhost:6432/supernova?pgbouncer=true&connection_limit=100
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/supernova
 ```
 
 ## Reading Logs

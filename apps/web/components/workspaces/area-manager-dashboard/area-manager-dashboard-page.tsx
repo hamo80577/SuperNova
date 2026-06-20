@@ -121,12 +121,12 @@ function AreaManagerDashboardContent({
 }) {
   return (
     <>
-      <AreaManagerOverviewCards summary={summary} />
-
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <AreaManagerRequestsCard latestRequests={summary.latestRequests} />
+      <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+        <AreaManagerOverviewCards summary={summary} />
         <AreaManagerRankingCard ranking={summary.areaManagersRanking} />
       </div>
+
+      <AreaManagerRequestsCard latestRequests={summary.latestRequests} />
 
       <AreaManagerBranchesTable
         branchesPerformance={summary.branchesPerformance}
@@ -139,14 +139,12 @@ function AreaManagerDashboardContent({
 function DashboardSkeleton() {
   return (
     <div aria-busy="true" className="grid gap-4" role="status">
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <SkeletonCard className="h-[300px]" />
         <SkeletonCard className="h-[300px]" />
         <SkeletonCard className="h-[300px]" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <SkeletonCard className="h-[330px]" />
-        <SkeletonCard className="h-[330px]" />
-      </div>
+      <SkeletonCard className="h-[330px]" />
       <SkeletonCard className="h-[360px]" />
       <SkeletonCard className="h-[340px]" />
     </div>

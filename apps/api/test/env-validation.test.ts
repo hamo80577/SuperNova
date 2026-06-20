@@ -100,3 +100,15 @@ expectValidationError(
   },
   [/HR_SYNC_ENABLED must be true or false/]
 );
+
+expectValidationError(
+  {
+    ...validBaseEnv,
+    REDIS_URL: "https://localhost:6379",
+    IMPORT_MAX_FILE_SIZE_BYTES: "0"
+  },
+  [
+    /REDIS_URL must be a valid redis:\/\/ or rediss:\/\/ URL/,
+    /IMPORT_MAX_FILE_SIZE_BYTES must be a positive integer/
+  ]
+);

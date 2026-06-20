@@ -12,6 +12,7 @@ import type {
   AttendanceMatchedUser,
   AttendanceDuplicateGroup,
   AttendanceDuplicateOption,
+  AttendanceParsedWorkbook,
   AttendanceParsedRow,
   AttendancePreviewIssue,
   AttendanceRowsPreviewItem,
@@ -55,6 +56,13 @@ export class AttendanceValidatorService {
     options: AttendanceValidationOptions
   ): Promise<AttendanceValidationPreview> {
     const workbook = await this.parser.parseWorkbook(buffer);
+    return this.validateParsedWorkbook(workbook, options);
+  }
+
+  async validateParsedWorkbook(
+    workbook: AttendanceParsedWorkbook,
+    options: AttendanceValidationOptions
+  ): Promise<AttendanceValidationPreview> {
     const uploadDate = normalizeUploadDate(options.uploadDate);
     const issues: AttendancePreviewIssue[] = [];
     const rowIssueCounts = new Map<number, number>();

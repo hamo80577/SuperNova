@@ -36,5 +36,8 @@ backups/
 *.dump
 *.backup
 
+# Transient background-import uploads
+**/var/imports/
+
 # Archive bundles
 *.zip

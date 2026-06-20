@@ -13,6 +13,7 @@ import {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   const configService = app.get(ConfigService);
   const webOrigin = configService.get<string>("auth.webOrigin");
 

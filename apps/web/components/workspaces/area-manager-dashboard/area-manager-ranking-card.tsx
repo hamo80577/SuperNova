@@ -7,12 +7,7 @@ import type {
   AreaManagerRankRow
 } from "@/lib/api/area-manager-performance";
 import { cn } from "@/lib/utils";
-import {
-  formatNumber,
-  formatPercent,
-  healthToneClass,
-  uhoToneClass
-} from "./area-manager-dashboard-utils";
+import { formatNumber, formatPercent } from "./area-manager-dashboard-utils";
 import {
   AreaManagerCard,
   InfoPill,
@@ -29,7 +24,7 @@ export function AreaManagerRankingCard({
   const current = ranking.currentAreaManager;
 
   return (
-    <AreaManagerCard className="overflow-hidden">
+    <AreaManagerCard className="h-full overflow-hidden">
       <SectionHeader
         action={<InfoPill>UHO only</InfoPill>}
         eyebrow="Lower UHO ranks higher"
@@ -51,71 +46,11 @@ export function AreaManagerRankingCard({
               message="Ranking is available but no ranking rows were returned."
             />
           ) : (
-            <>
-              <div className="hidden xl:block">
-                <table className="sn-table [&_td]:px-3 [&_th]:px-3">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Area Manager</th>
-                      <th>Chains</th>
-                      <th>Orders</th>
-                      <th>UHO %</th>
-                      <th>Att. Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ranking.rows.map((row) => (
-                      <tr
-                        className={cn(
-                          row.isCurrentUser &&
-                            "bg-[#fff5ed] hover:bg-[#fff1e5]"
-                        )}
-                        key={row.areaManagerId}
-                      >
-                        <td>
-                          <RankMark rank={row.rank} />
-                        </td>
-                        <td>
-                          <div className="min-w-0">
-                            <p className="max-w-[190px] truncate font-semibold text-[color:var(--sn-ink)]">
-                              {row.areaManagerName}
-                            </p>
-                            {row.isCurrentUser ? (
-                              <p className="text-[11px] font-semibold text-[color:var(--tlb-orange)]">
-                                You
-                              </p>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="sn-mono font-semibold">
-                          {formatNumber(row.chainsCount)}
-                        </td>
-                        <td className="sn-mono font-semibold">
-                          {formatNumber(row.totalOrders)}
-                        </td>
-                        <td className={uhoToneClass(row.unhealthyRate)}>
-                          {formatPercent(row.unhealthyRate)}
-                        </td>
-                        <td
-                          className={healthToneClass(
-                            row.attendanceHealthRate
-                          )}
-                        >
-                          {formatPercent(row.attendanceHealthRate)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="grid gap-2 p-3 xl:hidden">
-                {ranking.rows.map((row) => (
-                  <RankingMobileRow key={row.areaManagerId} row={row} />
-                ))}
-              </div>
-            </>
+            <div className="grid max-h-[220px] gap-2 overflow-y-auto p-3">
+              {ranking.rows.map((row) => (
+                <RankingRow key={row.areaManagerId} row={row} />
+              ))}
+            </div>
           )}
         </>
       )}
@@ -164,7 +99,7 @@ function RankContext({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RankingMobileRow({ row }: { row: AreaManagerRankRow }) {
+function RankingRow({ row }: { row: AreaManagerRankRow }) {
   return (
     <div
       className={cn(

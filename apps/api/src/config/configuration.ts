@@ -9,6 +9,13 @@ export default () => {
     database: {
       url: process.env.DATABASE_URL ?? ""
     },
+    imports: {
+      redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
+      storagePath: process.env.IMPORT_STORAGE_PATH ?? "var/imports",
+      maxFileSizeBytes: Number(
+        process.env.IMPORT_MAX_FILE_SIZE_BYTES ?? 100 * 1024 * 1024
+      )
+    },
     auth: {
       jwtSecret: process.env.JWT_SECRET ?? "",
       jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",

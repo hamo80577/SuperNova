@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -164,6 +165,8 @@ enum HrSyncStatus {
 }
 
 enum AttendanceImportBatchStatus {
+  PENDING
+  PROCESSING
   UPLOADED
   VALIDATED
   CONFIRMED
@@ -281,6 +284,8 @@ enum AttendanceIssueCode {
 }
 
 enum OrdersKpiImportBatchStatus {
+  PENDING
+  PROCESSING
   VALIDATED
   NEEDS_REVIEW
   CONFIRMED
@@ -630,8 +635,8 @@ model DeductionRuleStep {
 }
 
 model DeductionCase {
-  id                 String               @id @default(uuid())
-  requestId          String               @unique
+  id                 String                 @id @default(uuid())
+  requestId          String                 @unique
   targetUserId       String
   createdById        String
   actionId           String?
@@ -640,7 +645,7 @@ model DeductionCase {
   incidentMonth      String
   occurrenceNumber   Int
   penaltyType        DeductionPenaltyType
-  deductionDays      Decimal?             @db.Decimal(6, 2)
+  deductionDays      Decimal?               @db.Decimal(6, 2)
   penaltyLabel       String
   actionNameSnapshot String
   policySnapshot     Json
@@ -648,17 +653,21 @@ model DeductionCase {
   scopeSnapshot      Json
   reason             String?
   notes              String?
-  status             DeductionCaseStatus  @default(PENDING_APPROVAL)
+  status             DeductionCaseStatus    @default(PENDING_APPROVAL)
   finalApprovedById  String?
   finalApprovedAt    DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  request            Request              @relation(fields: [requestId], references: [id], onDelete: Restrict)
-  targetUser         User                 @relation("DeductionCaseTargetUser", fields: [targetUserId], references: [id], onDelete: Restrict)
-  createdBy          User                 @relation("DeductionCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  action             DeductionAction?     @relation(fields: [actionId], references: [id], onDelete: SetNull)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  request            Request                @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  targetUser         User                   @relation("DeductionCaseTargetUser", fields: [targetUserId], references: [id], onDelete: Restrict)
+  createdBy          User                   @relation("DeductionCaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  action             DeductionAction?       @relation(fields: [actionId], references: [id], onDelete: SetNull)
   policyVersion      DeductionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
-  finalApprovedBy    User?                @relation("DeductionCaseFinalApprovedBy", fields: [finalApprovedById], references: [id], onDelete: SetNull)
+  finalApprovedBy    User?                  @relation("DeductionCaseFinalApprovedBy", fields: [finalApprovedById], references: [id], onDelete: SetNull)
+  // A partial UNIQUE index on (targetUserId, actionId, incidentMonth,
+  // occurrenceNumber) WHERE status IN (PENDING_APPROVAL, EFFECTIVE) is created
+  // in migration 20260611090000_deduction_open_occurrence_unique. Prisma
+  // cannot express filtered unique indexes, so it lives in raw SQL only.
 
   @@index([targetUserId, incidentMonth])
   @@index([targetUserId, actionId, incidentMonth])
@@ -666,10 +675,6 @@ model DeductionCase {
   @@index([status, incidentMonth])
   @@index([createdById])
   @@index([actionId, incidentMonth])
-  // A partial UNIQUE index on (targetUserId, actionId, incidentMonth,
-  // occurrenceNumber) WHERE status IN (PENDING_APPROVAL, EFFECTIVE) is created
-  // in migration 20260611090000_deduction_open_occurrence_unique. Prisma
-  // cannot express filtered unique indexes, so it lives in raw SQL only.
 }
 
 model AnnualLeaveRequest {
@@ -763,6 +768,9 @@ model AttendanceImportBatch {
   uploadedByUserId        String
   uploadedAt              DateTime                         @default(now())
   status                  AttendanceImportBatchStatus      @default(UPLOADED)
+  jobId                   String?                          @unique
+  sourceFilePath          String?
+  failureReason           String?
   rowCount                Int                              @default(0)
   egyptRows               Int                              @default(0)
   matchedPickerRows       Int                              @default(0)
@@ -800,68 +808,68 @@ model AttendanceImportBatch {
 }
 
 model AttendanceDailyRecord {
-  id                      String                     @id @default(uuid())
-  importBatchId           String
-  periodMonth             String
-  shiftDate               DateTime
-  shopperId               String?
-  personRole              AttendancePersonRole       @default(PICKER)
-  identifierType          AttendanceIdentifierType   @default(SHOPPER_ID)
-  identifierValue         String
-  personNameSnapshot      String
-  userId                  String
-  pickerNameSnapshot      String
-  sourceName              String?
-  sourceDesignation       String?
-  division                String
-  sourceSubDivision       String?
-  sourceLocation          String?
-  sourceLocationCode      String?
-  reportedVendorId        String?
-  reportedChainId         String?
-  reportedLocationCode    String?
-  reportedLocationName    String?
-  reportedLocationRaw     String?
-  shiftLocationCode       String?
-  shiftLocationName       String?
-  shiftLocationRaw        String?
-  locationMappingStatus   AttendanceLocationMappingStatus   @default(NOT_CHECKED)
+  id                       String                             @id @default(uuid())
+  importBatchId            String
+  periodMonth              String
+  shiftDate                DateTime
+  shopperId                String?
+  personRole               AttendancePersonRole               @default(PICKER)
+  identifierType           AttendanceIdentifierType           @default(SHOPPER_ID)
+  identifierValue          String
+  personNameSnapshot       String
+  userId                   String
+  pickerNameSnapshot       String
+  sourceName               String?
+  sourceDesignation        String?
+  division                 String
+  sourceSubDivision        String?
+  sourceLocation           String?
+  sourceLocationCode       String?
+  reportedVendorId         String?
+  reportedChainId          String?
+  reportedLocationCode     String?
+  reportedLocationName     String?
+  reportedLocationRaw      String?
+  shiftLocationCode        String?
+  shiftLocationName        String?
+  shiftLocationRaw         String?
+  locationMappingStatus    AttendanceLocationMappingStatus    @default(NOT_CHECKED)
   assignmentMismatchStatus AttendanceAssignmentMismatchStatus @default(NOT_CHECKED)
-  shiftName               String
-  scheduledStartTime      String?
-  scheduledEndTime        String?
-  scheduledStartAt        DateTime?
-  scheduledEndAt          DateTime?
-  scheduledShiftHours     Decimal?                   @db.Decimal(6, 2)
-  breakDurationMins       Int?
-  actualCheckinTime       DateTime?
-  actualCheckoutTime      DateTime?
-  actualWorkDurationHours Decimal?                   @db.Decimal(6, 2)
-  sourceStatus            String?
-  calculatedStatus        AttendanceCalculatedStatus
-  rawLateMins             Int?
-  graceMins               Int?
-  chargeableLateMins      Int?
-  lateBucket              AttendanceLateBucket?
-  isLate                  Boolean                    @default(false)
-  isOnTime                Boolean                    @default(false)
-  isAbsent                Boolean                    @default(false)
-  isOffDay                Boolean                    @default(false)
-  isOnLeave               Boolean                    @default(false)
-  leaveType               AttendanceLeaveType?
-  isAnnualLeave           Boolean                    @default(false)
-  isMedicalLeave          Boolean                    @default(false)
-  isWorkingDay            Boolean                    @default(false)
-  isUnder8Hours           Boolean                    @default(false)
-  isOver15Hours           Boolean                    @default(false)
-  matchStatus             AttendanceMatchStatus      @default(MATCHED_PICKER)
-  rawRowNumber            Int
-  rowHash                 String
-  issuesCount             Int                        @default(0)
-  createdAt               DateTime                   @default(now())
-  updatedAt               DateTime                   @updatedAt
-  importBatch             AttendanceImportBatch      @relation(fields: [importBatchId], references: [id], onDelete: Restrict)
-  user                    User                       @relation("AttendanceDailyRecordUser", fields: [userId], references: [id], onDelete: Restrict)
+  shiftName                String
+  scheduledStartTime       String?
+  scheduledEndTime         String?
+  scheduledStartAt         DateTime?
+  scheduledEndAt           DateTime?
+  scheduledShiftHours      Decimal?                           @db.Decimal(6, 2)
+  breakDurationMins        Int?
+  actualCheckinTime        DateTime?
+  actualCheckoutTime       DateTime?
+  actualWorkDurationHours  Decimal?                           @db.Decimal(6, 2)
+  sourceStatus             String?
+  calculatedStatus         AttendanceCalculatedStatus
+  rawLateMins              Int?
+  graceMins                Int?
+  chargeableLateMins       Int?
+  lateBucket               AttendanceLateBucket?
+  isLate                   Boolean                            @default(false)
+  isOnTime                 Boolean                            @default(false)
+  isAbsent                 Boolean                            @default(false)
+  isOffDay                 Boolean                            @default(false)
+  isOnLeave                Boolean                            @default(false)
+  leaveType                AttendanceLeaveType?
+  isAnnualLeave            Boolean                            @default(false)
+  isMedicalLeave           Boolean                            @default(false)
+  isWorkingDay             Boolean                            @default(false)
+  isUnder8Hours            Boolean                            @default(false)
+  isOver15Hours            Boolean                            @default(false)
+  matchStatus              AttendanceMatchStatus              @default(MATCHED_PICKER)
+  rawRowNumber             Int
+  rowHash                  String
+  issuesCount              Int                                @default(0)
+  createdAt                DateTime                           @default(now())
+  updatedAt                DateTime                           @updatedAt
+  importBatch              AttendanceImportBatch              @relation(fields: [importBatchId], references: [id], onDelete: Restrict)
+  user                     User                               @relation("AttendanceDailyRecordUser", fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([importBatchId, userId, shiftDate])
   @@index([periodMonth, shiftDate])
@@ -881,40 +889,40 @@ model AttendanceDailyRecord {
 }
 
 model AttendancePickerMonthlySummary {
-  id                      String                @id @default(uuid())
+  id                      String                   @id @default(uuid())
   periodMonth             String
   sourceBatchId           String
   shopperId               String?
-  personRole              AttendancePersonRole  @default(PICKER)
+  personRole              AttendancePersonRole     @default(PICKER)
   identifierType          AttendanceIdentifierType @default(SHOPPER_ID)
   identifierValue         String
   personNameSnapshot      String
   userId                  String
   pickerNameSnapshot      String
-  totalScheduledRows      Int                   @default(0)
-  totalWorkingDays        Int                   @default(0)
-  onTimeDays              Int                   @default(0)
-  lateDays                Int                   @default(0)
-  totalRawLateMins        Int                   @default(0)
-  totalChargeableLateMins Int                   @default(0)
-  late1Count              Int                   @default(0)
-  late2Count              Int                   @default(0)
-  late3Count              Int                   @default(0)
-  absentCount             Int                   @default(0)
-  leaveCount              Int                   @default(0)
-  annualLeaveCount        Int                   @default(0)
-  medicalLeaveCount       Int                   @default(0)
-  otherLeaveCount         Int                   @default(0)
-  offDayCount             Int                   @default(0)
-  under8HoursCount        Int                   @default(0)
-  over15HoursCount        Int                   @default(0)
+  totalScheduledRows      Int                      @default(0)
+  totalWorkingDays        Int                      @default(0)
+  onTimeDays              Int                      @default(0)
+  lateDays                Int                      @default(0)
+  totalRawLateMins        Int                      @default(0)
+  totalChargeableLateMins Int                      @default(0)
+  late1Count              Int                      @default(0)
+  late2Count              Int                      @default(0)
+  late3Count              Int                      @default(0)
+  absentCount             Int                      @default(0)
+  leaveCount              Int                      @default(0)
+  annualLeaveCount        Int                      @default(0)
+  medicalLeaveCount       Int                      @default(0)
+  otherLeaveCount         Int                      @default(0)
+  offDayCount             Int                      @default(0)
+  under8HoursCount        Int                      @default(0)
+  over15HoursCount        Int                      @default(0)
   firstShiftDate          DateTime?
   lastShiftDate           DateTime?
-  lastCalculatedAt        DateTime              @default(now())
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  sourceBatch             AttendanceImportBatch @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
-  user                    User                  @relation("AttendanceMonthlySummaryUser", fields: [userId], references: [id], onDelete: Restrict)
+  lastCalculatedAt        DateTime                 @default(now())
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  sourceBatch             AttendanceImportBatch    @relation(fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  user                    User                     @relation("AttendanceMonthlySummaryUser", fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([sourceBatchId, userId])
   @@index([periodMonth, userId])
@@ -950,6 +958,9 @@ model OrdersKpiImportBatch {
   uploadedByUserId  String
   uploadedAt        DateTime                    @default(now())
   status            OrdersKpiImportBatchStatus
+  jobId             String?                     @unique
+  sourceFilePath    String?
+  failureReason     String?
   rowCount          Int                         @default(0)
   confirmableRows   Int                         @default(0)
   skippedRows       Int                         @default(0)
@@ -1086,16 +1097,16 @@ model OrdersKpiDailyRecord {
 }
 
 model OrdersKpiTargetSettings {
-  id                       String   @id @default("global")
-  uhoRateTarget            Decimal  @default(8.00) @db.Decimal(5, 2)
-  notOnTimeRateTarget      Decimal  @default(10.00) @db.Decimal(5, 2)
-  qcFailedRateTarget       Decimal  @default(5.00) @db.Decimal(5, 2)
-  partialRefundRateTarget  Decimal  @default(3.00) @db.Decimal(5, 2)
-  oosRateTarget            Decimal  @default(3.00) @db.Decimal(5, 2)
-  priceModifiedRateTarget  Decimal  @default(3.00) @db.Decimal(5, 2)
-  updatedByUserId          String?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                      String   @id @default("global")
+  uhoRateTarget           Decimal  @default(8.00) @db.Decimal(5, 2)
+  notOnTimeRateTarget     Decimal  @default(10.00) @db.Decimal(5, 2)
+  qcFailedRateTarget      Decimal  @default(5.00) @db.Decimal(5, 2)
+  partialRefundRateTarget Decimal  @default(3.00) @db.Decimal(5, 2)
+  oosRateTarget           Decimal  @default(3.00) @db.Decimal(5, 2)
+  priceModifiedRateTarget Decimal  @default(3.00) @db.Decimal(5, 2)
+  updatedByUserId         String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@index([updatedByUserId])
 }

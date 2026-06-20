@@ -17,6 +17,7 @@ import {
 } from "@prisma/client";
 
 import { AuditService } from "../audit/audit.service";
+import { createManyInChunks } from "../common/database/create-many-in-chunks";
 import { PrismaService } from "../prisma/prisma.service";
 import { OrdersKpisParserService } from "./orders-kpis-parser.service";
 import type {
@@ -70,6 +71,22 @@ export class OrdersKpisImportService {
     buffer: Buffer,
     options: OrdersKpiPreviewImportOptions
   ): Promise<OrdersKpiPreviewResponse> {
+    return this.processImport(buffer, options);
+  }
+
+  async processQueuedImport(
+    batchId: string,
+    buffer: Buffer,
+    options: OrdersKpiPreviewImportOptions
+  ): Promise<OrdersKpiPreviewResponse> {
+    return this.processImport(buffer, options, batchId);
+  }
+
+  private async processImport(
+    buffer: Buffer,
+    options: OrdersKpiPreviewImportOptions,
+    queuedBatchId?: string
+  ): Promise<OrdersKpiPreviewResponse> {
     assertOrdersKpiImportActor(options.actor);
 
     if (buffer.length === 0) {
@@ -93,52 +110,68 @@ export class OrdersKpisImportService {
 
     const batch = await this.prisma.$transaction(
       async (tx) => {
-        const createdBatch = await tx.ordersKpiImportBatch.create({
-          data: {
-            fileName: options.fileName,
-            fileHash,
-            uploadedByUserId: options.actor.id,
-            status,
-            rowCount: validation.rowCount,
-            confirmableRows,
-            skippedRows: validation.skippedRows,
-            errorRows: validation.errorRows,
-            warningRows: validation.warningRows,
-            coveredDates: validation.coveredDates,
-            coveredDateFrom: validation.coveredDateFrom,
-            coveredDateTo: validation.coveredDateTo,
-            confirmedByUserId: null,
-            confirmedAt: null,
-            rejectedByUserId: null,
-            rejectedAt: null,
-            rejectionReason: null
-          }
-        });
+        if (queuedBatchId) {
+          await tx.ordersKpiImportStagingRow.deleteMany({
+            where: { sourceBatchId: queuedBatchId }
+          });
+          await tx.ordersKpiImportIssue.deleteMany({
+            where: { batchId: queuedBatchId }
+          });
+        }
+
+        const batchData = {
+          fileName: options.fileName,
+          fileHash,
+          uploadedByUserId: options.actor.id,
+          status,
+          rowCount: validation.rowCount,
+          confirmableRows,
+          skippedRows: validation.skippedRows,
+          errorRows: validation.errorRows,
+          warningRows: validation.warningRows,
+          failureReason: null,
+          coveredDates: validation.coveredDates,
+          coveredDateFrom: validation.coveredDateFrom,
+          coveredDateTo: validation.coveredDateTo,
+          confirmedByUserId: null,
+          confirmedAt: null,
+          rejectedByUserId: null,
+          rejectedAt: null,
+          rejectionReason: null
+        };
+        const createdBatch = queuedBatchId
+          ? await tx.ordersKpiImportBatch.update({
+              where: { id: queuedBatchId },
+              data: batchData
+            })
+          : await tx.ordersKpiImportBatch.create({ data: batchData });
 
         const stagingRows =
           status === OrdersKpiImportBatchStatus.FAILED ? [] : validation.stagingRows;
 
         if (stagingRows.length > 0) {
-          await tx.ordersKpiImportStagingRow.createMany({
-            data: stagingRows.map((row) =>
+          const stagingRowData = stagingRows.map((row) =>
               mapStagingRowForCreate(createdBatch.id, row)
-            )
-          });
+          );
+          await createManyInChunks(stagingRowData, (chunk) =>
+            tx.ordersKpiImportStagingRow.createMany({ data: chunk })
+          );
         }
 
         if (validation.issues.length > 0) {
-          await tx.ordersKpiImportIssue.createMany({
-            data: validation.issues.map((issue) => ({
-              batchId: createdBatch.id,
-              rowNumber: issue.rowNumber,
-              sourceVendorId: issue.sourceVendorId,
-              sourceShopperId: issue.sourceShopperId,
-              severity: issue.severity,
-              issueCode: issue.issueCode,
-              fieldName: issue.fieldName,
-              message: issue.message
-            }))
-          });
+          const issueRows = validation.issues.map((issue) => ({
+            batchId: createdBatch.id,
+            rowNumber: issue.rowNumber,
+            sourceVendorId: issue.sourceVendorId,
+            sourceShopperId: issue.sourceShopperId,
+            severity: issue.severity,
+            issueCode: issue.issueCode,
+            fieldName: issue.fieldName,
+            message: issue.message
+          }));
+          await createManyInChunks(issueRows, (chunk) =>
+            tx.ordersKpiImportIssue.createMany({ data: chunk })
+          );
         }
 
         return createdBatch;
@@ -350,13 +383,14 @@ async function replaceCoveredDailyRecords(
       }
     }
   });
-  const insertedRecords = await tx.ordersKpiDailyRecord.createMany({
-    data: confirmContext.stagingRows.map(mapDailyRecordForCreate)
-  });
+  const insertedRecords = await createManyInChunks(
+    confirmContext.stagingRows.map(mapDailyRecordForCreate),
+    (chunk) => tx.ordersKpiDailyRecord.createMany({ data: chunk })
+  );
 
   return {
     deletedRecords: deletedRecords.count,
-    insertedRecords: insertedRecords.count
+    insertedRecords
   };
 }
 

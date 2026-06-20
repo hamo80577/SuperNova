@@ -2,6 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -20,6 +23,8 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedRequest } from "../auth/types/authenticated-request";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { ImportFileStorageService } from "../import-jobs/import-file-storage.service";
+import { OrdersKpisImportQueueService } from "./orders-kpis-import-queue.service";
 import { OrdersKpisImportService } from "./orders-kpis-import.service";
 import type {
   OrdersKpiConfirmReplaceRequest,
@@ -28,7 +33,8 @@ import type {
 
 type UploadedOrdersKpiFile = Readonly<{
   originalname?: string;
-  buffer?: Buffer;
+  path?: string;
+  size?: number;
 }>;
 
 @Controller("orders-kpis/imports")
@@ -36,27 +42,40 @@ type UploadedOrdersKpiFile = Readonly<{
 @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class OrdersKpisImportsController {
   constructor(
+    @Inject(OrdersKpisImportQueueService)
+    private readonly ordersKpisImportQueueService: OrdersKpisImportQueueService,
     @Inject(OrdersKpisImportService)
-    private readonly ordersKpisImportService: OrdersKpisImportService
+    private readonly ordersKpisImportService: OrdersKpisImportService,
+    @Inject(ImportFileStorageService)
+    private readonly fileStorage: ImportFileStorageService
   ) {}
 
   @Post("preview")
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor("file"))
-  previewImport(
+  async previewImport(
     @UploadedFile() file: UploadedOrdersKpiFile | undefined,
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: AuthenticatedRequest
   ) {
-    if (!file?.buffer) {
+    if (!file?.path || !file.size) {
+      if (file?.path) {
+        await this.fileStorage.remove(file.path);
+      }
       throw new BadRequestException("Orders KPI file is required.");
     }
 
-    return this.ordersKpisImportService.previewImport(file.buffer, {
+    return this.ordersKpisImportQueueService.enqueue(file, {
       actor: user,
       fileName: file.originalname ?? "orders-kpis-import.xlsx",
       ipAddress: request.ip,
       userAgent: request.headers["user-agent"] ?? null
     });
+  }
+
+  @Get(":batchId/status")
+  getImportStatus(@Param("batchId", ParseUUIDPipe) batchId: string) {
+    return this.ordersKpisImportQueueService.getStatus(batchId);
   }
 
   @Post(":batchId/confirm-replace")
