@@ -8,6 +8,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   AssignmentStatus,
   AttendanceAssignmentMismatchStatus,
@@ -25,6 +26,7 @@ import {
 
 import { PrismaService } from "../prisma/prisma.service";
 import { createManyInChunks } from "../common/database/create-many-in-chunks";
+import { IMPORT_ATTENDANCE_SUCCESS_EVENT } from "../dashboard-cache/dashboard-cache.constants";
 import { AttendanceCalculationService } from "./attendance-calculation.service";
 import type {
   AttendanceCalculationInputRow,
@@ -110,7 +112,9 @@ export class AttendanceImportService {
     @Inject(AttendanceCalculationService)
     private readonly calculator: AttendanceCalculationService,
     @Inject(AttendanceUserLookupService)
-    private readonly userLookup: AttendanceUserLookupService
+    private readonly userLookup: AttendanceUserLookupService,
+    @Inject(EventEmitter2)
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async previewImport(
@@ -423,7 +427,7 @@ export class AttendanceImportService {
 
     const confirmedAt = normalizeDateTime(options.now);
 
-    return this.prisma.$transaction(async (tx) => {
+    const confirmation = await this.prisma.$transaction(async (tx) => {
       const previousActive = await tx.attendanceImportBatch.findFirst({
         where: {
           periodMonth: batch.periodMonth,
@@ -482,6 +486,14 @@ export class AttendanceImportService {
         confirmedAt: activatedBatch.confirmedAt?.toISOString() ?? confirmedAt.toISOString()
       };
     });
+
+    this.eventEmitter.emit(IMPORT_ATTENDANCE_SUCCESS_EVENT, {
+      eventId: confirmation.batchId,
+      months: [confirmation.periodMonth],
+      source: "ATTENDANCE_IMPORT"
+    });
+
+    return confirmation;
   }
 
   private async buildLocationPreviewEnrichment(

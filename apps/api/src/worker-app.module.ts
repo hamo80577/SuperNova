@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 
 import { AttendanceModule } from "./attendance/attendance.module";
+import { DashboardCacheWorkerModule } from "./dashboard-cache/dashboard-cache-worker.module";
 import configuration from "./config/configuration";
 import { validateEnvironment } from "./config/env.validation";
 import { ExcelImportProcessor } from "./import-jobs/excel-import.processor";
@@ -18,8 +20,10 @@ import { PrismaModule } from "./prisma/prisma.module";
       load: [configuration],
       validate: validateEnvironment
     }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
     ImportJobsModule,
+    DashboardCacheWorkerModule,
     AttendanceModule,
     OrdersKpisModule
   ],

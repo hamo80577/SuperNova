@@ -22,6 +22,9 @@ import { AttendanceParserService } from "../src/attendance/attendance-parser.ser
 import { AttendanceUserLookupService } from "../src/attendance/attendance-user-lookup.service";
 import { AttendanceValidatorService } from "../src/attendance/attendance-validator.service";
 import type { AttendanceImportActor } from "../src/attendance/attendance-import.types";
+import { IMPORT_ATTENDANCE_SUCCESS_EVENT } from "../src/dashboard-cache/dashboard-cache.constants";
+
+type EmittedEvent = { name: string; payload: unknown };
 
 const requiredHeaders = [
   "Identifier",
@@ -446,15 +449,21 @@ function createStore() {
   return { prisma, store };
 }
 
-function createService(prisma: unknown) {
+function createService(prisma: unknown, emittedEvents: EmittedEvent[] = []) {
   const parser = new AttendanceParserService();
-  return new AttendanceImportService(
+  return new (AttendanceImportService as any)(
     prisma as never,
     parser,
     new AttendanceValidatorService(parser),
     new AttendanceCalculationService(),
-    new AttendanceUserLookupService(prisma as never)
-  );
+    new AttendanceUserLookupService(prisma as never),
+    {
+      emit: (name: string, payload: unknown) => {
+        emittedEvents.push({ name, payload });
+        return true;
+      }
+    }
+  ) as AttendanceImportService;
 }
 
 async function previewRows(
@@ -927,7 +936,8 @@ async function main() {
 
   {
     const { prisma, store } = createStore();
-    const service = createService(prisma);
+    const emittedEvents: EmittedEvent[] = [];
+    const service = createService(prisma, emittedEvents);
     const result = await previewRows([
       baseRow({ Location: "999999 - Unknown Branch" })
     ], {
@@ -963,6 +973,16 @@ async function main() {
     });
 
     assert.equal(confirmed.status, AttendanceImportBatchStatus.ACTIVE);
+    assert.deepEqual(emittedEvents, [
+      {
+        name: IMPORT_ATTENDANCE_SUCCESS_EVENT,
+        payload: {
+          eventId: result.batchId,
+          months: ["2026-05"],
+          source: "ATTENDANCE_IMPORT"
+        }
+      }
+    ]);
   }
 
   {

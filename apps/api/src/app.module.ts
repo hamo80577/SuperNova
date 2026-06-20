@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 
 import { ApprovalsModule } from "./approvals/approvals.module";
 import { AssignmentsModule } from "./assignments/assignments.module";
@@ -12,6 +13,8 @@ import configuration from "./config/configuration";
 import { validateEnvironment } from "./config/env.validation";
 import { ChainsModule } from "./chains/chains.module";
 import { DeductionsModule } from "./deductions/deductions.module";
+import { DashboardCacheEventsListener } from "./dashboard-cache/dashboard-cache-events.listener";
+import { DashboardCacheModule } from "./dashboard-cache/dashboard-cache.module";
 import { HealthModule } from "./health/health.module";
 import { HrSyncModule } from "./hr-sync/hr-sync.module";
 import { ImportJobsModule } from "./import-jobs/import-jobs.module";
@@ -33,8 +36,10 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
       load: [configuration],
       validate: validateEnvironment
     }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
     ImportJobsModule,
+    DashboardCacheModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -53,6 +58,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     AdminModule,
     ReportsModule,
     WorkspacesModule
-  ]
+  ],
+  providers: [DashboardCacheEventsListener]
 })
 export class AppModule {}

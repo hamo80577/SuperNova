@@ -19,6 +19,7 @@ import {
 } from "@prisma/client";
 
 import { OrdersKpisTargetSettingsService } from "../orders-kpis/orders-kpis-target-settings.service";
+import { DashboardCacheReadThroughService } from "../dashboard-cache/dashboard-cache-read-through.service";
 import type { OrdersKpiTargetSettingsResponse } from "../orders-kpis/orders-kpis.types";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AreaManagerPerformanceSummaryQueryDto } from "./dto/area-manager-performance-summary-query.dto";
@@ -285,10 +286,24 @@ export class AreaManagerPerformanceSummaryService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(OrdersKpisTargetSettingsService)
-    private readonly targetSettingsService: OrdersKpisTargetSettingsService
+    private readonly targetSettingsService: OrdersKpisTargetSettingsService,
+    @Inject(DashboardCacheReadThroughService)
+    private readonly dashboardCache: DashboardCacheReadThroughService
   ) {}
 
   async getSummary(
+    areaManagerId: string,
+    query: AreaManagerPerformanceSummaryQueryDto
+  ): Promise<AreaManagerPerformanceSummary> {
+    return this.dashboardCache.getOrCalculate({
+      role: UserRole.AREA_MANAGER,
+      userId: areaManagerId,
+      query,
+      calculate: () => this.calculateSummary(areaManagerId, query)
+    });
+  }
+
+  async calculateSummary(
     areaManagerId: string,
     query: AreaManagerPerformanceSummaryQueryDto
   ): Promise<AreaManagerPerformanceSummary> {

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   ApprovalStatus,
   ApprovalStep,
@@ -25,6 +26,7 @@ import {
 import { PermissionKeys } from "../access-control/permissions";
 import { AuditService } from "../audit/audit.service";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { USER_METRICS_UPDATED_EVENT } from "../dashboard-cache/dashboard-cache.constants";
 import { DeductionsService } from "../deductions/deductions.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -70,7 +72,9 @@ export class ApprovalsService {
     @Inject(AccessPolicyService)
     private readonly accessPolicy: AccessPolicyService,
     @Inject(AnnualLeaveRequestService)
-    private readonly annualLeaveRequestService: AnnualLeaveRequestService
+    private readonly annualLeaveRequestService: AnnualLeaveRequestService,
+    @Inject(EventEmitter2)
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   getFoundationStatus() {
@@ -236,6 +240,15 @@ export class ApprovalsService {
         include: approvalInclude.request.include
       });
     });
+
+    if (finalAnnualLeaveApproval && updated.annualLeaveRequest) {
+      this.eventEmitter.emit(USER_METRICS_UPDATED_EVENT, {
+        eventId: updated.id,
+        userId: updated.annualLeaveRequest.targetUserId,
+        month: updated.annualLeaveRequest.startDate.toISOString().slice(0, 7),
+        source: "ANNUAL_LEAVE"
+      });
+    }
 
     await this.auditService.log({
       actorUserId: context.actor.id,

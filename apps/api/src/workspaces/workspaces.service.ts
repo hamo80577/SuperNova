@@ -28,6 +28,7 @@ import {
   toUserSummary,
   toVendorSummary
 } from "../assignments/assignment-response.utils";
+import { DashboardCacheReadThroughService } from "../dashboard-cache/dashboard-cache-read-through.service";
 import { OrdersKpisTargetSettingsService } from "../orders-kpis/orders-kpis-target-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -223,7 +224,9 @@ export class WorkspacesService {
     @Inject(OrdersKpisTargetSettingsService)
     private readonly ordersKpiTargetSettingsService: OrdersKpisTargetSettingsService,
     @Inject(AnnualLeaveBalanceService)
-    private readonly annualLeaveBalanceService: AnnualLeaveBalanceService
+    private readonly annualLeaveBalanceService: AnnualLeaveBalanceService,
+    @Inject(DashboardCacheReadThroughService)
+    private readonly dashboardCache: DashboardCacheReadThroughService
   ) {}
 
   async getPickerWorkspace(userId: string) {
@@ -273,6 +276,18 @@ export class WorkspacesService {
   }
 
   async getPickerPerformanceSummary(
+    userId: string,
+    query: PickerPerformanceSummaryQueryDto
+  ) {
+    return this.dashboardCache.getOrCalculate({
+      role: UserRole.PICKER,
+      userId,
+      query,
+      calculate: () => this.calculatePickerPerformanceSummary(userId, query)
+    });
+  }
+
+  async calculatePickerPerformanceSummary(
     userId: string,
     query: PickerPerformanceSummaryQueryDto
   ) {
@@ -490,6 +505,18 @@ export class WorkspacesService {
   }
 
   async getChampPerformanceSummary(
+    userId: string,
+    query: ChampPerformanceSummaryQueryDto
+  ) {
+    return this.dashboardCache.getOrCalculate({
+      role: UserRole.CHAMP,
+      userId,
+      query,
+      calculate: () => this.calculateChampPerformanceSummary(userId, query)
+    });
+  }
+
+  async calculateChampPerformanceSummary(
     userId: string,
     query: ChampPerformanceSummaryQueryDto
   ) {

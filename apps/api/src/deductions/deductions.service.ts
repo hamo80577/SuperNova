@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   AccountStatus,
   ApprovalStatus,
@@ -18,6 +19,7 @@ import {
 } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { USER_METRICS_UPDATED_EVENT } from "../dashboard-cache/dashboard-cache.constants";
 import { PrismaService } from "../prisma/prisma.service";
 import { RequestApprovalRoutingService } from "../requests/request-approval-routing.service";
 import { assertRequestPayloadSafe } from "../requests/request-payload.utils";
@@ -77,7 +79,9 @@ export class DeductionsService {
     @Inject(DeductionsScopeService)
     private readonly scopeService: DeductionsScopeService,
     @Inject(RequestApprovalRoutingService)
-    private readonly approvalRoutingService: RequestApprovalRoutingService
+    private readonly approvalRoutingService: RequestApprovalRoutingService,
+    @Inject(EventEmitter2)
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async preview(
@@ -582,10 +586,17 @@ export class DeductionsService {
         ]
       });
 
-      return request;
+      return { deductionCase, request };
     });
 
-    return toRequestSummary(updated);
+    this.eventEmitter.emit(USER_METRICS_UPDATED_EVENT, {
+      eventId: updated.request.id,
+      userId: updated.deductionCase.targetUserId,
+      month: updated.deductionCase.incidentMonth,
+      source: "DEDUCTION"
+    });
+
+    return toRequestSummary(updated.request);
   }
 
   async list(query: ListDeductionsQueryDto, actor: AuthenticatedUser) {

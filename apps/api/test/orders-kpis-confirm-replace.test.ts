@@ -12,6 +12,7 @@ import {
   UserRole
 } from "@prisma/client";
 
+import { IMPORT_KPI_SUCCESS_EVENT } from "../src/dashboard-cache/dashboard-cache.constants";
 import { OrdersKpisImportService } from "../src/orders-kpis/orders-kpis-import.service";
 import { OrdersKpisParserService } from "../src/orders-kpis/orders-kpis-parser.service";
 import type { OrdersKpiImportActor } from "../src/orders-kpis/orders-kpis.types";
@@ -86,6 +87,11 @@ interface StoredAuditRow {
   newValue?: unknown;
   ipAddress?: string | null;
   userAgent?: string | null;
+}
+
+interface EmittedEvent {
+  name: string;
+  payload: unknown;
 }
 
 interface OrdersKpiConfirmRejectService {
@@ -238,6 +244,7 @@ function createStore() {
     stagingRows: [] as StoredStagingRow[],
     dailyRecords: [] as StoredDailyRecord[],
     auditRows: [] as StoredAuditRow[],
+    emittedEvents: [] as EmittedEvent[],
     forbiddenMutationCalls: [] as string[]
   };
 
@@ -374,11 +381,17 @@ function createStore() {
 
 function createService(context: ReturnType<typeof createStore>) {
   const parser = new OrdersKpisParserService();
-  const service = new OrdersKpisImportService(
+  const service = new (OrdersKpisImportService as any)(
     context.prisma as never,
     context.auditService as never,
     parser,
-    new OrdersKpisValidatorService(context.prisma as never)
+    new OrdersKpisValidatorService(context.prisma as never),
+    {
+      emit: (name: string, payload: unknown) => {
+        context.store.emittedEvents.push({ name, payload });
+        return true;
+      }
+    }
   );
 
   return service as unknown as OrdersKpiConfirmRejectService;
@@ -440,6 +453,16 @@ async function testValidatedBatchConfirmsAndReplacesExactDates() {
     context.store.auditRows[0].action,
     "ORDERS_KPI_IMPORT_CONFIRMED_REPLACE"
   );
+  assert.deepEqual(context.store.emittedEvents, [
+    {
+      name: IMPORT_KPI_SUCCESS_EVENT,
+      payload: {
+        eventId: "batch-validated",
+        months: ["2026-06"],
+        source: "KPI_IMPORT"
+      }
+    }
+  ]);
   assert.deepEqual(context.store.forbiddenMutationCalls, []);
 }
 

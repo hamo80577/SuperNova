@@ -8,6 +8,7 @@ import {
   Injectable,
   NotFoundException
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   type OrdersKpiImportBatch,
   OrdersKpiImportBatchStatus,
@@ -18,6 +19,7 @@ import {
 
 import { AuditService } from "../audit/audit.service";
 import { createManyInChunks } from "../common/database/create-many-in-chunks";
+import { IMPORT_KPI_SUCCESS_EVENT } from "../dashboard-cache/dashboard-cache.constants";
 import { PrismaService } from "../prisma/prisma.service";
 import { OrdersKpisParserService } from "./orders-kpis-parser.service";
 import type {
@@ -64,7 +66,9 @@ export class OrdersKpisImportService {
     @Inject(OrdersKpisParserService)
     private readonly parser: OrdersKpisParserService,
     @Inject(OrdersKpisValidatorService)
-    private readonly validator: OrdersKpisValidatorService
+    private readonly validator: OrdersKpisValidatorService,
+    @Inject(EventEmitter2)
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async previewImport(
@@ -271,7 +275,7 @@ export class OrdersKpisImportService {
     assertOrdersKpiImportActor(options.actor);
     const confirmedAt = resolveDateTime(options.now);
 
-    return this.prisma.$transaction(
+    const confirmation = await this.prisma.$transaction(
       async (tx) => {
         const confirmContext = await loadConfirmReplaceContext(
           tx,
@@ -307,6 +311,16 @@ export class OrdersKpisImportService {
         timeout: ORDERS_KPI_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS
       }
     );
+
+    this.eventEmitter.emit(IMPORT_KPI_SUCCESS_EVENT, {
+      eventId: confirmation.batchId,
+      months: [
+        ...new Set(confirmation.coveredDates.map((date) => date.slice(0, 7)))
+      ],
+      source: "KPI_IMPORT"
+    });
+
+    return confirmation;
   }
 
   async rejectImport(

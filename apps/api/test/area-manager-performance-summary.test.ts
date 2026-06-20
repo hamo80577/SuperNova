@@ -657,7 +657,11 @@ async function createService() {
 
   return new (AreaManagerPerformanceSummaryService as any)(
     createPrisma(),
-    targetSettingsService
+    targetSettingsService,
+    {
+      getOrCalculate: ({ calculate }: { calculate: () => Promise<unknown> }) =>
+        calculate()
+    }
   );
 }
 

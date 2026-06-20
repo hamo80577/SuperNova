@@ -27,6 +27,7 @@ import { SYSTEM_ROLE_PERMISSIONS } from "../src/access-control/role-permission.m
 import { DeductionPolicyService } from "../src/deductions/deduction-policy.service";
 import { DeductionsScopeService } from "../src/deductions/deductions-scope.service";
 import { DeductionsService } from "../src/deductions/deductions.service";
+import { USER_METRICS_UPDATED_EVENT } from "../src/dashboard-cache/dashboard-cache.constants";
 import { RequestApprovalRoutingService } from "../src/requests/request-approval-routing.service";
 import { RequestsService } from "../src/requests/requests.service";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
@@ -214,6 +215,7 @@ function createStore() {
     cases: [] as StoredCase[],
     notifications: [] as Array<Record<string, unknown>>,
     auditLogs: [] as Array<Record<string, unknown>>,
+    emittedEvents: [] as Array<{ name: string; payload: unknown }>,
     forbiddenMutationCalls: [] as string[]
   };
 
@@ -640,12 +642,19 @@ function createStore() {
   const policyService = new DeductionPolicyService(prisma as never);
   const scopeService = new DeductionsScopeService(prisma as never);
   const routingService = new RequestApprovalRoutingService(prisma as never);
-  const deductionsService = new DeductionsService(
+  const eventEmitter = {
+    emit: (name: string, payload: unknown) => {
+      store.emittedEvents.push({ name, payload });
+      return true;
+    }
+  };
+  const deductionsService = new (DeductionsService as any)(
     prisma as never,
     policyService,
     scopeService,
-    routingService
-  );
+    routingService,
+    eventEmitter
+  ) as DeductionsService;
   const statusForStep = (step: ApprovalStep) =>
     step === ApprovalStep.AREA_MANAGER_APPROVAL ||
     step === ApprovalStep.SOURCE_AREA_MANAGER_APPROVAL
@@ -653,7 +662,7 @@ function createStore() {
       : step === ApprovalStep.DESTINATION_AREA_MANAGER_APPROVAL
         ? RequestStatus.PENDING_DESTINATION_AREA_MANAGER
         : RequestStatus.PENDING_ADMIN;
-  const approvalsService = new ApprovalsService(
+  const approvalsService = new (ApprovalsService as any)(
     { log: async () => undefined } as never,
     {
       create: async () => undefined,
@@ -666,17 +675,21 @@ function createStore() {
       userCanActOnStep: async () => true
     } as never,
     deductionsService,
-    { assertCan: () => undefined } as never
-  );
-  const requestsService = new RequestsService(
+    { assertCan: () => undefined } as never,
+    {} as never,
+    eventEmitter
+  ) as ApprovalsService;
+  const requestsService = new (RequestsService as any)(
     { log: async () => undefined } as never,
     {} as never,
     {} as never,
     {} as never,
     { create: async () => undefined } as never,
     prisma as never,
-    routingService
-  );
+    routingService,
+    {} as never,
+    eventEmitter
+  ) as RequestsService;
 
   return {
     approvalsService,
@@ -1097,6 +1110,17 @@ async function testAdminFinalApprovalMakesDeductionEffective() {
     ),
     "target user should be notified when the deduction becomes effective"
   );
+  assert.deepEqual(context.store.emittedEvents, [
+    {
+      name: USER_METRICS_UPDATED_EVENT,
+      payload: {
+        eventId: summary.id,
+        userId: storedCase.targetUserId,
+        month: CURRENT_MONTH,
+        source: "DEDUCTION"
+      }
+    }
+  ]);
   assert.equal(context.store.forbiddenMutationCalls.length, 0);
 }
 
@@ -1121,6 +1145,7 @@ async function testRejectDoesNotCreateEffectiveDeduction() {
 
   assert.equal(rejected.status, RequestStatus.REJECTED);
   assert.equal(context.store.cases[0].status, DeductionCaseStatus.REJECTED);
+  assert.deepEqual(context.store.emittedEvents, []);
 }
 
 async function testCancelDoesNotCreateEffectiveDeduction() {

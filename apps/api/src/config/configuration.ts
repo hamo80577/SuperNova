@@ -16,6 +16,15 @@ export default () => {
         process.env.IMPORT_MAX_FILE_SIZE_BYTES ?? 100 * 1024 * 1024
       )
     },
+    dashboardCache: {
+      ttlSeconds: Number(process.env.DASHBOARD_CACHE_TTL_SECONDS ?? 900),
+      bulkChunkSize: Number(
+        process.env.DASHBOARD_CACHE_BULK_CHUNK_SIZE ?? 100
+      ),
+      calculationConcurrency: Number(
+        process.env.DASHBOARD_CACHE_CALCULATION_CONCURRENCY ?? 5
+      )
+    },
     auth: {
       jwtSecret: process.env.JWT_SECRET ?? "",
       jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",

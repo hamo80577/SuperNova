@@ -23,6 +23,13 @@ export function validateEnvironment(config: EnvironmentConfig) {
     readOptionalString(config, "REDIS_URL") ?? "redis://localhost:6379";
   const importMaxFileSizeBytes =
     readOptionalString(config, "IMPORT_MAX_FILE_SIZE_BYTES") ?? "104857600";
+  const dashboardCacheTtlSeconds =
+    readOptionalString(config, "DASHBOARD_CACHE_TTL_SECONDS") ?? "900";
+  const dashboardCacheBulkChunkSize =
+    readOptionalString(config, "DASHBOARD_CACHE_BULK_CHUNK_SIZE") ?? "100";
+  const dashboardCacheCalculationConcurrency =
+    readOptionalString(config, "DASHBOARD_CACHE_CALCULATION_CONCURRENCY") ??
+    "5";
 
   if (jwtSecret && jwtSecret.length < MIN_SECRET_LENGTH) {
     errors.push(`JWT_SECRET must be at least ${MIN_SECRET_LENGTH} characters.`);
@@ -42,6 +49,22 @@ export function validateEnvironment(config: EnvironmentConfig) {
   ) {
     errors.push("IMPORT_MAX_FILE_SIZE_BYTES must be a positive integer.");
   }
+
+  validatePositiveInteger(
+    dashboardCacheTtlSeconds,
+    "DASHBOARD_CACHE_TTL_SECONDS",
+    errors
+  );
+  validatePositiveInteger(
+    dashboardCacheBulkChunkSize,
+    "DASHBOARD_CACHE_BULK_CHUNK_SIZE",
+    errors
+  );
+  validatePositiveInteger(
+    dashboardCacheCalculationConcurrency,
+    "DASHBOARD_CACHE_CALCULATION_CONCURRENCY",
+    errors
+  );
 
   const normalizedWebOrigin = normalizeOrigin(webOrigin);
   if (webOrigin && !normalizedWebOrigin) {
@@ -91,6 +114,10 @@ export function validateEnvironment(config: EnvironmentConfig) {
     JWT_EXPIRES_IN: jwtExpiresIn,
     REDIS_URL: redisUrl,
     IMPORT_MAX_FILE_SIZE_BYTES: importMaxFileSizeBytes,
+    DASHBOARD_CACHE_TTL_SECONDS: dashboardCacheTtlSeconds,
+    DASHBOARD_CACHE_BULK_CHUNK_SIZE: dashboardCacheBulkChunkSize,
+    DASHBOARD_CACHE_CALCULATION_CONCURRENCY:
+      dashboardCacheCalculationConcurrency,
     HR_SYNC_ENABLED: hrSyncEnabled ? "true" : "false",
     ...(hrSyncWebAppUrl ? { HR_SYNC_WEB_APP_URL: hrSyncWebAppUrl } : {}),
     ...(hrSyncSecret ? { HR_SYNC_SECRET: hrSyncSecret } : {}),
@@ -98,6 +125,16 @@ export function validateEnvironment(config: EnvironmentConfig) {
       ? { TEMP_PASSWORD_ENCRYPTION_KEY: temporaryPasswordEncryptionKey }
       : {})
   };
+}
+
+function validatePositiveInteger(
+  value: string,
+  key: string,
+  errors: string[]
+) {
+  if (!/^\d+$/.test(value) || Number(value) <= 0) {
+    errors.push(`${key} must be a positive integer.`);
+  }
 }
 
 function readRequiredString(

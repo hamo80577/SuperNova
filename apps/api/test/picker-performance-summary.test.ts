@@ -412,7 +412,11 @@ function createService() {
   return new (WorkspacesService as any)(
     createPrisma(),
     targetSettingsService,
-    annualLeaveBalanceService
+    annualLeaveBalanceService,
+    {
+      getOrCalculate: ({ calculate }: { calculate: () => Promise<unknown> }) =>
+        calculate()
+    }
   );
 }
 

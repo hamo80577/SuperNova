@@ -105,10 +105,16 @@ expectValidationError(
   {
     ...validBaseEnv,
     REDIS_URL: "https://localhost:6379",
-    IMPORT_MAX_FILE_SIZE_BYTES: "0"
+    IMPORT_MAX_FILE_SIZE_BYTES: "0",
+    DASHBOARD_CACHE_TTL_SECONDS: "0",
+    DASHBOARD_CACHE_BULK_CHUNK_SIZE: "not-a-number",
+    DASHBOARD_CACHE_CALCULATION_CONCURRENCY: "-1"
   },
   [
     /REDIS_URL must be a valid redis:\/\/ or rediss:\/\/ URL/,
-    /IMPORT_MAX_FILE_SIZE_BYTES must be a positive integer/
+    /IMPORT_MAX_FILE_SIZE_BYTES must be a positive integer/,
+    /DASHBOARD_CACHE_TTL_SECONDS must be a positive integer/,
+    /DASHBOARD_CACHE_BULK_CHUNK_SIZE must be a positive integer/,
+    /DASHBOARD_CACHE_CALCULATION_CONCURRENCY must be a positive integer/
   ]
 );

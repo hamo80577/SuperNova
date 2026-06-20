@@ -14,6 +14,7 @@ import {
 import { PermissionKeys, type PermissionKey } from "../src/access-control";
 import { ApprovalsService } from "../src/approvals/approvals.service";
 import type { AuthenticatedUser } from "../src/auth/types/authenticated-user";
+import { USER_METRICS_UPDATED_EVENT } from "../src/dashboard-cache/dashboard-cache.constants";
 
 function actor(role: UserRole, id = `actor-${role.toLowerCase()}`) {
   return {
@@ -89,6 +90,7 @@ function annualLeaveAdminApproval() {
     destinationChain: null,
     destinationVendor: null,
     annualLeaveRequest: {
+      targetUserId: "picker-1",
       startDate: new Date("2026-07-01T00:00:00.000Z"),
       endDate: new Date("2026-07-03T00:00:00.000Z"),
       requestedDays: 3,
@@ -130,6 +132,7 @@ async function run() {
   const requestUpdates: Array<Record<string, unknown>> = [];
   const approvalUpdates: Array<Record<string, unknown>> = [];
   const forbiddenWrites: string[] = [];
+  const emittedEvents: Array<{ name: string; payload: unknown }> = [];
 
   const service = new (ApprovalsService as any)(
     { log: async () => undefined },
@@ -197,6 +200,12 @@ async function run() {
       assertApprovalStillValid: async (requestId: string, approvalId: string) => {
         annualLeaveValidations.push(`${requestId}:${approvalId}`);
       }
+    },
+    {
+      emit: (name: string, payload: unknown) => {
+        emittedEvents.push({ name, payload });
+        return true;
+      }
     }
   ) as ApprovalsService;
 
@@ -223,6 +232,17 @@ async function run() {
   assert.equal(result.status, RequestStatus.APPROVED);
   assert.equal(result.currentStep, null);
   assert.equal(result.completedAt, requestUpdate.completedAt);
+  assert.deepEqual(emittedEvents, [
+    {
+      name: USER_METRICS_UPDATED_EVENT,
+      payload: {
+        eventId: "annual-request-1",
+        userId: "picker-1",
+        month: "2026-07",
+        source: "ANNUAL_LEAVE"
+      }
+    }
+  ]);
   assert.deepEqual(forbiddenWrites, []);
 }
 
