@@ -78,6 +78,11 @@ export class OrdersKpisImportsController {
     return this.ordersKpisImportQueueService.getStatus(batchId);
   }
 
+  @Get(":batchId/preview")
+  getImportPreview(@Param("batchId", ParseUUIDPipe) batchId: string) {
+    return this.ordersKpisImportService.getPreview(batchId);
+  }
+
   @Post(":batchId/confirm-replace")
   confirmReplaceImport(
     @Param("batchId", ParseUUIDPipe) batchId: string,

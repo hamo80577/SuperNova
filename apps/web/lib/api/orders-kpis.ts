@@ -1,6 +1,8 @@
 import { apiGet, apiRequest, clearApiCache } from "./request";
 
 export type OrdersKpiImportBatchStatus =
+  | "PENDING"
+  | "PROCESSING"
   | "VALIDATED"
   | "NEEDS_REVIEW"
   | "CONFIRMED"
@@ -95,6 +97,26 @@ export interface OrdersKpiPreviewResponse {
   summary: OrdersKpiValidationSummary;
   previewRows: OrdersKpiPreviewRow[];
   issues: OrdersKpiPreviewIssue[];
+}
+
+export interface OrdersKpiQueuedImportResponse {
+  batchId: string;
+  jobId: string;
+  status: "PENDING";
+}
+
+export interface OrdersKpiImportStatusResponse {
+  id: string;
+  jobId: string | null;
+  status: OrdersKpiImportBatchStatus;
+  fileName: string;
+  rowCount: number;
+  confirmableRows: number;
+  skippedRows: number;
+  errorRows: number;
+  warningRows: number;
+  failureReason: string | null;
+  updatedAt: string;
 }
 
 export interface OrdersKpiConfirmReplaceRequest {
@@ -323,6 +345,14 @@ export function buildOrdersKpiImportRejectPath(batchId: string) {
   return `/orders-kpis/imports/${encodeURIComponent(batchId)}/reject`;
 }
 
+export function buildOrdersKpiImportStatusPath(batchId: string) {
+  return `/orders-kpis/imports/${encodeURIComponent(batchId)}/status`;
+}
+
+export function buildOrdersKpiImportPreviewResultPath(batchId: string) {
+  return `/orders-kpis/imports/${encodeURIComponent(batchId)}/preview`;
+}
+
 export function buildOrdersKpiPerformanceReportPath(
   query: OrdersKpiPerformanceReportQuery
 ) {
@@ -393,10 +423,21 @@ export const ordersKpisApi = {
     });
   },
   previewImport(file: File) {
-    return apiRequest<OrdersKpiPreviewResponse>("/orders-kpis/imports/preview", {
+    return apiRequest<OrdersKpiQueuedImportResponse>("/orders-kpis/imports/preview", {
       body: buildOrdersKpiImportPreviewFormData(file),
       method: "POST"
     });
+  },
+  getImportStatus(batchId: string) {
+    return apiRequest<OrdersKpiImportStatusResponse>(
+      buildOrdersKpiImportStatusPath(batchId),
+      { method: "GET" }
+    );
+  },
+  getImportPreview(batchId: string) {
+    return apiGet<OrdersKpiPreviewResponse>(
+      buildOrdersKpiImportPreviewResultPath(batchId)
+    );
   },
   rejectImport(batchId: string, request: OrdersKpiRejectImportRequest) {
     return apiRequest<OrdersKpiRejectImportResponse>(

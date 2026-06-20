@@ -2,6 +2,8 @@ import {
   attendanceApi,
   buildAttendanceImportConfirmPath,
   buildAttendanceImportPreviewFormData,
+  buildAttendanceImportPreviewResultPath,
+  buildAttendanceImportStatusPath,
   buildAttendanceDailyReportPath,
   type AttendanceDailyReportResponse,
   type AttendanceDailyReportQuery,
@@ -281,6 +283,14 @@ const assert = {
   assert.equal(
     buildAttendanceImportConfirmPath("batch-123"),
     "/attendance/imports/batch-123/confirm"
+  );
+  assert.equal(
+    buildAttendanceImportStatusPath("batch/123"),
+    "/attendance/imports/batch%2F123/status"
+  );
+  assert.equal(
+    buildAttendanceImportPreviewResultPath("batch/123"),
+    "/attendance/imports/batch%2F123/preview"
   );
 }
 

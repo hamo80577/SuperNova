@@ -107,6 +107,32 @@ export class OrdersKpisImportService {
     ).length;
     const status = determineBatchStatus(validation, confirmableRows);
     const fileHash = createFileHash(buffer);
+    const buildPreviewResult = (batchId: string): OrdersKpiPreviewResponse => ({
+      batch: {
+        id: batchId,
+        fileName: options.fileName,
+        status,
+        rowCount: validation.rowCount,
+        confirmableRows,
+        skippedRows: validation.skippedRows,
+        errorRows: validation.errorRows,
+        warningRows: validation.warningRows,
+        coveredDates: validation.coveredDates,
+        coveredDateFrom: validation.coveredDateFromString,
+        coveredDateTo: validation.coveredDateToString,
+        canConfirm:
+          status === OrdersKpiImportBatchStatus.VALIDATED ||
+          status === OrdersKpiImportBatchStatus.NEEDS_REVIEW,
+        requiresReviewDecision:
+          status === OrdersKpiImportBatchStatus.NEEDS_REVIEW
+      },
+      summary: validation.summary,
+      previewRows: validation.previewRows,
+      issues: validation.issues
+    });
+    const queuedPreviewResult = queuedBatchId
+      ? buildPreviewResult(queuedBatchId)
+      : null;
 
     const batch = await this.prisma.$transaction(
       async (tx) => {
@@ -130,6 +156,9 @@ export class OrdersKpisImportService {
           errorRows: validation.errorRows,
           warningRows: validation.warningRows,
           failureReason: null,
+          ...(queuedPreviewResult
+            ? { previewResult: toPrismaJson(queuedPreviewResult) }
+            : {}),
           coveredDates: validation.coveredDates,
           coveredDateFrom: validation.coveredDateFrom,
           coveredDateTo: validation.coveredDateTo,
@@ -202,28 +231,37 @@ export class OrdersKpisImportService {
       userAgent: options.userAgent ?? null
     });
 
-    return {
-      batch: {
-        id: batch.id,
-        fileName: batch.fileName,
-        status,
-        rowCount: validation.rowCount,
-        confirmableRows,
-        skippedRows: validation.skippedRows,
-        errorRows: validation.errorRows,
-        warningRows: validation.warningRows,
-        coveredDates: validation.coveredDates,
-        coveredDateFrom: validation.coveredDateFromString,
-        coveredDateTo: validation.coveredDateToString,
-        canConfirm:
-          status === OrdersKpiImportBatchStatus.VALIDATED ||
-          status === OrdersKpiImportBatchStatus.NEEDS_REVIEW,
-        requiresReviewDecision: status === OrdersKpiImportBatchStatus.NEEDS_REVIEW
-      },
-      summary: validation.summary,
-      previewRows: validation.previewRows,
-      issues: validation.issues
-    };
+    return queuedPreviewResult ?? buildPreviewResult(batch.id);
+  }
+
+  async getPreview(batchId: string): Promise<OrdersKpiPreviewResponse> {
+    const batch = await this.prisma.ordersKpiImportBatch.findUnique({
+      where: { id: batchId },
+      select: {
+        status: true,
+        previewResult: true,
+        failureReason: true
+      }
+    });
+
+    if (!batch) {
+      throw new NotFoundException("Orders KPI import batch was not found.");
+    }
+
+    if (
+      batch.status === OrdersKpiImportBatchStatus.PENDING ||
+      batch.status === OrdersKpiImportBatchStatus.PROCESSING
+    ) {
+      throw new ConflictException("Orders KPI import is still processing.");
+    }
+
+    if (!batch.previewResult) {
+      throw new ConflictException(
+        batch.failureReason ?? "Orders KPI import preview is unavailable."
+      );
+    }
+
+    return batch.previewResult as unknown as OrdersKpiPreviewResponse;
   }
 
   async confirmReplaceImport(
@@ -654,4 +692,8 @@ function createFileHash(buffer: Buffer) {
 
 function toAuditJson(value: Record<string, unknown>) {
   return value as Prisma.InputJsonValue;
+}
+
+function toPrismaJson(previewResponse: unknown) {
+  return JSON.parse(JSON.stringify(previewResponse)) as Prisma.InputJsonValue;
 }

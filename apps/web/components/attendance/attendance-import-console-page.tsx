@@ -20,8 +20,9 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { ImportProcessingCard } from "@/components/imports/import-processing-card";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -41,6 +42,11 @@ import {
   type AttendanceIssueSeverity,
   type AttendanceReportedLocationSummary
 } from "@/lib/api/attendance";
+import {
+  isAbortError,
+  loadQueuedImportPreview,
+  type ImportProcessingStatus
+} from "@/lib/api/import-polling";
 import { cn } from "@/lib/utils";
 
 type AsyncActionState =
@@ -53,6 +59,12 @@ type ConfirmState =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "confirmed"; data: AttendanceImportConfirmResponse; error?: never };
+
+interface ActiveImport {
+  batchId: string;
+  fileName: string;
+  status: ImportProcessingStatus;
+}
 
 const issuePageSizes = [10, 25];
 
@@ -93,6 +105,8 @@ export function AttendanceImportConsolePage({
     useState<AsyncActionState>({
       status: "idle"
     });
+  const [activeImport, setActiveImport] = useState<ActiveImport | null>(null);
+  const pollingControllerRef = useRef<AbortController | null>(null);
   const unmappedLocations = useMemo(
     () =>
       preview?.preview.rowsByReportedLocationCode.filter(
@@ -108,7 +122,9 @@ export function AttendanceImportConsolePage({
       confirmChecked &&
       (!hasUnmappedLocationWarnings || unmappedLocationAcknowledged)
   );
-  const isPreviewing = previewState.status === "loading";
+  const isPreviewing =
+    previewState.status === "loading" ||
+    duplicateSaveState.status === "loading";
   const pageTitle =
     title ?? (isHistorical ? "Historical Attendance Import" : "Attendance Imports");
   const pageDescription =
@@ -116,6 +132,15 @@ export function AttendanceImportConsolePage({
     (isHistorical
       ? "Import a closed monthly attendance file without changing assignments."
       : "Upload, preview, resolve, and confirm monthly picker attendance.");
+
+  useEffect(
+    () => () => {
+      const controller = pollingControllerRef.current;
+      pollingControllerRef.current = null;
+      controller?.abort();
+    },
+    []
+  );
 
   async function handlePreview() {
     if (!file) {
@@ -135,12 +160,14 @@ export function AttendanceImportConsolePage({
     }
 
     setPreviewState({ status: "loading" });
+    setPreview(null);
+    setDuplicateResolverOpen(false);
     setConfirmState({ status: "idle" });
     setConfirmChecked(false);
     setUnmappedLocationAcknowledged(false);
 
     try {
-      const nextPreview = await attendanceApi.previewImport(
+      const nextPreview = await queueAndLoadPreview(
         file,
         buildPreviewOptions()
       );
@@ -152,6 +179,10 @@ export function AttendanceImportConsolePage({
       setPreviewState({ status: "idle" });
       setUnmappedLocationAcknowledged(false);
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+
       setPreview(null);
       setDuplicateResolverOpen(false);
       setPreviewState({
@@ -188,7 +219,7 @@ export function AttendanceImportConsolePage({
     setUnmappedLocationAcknowledged(false);
 
     try {
-      const nextPreview = await attendanceApi.previewImport(
+      const nextPreview = await queueAndLoadPreview(
         file,
         buildPreviewOptions({ duplicateResolutionRowNumbers: selectedRows })
       );
@@ -199,6 +230,10 @@ export function AttendanceImportConsolePage({
       setDuplicateSaveState({ status: "idle" });
       setUnmappedLocationAcknowledged(false);
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+
       setDuplicateSaveState({
         status: "error",
         error:
@@ -251,6 +286,7 @@ export function AttendanceImportConsolePage({
   }
 
   function resetPreviewState() {
+    cancelActiveImport();
     setPreview(null);
     setPreviewState({ status: "idle" });
     setConfirmState({ status: "idle" });
@@ -284,6 +320,41 @@ export function AttendanceImportConsolePage({
       duplicateResolutionRowNumbers: options.duplicateResolutionRowNumbers,
       uploadDate
     };
+  }
+
+  async function queueAndLoadPreview(
+    fileToUpload: File,
+    options: ReturnType<typeof buildPreviewOptions>
+  ) {
+    cancelActiveImport();
+    const controller = new AbortController();
+    pollingControllerRef.current = controller;
+
+    try {
+      return await loadQueuedImportPreview({
+        enqueue: () => attendanceApi.previewImport(fileToUpload, options),
+        fallbackFailureMessage:
+          "Attendance validation failed. Correct the file and upload it again.",
+        fetchPreview: attendanceApi.getImportPreview,
+        fetchStatus: attendanceApi.getImportStatus,
+        importLabel: "Attendance import",
+        isSuccessfulStatus: (status) => status === "VALIDATED",
+        onProcessingStatus: (batchId, status) =>
+          setActiveImport({ batchId, fileName: fileToUpload.name, status }),
+        signal: controller.signal
+      });
+    } finally {
+      if (pollingControllerRef.current === controller) {
+        pollingControllerRef.current = null;
+        setActiveImport(null);
+      }
+    }
+  }
+
+  function cancelActiveImport() {
+    pollingControllerRef.current?.abort();
+    pollingControllerRef.current = null;
+    setActiveImport(null);
   }
 
   return (
@@ -363,6 +434,14 @@ export function AttendanceImportConsolePage({
           <PreviewStatusCard importMode={importMode} preview={preview} />
         </section>
 
+        {activeImport ? (
+          <ImportProcessingCard
+            batchId={activeImport.batchId}
+            fileName={activeImport.fileName}
+            status={activeImport.status}
+          />
+        ) : null}
+
         {preview ? (
           <>
             <CoverageCard preview={preview} />
@@ -405,7 +484,7 @@ export function AttendanceImportConsolePage({
               />
             ) : null}
           </>
-        ) : (
+        ) : activeImport ? null : (
           <EmptyConsoleState importMode={importMode} />
         )}
       </div>
@@ -717,6 +796,7 @@ function UploadCard({
           Excel file
           <FileDropzone
             accept=".xlsx,.xls"
+            disabled={isPreviewing}
             file={file}
             hint="XLSX or XLS"
             onFileChange={onFileChange}
@@ -1662,6 +1742,8 @@ function TableCell({ children }: { children: ReactNode }) {
 
 function statusTone(status: AttendanceImportBatchStatus) {
   const tones: Record<AttendanceImportBatchStatus, string> = {
+    PENDING: "border-[#FFD8BD] bg-[#FFF8F3] text-[color:var(--tlb-orange-900)]",
+    PROCESSING: "border-[#FFD8BD] bg-[#FFF8F3] text-[color:var(--tlb-orange-900)]",
     UPLOADED: "border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-[color:var(--sn-body)]",
     VALIDATED: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",
     CONFIRMED: "border-[oklch(0.82_0.06_150)] bg-[oklch(0.95_0.045_150)] text-[oklch(0.58_0.13_150)]",

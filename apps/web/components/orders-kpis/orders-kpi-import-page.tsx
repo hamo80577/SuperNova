@@ -11,8 +11,9 @@ import {
   UploadCloud,
   XCircle
 } from "lucide-react";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
+import { ImportProcessingCard } from "@/components/imports/import-processing-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -27,6 +28,11 @@ import {
   type OrdersKpiPreviewRow,
   type OrdersKpiRejectImportResponse
 } from "@/lib/api/orders-kpis";
+import {
+  isAbortError,
+  loadQueuedImportPreview,
+  type ImportProcessingStatus
+} from "@/lib/api/import-polling";
 
 type AsyncStatus = "idle" | "loading" | "success" | "error";
 type PreviewFilter =
@@ -37,6 +43,12 @@ type PreviewFilter =
   | "UNMATCHED_PICKER"
   | "UNKNOWN_PICKER";
 type DialogMode = "confirm" | "reject" | null;
+
+interface ActiveImport {
+  batchId: string;
+  fileName: string;
+  status: ImportProcessingStatus;
+}
 
 const previewFilters: Array<{ label: string; value: PreviewFilter }> = [
   { label: "All preview rows", value: "ALL" },
@@ -67,6 +79,8 @@ export function OrdersKpiImportPage() {
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [acknowledgeReplaceDates, setAcknowledgeReplaceDates] = useState(false);
   const [acknowledgeSkippedRows, setAcknowledgeSkippedRows] = useState(false);
+  const [activeImport, setActiveImport] = useState<ActiveImport | null>(null);
+  const pollingControllerRef = useRef<AbortController | null>(null);
 
   const filteredPreviewRows = useMemo(() => {
     if (!preview) {
@@ -87,7 +101,17 @@ export function OrdersKpiImportPage() {
   const confirmDialogReady =
     acknowledgeReplaceDates && (!needsReview || acknowledgeSkippedRows);
 
+  useEffect(
+    () => () => {
+      const controller = pollingControllerRef.current;
+      pollingControllerRef.current = null;
+      controller?.abort();
+    },
+    []
+  );
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    cancelActiveImport();
     const nextFile = event.target.files?.[0] ?? null;
     setFile(nextFile);
     setPreview(null);
@@ -106,20 +130,45 @@ export function OrdersKpiImportPage() {
     }
 
     setPreviewStatus("loading");
+    setPreview(null);
     setPreviewError(null);
     setConfirmResult(null);
     setRejectResult(null);
     setConfirmError(null);
     setRejectError(null);
+    cancelActiveImport();
+    const controller = new AbortController();
+    pollingControllerRef.current = controller;
 
     try {
-      const response = await ordersKpisApi.previewImport(file);
+      const response = await loadQueuedImportPreview({
+        enqueue: () => ordersKpisApi.previewImport(file),
+        fallbackFailureMessage:
+          "Orders KPI validation failed. Correct the file and upload it again.",
+        fetchPreview: ordersKpisApi.getImportPreview,
+        fetchStatus: ordersKpisApi.getImportStatus,
+        importLabel: "Orders KPI import",
+        isSuccessfulStatus: (status) =>
+          status === "VALIDATED" || status === "NEEDS_REVIEW",
+        onProcessingStatus: (batchId, status) =>
+          setActiveImport({ batchId, fileName: file.name, status }),
+        signal: controller.signal
+      });
       setPreview(response);
       setPreviewFilter("ALL");
       setPreviewStatus("success");
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+
       setPreviewError(getErrorMessage(error));
       setPreviewStatus("error");
+    } finally {
+      if (pollingControllerRef.current === controller) {
+        pollingControllerRef.current = null;
+        setActiveImport(null);
+      }
     }
   }
 
@@ -184,6 +233,12 @@ export function OrdersKpiImportPage() {
     setAcknowledgeSkippedRows(false);
   }
 
+  function cancelActiveImport() {
+    pollingControllerRef.current?.abort();
+    pollingControllerRef.current = null;
+    setActiveImport(null);
+  }
+
   return (
     <div className="min-w-0 overflow-hidden rounded-3xl bg-[color:var(--sn-sunken)] p-3 sm:p-4">
       <section className="rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
@@ -224,6 +279,7 @@ export function OrdersKpiImportPage() {
             <input
               accept=".xlsx,.csv"
               className="sr-only"
+              disabled={previewStatus === "loading"}
               onChange={handleFileChange}
               type="file"
             />
@@ -241,12 +297,13 @@ export function OrdersKpiImportPage() {
               ) : (
                 <FileSpreadsheet className="h-4 w-4" />
               )}
-              Preview file
+              {previewStatus === "loading" ? "Processing file" : "Preview file"}
             </Button>
             <Button
               className="h-12 gap-2 rounded-xl"
               disabled={!file && !preview}
               onClick={() => {
+                cancelActiveImport();
                 setFile(null);
                 setPreview(null);
                 setPreviewStatus("idle");
@@ -265,6 +322,16 @@ export function OrdersKpiImportPage() {
 
         {previewError ? <InlineError message={previewError} title="Preview failed" /> : null}
       </section>
+
+      {activeImport ? (
+        <div className="mt-4">
+          <ImportProcessingCard
+            batchId={activeImport.batchId}
+            fileName={activeImport.fileName}
+            status={activeImport.status}
+          />
+        </div>
+      ) : null}
 
       {preview ? (
         <section className="mt-4 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
@@ -877,6 +944,8 @@ function getStatusLabel(status: OrdersKpiImportBatchStatus) {
     CONFIRMED: "Confirmed",
     FAILED: "Failed",
     NEEDS_REVIEW: "Needs Review",
+    PENDING: "Queued",
+    PROCESSING: "Processing",
     REJECTED: "Rejected",
     VALIDATED: "Ready to Confirm"
   };
@@ -891,6 +960,10 @@ function getStatusClassName(status: OrdersKpiImportBatchStatus) {
 
   if (status === "NEEDS_REVIEW") {
     return "border-[oklch(0.88_0.05_80)] bg-[oklch(0.95_0.05_80)] text-[oklch(0.62_0.13_70)]";
+  }
+
+  if (status === "PENDING" || status === "PROCESSING") {
+    return "border-[#FFD8BD] bg-[#FFF8F3] text-[color:var(--tlb-orange-900)]";
   }
 
   if (status === "FAILED") {

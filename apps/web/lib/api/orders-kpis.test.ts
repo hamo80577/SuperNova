@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import {
   buildOrdersKpiImportConfirmReplacePath,
   buildOrdersKpiImportPreviewFormData,
+  buildOrdersKpiImportPreviewResultPath,
   buildOrdersKpiImportRejectPath,
+  buildOrdersKpiImportStatusPath,
   buildOrdersKpiPerformanceReportPath,
   buildOrdersKpiTargetSettingsPath,
   ordersKpisApi
@@ -25,6 +27,14 @@ async function run() {
   assert.equal(
     buildOrdersKpiImportRejectPath("batch-123"),
     "/orders-kpis/imports/batch-123/reject"
+  );
+  assert.equal(
+    buildOrdersKpiImportStatusPath("batch/123"),
+    "/orders-kpis/imports/batch%2F123/status"
+  );
+  assert.equal(
+    buildOrdersKpiImportPreviewResultPath("batch/123"),
+    "/orders-kpis/imports/batch%2F123/preview"
   );
   assert.equal(
     buildOrdersKpiPerformanceReportPath({
@@ -75,8 +85,18 @@ async function run() {
     oosRateTarget: 3,
     priceModifiedRateTarget: 3
   });
+  await ordersKpisApi.getImportStatus("batch-123");
+  await ordersKpisApi.getImportStatus("batch-123");
+  await ordersKpisApi.getImportPreview("batch-123");
 
-  const [confirmRequest, rejectRequest, targetsRequest] = requests;
+  const [
+    confirmRequest,
+    rejectRequest,
+    targetsRequest,
+    statusRequest,
+    repeatedStatusRequest,
+    previewRequest
+  ] = requests;
   assert.ok(confirmRequest.url.endsWith("/api/orders-kpis/imports/batch-123/confirm-replace"));
   assert.equal(confirmRequest.init?.method, "POST");
   assert.equal(
@@ -88,6 +108,13 @@ async function run() {
     })
   );
   assert.ok(rejectRequest.url.endsWith("/api/orders-kpis/imports/batch-123/reject"));
+  assert.ok(statusRequest.url.endsWith("/api/orders-kpis/imports/batch-123/status"));
+  assert.ok(
+    repeatedStatusRequest.url.endsWith(
+      "/api/orders-kpis/imports/batch-123/status"
+    )
+  );
+  assert.ok(previewRequest.url.endsWith("/api/orders-kpis/imports/batch-123/preview"));
   assert.equal(rejectRequest.init?.method, "POST");
   assert.equal(
     rejectRequest.init?.body,

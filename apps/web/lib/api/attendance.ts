@@ -243,6 +243,8 @@ export interface AttendanceDailyReportRow {
 }
 
 export type AttendanceImportBatchStatus =
+  | "PENDING"
+  | "PROCESSING"
   | "UPLOADED"
   | "VALIDATED"
   | "CONFIRMED"
@@ -288,6 +290,25 @@ export interface AttendanceImportPreviewResponse {
   dailyRecordCount: number;
   monthlySummaryCount: number;
   issueCount: number;
+}
+
+export interface AttendanceQueuedImportResponse {
+  batchId: string;
+  jobId: string;
+  status: "PENDING";
+}
+
+export interface AttendanceImportStatusResponse {
+  id: string;
+  jobId: string | null;
+  status: AttendanceImportBatchStatus;
+  fileName: string;
+  periodMonth: string;
+  rowCount: number;
+  errorRows: number;
+  warningRows: number;
+  failureReason: string | null;
+  updatedAt: string;
 }
 
 export interface AttendanceValidationPreview {
@@ -433,6 +454,14 @@ export function buildAttendanceImportConfirmPath(batchId: string) {
   return `/attendance/imports/${encodeURIComponent(batchId)}/confirm`;
 }
 
+export function buildAttendanceImportStatusPath(batchId: string) {
+  return `/attendance/imports/${encodeURIComponent(batchId)}/status`;
+}
+
+export function buildAttendanceImportPreviewResultPath(batchId: string) {
+  return `/attendance/imports/${encodeURIComponent(batchId)}/preview`;
+}
+
 export function clearAttendanceDailyReportCache() {
   clearApiCache(attendanceDailyReportPathPrefix);
 }
@@ -447,12 +476,23 @@ export const attendanceApi = {
     clearAttendanceDailyReportCache();
   },
   previewImport(file: File, options: AttendanceImportPreviewOptions = {}) {
-    return apiRequest<AttendanceImportPreviewResponse>(
+    return apiRequest<AttendanceQueuedImportResponse>(
       "/attendance/imports/preview",
       {
         body: buildAttendanceImportPreviewFormData(file, options),
         method: "POST"
       }
+    );
+  },
+  getImportStatus(batchId: string) {
+    return apiRequest<AttendanceImportStatusResponse>(
+      buildAttendanceImportStatusPath(batchId),
+      { method: "GET" }
+    );
+  },
+  getImportPreview(batchId: string) {
+    return apiGet<AttendanceImportPreviewResponse>(
+      buildAttendanceImportPreviewResultPath(batchId)
     );
   },
   async confirmImport(batchId: string) {

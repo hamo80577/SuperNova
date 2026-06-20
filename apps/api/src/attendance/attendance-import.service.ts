@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -215,6 +216,35 @@ export class AttendanceImportService {
       !hasCalculationErrors
         ? AttendanceImportBatchStatus.VALIDATED
         : AttendanceImportBatchStatus.FAILED;
+    const buildPreviewResult = (
+      batchId: string
+    ): AttendanceImportPreviewResult => ({
+      batchId,
+      status,
+      canConfirm: status === AttendanceImportBatchStatus.VALIDATED,
+      preview: {
+        ...preview,
+        canConfirm: status === AttendanceImportBatchStatus.VALIDATED,
+        errorRows,
+        warningRows,
+        mappedLocationRows: locationEnrichment.mappedLocationRows,
+        unmappedLocationRows: locationEnrichment.unmappedLocationRows,
+        missingLocationCodeRows: locationEnrichment.missingLocationCodeRows,
+        activeAssignmentMismatchRows:
+          locationEnrichment.activeAssignmentMismatchRows,
+        locationShiftLocationDifferenceRows:
+          locationEnrichment.locationShiftLocationDifferenceRows,
+        rowsByReportedLocationCode:
+          locationEnrichment.rowsByReportedLocationCode,
+        issues: combinedIssues
+      },
+      dailyRecordCount: calculationResult.dailyRecords.length,
+      monthlySummaryCount: calculationResult.monthlySummaries.length,
+      issueCount: combinedIssues.length
+    });
+    const queuedPreviewResult = queuedBatchId
+      ? buildPreviewResult(queuedBatchId)
+      : null;
 
     const batch = await this.prisma.$transaction(
       async (tx) => {
@@ -248,6 +278,9 @@ export class AttendanceImportService {
           errorRows,
           warningRows,
           failureReason: null,
+          ...(queuedPreviewResult
+            ? { previewResult: toPrismaJson(queuedPreviewResult) }
+            : {}),
           coverageStartDate: dateOnlyToUtcDateOrNull(preview.coverageStartDate),
           coverageEndDate: dateOnlyToUtcDateOrNull(preview.coverageEndDate),
           expectedCoverageEndDate: dateOnlyToUtcDateOrNull(
@@ -339,30 +372,37 @@ export class AttendanceImportService {
       { timeout: ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS }
     );
 
-    return {
-      batchId: batch.id,
-      status,
-      canConfirm: status === AttendanceImportBatchStatus.VALIDATED,
-      preview: {
-        ...preview,
-        canConfirm: status === AttendanceImportBatchStatus.VALIDATED,
-        errorRows,
-        warningRows,
-        mappedLocationRows: locationEnrichment.mappedLocationRows,
-        unmappedLocationRows: locationEnrichment.unmappedLocationRows,
-        missingLocationCodeRows: locationEnrichment.missingLocationCodeRows,
-        activeAssignmentMismatchRows:
-          locationEnrichment.activeAssignmentMismatchRows,
-        locationShiftLocationDifferenceRows:
-          locationEnrichment.locationShiftLocationDifferenceRows,
-        rowsByReportedLocationCode:
-          locationEnrichment.rowsByReportedLocationCode,
-        issues: combinedIssues
-      },
-      dailyRecordCount: calculationResult.dailyRecords.length,
-      monthlySummaryCount: calculationResult.monthlySummaries.length,
-      issueCount: combinedIssues.length
-    };
+    return queuedPreviewResult ?? buildPreviewResult(batch.id);
+  }
+
+  async getPreview(batchId: string): Promise<AttendanceImportPreviewResult> {
+    const batch = await this.prisma.attendanceImportBatch.findUnique({
+      where: { id: batchId },
+      select: {
+        status: true,
+        previewResult: true,
+        failureReason: true
+      }
+    });
+
+    if (!batch) {
+      throw new NotFoundException("Attendance import batch was not found.");
+    }
+
+    if (
+      batch.status === AttendanceImportBatchStatus.PENDING ||
+      batch.status === AttendanceImportBatchStatus.PROCESSING
+    ) {
+      throw new ConflictException("Attendance import is still processing.");
+    }
+
+    if (!batch.previewResult) {
+      throw new ConflictException(
+        batch.failureReason ?? "Attendance import preview is unavailable."
+      );
+    }
+
+    return batch.previewResult as unknown as AttendanceImportPreviewResult;
   }
 
   async confirmImport(
@@ -1373,6 +1413,10 @@ function formatDateOnlyOrNull(value: Date | null) {
 
 function toAuditJson(value: Record<string, unknown>) {
   return value as Prisma.InputJsonObject;
+}
+
+function toPrismaJson(previewResponse: unknown) {
+  return JSON.parse(JSON.stringify(previewResponse)) as Prisma.InputJsonValue;
 }
 
 function pad(value: number) {

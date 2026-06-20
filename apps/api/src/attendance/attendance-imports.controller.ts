@@ -93,6 +93,11 @@ export class AttendanceImportsController {
     return this.attendanceImportQueueService.getStatus(batchId);
   }
 
+  @Get(":batchId/preview")
+  getImportPreview(@Param("batchId", ParseUUIDPipe) batchId: string) {
+    return this.attendanceImportService.getPreview(batchId);
+  }
+
   @Post(":batchId/confirm")
   confirmImport(
     @Param("batchId", ParseUUIDPipe) batchId: string,
