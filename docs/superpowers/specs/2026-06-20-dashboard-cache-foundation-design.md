@@ -27,14 +27,14 @@ Event names are centralized constants:
 - `import.kpi.success`
 - `user.metrics.updated`
 
-Bulk import payloads carry one or more affected `YYYY-MM` months and the import source. Targeted payloads carry `userId`, one affected `YYYY-MM` month, and the workflow source. Events are emitted only after successful final database state changes, never for preview or intermediate approval states.
+Every payload carries a stable domain `eventId` derived from the committed import batch or request. Bulk import payloads also carry one or more affected `YYYY-MM` months and the import source. Targeted payloads also carry `userId`, one affected `YYYY-MM` month, and the workflow source. Events are emitted only after successful final database state changes, never for preview or intermediate approval states.
 
 ## Queue Contract
 
 The dedicated queue is named `dashboard-cache`. Jobs use discriminated payloads:
 
-- Bulk job: `{ kind: "BULK", months: string[], source: "ATTENDANCE_IMPORT" | "KPI_IMPORT" }`
-- Targeted job: `{ kind: "TARGETED", userId: string, month: string, source: "DEDUCTION" | "ANNUAL_LEAVE" }`
+- Bulk job: `{ kind: "BULK", eventId: string, months: string[], source: "ATTENDANCE_IMPORT" | "KPI_IMPORT" }`
+- Targeted job: `{ kind: "TARGETED", eventId: string, userId: string, month: string, source: "DEDUCTION" | "ANNUAL_LEAVE" }`
 
 Job IDs are deterministic enough to coalesce duplicate updates for the same source and target window without merging unrelated users. Queue retries use bounded attempts and backoff. A targeted processor branch calls one targeted warmer method; only the bulk branch contains user pagination.
 
