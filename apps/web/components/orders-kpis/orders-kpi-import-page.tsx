@@ -148,7 +148,7 @@ export function OrdersKpiImportPage() {
         fetchPreview: ordersKpisApi.getImportPreview,
         fetchStatus: ordersKpisApi.getImportStatus,
         importLabel: "Orders KPI import",
-        isSuccessfulStatus: (status) =>
+        isPreviewReadyStatus: (status) =>
           status === "VALIDATED" || status === "NEEDS_REVIEW",
         onProcessingStatus: (batchId, status) =>
           setActiveImport({ batchId, fileName: file.name, status }),
@@ -337,6 +337,12 @@ export function OrdersKpiImportPage() {
         <section className="mt-4 rounded-3xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] sm:p-5">
           <PreviewHeader preview={preview} />
           <PreviewSummary preview={preview} />
+          {preview.batch.status === "FAILED" ? (
+            <InlineError
+              message="File validation failed. Review the issues below and upload a corrected file."
+              title="Validation failed"
+            />
+          ) : null}
 
           {confirmResult ? <ConfirmSuccess result={confirmResult} /> : null}
           {rejectResult ? <RejectSuccess result={rejectResult} /> : null}
@@ -925,7 +931,7 @@ function getDecisionCopy(status: OrdersKpiImportBatchStatus | undefined) {
   }
 
   if (status === "FAILED") {
-    return "The preview could not be created because the file failed parsing or system validation.";
+    return "The file did not pass validation. Review the issues and upload a corrected file.";
   }
 
   if (status === "CONFIRMED") {

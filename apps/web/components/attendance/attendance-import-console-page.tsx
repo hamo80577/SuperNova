@@ -122,6 +122,10 @@ export function AttendanceImportConsolePage({
       confirmChecked &&
       (!hasUnmappedLocationWarnings || unmappedLocationAcknowledged)
   );
+  const validationFailedMessage =
+    preview?.status === "FAILED"
+      ? "File validation failed. Review the issues below and upload a corrected file."
+      : null;
   const isPreviewing =
     previewState.status === "loading" ||
     duplicateSaveState.status === "loading";
@@ -338,7 +342,7 @@ export function AttendanceImportConsolePage({
         fetchPreview: attendanceApi.getImportPreview,
         fetchStatus: attendanceApi.getImportStatus,
         importLabel: "Attendance import",
-        isSuccessfulStatus: (status) => status === "VALIDATED",
+        isPreviewReadyStatus: (status) => status === "VALIDATED",
         onProcessingStatus: (batchId, status) =>
           setActiveImport({ batchId, fileName: fileToUpload.name, status }),
         signal: controller.signal
@@ -440,6 +444,10 @@ export function AttendanceImportConsolePage({
             fileName={activeImport.fileName}
             status={activeImport.status}
           />
+        ) : null}
+
+        {validationFailedMessage ? (
+          <InlineError message={validationFailedMessage} />
         ) : null}
 
         {preview ? (

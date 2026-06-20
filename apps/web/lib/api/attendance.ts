@@ -308,6 +308,7 @@ export interface AttendanceImportStatusResponse {
   errorRows: number;
   warningRows: number;
   failureReason: string | null;
+  hasPreviewResult: boolean;
   updatedAt: string;
 }
 

@@ -11,8 +11,11 @@ void run();
 async function run() {
   await testPendingImportStopsAtTerminalStatus();
   await testCancelledImportStopsPolling();
+  await testPollingTimeoutShowsFailure();
   await testValidatedImportLoadsPreview();
-  await testFailedImportDoesNotLoadPreview();
+  await testNeedsReviewImportLoadsPreview();
+  await testFailedImportWithPreviewLoadsPreview();
+  await testFailedImportWithoutPreviewShowsFailure();
 }
 
 async function testPendingImportStopsAtTerminalStatus() {
@@ -55,30 +58,49 @@ async function testCancelledImportStopsPolling() {
   assert.equal(requestCount, 1);
 }
 
-async function testValidatedImportLoadsPreview() {
-  const controller = new AbortController();
-  const processingStatuses: string[] = [];
-
-  const preview = await loadQueuedImportPreview({
-    enqueue: async () => ({ batchId: "batch-1", status: "PENDING" }),
-    fallbackFailureMessage: "Validation failed.",
-    fetchPreview: async (batchId) => ({ batchId, rowCount: 12 }),
-    fetchStatus: async () => ({
-      failureReason: null,
-      status: "VALIDATED"
+async function testPollingTimeoutShowsFailure() {
+  await assert.rejects(
+    pollImportStatus({
+      fetchStatus: async () => ({ status: "PENDING" }),
+      intervalMs: 0,
+      timeoutMs: 0
     }),
-    importLabel: "Attendance import",
-    isSuccessfulStatus: (status) => status === "VALIDATED",
-    onProcessingStatus: (_batchId, status) =>
-      processingStatuses.push(status),
-    signal: controller.signal
+    {
+      message:
+        "Processing is taking longer than expected. Try checking the import again."
+    }
+  );
+}
+
+async function testValidatedImportLoadsPreview() {
+  const preview = await loadPreviewForTerminalStatus({
+    hasPreviewResult: true,
+    status: "VALIDATED"
   });
 
   assert.deepEqual(preview, { batchId: "batch-1", rowCount: 12 });
-  assert.deepEqual(processingStatuses, ["PENDING"]);
 }
 
-async function testFailedImportDoesNotLoadPreview() {
+async function testNeedsReviewImportLoadsPreview() {
+  const preview = await loadPreviewForTerminalStatus({
+    hasPreviewResult: true,
+    status: "NEEDS_REVIEW"
+  });
+
+  assert.deepEqual(preview, { batchId: "batch-1", rowCount: 12 });
+}
+
+async function testFailedImportWithPreviewLoadsPreview() {
+  const preview = await loadPreviewForTerminalStatus({
+    failureReason: "Workbook has row-level validation errors.",
+    hasPreviewResult: true,
+    status: "FAILED"
+  });
+
+  assert.deepEqual(preview, { batchId: "batch-1", rowCount: 12 });
+}
+
+async function testFailedImportWithoutPreviewShowsFailure() {
   const controller = new AbortController();
   let previewRequestCount = 0;
 
@@ -92,10 +114,12 @@ async function testFailedImportDoesNotLoadPreview() {
       },
       fetchStatus: async () => ({
         failureReason: "Workbook could not be parsed.",
+        hasPreviewResult: false,
         status: "FAILED"
       }),
       importLabel: "Orders KPI import",
-      isSuccessfulStatus: (status) => status === "VALIDATED",
+      isPreviewReadyStatus: (status) =>
+        status === "VALIDATED" || status === "NEEDS_REVIEW",
       onProcessingStatus: () => undefined,
       signal: controller.signal
     }),
@@ -103,4 +127,33 @@ async function testFailedImportDoesNotLoadPreview() {
   );
 
   assert.equal(previewRequestCount, 0);
+}
+
+async function loadPreviewForTerminalStatus(terminalStatus: {
+  failureReason?: string | null;
+  hasPreviewResult: boolean;
+  status: "FAILED" | "NEEDS_REVIEW" | "VALIDATED";
+}) {
+  const controller = new AbortController();
+  const processingStatuses: string[] = [];
+
+  const preview = await loadQueuedImportPreview({
+    enqueue: async () => ({ batchId: "batch-1", status: "PENDING" }),
+    fallbackFailureMessage: "Validation failed.",
+    fetchPreview: async (batchId) => ({ batchId, rowCount: 12 }),
+    fetchStatus: async () => ({
+      failureReason: terminalStatus.failureReason ?? null,
+      hasPreviewResult: terminalStatus.hasPreviewResult,
+      status: terminalStatus.status
+    }),
+    importLabel: "Orders KPI import",
+    isPreviewReadyStatus: (status) =>
+      status === "VALIDATED" || status === "NEEDS_REVIEW",
+    onProcessingStatus: (_batchId, status) =>
+      processingStatuses.push(status),
+    signal: controller.signal
+  });
+
+  assert.deepEqual(processingStatuses, ["PENDING"]);
+  return preview;
 }

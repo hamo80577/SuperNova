@@ -9,7 +9,11 @@ interface PollImportStatusOptions<TStatus extends { status: string }> {
 }
 
 interface LoadQueuedImportPreviewOptions<
-  TStatus extends { failureReason: string | null; status: string },
+  TStatus extends {
+    failureReason: string | null;
+    hasPreviewResult: boolean;
+    status: string;
+  },
   TPreview
 > {
   enqueue: () => Promise<{ batchId: string; status: "PENDING" }>;
@@ -17,7 +21,7 @@ interface LoadQueuedImportPreviewOptions<
   fetchStatus: (batchId: string) => Promise<TStatus>;
   fallbackFailureMessage: string;
   importLabel: string;
-  isSuccessfulStatus: (status: string) => boolean;
+  isPreviewReadyStatus: (status: string) => boolean;
   onProcessingStatus: (
     batchId: string,
     status: ImportProcessingStatus
@@ -65,7 +69,11 @@ export async function pollImportStatus<TStatus extends { status: string }>({
 }
 
 export async function loadQueuedImportPreview<
-  TStatus extends { failureReason: string | null; status: string },
+  TStatus extends {
+    failureReason: string | null;
+    hasPreviewResult: boolean;
+    status: string;
+  },
   TPreview
 >({
   enqueue,
@@ -73,10 +81,10 @@ export async function loadQueuedImportPreview<
   fetchStatus,
   fallbackFailureMessage,
   importLabel,
-  isSuccessfulStatus,
+  isPreviewReadyStatus,
   onProcessingStatus,
   signal
-}: LoadQueuedImportPreviewOptions<TStatus, TPreview>) {
+}: LoadQueuedImportPreviewOptions<TStatus, TPreview>): Promise<TPreview> {
   const queuedImport = await enqueue();
   assertImportPollingActive(signal);
   onProcessingStatus(queuedImport.batchId, queuedImport.status);
@@ -90,10 +98,10 @@ export async function loadQueuedImportPreview<
     },
     signal
   });
-  assertSuccessfulTerminalStatus(terminalStatus, {
+  assertPreviewReadyTerminalStatus(terminalStatus, {
     fallbackFailureMessage,
     importLabel,
-    isSuccessfulStatus
+    isPreviewReadyStatus
   });
 
   const preview = await fetchPreview(queuedImport.batchId);
@@ -137,23 +145,32 @@ function createAbortError() {
   return error;
 }
 
-function assertSuccessfulTerminalStatus(
-  terminalStatus: { failureReason: string | null; status: string },
+function assertPreviewReadyTerminalStatus(
+  terminalStatus: {
+    failureReason: string | null;
+    hasPreviewResult: boolean;
+    status: string;
+  },
   options: {
     fallbackFailureMessage: string;
     importLabel: string;
-    isSuccessfulStatus: (status: string) => boolean;
+    isPreviewReadyStatus: (status: string) => boolean;
   }
 ) {
-  if (terminalStatus.status === "FAILED") {
+  if (
+    options.isPreviewReadyStatus(terminalStatus.status) ||
+    (terminalStatus.status === "FAILED" && terminalStatus.hasPreviewResult)
+  ) {
+    return;
+  }
+
+  if (terminalStatus.status === "FAILED" && !terminalStatus.hasPreviewResult) {
     throw new Error(
       terminalStatus.failureReason ?? options.fallbackFailureMessage
     );
   }
 
-  if (!options.isSuccessfulStatus(terminalStatus.status)) {
-    throw new Error(
-      `${options.importLabel} stopped with status ${terminalStatus.status}.`
-    );
-  }
+  throw new Error(
+    `${options.importLabel} stopped with status ${terminalStatus.status}.`
+  );
 }

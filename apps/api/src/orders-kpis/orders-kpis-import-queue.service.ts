@@ -107,6 +107,7 @@ export class OrdersKpisImportQueueService {
         skippedRows: true,
         errorRows: true,
         warningRows: true,
+        previewResult: true,
         failureReason: true,
         updatedAt: true
       }
@@ -116,7 +117,12 @@ export class OrdersKpisImportQueueService {
       throw new NotFoundException("Orders KPI import batch was not found.");
     }
 
-    return batch;
+    const { previewResult, ...statusResponse } = batch;
+
+    return {
+      ...statusResponse,
+      hasPreviewResult: previewResult !== null
+    };
   }
 
   private async recordQueueFailure(

@@ -116,6 +116,7 @@ export interface OrdersKpiImportStatusResponse {
   errorRows: number;
   warningRows: number;
   failureReason: string | null;
+  hasPreviewResult: boolean;
   updatedAt: string;
 }
 

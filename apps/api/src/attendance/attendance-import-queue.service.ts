@@ -119,6 +119,7 @@ export class AttendanceImportQueueService {
         rowCount: true,
         errorRows: true,
         warningRows: true,
+        previewResult: true,
         failureReason: true,
         updatedAt: true
       }
@@ -128,7 +129,12 @@ export class AttendanceImportQueueService {
       throw new NotFoundException("Attendance import batch was not found.");
     }
 
-    return batch;
+    const { previewResult, ...statusResponse } = batch;
+
+    return {
+      ...statusResponse,
+      hasPreviewResult: previewResult !== null
+    };
   }
 
   private async recordQueueFailure(
