@@ -6,7 +6,7 @@ SuperNova performance-summary endpoints currently calculate every response from 
 
 ## Scope
 
-Cache the month-based performance summaries for active Pickers, Champs, and Area Managers. Admin workspace caching, workflow-rule changes, and microservices are outside this change.
+Cache the canonical, unfiltered monthly performance summaries for active Pickers, Champs, and Area Managers. Admin workspace caching, workflow-rule changes, custom date-range caching, scoped-filter caching, and microservices are outside this change.
 
 ## Architecture
 
@@ -50,15 +50,26 @@ Roles are normalized to lowercase key segments. Values are JSON performance-summ
 
 Bulk warming selects active users with active accounts and employment status for roles that expose month-based performance summaries: `PICKER`, `CHAMP`, and `AREA_MANAGER`. Cursor pagination avoids loading all users into memory.
 
+The key is used only for a canonical, unfiltered monthly query:
+
+- `dateFrom` is the first calendar day of the key month.
+- For a historical month, `dateTo` is the final calendar day of that month.
+- For the current month, `dateTo` is the current UTC calendar date.
+- Champ requests have no `vendorId`; Area Manager requests have no `chainId`.
+- Picker requests use the matching monthly range, regardless of whether the optional period label is omitted or `THIS_MONTH`.
+
+Last-week, quarter, custom, future, cross-month, branch-filtered, and chain-filtered requests bypass Redis and calculate directly from Prisma. This rule prevents different query variants from colliding under a month-only key.
+
 ## Calculation Boundaries
 
 Workspace services expose cache-bypassing calculation methods and cache-aware public read methods:
 
-1. Normalize the requested month.
-2. Attempt Redis read.
-3. Return a valid cached payload on hit.
-4. On miss, invalid JSON, or Redis failure, calculate from Prisma.
-5. Attempt a cache write without failing the HTTP response if Redis is unavailable.
+1. Validate whether the request is the canonical unfiltered monthly query.
+2. For a non-canonical request, calculate directly from Prisma without reading or writing Redis.
+3. For a canonical request, attempt Redis read.
+4. Return a valid cached payload on hit.
+5. On miss, invalid JSON, or Redis failure, calculate from Prisma.
+6. Attempt a cache write without failing the HTTP response if Redis is unavailable.
 
 The worker invokes only cache-bypassing calculation methods, then writes the computed payloads. This prevents recursive reads of stale cache entries.
 
@@ -85,6 +96,7 @@ Focused tests will prove:
 - Targeted processing calculates and writes exactly one user without calling user enumeration.
 - Bulk processing paginates users and writes with chunk pipelines.
 - Workspace reads return cached values on hit.
+- Custom, cross-month, and scoped-filter reads bypass Redis.
 - Cache miss and Redis failure fall back to Prisma and attempt cache population.
 - Invalid cached JSON is discarded and recalculated.
 - Worker routing keeps bulk and targeted code paths separate.
