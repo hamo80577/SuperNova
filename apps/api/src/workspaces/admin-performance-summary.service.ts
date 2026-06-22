@@ -20,6 +20,7 @@ import {
 import { OrdersKpisTargetSettingsService } from "../orders-kpis/orders-kpis-target-settings.service";
 import type { OrdersKpiTargetSettingsResponse } from "../orders-kpis/orders-kpis.types";
 import { PrismaService } from "../prisma/prisma.service";
+import { filterVendorScopedAttendance } from "./admin-performance-attendance.helpers";
 import type { AdminPerformanceSummaryQueryDto } from "./dto/admin-performance-summary-query.dto";
 
 export type AdminPerformanceStatus =
@@ -253,7 +254,9 @@ const attendanceSelect = {
   isAbsent: true,
   isUnder8Hours: true,
   isOver15Hours: true,
-  issuesCount: true
+  issuesCount: true,
+  reportedVendorId: true,
+  locationMappingStatus: true
 } satisfies Prisma.AttendanceDailyRecordSelect;
 
 type ChainRow = Prisma.ChainGetPayload<{ select: typeof chainSelect }>;
@@ -855,17 +858,20 @@ function buildAreaManagerRanking(options: {
       chainIds.includes(branch.chainId)
     );
     const vendorIds = branches.map((branch) => branch.id);
-    const scopedUserIds = userIdsForVendors(options.scope, vendorIds);
+    const pickerIds = pickerIdsForVendors(options.scope, vendorIds);
+    const champIds = champIdsForVendors(options.scope, vendorIds);
 
     return buildAreaManagerRow({
       assignment,
       chainIds,
       branchesCount: branches.length,
       kpiRecords: filterKpisByVendors(options.kpiRecords, vendorIds),
-      attendanceRecords: filterAttendanceByUsers(
-        options.attendanceRecords,
-        scopedUserIds
-      ),
+      attendanceRecords: filterVendorScopedAttendance({
+        records: options.attendanceRecords,
+        vendorIds,
+        pickerIds,
+        champIds
+      }),
       targetSettings: options.targetSettings,
       minOrdersRequired: options.minOrdersRequired
     });
@@ -935,20 +941,17 @@ function buildChampRanking(options: {
         .map((candidate) => candidate.vendorId)
     );
     const pickerIds = pickerIdsForVendors(options.scope, vendorIds);
-    const attendanceUserIds = uniqueStrings([
-      assignment.champId,
-      ...pickerIds
-    ]);
-
     return buildChampRow({
       assignment,
       vendorIds,
       pickerIds,
       kpiRecords: filterKpisByVendors(options.kpiRecords, vendorIds),
-      attendanceRecords: filterAttendanceByUsers(
-        options.attendanceRecords,
-        attendanceUserIds
-      ),
+      attendanceRecords: filterVendorScopedAttendance({
+        records: options.attendanceRecords,
+        vendorIds,
+        pickerIds,
+        champIds: [assignment.champId]
+      }),
       targetSettings: options.targetSettings,
       minOrdersRequired: options.minOrdersRequired
     });
@@ -1013,20 +1016,21 @@ function buildBranchRanking(options: {
     const champAssignments = options.scope.champAssignments.filter(
       (assignment) => assignment.vendorId === branch.id
     );
-    const attendanceUserIds = uniqueStrings([
-      ...pickerIds,
-      ...champAssignments.map((assignment) => assignment.champId)
-    ]);
+    const champIds = champAssignments.map(
+      (assignment) => assignment.champId
+    );
 
     return buildBranchRow({
       branch,
       pickerIds,
       champName: champAssignments[0]?.champ.nameEn ?? null,
       kpiRecords: filterKpisByVendors(options.kpiRecords, [branch.id]),
-      attendanceRecords: filterAttendanceByUsers(
-        options.attendanceRecords,
-        attendanceUserIds
-      ),
+      attendanceRecords: filterVendorScopedAttendance({
+        records: options.attendanceRecords,
+        vendorIds: [branch.id],
+        pickerIds,
+        champIds
+      }),
       targetSettings: options.targetSettings,
       minOrdersRequired: options.minOrdersRequired
     });
@@ -1366,20 +1370,19 @@ function buildRequestScopeWhere(
   return conditions.length ? { OR: conditions } : null;
 }
 
-function userIdsForVendors(scope: ScopeContext, vendorIds: string[]) {
-  return uniqueStrings([
-    ...pickerIdsForVendors(scope, vendorIds),
-    ...scope.champAssignments
-      .filter((assignment) => vendorIds.includes(assignment.vendorId))
-      .map((assignment) => assignment.champId)
-  ]);
-}
-
 function pickerIdsForVendors(scope: ScopeContext, vendorIds: string[]) {
   return uniqueStrings(
     scope.pickerAssignments
       .filter((assignment) => vendorIds.includes(assignment.vendorId))
       .map((assignment) => assignment.pickerId)
+  );
+}
+
+function champIdsForVendors(scope: ScopeContext, vendorIds: string[]) {
+  return uniqueStrings(
+    scope.champAssignments
+      .filter((assignment) => vendorIds.includes(assignment.vendorId))
+      .map((assignment) => assignment.champId)
   );
 }
 
@@ -1392,13 +1395,6 @@ function filterKpisByVendors(
       record.matchedVendorId !== null &&
       vendorIds.includes(record.matchedVendorId)
   );
-}
-
-function filterAttendanceByUsers(
-  records: AttendanceRow[],
-  userIds: string[]
-) {
-  return records.filter((record) => userIds.includes(record.userId));
 }
 
 function parsePeriod(

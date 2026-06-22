@@ -8,6 +8,7 @@ import {
   ApprovalStep,
   AssignmentStatus,
   AttendanceImportBatchStatus,
+  AttendanceLocationMappingStatus,
   BlockStatus,
   EmploymentStatus,
   Gender,
@@ -213,6 +214,8 @@ function attendanceRecord(
     isAbsent?: boolean;
     isUnder8Hours?: boolean;
     isOver15Hours?: boolean;
+    reportedVendorId?: string | null;
+    locationMappingStatus?: AttendanceLocationMappingStatus;
   }
 ) {
   return {
@@ -224,6 +227,9 @@ function attendanceRecord(
     isAbsent: flags.isAbsent ?? false,
     isUnder8Hours: flags.isUnder8Hours ?? false,
     isOver15Hours: flags.isOver15Hours ?? false,
+    reportedVendorId: flags.reportedVendorId ?? null,
+    locationMappingStatus:
+      flags.locationMappingStatus ?? AttendanceLocationMappingStatus.NOT_CHECKED,
     issuesCount:
       Number(flags.isLate ?? false) +
       Number(flags.isAbsent ?? false) +
@@ -406,7 +412,11 @@ const attendanceDailyRecords = [
   }),
   attendanceRecord("picker-cam", "2026-06-01", { isOnTime: true }),
   attendanceRecord("picker-low", "2026-06-01", { isOnTime: true }),
-  attendanceRecord("champ-alpha", "2026-06-01", { isOnTime: true }),
+  attendanceRecord("champ-alpha", "2026-06-01", {
+    isLate: true,
+    reportedVendorId: "vendor-a1",
+    locationMappingStatus: AttendanceLocationMappingStatus.MAPPED_VENDOR_CODE
+  }),
   attendanceRecord("champ-alpha", "2026-06-02", { isOnTime: true }),
   attendanceRecord("champ-bella", "2026-06-01", {
     isAbsent: true,
@@ -838,14 +848,37 @@ function createPrismaStub() {
         ordersKpiDailyRecords.filter((row) => matchesKpiWhere(row, where))
     },
     attendanceDailyRecord: {
-      findMany: async ({ where }: { where?: Record<string, unknown> } = {}) =>
-        attendanceDailyRecords.filter((row) => matchesAttendanceWhere(row, where))
+      findMany: async ({
+        where,
+        select
+      }: {
+        where?: Record<string, unknown>;
+        select?: Record<string, boolean>;
+      } = {}) =>
+        attendanceDailyRecords
+          .filter((row) => matchesAttendanceWhere(row, where))
+          .map((row) => selectScalarFields(row, select))
     },
     request: {
       count: async ({ where }: { where?: Record<string, unknown> } = {}) =>
         requests.filter((row) => matchesRequestWhere(row, where)).length
     }
   };
+}
+
+function selectScalarFields<T extends Record<string, unknown>>(
+  row: T,
+  select?: Record<string, boolean>
+) {
+  if (!select) {
+    return row;
+  }
+
+  return Object.fromEntries(
+    Object.entries(select)
+      .filter(([, selected]) => selected)
+      .map(([field]) => [field, row[field]])
+  );
 }
 
 function createTargetSettingsStub() {
@@ -1023,17 +1056,17 @@ async function testAttendanceUsesActivePickersAndChampsOnly() {
   assert.equal(summary.attendance.available, true);
   assert.deepEqual(summary.attendance.includedRoles, ["PICKER", "CHAMP"]);
   assert.equal(summary.attendance.totalShifts, 8);
-  assert.equal(summary.attendance.totalShiftErrors, 4);
+  assert.equal(summary.attendance.totalShiftErrors, 5);
 }
 
 async function testAttendanceUsesCleanShiftRate() {
   const service = createService();
   const summary = await service.getSummary({ dateFrom, dateTo });
 
-  assert.equal(summary.attendance.cleanShifts, 6);
-  assert.equal(summary.attendance.issueShifts, 2);
-  assert.equal(summary.attendance.attendanceHealthRate, 75);
-  assert.equal(summary.attendance.lateCount, 1);
+  assert.equal(summary.attendance.cleanShifts, 5);
+  assert.equal(summary.attendance.issueShifts, 3);
+  assert.equal(summary.attendance.attendanceHealthRate, 62.5);
+  assert.equal(summary.attendance.lateCount, 2);
   assert.equal(summary.attendance.absentCount, 1);
   assert.equal(summary.attendance.under8Count, 1);
   assert.equal(summary.attendance.over15Count, 1);
@@ -1107,6 +1140,36 @@ async function testBranchRankingUsesUhoOnlyWithNameTieAndNoKpiLast() {
   assert.equal(summary.branchesRanking.rows[5].status, "NO_KPI");
 }
 
+async function testMappedChampAttendanceCountsOnlyForReportedBranch() {
+  const service = createService();
+  const summary = await service.getSummary({ dateFrom, dateTo });
+  const alphaBranch = summary.branchesRanking.rows.find(
+    (row: { vendorId: string }) => row.vendorId === "vendor-a1"
+  );
+
+  assert.equal(alphaBranch?.attendanceHealthRate, 50);
+}
+
+async function testUnmappedChampIsExcludedFromPickerBranchAttendance() {
+  const service = createService();
+  const summary = await service.getSummary({ dateFrom, dateTo });
+  const betaBranch = summary.branchesRanking.rows.find(
+    (row: { vendorId: string }) => row.vendorId === "vendor-a2"
+  );
+
+  assert.equal(betaBranch?.attendanceHealthRate, 100);
+}
+
+async function testChampAttendanceExcludesUnsafeBranchMapping() {
+  const service = createService();
+  const summary = await service.getSummary({ dateFrom, dateTo });
+  const alphaChamp = summary.champsRanking.rows.find(
+    (row: { champId: string }) => row.champId === "champ-alpha"
+  );
+
+  assert.equal(alphaChamp?.attendanceHealthRate, 66.67);
+}
+
 async function testTopPickersUseSevenDayThresholdTwentyAndExcludeLowVolume() {
   const service = createService();
   const summary = await service.getSummary({ dateFrom, dateTo });
@@ -1167,6 +1230,9 @@ async function main() {
   await testAreaManagerRankingUsesUhoOnlyWithNameTieAndNoKpiLast();
   await testChampRankingUsesUhoOnlyWithNameTieAndNoKpiLast();
   await testBranchRankingUsesUhoOnlyWithNameTieAndNoKpiLast();
+  await testMappedChampAttendanceCountsOnlyForReportedBranch();
+  await testUnmappedChampIsExcludedFromPickerBranchAttendance();
+  await testChampAttendanceExcludesUnsafeBranchMapping();
   await testTopPickersUseSevenDayThresholdTwentyAndExcludeLowVolume();
   await testFiltersAlterRankingsAndTopPickers();
   console.log("admin performance summary tests passed");
