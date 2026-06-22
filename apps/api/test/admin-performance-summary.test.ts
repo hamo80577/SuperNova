@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 import {
   AccountStatus,
+  ApprovalStep,
   AssignmentStatus,
   AttendanceImportBatchStatus,
   BlockStatus,
@@ -241,6 +242,7 @@ function requestRow(options: {
   updatedAt?: string;
   sourceVendorId?: string | null;
   destinationVendorId?: string | null;
+  currentStep?: ApprovalStep | null;
 }) {
   const sourceVendor = options.sourceVendorId
     ? vendors.find((item) => item.id === options.sourceVendorId) ?? null
@@ -253,7 +255,7 @@ function requestRow(options: {
     id: options.id,
     type: options.type,
     status: options.status,
-    currentStep: null,
+    currentStep: options.currentStep ?? null,
     payload: {},
     completedAt: options.completedAt ? d(options.completedAt) : null,
     createdAt: d(options.createdAt),
@@ -420,6 +422,7 @@ const requests = [
     status: RequestStatus.PENDING_ADMIN,
     createdAt: "2026-06-02",
     updatedAt: "2026-06-06",
+    currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
     sourceVendorId: "vendor-a1"
   }),
   requestRow({
@@ -466,6 +469,7 @@ const requests = [
     type: RequestType.DEDUCTION,
     status: RequestStatus.PENDING_ADMIN,
     createdAt: "2026-05-15",
+    currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
     sourceVendorId: "vendor-b2"
   }),
   requestRow({
@@ -474,6 +478,7 @@ const requests = [
     status: RequestStatus.PENDING_ADMIN,
     createdAt: "2026-05-28",
     updatedAt: "2026-06-07",
+    currentStep: ApprovalStep.ADMIN_FINAL_APPROVAL,
     sourceVendorId: "vendor-a1"
   })
 ];
@@ -698,6 +703,13 @@ function matchesRequestWhere(
   if (typeof statusFilter === "string" && row.status !== statusFilter) {
     return false;
   }
+
+  if (
+    where.currentStep &&
+    row.currentStep !== (where.currentStep as ApprovalStep)
+  ) {
+    return false;
+  }
   if (typeof statusFilter === "object" && statusFilter !== null) {
     if (statusFilter.in && !statusFilter.in.includes(row.status)) return false;
     if (statusFilter.notIn && statusFilter.notIn.includes(row.status)) return false;
@@ -813,7 +825,12 @@ function createTargetSettingsStub() {
       id: "global",
       source: "SAVED",
       targets: {
-        uhoRateTarget: 8
+        uhoRateTarget: 8,
+        notOnTimeRateTarget: 10,
+        qcFailedRateTarget: 5,
+        partialRefundRateTarget: 3,
+        oosRateTarget: 3,
+        priceModifiedRateTarget: 3
       },
       updatedByUserId: "admin-1",
       createdAt: "2026-06-01T00:00:00.000Z",
@@ -850,10 +867,7 @@ async function testControllerUsesAdminAndSuperAdminRolesOnly() {
   ]);
 }
 
-async function testControllerDelegatesAdminPerformanceQueryForRole(
-  role: UserRole
-) {
-  assert.ok([UserRole.ADMIN, UserRole.SUPER_ADMIN].includes(role));
+async function testControllerDelegatesAdminPerformanceQuery() {
   const received: Array<Record<string, unknown>> = [];
   const expected = { ok: true };
   const controller = new (WorkspacesController as any)(
@@ -885,39 +899,25 @@ async function testControllerDelegatesAdminPerformanceQueryForRole(
   ]);
 }
 
-async function testControllerAllowsGlobalSummaryForAdmin() {
-  await testControllerDelegatesAdminPerformanceQueryForRole(UserRole.ADMIN);
-}
-
-async function testControllerAllowsGlobalSummaryForSuperAdmin() {
-  await testControllerDelegatesAdminPerformanceQueryForRole(
-    UserRole.SUPER_ADMIN
-  );
-}
-
-async function testGlobalSummaryReturnsGlobalResultForRole(role: UserRole) {
+async function testGlobalSummaryReturnsExpectedContract() {
   const service = createService();
-  assert.ok([UserRole.ADMIN, UserRole.SUPER_ADMIN].includes(role));
   const summary = await service.getSummary({ dateFrom, dateTo });
 
   assert.deepEqual(summary.period, { dateFrom, dateTo });
-  assert.equal(summary.scope.selectedChainId, null);
-  assert.equal(summary.scope.selectedVendorId, null);
-  assert.deepEqual(summary.scope.totals, {
+  assert.equal(summary.filters.selectedChainId, null);
+  assert.equal(summary.filters.selectedVendorId, null);
+  assert.deepEqual(summary.scopeTotals, {
     chainsCount: 4,
     branchesCount: 6,
+    areaManagersCount: 4,
     champsCount: 4,
     pickersCount: 7
   });
-  assert.equal(summary.ordersKpi.target.source, "SAVED");
-}
-
-async function testGlobalSummaryReturnsGlobalResultForAdmin() {
-  await testGlobalSummaryReturnsGlobalResultForRole(UserRole.ADMIN);
-}
-
-async function testGlobalSummaryReturnsGlobalResultForSuperAdmin() {
-  await testGlobalSummaryReturnsGlobalResultForRole(UserRole.SUPER_ADMIN);
+  assert.deepEqual(summary.ordersKpi.target, {
+    configured: true,
+    unhealthyRateTarget: 8,
+    status: "IN_TARGET"
+  });
 }
 
 async function testChainFilterNarrowsScope() {
@@ -928,15 +928,16 @@ async function testChainFilterNarrowsScope() {
     chainId: "chain-b"
   });
 
-  assert.equal(summary.scope.selectedChainId, "chain-b");
-  assert.equal(summary.scope.selectedVendorId, null);
-  assert.deepEqual(summary.scope.totals, {
+  assert.equal(summary.filters.selectedChainId, "chain-b");
+  assert.equal(summary.filters.selectedVendorId, null);
+  assert.deepEqual(summary.scopeTotals, {
     chainsCount: 1,
     branchesCount: 2,
+    areaManagersCount: 1,
     champsCount: 1,
     pickersCount: 2
   });
-  expectIds(summary.scope.branches, "vendorId", ["vendor-b2", "vendor-b1"]);
+  expectIds(summary.filters.branches, "vendorId", ["vendor-b2", "vendor-b1"]);
 }
 
 async function testVendorFilterNarrowsScope() {
@@ -947,15 +948,16 @@ async function testVendorFilterNarrowsScope() {
     vendorId: "vendor-a2"
   });
 
-  assert.equal(summary.scope.selectedChainId, "chain-a");
-  assert.equal(summary.scope.selectedVendorId, "vendor-a2");
-  assert.deepEqual(summary.scope.totals, {
+  assert.equal(summary.filters.selectedChainId, "chain-a");
+  assert.equal(summary.filters.selectedVendorId, "vendor-a2");
+  assert.deepEqual(summary.scopeTotals, {
     chainsCount: 1,
     branchesCount: 1,
+    areaManagersCount: 1,
     champsCount: 1,
     pickersCount: 2
   });
-  expectIds(summary.scope.branches, "vendorId", ["vendor-a2"]);
+  expectIds(summary.filters.branches, "vendorId", ["vendor-a2"]);
 }
 
 async function testMismatchedChainAndVendorIsRejected() {
@@ -1000,7 +1002,7 @@ async function testAttendanceUsesCleanShiftRate() {
 
   assert.equal(summary.attendance.cleanShifts, 6);
   assert.equal(summary.attendance.issueShifts, 2);
-  assert.equal(summary.attendance.cleanShiftRate, 75);
+  assert.equal(summary.attendance.attendanceHealthRate, 75);
   assert.equal(summary.attendance.lateCount, 1);
   assert.equal(summary.attendance.absentCount, 1);
   assert.equal(summary.attendance.under8Count, 1);
@@ -1011,14 +1013,15 @@ async function testTicketsUseApprovedSemanticsExactly() {
   const service = createService();
   const summary = await service.getSummary({ dateFrom, dateTo });
 
-  assert.equal(summary.tickets.totalTickets, 4);
-  assert.equal(summary.tickets.closedInPeriod, 2);
-  assert.equal(summary.tickets.approvedInPeriod, 1);
-  assert.equal(summary.tickets.completedInPeriod, 1);
-  assert.equal(summary.tickets.rejectedInPeriod, 1);
-  assert.equal(summary.tickets.cancelledInPeriod, 1);
-  assert.equal(summary.tickets.historicalOpenNow, 4);
-  assert.equal(summary.tickets.waitingMyAction, 3);
+  assert.deepEqual(summary.ticketsSummary, {
+    available: true,
+    totalTickets: 4,
+    openedInPeriod: 4,
+    closedInPeriod: 2,
+    openNow: 4,
+    waitingMyAction: 3,
+    rejectedOrCancelled: 2
+  });
 }
 
 async function testAreaManagerRankingUsesUhoOnlyWithNameTieAndNoKpiLast() {
@@ -1080,13 +1083,12 @@ async function testTopPickersUseSevenDayThresholdTwentyAndExcludeLowVolume() {
 
   assert.equal(summary.topPickers.available, true);
   assert.equal(summary.topPickers.minOrdersRequired, 20);
-  assert.equal(summary.topPickers.periodDays, 7);
   expectIds(summary.topPickers.rows, "pickerId", [
-    "picker-eli",
-    "picker-amy",
     "picker-cam",
-    "picker-dan",
+    "picker-amy",
+    "picker-eli",
     "picker-bob",
+    "picker-dan",
     "picker-fay"
   ]);
   assert.equal(
@@ -1123,10 +1125,8 @@ async function testFiltersAlterRankingsAndTopPickers() {
 
 async function main() {
   await testControllerUsesAdminAndSuperAdminRolesOnly();
-  await testControllerAllowsGlobalSummaryForAdmin();
-  await testControllerAllowsGlobalSummaryForSuperAdmin();
-  await testGlobalSummaryReturnsGlobalResultForAdmin();
-  await testGlobalSummaryReturnsGlobalResultForSuperAdmin();
+  await testControllerDelegatesAdminPerformanceQuery();
+  await testGlobalSummaryReturnsExpectedContract();
   await testChainFilterNarrowsScope();
   await testVendorFilterNarrowsScope();
   await testMismatchedChainAndVendorIsRejected();
