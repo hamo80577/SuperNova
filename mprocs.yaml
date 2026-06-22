@@ -12,6 +12,13 @@ procs:
     deps: ["prisma"]
     stop: hard-kill
 
+  worker:
+    cmd:
+      ["npm.cmd", "run", "dev:worker", "--workspace", "@supernova/api"]
+    cwd: "<CONFIG_DIR>"
+    deps: ["prisma"]
+    stop: hard-kill
+
   web:
     cmd:
       ["npm.cmd", "run", "dev", "--workspace", "@supernova/web"]

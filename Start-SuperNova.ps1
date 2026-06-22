@@ -2,7 +2,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Line = "=" * 60
-$LoginUrl = "http://localhost:3000/login"
+$WebUrl = "http://localhost:3000"
+$ApiUrl = "http://localhost:4000"
+$HealthUrl = "$ApiUrl/api/health"
+$LoginUrl = "$WebUrl/login"
 $script:RunnerErrorPrinted = $false
 $NpmCommand = "npm.cmd"
 
@@ -23,6 +26,54 @@ function Write-Status {
   )
 
   Write-Host ("[{0}] {1}" -f $Label, $Message) -ForegroundColor $Color
+}
+
+function Write-SuperNovaBanner {
+  Write-Host ""
+  Write-Host "  ____                         _   _                 " -ForegroundColor DarkRed
+  Write-Host " / ___| _   _ _ __   ___ _ __ | \ | | _____   ____ _ " -ForegroundColor DarkRed
+  Write-Host " \___ \| | | | '_ \ / _ \ '__||  \| |/ _ \ \ / / _` |" -ForegroundColor DarkRed
+  Write-Host "  ___) | |_| | |_) |  __/ |   | |\  | (_) \ V / (_| |" -ForegroundColor DarkRed
+  Write-Host " |____/ \__,_| .__/ \___|_|   |_| \_|\___/ \_/ \__,_|" -ForegroundColor DarkRed
+  Write-Host "             |_|                                      " -ForegroundColor DarkRed
+  Write-Host ""
+  Write-Host " SuperNova Dev Terminal" -ForegroundColor Cyan
+  Write-Host " Professional local control surface for Web + API + Worker + Cache" -ForegroundColor DarkGray
+}
+
+function Write-ServiceRow {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$Endpoint,
+    [Parameter(Mandatory = $true)][string]$Purpose,
+    [Parameter(Mandatory = $true)][string]$Status,
+    [ConsoleColor]$Color = [ConsoleColor]::White
+  )
+
+  Write-Host ("  {0,-12} {1,-28} {2,-42} " -f $Name, $Endpoint, $Purpose) -NoNewline
+  Write-Host $Status -ForegroundColor $Color
+}
+
+function Write-ServiceMatrix {
+  Write-Section "Service Matrix"
+  Write-Host ("  {0,-12} {1,-28} {2,-42} {3}" -f "Service", "Endpoint", "Purpose", "Status") -ForegroundColor DarkGray
+  Write-Host ("  {0,-12} {1,-28} {2,-42} {3}" -f ("-" * 12), ("-" * 28), ("-" * 42), ("-" * 10)) -ForegroundColor DarkGray
+  Write-ServiceRow -Name "Web" -Endpoint $WebUrl -Purpose "Next.js admin/operator UI" -Status "managed by dev" -Color Cyan
+  Write-ServiceRow -Name "API" -Endpoint $ApiUrl -Purpose "NestJS backend and REST API" -Status "managed by dev" -Color Cyan
+  Write-ServiceRow -Name "Worker" -Endpoint "local process" -Purpose "Excel queues + dashboard cache jobs" -Status "managed by dev" -Color Cyan
+  Write-ServiceRow -Name "Postgres" -Endpoint "localhost:5432" -Purpose "Operational database" -Status "preflight checked" -Color Green
+  Write-ServiceRow -Name "Redis" -Endpoint "localhost:6379" -Purpose "BullMQ + dashboard cache" -Status "preflight checked" -Color Green
+}
+
+function Write-CommandPalette {
+  Write-Section "Controls"
+  Write-Host "  R  Restart dev process tree" -ForegroundColor White
+  Write-Host "  F  Run full checks, then restart" -ForegroundColor White
+  Write-Host "  S  Show runtime service status" -ForegroundColor White
+  Write-Host "  H  Check API health endpoint" -ForegroundColor White
+  Write-Host "  C  Check cache/Redis connectivity" -ForegroundColor White
+  Write-Host "  O  Open login page" -ForegroundColor White
+  Write-Host "  Q  Stop all managed dev processes" -ForegroundColor White
 }
 
 function Stop-Runner {
@@ -156,11 +207,101 @@ function Get-PostgreSqlService {
     Select-Object -First 1
 }
 
+function Get-RedisService {
+  Get-Service -ErrorAction SilentlyContinue |
+    Where-Object {
+      $_.Name -like "*redis*" -or
+      $_.DisplayName -like "*redis*" -or
+      $_.Name -like "*memurai*" -or
+      $_.DisplayName -like "*memurai*"
+    } |
+    Sort-Object -Property Status, Name |
+    Select-Object -First 1
+}
+
+function Get-RedisExecutable {
+  $commandNames = @("redis-server", "memurai.exe", "memurai")
+
+  foreach ($commandName in $commandNames) {
+    $command = Get-Command $commandName -ErrorAction SilentlyContinue
+
+    if ($command) {
+      return $command.Source
+    }
+  }
+
+  $candidatePaths = @(
+    (Join-Path $env:ProgramFiles "Redis\redis-server.exe"),
+    (Join-Path $env:ProgramFiles "Memurai\memurai.exe"),
+    (Join-Path $env:LOCALAPPDATA "Temp\supernova-open-site\memurai_pkg\tools\memurai.exe")
+  )
+
+  foreach ($candidatePath in $candidatePaths) {
+    if (Test-Path -LiteralPath $candidatePath) {
+      return $candidatePath
+    }
+  }
+
+  return $null
+}
+
 function Wait-ForPostgreSql {
   param([int]$Attempts = 12)
 
   for ($attempt = 1; $attempt -le $Attempts; $attempt += 1) {
     if (Test-TcpPort -HostName "localhost" -Port 5432) {
+      return $true
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  return $false
+}
+
+function Test-RedisPing {
+  param(
+    [Parameter(Mandatory = $true)][string]$HostName,
+    [Parameter(Mandatory = $true)][int]$Port,
+    [int]$TimeoutMs = 1200
+  )
+
+  $client = [System.Net.Sockets.TcpClient]::new()
+
+  try {
+    $connection = $client.BeginConnect($HostName, $Port, $null, $null)
+
+    if (-not $connection.AsyncWaitHandle.WaitOne($TimeoutMs)) {
+      return $false
+    }
+
+    $client.EndConnect($connection)
+    $stream = $client.GetStream()
+    $stream.ReadTimeout = $TimeoutMs
+    $stream.WriteTimeout = $TimeoutMs
+
+    $pingBytes = [byte[]](42, 49, 13, 10, 36, 52, 13, 10, 80, 73, 78, 71, 13, 10)
+    $stream.Write($pingBytes, 0, $pingBytes.Length)
+
+    $buffer = New-Object byte[] 128
+    $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
+    $response = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
+
+    return $response.StartsWith("+PONG")
+  }
+  catch {
+    return $false
+  }
+  finally {
+    $client.Close()
+  }
+}
+
+function Wait-ForRedis {
+  param([int]$Attempts = 12)
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt += 1) {
+    if (Test-RedisPing -HostName "localhost" -Port 6379) {
       return $true
     }
 
@@ -212,6 +353,128 @@ function Confirm-PostgreSql {
   Stop-Runner "PostgreSQL service is running, but localhost:5432 is not reachable. Check port binding, firewall rules, and DATABASE_URL."
 }
 
+function Confirm-Redis {
+  Write-Section "Redis"
+
+  if (Test-RedisPing -HostName "localhost" -Port 6379) {
+    Write-Status "OK" "Redis-compatible server responded to PING on localhost:6379" Green
+    return "Reachable on localhost:6379"
+  }
+
+  if (Test-TcpPort -HostName "localhost" -Port 6379) {
+    Stop-Runner "Port 6379 is open, but it did not respond to Redis PING. Check REDIS_URL and the local Redis/Memurai process."
+  }
+
+  Write-Status "WARN" "Redis is not accepting connections on localhost:6379" Yellow
+  $service = Get-RedisService
+
+  if ($service) {
+    Write-Status "INFO" ("Detected Windows service: {0} ({1})" -f $service.Name, $service.Status) Cyan
+
+    if ($service.Status -ne "Running") {
+      Write-Status "RUN" ("Starting Redis service: {0}" -f $service.Name) Cyan
+
+      try {
+        Start-Service -Name $service.Name
+      }
+      catch {
+        if (-not (Test-IsAdministrator)) {
+          Stop-Runner "Redis service is stopped, but this PowerShell session is not running as Administrator. Start Redis/Memurai manually or rerun Start-SuperNova.bat as Administrator."
+        }
+
+        Stop-Runner "Could not start Redis service '$($service.Name)': $($_.Exception.Message)"
+      }
+    }
+
+    if (Wait-ForRedis) {
+      Write-Status "OK" "Redis service started and responded to PING on localhost:6379" Green
+      return "Started service $($service.Name)"
+    }
+
+    Stop-Runner "Redis service is running, but localhost:6379 did not respond to PING. Check REDIS_URL and service configuration."
+  }
+
+  $redisExecutable = Get-RedisExecutable
+
+  if ($redisExecutable) {
+    Write-Status "RUN" ("Starting Redis-compatible executable: {0}" -f $redisExecutable) Cyan
+    Start-Process -FilePath $redisExecutable -ArgumentList @("--port", "6379") -WindowStyle Hidden | Out-Null
+
+    if (Wait-ForRedis) {
+      Write-Status "OK" "Redis-compatible server started and responded to PING on localhost:6379" Green
+      return "Started $redisExecutable"
+    }
+  }
+
+  Stop-Runner "Redis is required for BullMQ import queues and dashboard cache warming. Start Redis/Memurai on localhost:6379 and rerun Start-SuperNova.bat."
+}
+
+function Get-PortStatus {
+  param(
+    [Parameter(Mandatory = $true)][string]$HostName,
+    [Parameter(Mandatory = $true)][int]$Port
+  )
+
+  if (Test-TcpPort -HostName $HostName -Port $Port) {
+    return @{
+      Color = [ConsoleColor]::Green
+      Text = "online"
+    }
+  }
+
+  return @{
+    Color = [ConsoleColor]::Yellow
+    Text = "waiting/offline"
+  }
+}
+
+function Show-SystemStatus {
+  Write-Section "Runtime Status"
+  Write-Host ("  {0,-12} {1,-28} {2,-42} {3}" -f "Service", "Endpoint", "Purpose", "Status") -ForegroundColor DarkGray
+  Write-Host ("  {0,-12} {1,-28} {2,-42} {3}" -f ("-" * 12), ("-" * 28), ("-" * 42), ("-" * 10)) -ForegroundColor DarkGray
+
+  $webStatus = Get-PortStatus -HostName "localhost" -Port 3000
+  Write-ServiceRow -Name "Web" -Endpoint $WebUrl -Purpose "Next.js UI" -Status $webStatus.Text -Color $webStatus.Color
+
+  $apiStatus = Get-PortStatus -HostName "localhost" -Port 4000
+  Write-ServiceRow -Name "API" -Endpoint $ApiUrl -Purpose "NestJS API" -Status $apiStatus.Text -Color $apiStatus.Color
+
+  $postgresStatus = Get-PortStatus -HostName "localhost" -Port 5432
+  Write-ServiceRow -Name "Postgres" -Endpoint "localhost:5432" -Purpose "Database" -Status $postgresStatus.Text -Color $postgresStatus.Color
+
+  if (Test-RedisPing -HostName "localhost" -Port 6379) {
+    Write-ServiceRow -Name "Redis" -Endpoint "localhost:6379" -Purpose "BullMQ + cache" -Status "PONG" -Color Green
+  }
+  else {
+    Write-ServiceRow -Name "Redis" -Endpoint "localhost:6379" -Purpose "BullMQ + cache" -Status "not responding" -Color Red
+  }
+
+  Write-Host ""
+}
+
+function Invoke-ApiHealthCheck {
+  Write-Section "API Health"
+
+  try {
+    $response = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 4
+    Write-Status "OK" ("{0} responded with HTTP {1}" -f $HealthUrl, $response.StatusCode) Green
+  }
+  catch {
+    Write-Status "WARN" ("{0} is not healthy yet: {1}" -f $HealthUrl, $_.Exception.Message) Yellow
+  }
+}
+
+function Invoke-CacheStatusCheck {
+  Write-Section "Cache / Queue Backend"
+
+  if (Test-RedisPing -HostName "localhost" -Port 6379) {
+    Write-Status "OK" "Redis-compatible server responded to PING. BullMQ queues and dashboard cache can use localhost:6379." Green
+    return
+  }
+
+  Write-Status "ERROR" "Redis did not respond to PING on localhost:6379. Imports and dashboard cache jobs will not run correctly." Red
+}
+
 function Invoke-NpmScript {
   param(
     [Parameter(Mandatory = $true)][string]$ScriptName,
@@ -228,8 +491,14 @@ function Invoke-NpmScript {
   Write-Status "OK" $CompletionMessage Green
 }
 
+function Invoke-StartupChecks {
+  Write-Section "Startup Checks"
+  Invoke-NpmScript -ScriptName "prisma:validate" -CompletionMessage "Prisma validate completed"
+  Invoke-NpmScript -ScriptName "prisma:generate" -CompletionMessage "Prisma generate completed"
+}
+
 function Invoke-RequiredChecks {
-  Write-Section "Checks"
+  Write-Section "Full Checks"
   Invoke-NpmScript -ScriptName "prisma:validate" -CompletionMessage "Prisma validate completed"
   Invoke-NpmScript -ScriptName "prisma:generate" -CompletionMessage "Prisma generate completed"
   Invoke-NpmScript -ScriptName "typecheck" -CompletionMessage "Typecheck completed"
@@ -259,8 +528,9 @@ function Start-LoginOpener {
 function Start-DevProcess {
   Write-Section "Development Servers"
   Write-Status "RUN" "npm run dev" Cyan
-  Write-Status "INFO" "Hot reload is active for normal Web/API code changes." Cyan
-  Write-Status "INFO" "Press R to restart dev, F for full checks + restart, O to open login, or Q to stop." Cyan
+  Write-Status "INFO" "Starts Web, API, and API worker for Excel queues + dashboard cache warming." Cyan
+  Write-Status "INFO" "Hot reload is active for normal Web/API/worker code changes." Cyan
+  Write-CommandPalette
   Start-LoginOpener -Url $LoginUrl
 
   return Start-Process `
@@ -299,7 +569,7 @@ function Start-DevControlLoop {
     if ($devProcess.HasExited) {
       Write-Status "WARN" "npm run dev exited with code $($devProcess.ExitCode)." Yellow
       Write-Host ""
-      Write-Host "[R] Restart dev only    [F] Full checks + restart    [O] Open login    [Q] Quit"
+      Write-Host "[R] Restart    [F] Full checks    [S] Status    [H] Health    [C] Cache    [O] Login    [Q] Quit"
       $choice = Read-Host "Choose"
       $command = $choice.Trim().ToUpperInvariant()
     }
@@ -320,6 +590,7 @@ function Start-DevControlLoop {
       "F" {
         Stop-DevProcess -Process $devProcess
         Confirm-PostgreSql | Out-Null
+        Confirm-Redis | Out-Null
         Invoke-RequiredChecks
         $devProcess = Start-DevProcess
       }
@@ -327,13 +598,22 @@ function Start-DevControlLoop {
         Write-Status "OPEN" "Opening http://localhost:3000/login" Cyan
         Start-Process $LoginUrl
       }
+      "S" {
+        Show-SystemStatus
+      }
+      "H" {
+        Invoke-ApiHealthCheck
+      }
+      "C" {
+        Invoke-CacheStatusCheck
+      }
       "Q" {
         Stop-DevProcess -Process $devProcess
         Write-Status "OK" "SuperNova dev runner stopped." Green
         return 0
       }
       default {
-        Write-Status "INFO" "Use R, F, O, or Q." Cyan
+        Write-Status "INFO" "Use R, F, S, H, C, O, or Q." Cyan
       }
     }
   }
@@ -354,6 +634,7 @@ try {
 
   Set-Location $repoRoot
 
+  Write-SuperNovaBanner
   Write-Section "SuperNova Dev Runner"
   Write-Status "OK" "Repo detected" Green
   Write-Host ("Repo: {0}" -f $repoRoot)
@@ -382,6 +663,10 @@ try {
 
   $postgresStatus = Confirm-PostgreSql
   Write-Host ("PostgreSQL status: {0}" -f $postgresStatus)
+  $redisStatus = Confirm-Redis
+  Write-Host ("Redis status:      {0}" -f $redisStatus)
+
+  Write-ServiceMatrix
 
   Write-Section "Links"
   Write-Host "Web:    http://localhost:3000"
@@ -389,7 +674,7 @@ try {
   Write-Host "Health: http://localhost:4000/api/health"
   Write-Host "Login:  http://localhost:3000/login"
 
-  Invoke-RequiredChecks
+  Invoke-StartupChecks
   $exitCode = Start-DevControlLoop
 }
 catch {
