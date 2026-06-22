@@ -14,7 +14,9 @@ import { Roles } from "../auth/decorators/roles.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user";
+import { AdminPerformanceSummaryService } from "./admin-performance-summary.service";
 import { AreaManagerPerformanceSummaryService } from "./area-manager-performance-summary.service";
+import { AdminPerformanceSummaryQueryDto } from "./dto/admin-performance-summary-query.dto";
 import { AreaManagerPerformanceSummaryQueryDto } from "./dto/area-manager-performance-summary-query.dto";
 import { ChampPerformanceSummaryQueryDto } from "./dto/champ-performance-summary-query.dto";
 import { PickerPerformanceSummaryQueryDto } from "./dto/picker-performance-summary-query.dto";
@@ -27,7 +29,9 @@ export class WorkspacesController {
     @Inject(WorkspacesService)
     private readonly workspacesService: WorkspacesService,
     @Inject(AreaManagerPerformanceSummaryService)
-    private readonly areaManagerPerformanceSummaryService: AreaManagerPerformanceSummaryService
+    private readonly areaManagerPerformanceSummaryService: AreaManagerPerformanceSummaryService,
+    @Inject(AdminPerformanceSummaryService)
+    private readonly adminPerformanceSummaryService: AdminPerformanceSummaryService
   ) {}
 
   @Get("picker")
@@ -94,5 +98,13 @@ export class WorkspacesController {
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   getAdminWorkspace() {
     return this.workspacesService.getAdminWorkspace();
+  }
+
+  @Get("admin/performance-summary")
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  getAdminPerformanceSummary(
+    @Query() query: AdminPerformanceSummaryQueryDto
+  ) {
+    return this.adminPerformanceSummaryService.getSummary(query);
   }
 }
