@@ -297,7 +297,8 @@ const chains = [
   chain("chain-a", "Alpha Chain"),
   chain("chain-b", "Bravo Chain"),
   chain("chain-c", "Charlie Chain"),
-  chain("chain-d", "Delta Chain")
+  chain("chain-d", "Delta Chain"),
+  chain("chain-empty", "Empty Chain")
 ];
 
 const vendors = [
@@ -524,8 +525,7 @@ function hydrateVendorChampAssignment(
 ) {
   return {
     ...assignment,
-    champ: findUser(assignment.champId),
-    vendor: hydrateVendor(vendors.find((item) => item.id === assignment.vendorId)!)
+    champ: findUser(assignment.champId)
   };
 }
 
@@ -534,8 +534,7 @@ function hydratePickerAssignment(
 ) {
   return {
     ...assignment,
-    picker: findUser(assignment.pickerId),
-    vendor: hydrateVendor(vendors.find((item) => item.id === assignment.vendorId)!)
+    picker: findUser(assignment.pickerId)
   };
 }
 
@@ -763,8 +762,23 @@ function matchesRequestWhere(
 function createPrismaStub() {
   return {
     chain: {
-      findMany: async ({ where }: { where?: Record<string, unknown> } = {}) =>
-        chains.filter((row) => matchesChainWhere(row, where)).map(hydrateChain),
+      findMany: async ({
+        where,
+        orderBy
+      }: {
+        where?: Record<string, unknown>;
+        orderBy?: { chainName?: "asc" | "desc" };
+      } = {}) => {
+        const rows = chains.filter((row) => matchesChainWhere(row, where));
+        if (orderBy?.chainName) {
+          rows.sort((left, right) =>
+            orderBy.chainName === "asc"
+              ? left.chainName.localeCompare(right.chainName)
+              : right.chainName.localeCompare(left.chainName)
+          );
+        }
+        return rows.map(hydrateChain);
+      },
       findUnique: async ({
         where
       }: {
@@ -775,8 +789,23 @@ function createPrismaStub() {
       }
     },
     vendor: {
-      findMany: async ({ where }: { where?: Record<string, unknown> } = {}) =>
-        vendors.filter((row) => matchesVendorWhere(row, where)).map(hydrateVendor),
+      findMany: async ({
+        where,
+        orderBy
+      }: {
+        where?: Record<string, unknown>;
+        orderBy?: { vendorName?: "asc" | "desc" };
+      } = {}) => {
+        const rows = vendors.filter((row) => matchesVendorWhere(row, where));
+        if (orderBy?.vendorName) {
+          rows.sort((left, right) =>
+            orderBy.vendorName === "asc"
+              ? left.vendorName.localeCompare(right.vendorName)
+              : right.vendorName.localeCompare(left.vendorName)
+          );
+        }
+        return rows.map(hydrateVendor);
+      },
       findUnique: async ({
         where
       }: {
@@ -907,12 +936,13 @@ async function testGlobalSummaryReturnsExpectedContract() {
   assert.equal(summary.filters.selectedChainId, null);
   assert.equal(summary.filters.selectedVendorId, null);
   assert.deepEqual(summary.scopeTotals, {
-    chainsCount: 4,
+    chainsCount: 5,
     branchesCount: 6,
     areaManagersCount: 4,
     champsCount: 4,
     pickersCount: 7
   });
+  assert.equal(summary.filters.chains.length, 5);
   assert.deepEqual(summary.ordersKpi.target, {
     configured: true,
     unhealthyRateTarget: 8,
@@ -983,7 +1013,7 @@ async function testConfirmedOrdersKpiOnly() {
   assert.equal(summary.ordersKpi.totalOrders, 290);
   assert.equal(summary.ordersKpi.unhealthyOrders, 17);
   assert.equal(summary.ordersKpi.unhealthyRate, 5.86);
-  assert.equal(summary.ordersKpi.target.uhoRateTarget, 8);
+  assert.equal(summary.ordersKpi.target.unhealthyRateTarget, 8);
 }
 
 async function testAttendanceUsesActivePickersAndChampsOnly() {
@@ -1109,8 +1139,8 @@ async function testFiltersAlterRankingsAndTopPickers() {
   });
   expectIds(chainSummary.champsRanking.rows, "champId", ["champ-alpha"]);
   expectIds(chainSummary.topPickers.rows, "pickerId", [
-    "picker-amy",
     "picker-cam",
+    "picker-amy",
     "picker-bob"
   ]);
 
