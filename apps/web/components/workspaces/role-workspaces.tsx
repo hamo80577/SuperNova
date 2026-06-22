@@ -2,20 +2,14 @@
 
 import {
   AlertCircle,
-  ArrowRight,
-  Archive,
   Bell,
   CalendarDays,
   CheckCircle2,
-  ClipboardCheck,
   Clock3,
-  FileSearch,
   GitBranch,
   Inbox,
   Loader2,
-  Map,
   MoveRight,
-  Settings,
   ShieldCheck,
   ShoppingBag,
   Store,
@@ -35,7 +29,6 @@ import {
   type ReactNode
 } from "react";
 
-import { StatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +38,7 @@ import {
   DetailPanelSkeleton,
   StatsCardSkeleton
 } from "@/components/ui/skeleton";
+import { AdminDashboardPage } from "@/components/workspaces/admin-dashboard/admin-dashboard-page";
 import { ChampPerformanceDashboard } from "@/components/workspaces/champ/champ-performance-dashboard";
 import {
   notificationsApi,
@@ -53,8 +47,6 @@ import {
 import { organizationApi, type Vendor } from "@/lib/api/organization";
 import { requestsApi, type RequestSummary } from "@/lib/api/requests";
 import {
-  type AssignmentStatus,
-  type EntityStatus,
   type PickerPerformanceSummary,
   type PickerRankSummary,
   type UserSummary,
@@ -1129,199 +1121,7 @@ export function AreaManagerWorkspaceDashboard() {
 }
 
 export function AdminWorkspaceDashboard() {
-  const state = useWorkspaceData(workspacesApi.admin);
-
-  if (state.status !== "ready") {
-    return <WorkspaceState state={state} />;
-  }
-
-  const data = state.data;
-
-  return (
-    <div className="grid gap-4">
-      <section className="overflow-hidden rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
-        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-7">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#FFD8BD] bg-[#FFE8D9] px-3 py-1 text-xs font-semibold text-[color:var(--tlb-orange-900)]">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Admin workspace
-            </div>
-            <h1 className="mt-4 text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)] sm:text-3xl">
-              Admin Control Center
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--sn-body)]">
-              System-wide operational visibility for organization setup, final
-              actions, archive review, audit history, and role-scoped reporting.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                className={buttonVariants({
-                  className: "rounded-xl bg-primary px-4",
-                  size: "sm"
-                })}
-                href="/tickets"
-                prefetch
-              >
-                Pending final actions
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <Link
-                className={buttonVariants({
-                  className: "rounded-xl border-[color:var(--sn-border)] bg-white",
-                  size: "sm",
-                  variant: "outline"
-                })}
-                href="/admin/reports"
-                prefetch
-              >
-                Open reports
-              </Link>
-            </div>
-          </div>
-          <div className="grid gap-3 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4">
-            <Definition label="Active chains" value={data.totals.activeChains} />
-            <Definition label="Active vendors" value={data.totals.activeVendors} />
-            <Definition
-              label="Active Picker assignments"
-              value={data.totals.activePickerAssignments}
-            />
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={GitBranch} label="Chains" value={data.totals.chains} />
-        <MetricCard icon={Store} label="Vendors" value={data.totals.vendors} />
-        <MetricCard icon={Users} label="Users" value={data.totals.users} />
-        <MetricCard
-          icon={Map}
-          label="Active Picker assignments"
-          value={data.totals.activePickerAssignments}
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-4">
-        <InfoCard title="Organization Setup">
-          <Definition label="Active chains" value={data.totals.activeChains} />
-          <Definition label="Active vendors" value={data.totals.activeVendors} />
-          <Definition
-            label="Active Champ assignments"
-            value={data.totals.activeChampAssignments}
-          />
-          <Definition
-            label="Active Area Manager assignments"
-            value={data.totals.activeAreaManagerAssignments}
-          />
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <AdminControlLink
-              description="Chains, Branches, and assignments."
-              href="/admin/organization"
-              icon={GitBranch}
-              label="Organization"
-            />
-            <AdminControlLink
-              description="Partner Branch records."
-              href="/admin/organization"
-              icon={Store}
-              label="Vendors"
-            />
-            <AdminControlLink
-              description="Role assignment links."
-              href="/admin/organization"
-              icon={Map}
-              label="Assignments"
-            />
-          </div>
-        </InfoCard>
-
-        <InfoCard title="Pending Final Actions">
-          <AdminControlLink
-            description="Review New Hire Shopper ID and Resignation finalization work."
-            href="/tickets"
-            icon={ClipboardCheck}
-            label="Open pending final actions"
-          />
-          <AdminControlLink
-            description="Review approval queues without bypassing workflow state."
-            href="/tickets"
-            icon={ShieldCheck}
-            label="Open approvals"
-          />
-          <AdminControlLink
-            description="Inspect request records and their current workflow status."
-            href="/tickets"
-            icon={Inbox}
-            label="Open requests"
-          />
-        </InfoCard>
-
-        <InfoCard title="Archive & Audit">
-          <AdminControlLink
-            description="Inspect archived/deactivated users and block status."
-            href="/admin/archived-users"
-            icon={Archive}
-            label="View archived users"
-          />
-          <AdminControlLink
-            description="Review workflow, approval, assignment, and account audit events."
-            href="/admin/audit-logs"
-            icon={FileSearch}
-            label="View audit logs"
-          />
-          <AdminControlLink
-            description="Choose the workspace appearance theme for your account."
-            href="/settings"
-            icon={Settings}
-            label="Open settings"
-          />
-        </InfoCard>
-
-        <InfoCard title="Reports">
-          <AdminControlLink
-            description="Open system-wide operational counts and scoped report surfaces."
-            href="/admin/reports"
-            icon={ClipboardCheck}
-            label="Open admin reports"
-          />
-          <SimpleList
-            emptyLabel="No chains available."
-            items={data.recent.chains.map((chain) => ({
-              id: chain.id,
-              label: chain.chainName,
-              meta: chain.chainCode,
-              status: chain.status
-            }))}
-          />
-        </InfoCard>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-4">
-        <InfoCard title="Recent Chains">
-          <SimpleList
-            emptyLabel="No chains available."
-            items={data.recent.chains.map((chain) => ({
-              id: chain.id,
-              label: chain.chainName,
-              meta: chain.chainCode,
-              status: chain.status
-            }))}
-          />
-        </InfoCard>
-
-        <InfoCard title="Recent Vendors">
-          <SimpleList
-            emptyLabel="No vendors available."
-            items={data.recent.vendors.map((vendor) => ({
-              id: vendor.id,
-              label: vendor.vendorName,
-              meta: vendor.vendorCode,
-              status: vendor.status
-            }))}
-          />
-        </InfoCard>
-      </div>
-    </div>
-  );
+  return <AdminDashboardPage />;
 }
 
 function useWorkspaceData<T>(loader: () => Promise<T>) {
@@ -1438,15 +1238,6 @@ function MetricCard({
   );
 }
 
-function InfoCard({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-5 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)] lg:col-span-2">
-      <SectionHeader title={title} />
-      <div className="mt-4 grid gap-3">{children}</div>
-    </section>
-  );
-}
-
 function PlaceholderCard({ title, value }: { title: string; value: string }) {
   return (
     <section className="rounded-[16px] border border-dashed border-[color:var(--sn-border)] bg-white p-5">
@@ -1454,36 +1245,6 @@ function PlaceholderCard({ title, value }: { title: string; value: string }) {
       <p className="mt-4 text-sm font-medium text-[color:var(--sn-ink)]">{title}</p>
       <p className="mt-2 text-sm leading-6 text-[color:var(--sn-muted)]">{value}</p>
     </section>
-  );
-}
-
-function AdminControlLink({
-  description,
-  href,
-  icon: Icon,
-  label
-}: {
-  description: string;
-  href: string;
-  icon: typeof Users;
-  label: string;
-}) {
-  return (
-    <Link
-      className="group flex items-start gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3 transition-colors hover:border-[#FFD8BD] hover:bg-[#FFE8D9]"
-      href={href}
-      prefetch
-    >
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <span>
-        <span className="block text-sm font-semibold text-[color:var(--sn-ink)]">
-          {label}
-        </span>
-        <span className="mt-1 block text-xs leading-5 text-[color:var(--sn-muted)]">
-          {description}
-        </span>
-      </span>
-    </Link>
   );
 }
 
@@ -1743,40 +1504,6 @@ function ModalError({ message }: { message: string }) {
   return (
     <div className="rounded-2xl border border-[oklch(0.85_0.08_27)] bg-[oklch(0.95_0.035_27)] p-3 text-sm text-[oklch(0.55_0.19_27)]">
       {message}
-    </div>
-  );
-}
-
-function SimpleList({
-  emptyLabel,
-  items
-}: {
-  emptyLabel: string;
-  items: Array<{
-    id: string;
-    label: string;
-    meta: string;
-    status: AssignmentStatus | EntityStatus;
-  }>;
-}) {
-  if (!items.length) {
-    return <EmptyInline message={emptyLabel} />;
-  }
-
-  return (
-    <div className="grid gap-2">
-      {items.map((item) => (
-        <div
-          className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3"
-          key={item.id}
-        >
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{item.label}</p>
-            <p className="text-xs text-[color:var(--sn-muted)]">{item.meta}</p>
-          </div>
-          <StatusBadge status={item.status} />
-        </div>
-      ))}
     </div>
   );
 }

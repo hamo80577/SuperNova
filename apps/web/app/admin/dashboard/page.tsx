@@ -5,8 +5,8 @@ export default function AdminDashboardPage() {
   return (
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
-      description="Organization setup, final actions, audit, and reporting."
-      title="Admin Control Center"
+      description="Admin performance overview"
+      title="Dashboard"
     >
       <AdminWorkspaceDashboard />
     </DashboardFrame>
