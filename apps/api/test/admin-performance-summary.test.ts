@@ -850,7 +850,10 @@ async function testControllerUsesAdminAndSuperAdminRolesOnly() {
   ]);
 }
 
-async function testControllerDelegatesAdminPerformanceQuery() {
+async function testControllerDelegatesAdminPerformanceQueryForRole(
+  role: UserRole
+) {
+  assert.ok([UserRole.ADMIN, UserRole.SUPER_ADMIN].includes(role));
   const received: Array<Record<string, unknown>> = [];
   const expected = { ok: true };
   const controller = new (WorkspacesController as any)(
@@ -882,8 +885,19 @@ async function testControllerDelegatesAdminPerformanceQuery() {
   ]);
 }
 
-async function testGlobalSummaryReturnsGlobalResult() {
+async function testControllerAllowsGlobalSummaryForAdmin() {
+  await testControllerDelegatesAdminPerformanceQueryForRole(UserRole.ADMIN);
+}
+
+async function testControllerAllowsGlobalSummaryForSuperAdmin() {
+  await testControllerDelegatesAdminPerformanceQueryForRole(
+    UserRole.SUPER_ADMIN
+  );
+}
+
+async function testGlobalSummaryReturnsGlobalResultForRole(role: UserRole) {
   const service = createService();
+  assert.ok([UserRole.ADMIN, UserRole.SUPER_ADMIN].includes(role));
   const summary = await service.getSummary({ dateFrom, dateTo });
 
   assert.deepEqual(summary.period, { dateFrom, dateTo });
@@ -896,6 +910,14 @@ async function testGlobalSummaryReturnsGlobalResult() {
     pickersCount: 7
   });
   assert.equal(summary.ordersKpi.target.source, "SAVED");
+}
+
+async function testGlobalSummaryReturnsGlobalResultForAdmin() {
+  await testGlobalSummaryReturnsGlobalResultForRole(UserRole.ADMIN);
+}
+
+async function testGlobalSummaryReturnsGlobalResultForSuperAdmin() {
+  await testGlobalSummaryReturnsGlobalResultForRole(UserRole.SUPER_ADMIN);
 }
 
 async function testChainFilterNarrowsScope() {
@@ -1101,8 +1123,10 @@ async function testFiltersAlterRankingsAndTopPickers() {
 
 async function main() {
   await testControllerUsesAdminAndSuperAdminRolesOnly();
-  await testControllerDelegatesAdminPerformanceQuery();
-  await testGlobalSummaryReturnsGlobalResult();
+  await testControllerAllowsGlobalSummaryForAdmin();
+  await testControllerAllowsGlobalSummaryForSuperAdmin();
+  await testGlobalSummaryReturnsGlobalResultForAdmin();
+  await testGlobalSummaryReturnsGlobalResultForSuperAdmin();
   await testChainFilterNarrowsScope();
   await testVendorFilterNarrowsScope();
   await testMismatchedChainAndVendorIsRejected();
