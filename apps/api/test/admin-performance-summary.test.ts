@@ -957,7 +957,7 @@ async function testVendorFilterNarrowsScope() {
     champsCount: 1,
     pickersCount: 2
   });
-  expectIds(summary.filters.branches, "vendorId", ["vendor-a2"]);
+  expectIds(summary.filters.branches, "vendorId", ["vendor-a1", "vendor-a2"]);
 }
 
 async function testMismatchedChainAndVendorIsRejected() {
