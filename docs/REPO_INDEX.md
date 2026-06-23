@@ -1,377 +1,292 @@
 # SuperNova Repo Index
 
-Lightweight inspection map for future Codex and code review sessions. Prefer direct file inspection over remote code search.
+Use this as a practical map. Prefer direct file inspection with `rg` and targeted reads before editing.
 
-## Monorepo Structure
+## Root
 
-- `apps/web`: Next.js, TypeScript, Tailwind, shadcn-style UI. Main product UI, role dashboards, request forms, profile cards, and admin pages.
-- `apps/api`: NestJS modular monolith. Auth, users, assignments, workspaces, requests, approvals, reports, notifications, audit logs.
-- `packages/shared`: Shared package placeholder/export surface for cross-app types or utilities.
-- `prisma`: Prisma schema, migrations, seed data, and data import scripts.
-- `docs/integrations`: Planned integration design docs. Current planned integration: HR Google Sheets Sync.
+- `README.md`: Short project overview and local development entrypoint.
+- `AGENTS.md`: Required operating rules for AI agents.
+- `package.json`: npm workspace scripts.
+- `docker-compose.yml`: Local PostgreSQL, Redis, and PgBouncer.
+- `Start-SuperNova.bat` / `Start-SuperNova.ps1`: Windows local dev runner.
+- `mprocs.yaml`: Optional local process layout for Prisma, API, worker, and web.
 
-## Key Product Domains
+## Monorepo
 
-### Auth/session
+- `apps/web`: Next.js app, app routes, components, API clients, Tailwind config, shadcn-style UI primitives.
+- `apps/api`: NestJS app, REST controllers, services, worker entrypoint, background job modules.
+- `packages/shared`: Shared package surface.
+- `prisma`: Prisma schema, migrations, seed scripts, and data import helpers.
+- `scripts`: External helper packages such as HR Google Apps Script.
+- `docs`: Official product and engineering documentation.
 
-- Main frontend files:
-  - `apps/web/components/auth/auth-provider.tsx`
-  - `apps/web/components/auth/login-form.tsx`
-  - `apps/web/components/auth/protected-route.tsx`
-  - `apps/web/components/auth/change-password-form.tsx`
-  - `apps/web/lib/auth/api-client.ts`
-  - `apps/web/lib/auth/role-redirects.ts`
-  - `apps/web/lib/auth/types.ts`
-- Main API files:
-  - `apps/api/src/config/configuration.ts`
-  - `apps/api/src/config/env.validation.ts`
-  - `apps/api/src/auth/auth.controller.ts`
-  - `apps/api/src/auth/auth.service.ts`
-  - `apps/api/src/auth/auth.module.ts`
-  - `apps/api/src/auth/guards/jwt-auth.guard.ts`
-  - `apps/api/src/auth/guards/roles.guard.ts`
-  - `apps/api/src/auth/account-access.utils.ts`
-- Important DTO/types:
-  - `apps/api/src/auth/dto/login.dto.ts`
-  - `apps/api/src/auth/dto/change-password.dto.ts`
-  - `apps/api/src/auth/types/authenticated-user.ts`
-  - `apps/api/src/auth/types/authenticated-request.ts`
-- Important tests:
-  - `apps/api/test/env-validation.test.ts`
-  - `apps/api/test/request-logger.middleware.test.ts`
+## Frontend Areas
 
-### Users/Profile
+Auth:
 
-- Main frontend files:
-  - `apps/web/app/users/page.tsx`
-  - `apps/web/app/admin/users/page.tsx`
-  - `apps/web/components/users/users-area-page.tsx`
-  - `apps/web/components/users/users-area-types.ts`
-  - `apps/web/components/users/users-display-utils.ts`
-  - `apps/web/components/users/users-tabs.tsx`
-  - `apps/web/components/users/users-toolbar.tsx`
-  - `apps/web/components/users/users-actions-menu.tsx`
-  - `apps/web/components/users/users-card-grid.tsx`
-  - `apps/web/components/users/users-table-view.tsx`
-  - `apps/web/components/users/user-avatar.tsx`
-  - `apps/web/components/users/operational-user-profile-modal.tsx`
-  - `apps/web/components/users/admin-profile-edit-dialog.tsx`
-  - `apps/web/components/users/admin-profile-edit-validation.ts`
-  - `apps/web/components/users/picker-profile-overview.tsx`
-  - `apps/web/components/users/password-access-dialog.tsx`
-  - `apps/web/components/users/user-request-detail-modal.tsx`
-  - `apps/web/components/ui/copy-button.tsx`
-  - `apps/web/components/admin/admin-users-page.tsx`
-  - `apps/web/lib/api/users.ts`
-- Main API files:
-  - `apps/api/src/users/users.controller.ts`
-  - `apps/api/src/users/users.service.ts`
-  - `apps/api/src/users/users.module.ts`
-  - `apps/api/src/users/temporary-password.service.ts`
-- Key API endpoints:
-  - `GET /api/users`: Admin/Super Admin paginated safe-user list.
-  - `GET /api/users/operational-list`: Admin/Super Admin paginated Users page list with assignment-table Branch/Chain context and latest pending Transfer/Resignation summary for operational status.
-  - `GET /api/users/:id/operational-profile`: Operational profile modal data, recent requests, request/user-linked activity timeline data, and credential permissions.
-  - `GET /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin read of active Area Manager Chain assignments.
-  - `POST /api/users/:id/area-manager-chain-assignments`: Admin/Super Admin adds active `ChainAreaManagerAssignment` rows from the Area Manager profile.
-  - `DELETE /api/users/:id/area-manager-chain-assignments/:assignmentId`: Admin/Super Admin closes an active Area Manager Chain assignment unless open requests still require that Chain.
-- Important DTO/types:
-  - `apps/api/src/users/dto/area-manager-chain-assignment.dto.ts`
-  - `apps/api/src/users/dto/safe-user.dto.ts`
-  - `apps/api/src/users/dto/list-users-query.dto.ts`
-  - `apps/api/src/users/dto/admin-profile.dto.ts`
-  - `apps/api/src/users/dto/profile-completion.dto.ts`
-  - `apps/web/lib/auth/types.ts`
-- Important tests:
-  - `apps/web/components/users/admin-profile-edit-validation.test.ts`
-  - `apps/api/test/users-list-filters.test.ts`
-  - `apps/api/test/users-admin-profile.dto.test.ts`
-  - `apps/api/test/users-area-manager-chain-assignments.test.ts`
-- Notes:
-  - Operational profiles keep identity/contact, operational context, and profile data separated. Admin/Super Admin profile edits open from the profile quick action menu in a top-layer dialog with client-side required-field validation.
+- `apps/web/app/login/page.tsx`
+- `apps/web/app/change-password/page.tsx`
+- `apps/web/components/auth`
+- `apps/web/lib/auth`
 
-### Workspaces
+Dashboard shell and navigation:
 
-- Main frontend files:
-  - `apps/web/components/workspaces/role-workspaces.tsx`
-  - `apps/web/components/workspaces/champ-branches.tsx`
-  - `apps/web/components/workspaces/champ/champ-branch-workspace.tsx`
-  - `apps/web/components/workspaces/champ/champ-branch-pickers.tsx`
-  - `apps/web/lib/api/workspaces.ts`
-- Main API files:
-  - `apps/api/src/workspaces/workspaces.controller.ts`
-  - `apps/api/src/workspaces/workspaces.service.ts`
-  - `apps/api/src/workspaces/workspaces.module.ts`
-- Notes:
-  - Champ and Area Manager workspace scoped Picker/Champ rows expose latest pending Transfer/Resignation summary so Users status can render as Active, Pending, or Resigned consistently across roles.
-- Important DTO/types:
-  - `apps/web/lib/api/workspaces.ts`
-  - `apps/web/components/workspaces/champ/champ-branch-types.ts`
-- Important tests:
-  - No focused workspace test file currently identified.
+- `apps/web/components/dashboard`
+- `apps/web/lib/navigation.ts`
+- `apps/web/lib/navigation-loading.ts`
 
-### Requests
+Role workspaces:
 
-- Main frontend files:
-  - `apps/web/app/requests/page.tsx`
-  - `apps/web/app/requests/[id]/page.tsx`
-  - `apps/web/components/requests/center/request-operations-center.tsx`
-  - `apps/web/components/requests/forms/new-request-sheet.tsx`
-  - `apps/web/components/requests/forms/new-request-menu.tsx`
-  - `apps/web/components/requests/detail/request-detail-page-content.tsx`
-  - `apps/web/components/requests/detail/request-type-panel.tsx`
-  - `apps/web/lib/api/requests.ts`
-- Main API files:
-  - `apps/api/src/requests/requests.controller.ts`
-  - `apps/api/src/requests/requests.service.ts`
-  - `apps/api/src/requests/requests.module.ts`
-  - `apps/api/src/requests/request-approval-routing.service.ts`
-  - `apps/api/src/requests/request-status-machine.ts`
-  - `apps/api/src/requests/request-response.utils.ts`
-  - `apps/api/src/requests/request-includes.ts`
-- Important DTO/types:
-  - `apps/api/src/requests/dto/create-request.dto.ts`
-  - `apps/api/src/requests/dto/list-requests-query.dto.ts`
-  - `apps/api/src/requests/dto/cancel-request.dto.ts`
-  - `apps/web/components/requests/shared/request-types.ts`
-  - `apps/web/components/requests/shared/request-utils.ts`
-- Important tests:
-  - `apps/api/test/request-approval-routing.test.ts`
-  - `apps/api/test/new-hire-workflow.policy.test.ts`
-  - `apps/api/test/new-hire-workflow.rehire.test.ts`
-  - `apps/api/test/offboarding-workflow.policy.test.ts`
+- `apps/web/app/picker/dashboard/page.tsx`
+- `apps/web/app/champ/dashboard/page.tsx`
+- `apps/web/app/champ/branches`
+- `apps/web/app/area-manager/dashboard/page.tsx`
+- `apps/web/app/admin/dashboard/page.tsx`
+- `apps/web/components/workspaces`
 
-### New Hire workflow
+Requests and approvals:
 
-- Main frontend files:
-  - `apps/web/components/requests/forms/new-hire/new-hire-form.tsx`
-  - `apps/web/components/requests/forms/new-hire/new-hire-lookup.tsx`
-  - `apps/web/components/requests/forms/new-hire/new-hire-request-modal.tsx`
-  - `apps/web/components/requests/forms/new-hire/new-hire-branch-context.tsx`
-  - `apps/web/components/requests/forms/new-hire/new-hire-utils.ts`
-  - `apps/web/components/requests/actions/request-approval-decision-panel.tsx`
-  - `apps/web/components/requests/actions/finalize-new-hire-panel.tsx`
-  - `apps/web/components/workspaces/champ-new-hire-form.tsx`
-- Main API files:
-  - `apps/api/src/requests/workflows/new-hire-approval.service.ts`
-  - `apps/api/src/requests/workflows/new-hire-workflow.service.ts`
-  - `apps/api/src/requests/workflows/new-hire-candidate.service.ts`
-  - `apps/api/src/requests/workflows/new-hire-request-creation.service.ts`
-  - `apps/api/src/requests/workflows/new-hire-finalization.service.ts`
-  - `apps/api/src/requests/workflows/new-hire-workflow.policy.ts`
-  - `apps/api/src/requests/workflows/new-hire-payload.ts`
-- Important DTO/types:
-  - `apps/api/src/approvals/dto/approval-decision.dto.ts`
-  - `apps/api/src/requests/dto/create-new-hire-request.dto.ts`
-  - `apps/api/src/requests/dto/lookup-new-hire-candidate.dto.ts`
-  - `apps/api/src/requests/dto/finalize-new-hire.dto.ts`
-  - `apps/api/src/requests/workflows/new-hire-workflow.types.ts`
-  - `apps/web/lib/api/requests.ts`
-- Important tests:
-  - `apps/api/test/new-hire-workflow.policy.test.ts`
-  - `apps/api/test/new-hire-workflow.rehire.test.ts`
-  - `apps/api/test/new-hire-workflow.approval.test.ts`
+- `apps/web/app/requests`
+- `apps/web/app/approvals`
+- `apps/web/components/requests`
+- `apps/web/lib/api/requests.ts`
+- `apps/web/lib/api/approvals.ts`
 
-### Resignation workflow
+Users and profiles:
 
-- Main frontend files:
-  - `apps/web/components/requests/forms/resignation/resignation-form.tsx`
-  - `apps/web/components/requests/forms/resignation/offboarding-picker-search.tsx`
-  - `apps/web/components/requests/forms/resignation/block-decision-fields.tsx`
-  - `apps/web/components/requests/actions/finalize-offboarding-panel.tsx`
-  - `apps/web/components/workspaces/champ-offboarding-form.tsx`
-- Main API files:
-  - `apps/api/src/requests/workflows/offboarding-workflow.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-types.ts`
-  - `apps/api/src/requests/workflows/offboarding-payload.ts`
-  - `apps/api/src/requests/workflows/offboarding-search.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-target.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-request-creation.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-approval.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-finalization.service.ts`
-  - `apps/api/src/requests/workflows/offboarding-response.utils.ts`
-  - `apps/api/src/requests/workflows/offboarding-workflow.policy.ts`
-- Important DTO/types:
-  - `apps/api/src/requests/dto/create-offboarding-request.dto.ts`
-  - `apps/api/src/requests/dto/search-offboarding-pickers.dto.ts`
-  - `apps/api/src/requests/dto/finalize-offboarding.dto.ts`
-  - `apps/web/lib/api/requests.ts`
-- Important tests:
-  - `apps/api/test/offboarding-workflow.policy.test.ts`
-  - `apps/api/test/offboarding-payload.test.ts`
-  - `apps/api/test/offboarding-workflow.approval-finalization.test.ts`
+- `apps/web/app/users/page.tsx`
+- `apps/web/app/admin/users/page.tsx`
+- `apps/web/components/users`
+- `apps/web/lib/api/users.ts`
 
-### Transfer workflow
+Organization and assignments:
 
-- Main frontend files:
-  - `apps/web/components/requests/forms/transfer/transfer-form.tsx`
-  - `apps/web/components/requests/forms/transfer/transfer-utils.ts`
-  - `apps/web/components/workspaces/champ-transfer-form.tsx`
-  - `apps/web/app/champ/branches/[vendorId]/transfer/page.tsx`
-- Main API files:
-  - `apps/api/src/requests/workflows/transfer-workflow.service.ts`
-- Important DTO/types:
-  - `apps/api/src/requests/dto/create-transfer-request.dto.ts`
-  - `apps/web/components/requests/shared/request-types.ts`
-  - `apps/web/lib/api/requests.ts`
-- Important tests:
-  - `apps/api/test/transfer-workflow.test.ts`
+- `apps/web/app/admin/organization/page.tsx`
+- `apps/web/app/admin/assignments/page.tsx`
+- `apps/web/app/admin/chains/page.tsx`
+- `apps/web/app/admin/vendors/page.tsx`
+- `apps/web/components/admin`
+- `apps/web/lib/api/organization.ts`
+- `apps/web/lib/api/assignments.ts`
 
-### Organization/Chains/Branches
+Reports and imports:
 
-- Main frontend files:
-  - `apps/web/app/admin/organization/page.tsx`
-  - `apps/web/components/admin/organization-control-center.tsx`
-  - `apps/web/lib/api/organization.ts`
-  - `apps/web/lib/api/admin-organization.ts`
-- Main API files:
-  - `apps/api/src/admin/admin.controller.ts`
-  - `apps/api/src/admin/admin.service.ts`
-  - `apps/api/src/chains/chains.controller.ts`
-  - `apps/api/src/chains/chains.service.ts`
-  - `apps/api/src/vendors/vendors.controller.ts`
-  - `apps/api/src/vendors/vendors.service.ts`
-  - `apps/api/src/assignments/assignments.controller.ts`
-  - `apps/api/src/assignments/assignments.service.ts`
-- Important DTO/types:
-  - `apps/api/src/chains/dto/create-chain.dto.ts`
-  - `apps/api/src/chains/dto/update-chain.dto.ts`
-  - `apps/api/src/vendors/dto/create-vendor.dto.ts`
-  - `apps/api/src/vendors/dto/update-vendor.dto.ts`
-  - `apps/api/src/assignments/dto/list-assignments-query.dto.ts`
-- Important tests:
-  - No focused organization/assignment test file currently identified.
+- `apps/web/app/admin/reports`
+- `apps/web/app/area-manager/reports`
+- `apps/web/app/champ/reports`
+- `apps/web/app/admin/imports`
+- `apps/web/app/admin/attendance/imports`
+- `apps/web/components/reports`
+- `apps/web/components/attendance`
+- `apps/web/components/orders-kpis`
+- `apps/web/components/imports`
 
-### Local cleanup scripts
+Notifications, audit, settings, access control:
 
-- Main files:
-  - `apps/api/scripts/clear-open-requests.ts`
-- Notes:
-  - `npm run cleanup:open-requests` is a local/dev dry-run by default.
-  - `npm run cleanup:open-requests -- --confirm` deletes only open requests with statuses `DRAFT`, `PENDING_AREA_MANAGER`, `PENDING_DESTINATION_AREA_MANAGER`, and `PENDING_ADMIN`; completed/rejected/cancelled/approved history is not targeted.
+- `apps/web/app/notifications/page.tsx`
+- `apps/web/app/admin/audit-logs/page.tsx`
+- `apps/web/app/settings`
+- `apps/web/app/super-admin/access-control/page.tsx`
+- `apps/web/components/notifications`
+- `apps/web/components/access-control`
 
-### Notifications
+UI primitives:
 
-- Main frontend files:
-  - `apps/web/app/notifications/page.tsx`
-  - `apps/web/components/notifications/notifications-center.tsx`
-  - `apps/web/components/dashboard/dashboard-notifications-menu.tsx`
-  - `apps/web/lib/api/notifications.ts`
-  - `apps/web/lib/notifications/view-model.ts`
-- Main API files:
-  - `apps/api/src/notifications/notifications.controller.ts`
-  - `apps/api/src/notifications/notifications.service.ts`
-  - `apps/api/src/notifications/notifications.module.ts`
-- Important DTO/types:
-  - `apps/api/src/notifications/dto/list-notifications-query.dto.ts`
-- Important tests:
-  - No focused notifications test file currently identified.
+- `apps/web/components/ui`
+- `apps/web/components/sn`
+- `apps/web/app/globals.css`
+- `apps/web/components.json`
+- `apps/web/tailwind.config.ts`
 
-### Audit logs
+## Backend Areas
 
-- Main frontend files:
-  - `apps/web/app/admin/audit-logs/page.tsx`
-  - `apps/web/components/admin/organization-control-center.tsx`
-- Main API files:
-  - `apps/api/src/audit/audit.controller.ts`
-  - `apps/api/src/audit/audit.service.ts`
-  - `apps/api/src/audit/audit.module.ts`
-- Important DTO/types:
-  - Prisma `AuditLog` model in `prisma/schema.prisma`
-- Important tests:
-  - No focused audit log test file currently identified.
+Auth:
 
-### Planned HR Google Sheets Sync
+- `apps/api/src/auth`
+- `apps/api/src/config`
+- `apps/api/src/common/middleware/request-logger.middleware.ts`
 
-- Planning doc:
-  - `docs/integrations/HR_GOOGLE_SHEETS_SYNC_PLAN.md`
-- Planned future files:
-  - `scripts/google-apps-script/hr-sync/Code.gs`
-  - `scripts/google-apps-script/hr-sync/README.md`
-  - `scripts/google-apps-script/hr-sync/samples/*.json`
-- Planned backend direction:
-  - `apps/api/src/hr-sync/hr-sync.service.ts`
-  - Future Prisma `HrSyncLog` model and migration.
-  - Backend-only env values in `apps/api/.env`: `HR_SYNC_ENABLED`, `HR_SYNC_WEB_APP_URL`, `HR_SYNC_SECRET`.
-- Scope:
-  - Picker New Hire/Rehire only.
-  - Picker Resignation only.
-  - Post-finalization sync only.
-  - Google Sheets is not source of truth.
-- Excluded:
-  - Champ and Area Manager sync.
-  - Payroll, attendance, GPS, order integration, inventory, accounting, and generic ERP behavior.
-- Notes:
-  - HR Sync failure must not roll back workflow finalization.
-  - Ticket/request detail should later show `Sent to HR`, `HR Sync failed`, or `Skipped`.
+Users:
 
-## Current Lifecycle Workflow Map
+- `apps/api/src/users`
 
-- New Hire Picker:
-  - UI: role selection, Branch context, candidate lookup, profile fields for new users. Area Manager-created Picker requests capture Shopper ID at submit; Champ/Admin-created Picker requests capture Shopper ID during Area Manager approval.
-  - API: `NewHireWorkflowService` creates request, `NewHireApprovalService` records the Area Manager Shopper ID decision, and `NewHireFinalizationService` creates user and `PickerBranchAssignment` only after Admin final approval.
-  - Finalization resolves Shopper ID from the Area Manager decision or a valid existing Rehire Shopper ID. Admin final approval does not accept an editable Shopper ID.
-- New Hire Champ:
-  - UI: role selection, Branch context, candidate lookup, profile fields for new users.
-  - API: request creation and finalization create Champ user and `VendorChampAssignment`.
-  - No Shopper ID required.
-- New Hire Area Manager:
-  - UI: role selection and candidate identity only. Chain assignment is managed from Users List -> Area Manager Profile after creation.
-  - API: request creation and finalization create the Area Manager user only. `ChainAreaManagerAssignment` rows are not created by New Hire finalization.
-  - Rehire is not supported.
-- Area Manager Chain assignment:
-  - UI: Admin/Super Admin manages active Chains from the Area Manager operational profile. Organization Control Center displays current Area Manager read-only and no longer assigns Area Managers.
-  - API: Users endpoints add/close `ChainAreaManagerAssignment`; Organization Control Center replacement endpoint returns a Bad Request directing users to the profile path.
-- Rehire Picker:
-  - UI: previous profile card is read-only; notes remain available.
-  - API: old user profile is source of truth; active duplicate, active temporary block, permanent block, active assignment, and pending duplicate checks run before request creation.
-  - Finalization reactivates existing user, creates a new `PickerBranchAssignment`, reuses old Shopper ID by default, generates temporary password, and clears expired temporary block state.
-- Rehire Champ:
-  - UI: previous profile card is read-only; notes remain available.
-  - API: old user profile is source of truth; active duplicate, active temporary block, permanent block, active assignment, and pending duplicate checks run before request creation.
-  - Finalization reactivates existing user, creates a new `VendorChampAssignment`, generates temporary password, and clears expired temporary block state.
-- Resignation Picker:
-  - UI: role-based Resignation form with scoped eligible Pickers. Area Manager block decision supports only No block or Permanent block.
-  - API: `OffboardingWorkflowService` creates and finalizes resignation, requires Area Manager block decision before Admin confirmation, closes active `PickerBranchAssignment`, archives/deactivates user through workflow, and never creates new temporary Resignation blocks.
-- Resignation Champ:
-  - UI: role-based Resignation form with scoped eligible Champs. Area Manager block decision supports only No block or Permanent block.
-  - API: requires Area Manager block decision before Admin confirmation, closes active `VendorChampAssignment`, archives/deactivates user through workflow, and never creates new temporary Resignation blocks.
-- Resignation Area Manager:
-  - UI: Admin/Super Admin role option only.
-  - API: Admin-only confirmation force-applies No block, closes active `ChainAreaManagerAssignment` records, and archives/deactivates user through workflow.
-- Transfer Picker only:
-  - UI: Transfer action is Picker-only and should pass selected Picker/current Branch context when available.
-  - API: `TransferWorkflowService` enforces active Picker target, source Branch, destination Branch, approval path, and pending duplicate checks.
-  - Transfer is not valid for Champ, Area Manager, Admin, or Super Admin.
+Workspaces and dashboards:
+
+- `apps/api/src/workspaces`
+- `apps/api/src/dashboard-cache`
+- `apps/api/src/worker.ts`
+- `apps/api/src/worker-app.module.ts`
+
+Organization and assignments:
+
+- `apps/api/src/admin`
+- `apps/api/src/chains`
+- `apps/api/src/vendors`
+- `apps/api/src/assignments`
+
+Requests and workflows:
+
+- `apps/api/src/requests`
+- `apps/api/src/requests/workflows`
+- `apps/api/src/approvals`
+
+Reports and operational imports:
+
+- `apps/api/src/reports`
+- `apps/api/src/attendance`
+- `apps/api/src/orders-kpis`
+- `apps/api/src/import-jobs`
+
+Notifications and audit:
+
+- `apps/api/src/notifications`
+- `apps/api/src/audit`
+
+Access control:
+
+- `apps/api/src/access-control`
+- `apps/api/src/access-control/permissions.ts`
+- `apps/api/src/access-control/role-permission.matrix.ts`
+- `apps/api/src/access-control/access-policy.service.ts`
+- `apps/api/src/access-control/permission.guard.ts`
+- `apps/api/src/access-control/require-permission.decorator.ts`
+
+HR Sync:
+
+- `apps/api/src/hr-sync`
+- `scripts/google-apps-script/hr-sync/Code.gs`
+- `scripts/google-apps-script/hr-sync/sample-new-hire.payload.json`
+- `scripts/google-apps-script/hr-sync/sample-rehire.payload.json`
+- `scripts/google-apps-script/hr-sync/sample-resign.payload.json`
+
+Health:
+
+- `apps/api/src/health`
+
+## Prisma
+
+- `prisma/schema.prisma`: Schema and enums.
+- `prisma/migrations`: Migrations.
+- `prisma/seed.ts`: Seed script.
+- `prisma/import-real-pickers.ts`: Picker import helper.
+- `prisma/access-role-seed.ts`: Access-role seed support.
+- `prisma/seed-deduction-policy.ts`: Deduction policy seed support.
+
+Core source-of-truth models:
+
+```text
+User
+Chain
+Vendor
+PickerBranchAssignment
+VendorChampAssignment
+ChainAreaManagerAssignment
+Request
+RequestApproval
+Notification
+AuditLog
+AccessRole
+UserAccessRoleAssignment
+HrSyncLog
+AttendanceImportBatch
+AttendanceDailyRecord
+AttendancePickerMonthlySummary
+OrdersKpiImportBatch
+OrdersKpiDailyRecord
+OrdersKpiTargetSettings
+```
+
+## API Route Groups
+
+Controllers currently expose route groups under:
+
+```text
+/api/access-control
+/api/admin
+/api/assignments
+/api/attendance/imports
+/api/attendance/reports
+/api/audit
+/api/auth
+/api/chains
+/api/deductions
+/api/health
+/api/notifications
+/api/orders-kpis/imports
+/api/orders-kpis/reports
+/api/orders-kpis/settings
+/api/reports
+/api/requests
+/api/users
+/api/vendors
+/api/workspaces
+```
+
+Verify specific endpoints against `apps/api/src/**/*controller.ts` before documenting or changing contracts.
+
+## Tests
+
+Common focused test locations:
+
+- `apps/api/test`
+- `apps/web/**/*.test.ts`
+- `apps/web/**/*.test.tsx`
+
+Use nearby test style before adding tests. Do not add broad test suites for docs-only changes.
 
 ## Commands
+
+Root checks:
 
 ```powershell
 npm run prisma:validate
 npm run prisma:generate
-npm run typecheck -- --pretty false
+npm run typecheck
 npm run lint
 npm run build
-npm run prisma:migrate
-npm run db:seed
-npm run cleanup:open-requests
-npm run cleanup:open-requests -- --confirm
-npx tsx apps/api/test/new-hire-workflow.policy.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.rehire.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/new-hire-workflow.approval.test.ts
-npx tsx apps/api/test/offboarding-workflow.policy.test.ts
-npx tsx apps/api/test/offboarding-payload.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/offboarding-workflow.approval-finalization.test.ts
-npx tsx apps/api/test/env-validation.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-list-filters.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-admin-profile.dto.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/users-area-manager-chain-assignments.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/request-approval-routing.test.ts
-npx tsx --tsconfig apps/api/tsconfig.json apps/api/test/transfer-workflow.test.ts
 ```
 
-## Known Review Notes
+Local development:
 
-- GitHub code search may not be indexed/reliable.
-- Prefer direct file inspection with `rg`, `rg --files`, and targeted file reads.
-- Keep `docs/REPO_INDEX.md` updated whenever moving major files or adding workflow modules.
+```powershell
+npm install
+docker compose up -d
+npm run prisma:migrate
+npm run db:seed
+npm run dev
+```
+
+Workspace-specific:
+
+```powershell
+npm run dev --workspace @supernova/api
+npm run dev:worker --workspace @supernova/api
+npm run dev --workspace @supernova/web
+npm run typecheck --workspace @supernova/api
+npm run typecheck --workspace @supernova/web
+npm run lint --workspace @supernova/api
+npm run lint --workspace @supernova/web
+```
+
+Docs-only verification:
+
+```powershell
+git diff --check
+git status --short
+```
+
+## Local Agent Assets
+
+Tracked reusable agent skills:
+
+- `.agents/skills/supernova-product-architect/SKILL.md`
+- `.agents/skills/supernova-ui-ux-pro-max/SKILL.md`
+- `.agents/skills/supernova-refactor-debug-review/SKILL.md`
+- `.agents/skills/docs-guard/SKILL.md`
+- `.agents/skills/test-guard/SKILL.md`
+- `.agents/skills/clean-code-guard/SKILL.md`
+- `.claude/skills/supernova-product-architect/SKILL.md`
+- `.claude/skills/supernova-ui-ux-pro-max/SKILL.md`
+- `.claude/skills/supernova-refactor-debug-review/SKILL.md`
+
+These are not the official product docs, but they are useful local agent assets and should not be deleted during normal documentation cleanup.
