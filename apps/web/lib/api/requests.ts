@@ -406,17 +406,28 @@ export interface CreateAnnualLeavePayload {
   contextVendorId?: string;
 }
 
+export type AnnualLeaveEligibilityStatus =
+  | "ELIGIBLE"
+  | "NOT_ELIGIBLE"
+  | "NOT_APPLICABLE"
+  | "MISSING_JOINING_DATE";
+
+export interface AnnualLeaveAvailability {
+  officialRemainingDays: number;
+  heldDays: number;
+  availableToRequestDays: number;
+  eligibilityStatus: AnnualLeaveEligibilityStatus;
+  eligibleFrom: string | null;
+  message: string;
+}
+
 export interface AnnualLeavePreview {
   requestedDays: number;
   officialRemainingDays: number;
   heldDays: number;
   availableToRequestDays: number;
   availableAfterRequestDays: number;
-  eligibilityStatus:
-    | "ELIGIBLE"
-    | "NOT_ELIGIBLE"
-    | "NOT_APPLICABLE"
-    | "MISSING_JOINING_DATE";
+  eligibilityStatus: AnnualLeaveEligibilityStatus;
   eligibleFrom: string | null;
   blockingReasons: string[];
 }
@@ -532,6 +543,9 @@ export const requestsApi = {
       method: "POST",
       body: JSON.stringify(payload)
     });
+  },
+  getAnnualLeaveAvailability() {
+    return apiGet<AnnualLeaveAvailability>("/requests/annual-leave/availability");
   },
   async createAnnualLeave(payload: CreateAnnualLeavePayload) {
     const created = await apiRequest<RequestSummary>("/requests/annual-leave", {

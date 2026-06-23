@@ -1,4 +1,5 @@
 import type { AreaManagerPerformanceStatus } from "@/lib/api/area-manager-performance";
+import { getClosedDailyDashboardDateRange } from "../dashboard-ui/dashboard-date-ranges";
 
 export const areaManagerRangeOptions = [
   { key: "YESTERDAY", label: "Yesterday" },
@@ -17,40 +18,11 @@ export const statusLabels: Record<AreaManagerPerformanceStatus, string> = {
   NO_KPI: "No KPI"
 };
 
-export function getAreaManagerDateRange(range: AreaManagerRangeKey) {
-  const today = startOfLocalDay(new Date());
-
-  if (range === "YESTERDAY") {
-    const yesterday = addLocalDays(today, -1);
-    return {
-      dateFrom: toDateOnly(yesterday),
-      dateTo: toDateOnly(yesterday)
-    };
-  }
-
-  if (range === "LAST_WEEK") {
-    const dateTo = addLocalDays(today, -1);
-    return {
-      dateFrom: toDateOnly(addLocalDays(dateTo, -6)),
-      dateTo: toDateOnly(dateTo)
-    };
-  }
-
-  if (range === "LAST_QUARTER") {
-    const currentQuarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
-    const dateFrom = new Date(today.getFullYear(), currentQuarterStartMonth - 3, 1);
-    const dateTo = new Date(today.getFullYear(), currentQuarterStartMonth, 0);
-
-    return {
-      dateFrom: toDateOnly(dateFrom),
-      dateTo: toDateOnly(dateTo)
-    };
-  }
-
-  return {
-    dateFrom: toDateOnly(new Date(today.getFullYear(), today.getMonth(), 1)),
-    dateTo: toDateOnly(today)
-  };
+export function getAreaManagerDateRange(
+  range: AreaManagerRangeKey,
+  now = new Date()
+) {
+  return getClosedDailyDashboardDateRange(range, now);
 }
 
 export function formatDateRangeLabel(dateFrom: string, dateTo: string) {
@@ -167,22 +139,4 @@ export function healthToneClass(value: number | null | undefined) {
   }
 
   return "sn-mono font-semibold text-[color:var(--sn-danger)]";
-}
-
-function startOfLocalDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function addLocalDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(date.getDate() + days);
-  return next;
-}
-
-function toDateOnly(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }

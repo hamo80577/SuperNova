@@ -38,6 +38,7 @@ import {
   DetailPanelSkeleton,
   StatsCardSkeleton
 } from "@/components/ui/skeleton";
+import { getClosedDailyDashboardDateRange } from "@/components/workspaces/dashboard-ui/dashboard-date-ranges";
 import {
   DashboardCard,
   DashboardMetricGrid,
@@ -1558,30 +1559,7 @@ function EmptyInline({ message }: { message: string }) {
 }
 
 function getPickerDateRange(range: PickerDashboardRange) {
-  const today = new Date();
-  const dateTo = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const dateFrom = new Date(dateTo);
-
-  if (range === "LAST_WEEK") {
-    dateFrom.setDate(dateTo.getDate() - 6);
-  } else if (range === "THIS_MONTH") {
-    dateFrom.setDate(1);
-  } else {
-    dateFrom.setMonth(Math.floor(dateTo.getMonth() / 3) * 3, 1);
-  }
-
-  return {
-    dateFrom: toDateOnly(dateFrom),
-    dateTo: toDateOnly(dateTo)
-  };
-}
-
-function toDateOnly(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return getClosedDailyDashboardDateRange(range);
 }
 
 function formatDateRangeLabel(dateFrom: string, dateTo: string) {

@@ -34,7 +34,7 @@ const branches = [
 function testThisMonthRange() {
   const range = getAdminDashboardDateRange(
     "THIS_MONTH",
-    new Date("2026-06-22T15:30:00")
+    new Date("2026-06-23T15:30:00")
   );
 
   assert.deepEqual(range, {

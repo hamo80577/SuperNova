@@ -274,6 +274,10 @@ export class RequestsService {
     return this.annualLeaveRequestService.preview(context.actor, dto);
   }
 
+  async getAnnualLeaveAvailability(context: RequestContext) {
+    return this.annualLeaveRequestService.availability(context.actor);
+  }
+
   async createAnnualLeaveRequest(
     dto: CreateAnnualLeaveRequestDto,
     context: RequestContext

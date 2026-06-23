@@ -82,6 +82,15 @@ export interface AnnualLeavePreviewResult {
   blockingReasons: string[];
 }
 
+export interface AnnualLeaveAvailabilityResult {
+  officialRemainingDays: number;
+  heldDays: number;
+  availableToRequestDays: number;
+  eligibilityStatus: AnnualLeaveBalance["eligibilityStatus"];
+  eligibleFrom: string | null;
+  message: string;
+}
+
 @Injectable()
 export class AnnualLeaveRequestService {
   constructor(
@@ -179,6 +188,28 @@ export class AnnualLeaveRequestService {
       eligibilityStatus: balance.eligibilityStatus,
       eligibleFrom: balance.eligibleFrom,
       blockingReasons
+    };
+  }
+
+  async availability(
+    actor: AuthenticatedUser
+  ): Promise<AnnualLeaveAvailabilityResult> {
+    this.assertSelfRequestRole(actor);
+
+    const asOf = new Date();
+    const balance = await this.loadBalance(actor, asOf);
+    const hold = await this.computeHold(actor.id, balance, asOf, null);
+
+    return {
+      officialRemainingDays: hold.officialRemainingDays,
+      heldDays: hold.heldDays,
+      availableToRequestDays: hold.availableToRequest,
+      eligibilityStatus: balance.eligibilityStatus,
+      eligibleFrom: balance.eligibleFrom,
+      message:
+        balance.eligibilityStatus === "ELIGIBLE"
+          ? balance.message
+          : this.eligibilityMessage(balance)
     };
   }
 

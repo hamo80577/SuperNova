@@ -1,7 +1,20 @@
 "use client";
 
-import { Store } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Clock3,
+  RefreshCw,
+  Store,
+  WalletCards
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode
+} from "react";
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -9,6 +22,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Select } from "@/components/ui/select";
 import {
   requestsApi,
+  type AnnualLeaveAvailability,
+  type AnnualLeaveEligibilityStatus,
   type AnnualLeavePreview,
   type RequestSummary
 } from "@/lib/api/requests";
@@ -35,6 +50,11 @@ export function AnnualLeaveRequestForm({
   const [preview, setPreview] = useState<AnnualLeavePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [availability, setAvailability] =
+    useState<AnnualLeaveAvailability | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilityReloadKey, setAvailabilityReloadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [contextVendorId, setContextVendorId] = useState("");
@@ -103,6 +123,43 @@ export function AnnualLeaveRequestForm({
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    setAvailabilityError(null);
+
+    requestsApi
+      .getAnnualLeaveAvailability()
+      .then((result) => {
+        if (!cancelled) {
+          setAvailability(result);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setAvailability(null);
+          setAvailabilityError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load annual leave availability."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAvailabilityLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [availabilityReloadKey, user?.id]);
 
   // Debounced preview whenever the date range or reason changes.
   useEffect(() => {
@@ -188,6 +245,13 @@ export function AnnualLeaveRequestForm({
 
   return (
     <form className="grid gap-4" onSubmit={onSubmit}>
+      <AnnualLeaveAvailabilityCard
+        availability={availability}
+        error={availabilityError}
+        loading={availabilityLoading}
+        onRetry={() => setAvailabilityReloadKey((key) => key + 1)}
+      />
+
       <ChampBranchField
         branches={branches}
         branchesError={branchesError}
@@ -259,6 +323,162 @@ export function AnnualLeaveRequestForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function AnnualLeaveAvailabilityCard({
+  availability,
+  error,
+  loading,
+  onRetry
+}: {
+  availability: AnnualLeaveAvailability | null;
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  if (loading && !availability) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--sn-border)] bg-white p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <WalletCards className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
+              Annual leave availability
+            </p>
+            <p className="mt-1 text-xs text-[color:var(--sn-muted)]">
+              Loading your requestable days…
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--sn-sunken)]">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-primary/35" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="rounded-2xl border border-[oklch(0.88_0.06_27)] bg-[oklch(0.98_0.02_27)] p-4"
+        role="alert"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[oklch(0.94_0.05_27)] text-[oklch(0.52_0.17_27)]">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[oklch(0.45_0.17_27)]">
+                Could not load annual leave availability
+              </p>
+              <p className="mt-1 text-xs text-[oklch(0.45_0.12_27)]">{error}</p>
+            </div>
+          </div>
+          <Button
+            className="h-9 rounded-xl"
+            onClick={onRetry}
+            type="button"
+            variant="outline"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!availability) {
+    return null;
+  }
+
+  const eligible = availability.eligibilityStatus === "ELIGIBLE";
+  const canRequest = eligible && availability.availableToRequestDays > 0;
+  const cardTone = canRequest
+    ? "border-[oklch(0.88_0.06_150)] bg-[linear-gradient(135deg,white,oklch(0.98_0.02_150))]"
+    : "border-[oklch(0.88_0.07_70)] bg-[linear-gradient(135deg,white,oklch(0.98_0.03_70))]";
+
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${cardTone}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <WalletCards className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--sn-muted)]">
+              Available before you start
+            </p>
+            <div className="mt-1 flex flex-wrap items-end gap-x-2 gap-y-1">
+              <span className="text-3xl font-bold leading-none text-[color:var(--sn-ink)]">
+                {formatDays(availability.availableToRequestDays)}
+              </span>
+              <span className="pb-0.5 text-sm font-semibold text-[color:var(--sn-body)]">
+                days can be requested
+              </span>
+            </div>
+          </div>
+        </div>
+        <AnnualLeaveEligibilityBadge status={availability.eligibilityStatus} />
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <AvailabilityStat
+          emphasis
+          icon={<CalendarDays className="h-4 w-4" />}
+          label="Requestable"
+          value={`${formatDays(availability.availableToRequestDays)} d`}
+        />
+        <AvailabilityStat
+          icon={<WalletCards className="h-4 w-4" />}
+          label="Official remaining"
+          value={`${formatDays(availability.officialRemainingDays)} d`}
+        />
+        <AvailabilityStat
+          icon={<Clock3 className="h-4 w-4" />}
+          label="Held by pending"
+          value={`${formatDays(availability.heldDays)} d`}
+        />
+      </div>
+
+      <p className="mt-3 text-xs leading-5 text-[color:var(--sn-muted)]">
+        {availability.message}
+      </p>
+    </div>
+  );
+}
+
+function AvailabilityStat({
+  emphasis = false,
+  icon,
+  label,
+  value
+}: {
+  emphasis?: boolean;
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div
+      className={
+        emphasis
+          ? "rounded-xl border border-primary/20 bg-primary/5 px-3 py-2"
+          : "rounded-xl border border-[color:var(--sn-border)] bg-white/75 px-3 py-2"
+      }
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--sn-muted)]">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className="mt-1 text-sm font-semibold text-[color:var(--sn-ink)]">
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -343,7 +563,8 @@ function AnnualLeaveBalancePreview({
   if (!canPreview) {
     return (
       <div className="rounded-2xl border border-dashed border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-4 text-sm text-[color:var(--sn-muted)]">
-        Pick a start and end date and enter a reason to preview your balance.
+        Pick a start and end date and enter a reason to validate this request
+        against your available balance.
       </div>
     );
   }
@@ -441,7 +662,7 @@ function PreviewStat({
 function AnnualLeaveEligibilityBadge({
   status
 }: {
-  status: AnnualLeavePreview["eligibilityStatus"];
+  status: AnnualLeaveEligibilityStatus;
 }) {
   const tone =
     status === "ELIGIBLE"
@@ -463,4 +684,9 @@ function AnnualLeaveEligibilityBadge({
       {label}
     </span>
   );
+}
+
+function formatDays(value: number) {
+  const rounded = Number(value.toFixed(2));
+  return Object.is(rounded, -0) ? "0" : String(rounded);
 }

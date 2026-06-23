@@ -650,6 +650,33 @@ async function run() {
     assert.equal(preview.blockingReasons.length, 0);
   }
 
+  // Availability is available before entering dates and still accounts for
+  // active holds, so the form does not display the raw remaining balance as
+  // requestable days.
+  {
+    const harness = withRequestCreate(
+      buildHarness(UserRole.PICKER, {
+        balance: eligibleBalance({ remainingDays: 10 }),
+        otherLeaves: [
+          {
+            requestId: "other-1",
+            startDate: new Date("2026-05-01T00:00:00.000Z"),
+            endDate: new Date("2026-05-04T00:00:00.000Z"),
+            status: RequestStatus.PENDING_ADMIN
+          }
+        ]
+      })
+    );
+
+    const availability = await harness.service.availability(actor(UserRole.PICKER));
+
+    assert.equal(availability.officialRemainingDays, 10);
+    assert.equal(availability.heldDays, 4);
+    assert.equal(availability.availableToRequestDays, 6);
+    assert.equal(availability.eligibilityStatus, "ELIGIBLE");
+    assert.equal(availability.message, "ok");
+  }
+
   // Preview with an invalid date returns a blocking reason instead of throwing.
   {
     const harness = withRequestCreate(

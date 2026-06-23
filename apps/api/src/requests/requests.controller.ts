@@ -71,6 +71,20 @@ export class RequestsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PICKER, UserRole.CHAMP)
+  @Get("annual-leave/availability")
+  getAnnualLeaveAvailability(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest
+  ) {
+    return this.requestsService.getAnnualLeaveAvailability({
+      actor: user,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"] ?? null
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CHAMP, UserRole.AREA_MANAGER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @Get("offboarding/pickers")
   searchOffboardingPickers(

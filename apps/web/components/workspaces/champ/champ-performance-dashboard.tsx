@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import { getClosedDailyDashboardDateRange } from "@/components/workspaces/dashboard-ui/dashboard-date-ranges";
 import {
   DashboardCard,
   DashboardMetricGrid,
@@ -1526,57 +1527,7 @@ function buildPickerReportHref(
 }
 
 function getChampDateRange(range: ChampRangeKey) {
-  const today = startOfLocalDay(new Date());
-
-  if (range === "YESTERDAY") {
-    const yesterday = addLocalDays(today, -1);
-    return {
-      dateFrom: toDateOnly(yesterday),
-      dateTo: toDateOnly(yesterday)
-    };
-  }
-
-  if (range === "LAST_WEEK") {
-    const dateTo = addLocalDays(today, -1);
-    return {
-      dateFrom: toDateOnly(addLocalDays(dateTo, -6)),
-      dateTo: toDateOnly(dateTo)
-    };
-  }
-
-  if (range === "LAST_QUARTER") {
-    const currentQuarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
-    const dateFrom = new Date(today.getFullYear(), currentQuarterStartMonth - 3, 1);
-    const dateTo = new Date(today.getFullYear(), currentQuarterStartMonth, 0);
-
-    return {
-      dateFrom: toDateOnly(dateFrom),
-      dateTo: toDateOnly(dateTo)
-    };
-  }
-
-  return {
-    dateFrom: toDateOnly(new Date(today.getFullYear(), today.getMonth(), 1)),
-    dateTo: toDateOnly(today)
-  };
-}
-
-function startOfLocalDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function addLocalDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(date.getDate() + days);
-  return next;
-}
-
-function toDateOnly(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return getClosedDailyDashboardDateRange(range);
 }
 
 function formatShortDate(value: string | undefined) {
