@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js",
+    "test:assignments": "tsx test/assignments-audit-atomicity.test.ts",
     "test:dashboard-cache": "tsx test/dashboard-cache-key.test.ts && tsx test/dashboard-cache-read-through.test.ts && tsx test/dashboard-cache-events.test.ts && tsx test/dashboard-cache-warmer.test.ts && tsx test/dashboard-cache-processor.test.ts && tsx test/dashboard-cache-workspace-integration.test.ts && tsx test/dashboard-cache-domain-events.test.ts",
     "test:imports": "tsx test/env-validation.test.ts && tsx test/create-many-in-chunks.test.ts && tsx test/import-queue-services.test.ts && tsx test/attendance-import-storage.test.ts && tsx test/orders-kpis-import-preview.test.ts",
     "lint": "eslint \"src/**/*.ts\"",

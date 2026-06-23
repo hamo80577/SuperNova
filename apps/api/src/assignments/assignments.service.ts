@@ -16,7 +16,6 @@ import {
   VendorStatus
 } from "@prisma/client";
 
-import { AuditService } from "../audit/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   toChainSummary,
@@ -76,8 +75,6 @@ type ChainAreaManagerAssignment =
 @Injectable()
 export class AssignmentsService {
   constructor(
-    @Inject(AuditService)
-    private readonly auditService: AuditService,
     @Inject(PrismaService)
     private readonly prisma: PrismaService
   ) {}
@@ -303,24 +300,30 @@ export class AssignmentsService {
     }
 
     try {
-      const assignment = await this.prisma.vendorChampAssignment.create({
-        data: {
-          vendorId: dto.vendorId,
-          champId: dto.champId,
-          status: AssignmentStatus.ACTIVE,
-          startDate: this.parseDate(dto.startDate)
-        },
-        include: vendorChampAssignmentInclude
-      });
+      const assignment = await this.prisma.$transaction(async (tx) => {
+        const createdAssignment = await tx.vendorChampAssignment.create({
+          data: {
+            vendorId: dto.vendorId,
+            champId: dto.champId,
+            status: AssignmentStatus.ACTIVE,
+            startDate: this.parseDate(dto.startDate)
+          },
+          include: vendorChampAssignmentInclude
+        });
 
-      await this.auditService.log({
-        actorUserId: context.actorUserId,
-        action: "VENDOR_CHAMP_ASSIGNMENT_CREATED",
-        entityType: "VendorChampAssignment",
-        entityId: assignment.id,
-        newValue: this.toVendorChampAssignmentAuditValue(assignment),
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
+        await tx.auditLog.create({
+          data: {
+            actorUserId: context.actorUserId,
+            action: "VENDOR_CHAMP_ASSIGNMENT_CREATED",
+            entityType: "VendorChampAssignment",
+            entityId: createdAssignment.id,
+            newValue: this.toVendorChampAssignmentAuditValue(createdAssignment),
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        });
+
+        return createdAssignment;
       });
 
       return this.toVendorChampAssignmentResponse(assignment);
@@ -354,24 +357,31 @@ export class AssignmentsService {
     }
 
     try {
-      const assignment = await this.prisma.chainAreaManagerAssignment.create({
-        data: {
-          chainId: dto.chainId,
-          areaManagerId: dto.areaManagerId,
-          status: AssignmentStatus.ACTIVE,
-          startDate: this.parseDate(dto.startDate)
-        },
-        include: chainAreaManagerAssignmentInclude
-      });
+      const assignment = await this.prisma.$transaction(async (tx) => {
+        const createdAssignment = await tx.chainAreaManagerAssignment.create({
+          data: {
+            chainId: dto.chainId,
+            areaManagerId: dto.areaManagerId,
+            status: AssignmentStatus.ACTIVE,
+            startDate: this.parseDate(dto.startDate)
+          },
+          include: chainAreaManagerAssignmentInclude
+        });
 
-      await this.auditService.log({
-        actorUserId: context.actorUserId,
-        action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CREATED",
-        entityType: "ChainAreaManagerAssignment",
-        entityId: assignment.id,
-        newValue: this.toChainAreaManagerAssignmentAuditValue(assignment),
-        ipAddress: context.ipAddress,
-        userAgent: context.userAgent
+        await tx.auditLog.create({
+          data: {
+            actorUserId: context.actorUserId,
+            action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CREATED",
+            entityType: "ChainAreaManagerAssignment",
+            entityId: createdAssignment.id,
+            newValue:
+              this.toChainAreaManagerAssignmentAuditValue(createdAssignment),
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null
+          }
+        });
+
+        return createdAssignment;
       });
 
       return this.toChainAreaManagerAssignmentResponse(assignment);
@@ -412,24 +422,30 @@ export class AssignmentsService {
 
     this.assertCanClose(current.status);
 
-    const assignment = await this.prisma.vendorChampAssignment.update({
-      where: { id },
-      data: {
-        status: AssignmentStatus.CLOSED,
-        endDate: this.parseDate(dto.endDate)
-      },
-      include: vendorChampAssignmentInclude
-    });
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const closedAssignment = await tx.vendorChampAssignment.update({
+        where: { id },
+        data: {
+          status: AssignmentStatus.CLOSED,
+          endDate: this.parseDate(dto.endDate)
+        },
+        include: vendorChampAssignmentInclude
+      });
 
-    await this.auditService.log({
-      actorUserId: context.actorUserId,
-      action: "VENDOR_CHAMP_ASSIGNMENT_CLOSED",
-      entityType: "VendorChampAssignment",
-      entityId: assignment.id,
-      oldValue: this.toVendorChampAssignmentAuditValue(current),
-      newValue: this.toVendorChampAssignmentAuditValue(assignment),
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
+      await tx.auditLog.create({
+        data: {
+          actorUserId: context.actorUserId,
+          action: "VENDOR_CHAMP_ASSIGNMENT_CLOSED",
+          entityType: "VendorChampAssignment",
+          entityId: closedAssignment.id,
+          oldValue: this.toVendorChampAssignmentAuditValue(current),
+          newValue: this.toVendorChampAssignmentAuditValue(closedAssignment),
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null
+        }
+      });
+
+      return closedAssignment;
     });
 
     return this.toVendorChampAssignmentResponse(assignment);
@@ -451,24 +467,31 @@ export class AssignmentsService {
 
     this.assertCanClose(current.status);
 
-    const assignment = await this.prisma.chainAreaManagerAssignment.update({
-      where: { id },
-      data: {
-        status: AssignmentStatus.CLOSED,
-        endDate: this.parseDate(dto.endDate)
-      },
-      include: chainAreaManagerAssignmentInclude
-    });
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      const closedAssignment = await tx.chainAreaManagerAssignment.update({
+        where: { id },
+        data: {
+          status: AssignmentStatus.CLOSED,
+          endDate: this.parseDate(dto.endDate)
+        },
+        include: chainAreaManagerAssignmentInclude
+      });
 
-    await this.auditService.log({
-      actorUserId: context.actorUserId,
-      action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CLOSED",
-      entityType: "ChainAreaManagerAssignment",
-      entityId: assignment.id,
-      oldValue: this.toChainAreaManagerAssignmentAuditValue(current),
-      newValue: this.toChainAreaManagerAssignmentAuditValue(assignment),
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent
+      await tx.auditLog.create({
+        data: {
+          actorUserId: context.actorUserId,
+          action: "CHAIN_AREA_MANAGER_ASSIGNMENT_CLOSED",
+          entityType: "ChainAreaManagerAssignment",
+          entityId: closedAssignment.id,
+          oldValue: this.toChainAreaManagerAssignmentAuditValue(current),
+          newValue:
+            this.toChainAreaManagerAssignmentAuditValue(closedAssignment),
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null
+        }
+      });
+
+      return closedAssignment;
     });
 
     return this.toChainAreaManagerAssignmentResponse(assignment);
