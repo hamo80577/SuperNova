@@ -38,6 +38,12 @@ import {
   DetailPanelSkeleton,
   StatsCardSkeleton
 } from "@/components/ui/skeleton";
+import {
+  DashboardCard,
+  DashboardMetricGrid,
+  DashboardMetricItem,
+  DashboardRankMark
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
 import { AdminDashboardPage } from "@/components/workspaces/admin-dashboard/admin-dashboard-page";
 import { ChampPerformanceDashboard } from "@/components/workspaces/champ/champ-performance-dashboard";
 import {
@@ -427,11 +433,9 @@ function OrdersPerformanceCard({
 
 function RankingCard({ summary }: { summary: PickerPerformanceSummary }) {
   return (
-    <section className="rounded-[16px] border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04),0_6px_18px_rgba(65,21,23,0.05)] sm:p-5">
+    <DashboardCard className="p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-[#ff8b6a] text-sm font-semibold text-white">
-          3
-        </span>
+        <DashboardRankMark compact rank={summary.ranking.branch.rank} />
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
             Your Performance Position
@@ -447,7 +451,7 @@ function RankingCard({ summary }: { summary: PickerPerformanceSummary }) {
         <RankScopeCard label="In Your Chain" rank={summary.ranking.chain} />
         <RankScopeCard label="In All Team" rank={summary.ranking.allTeam} />
       </div>
-    </section>
+    </DashboardCard>
   );
 }
 
@@ -464,14 +468,16 @@ function RankScopeCard({
   return (
     <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-white p-4 shadow-[0_1px_2px_rgba(65,21,23,0.04)]">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[color:var(--sn-ink)]">{label}</p>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <DashboardRankMark rank={rank.rank} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[color:var(--sn-ink)]">
+              {label}
+            </p>
           <p className="mt-2 text-[26px] font-semibold leading-none tracking-normal text-[#5b0719]">
             {rank.displayLabel}
           </p>
-          <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
-            {formatNumber(rank.totalOrders)} orders · {formatPercent(rank.unhealthyRate)} UHO
-          </p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <RankMovementBadge change={rank.rankChange} />
@@ -479,8 +485,8 @@ function RankScopeCard({
             <Badge
               className={
                 rank.ranked
-                  ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
-                  : undefined
+                  ? "shrink-0 whitespace-nowrap border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+                  : "shrink-0 whitespace-nowrap"
               }
               variant={rank.ranked ? "outline" : "muted"}
             >
@@ -489,6 +495,20 @@ function RankScopeCard({
           ) : null}
         </div>
       </div>
+      <DashboardMetricGrid className="mt-3">
+        <DashboardMetricItem
+          label="Orders"
+          value={formatNumber(rank.totalOrders)}
+        />
+        <DashboardMetricItem
+          label="UHO"
+          value={formatPercent(rank.unhealthyRate)}
+        />
+        <DashboardMetricItem
+          label="Att."
+          value={formatPercent(rank.attendanceRate)}
+        />
+      </DashboardMetricGrid>
       <p className="mt-3 text-xs text-[color:var(--sn-muted)]">
         {rank.reason === "LOW_ORDER_VOLUME"
           ? `${formatNumber(rank.totalOrders)} of ${formatNumber(rank.minOrders)} required orders`
@@ -502,11 +522,19 @@ function RankScopeCard({
 
 function RankMovementBadge({ change }: { change: number | null }) {
   if (change === null) {
-    return <Badge variant="muted">No previous</Badge>;
+    return (
+      <Badge className="shrink-0 whitespace-nowrap" variant="muted">
+        No previous
+      </Badge>
+    );
   }
 
   if (change === 0) {
-    return <Badge variant="muted">No change</Badge>;
+    return (
+      <Badge className="shrink-0 whitespace-nowrap" variant="muted">
+        No change
+      </Badge>
+    );
   }
 
   const improved = change > 0;
@@ -515,8 +543,8 @@ function RankMovementBadge({ change }: { change: number | null }) {
     <Badge
       className={
         improved
-          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
-          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+          ? "shrink-0 whitespace-nowrap border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "shrink-0 whitespace-nowrap border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
       }
       variant="outline"
     >
@@ -950,15 +978,19 @@ function TimeSeriesChart({
 
 function DeltaBadge({ value }: { value: number | null }) {
   if (value === null) {
-    return <Badge variant="muted">No previous</Badge>;
+    return (
+      <Badge className="shrink-0 whitespace-nowrap" variant="muted">
+        No previous
+      </Badge>
+    );
   }
 
   return (
     <Badge
       className={
         value >= 0
-          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
-          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+          ? "shrink-0 whitespace-nowrap border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "shrink-0 whitespace-nowrap border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
       }
       variant="outline"
     >
@@ -974,15 +1006,19 @@ function TargetBadge({
   status: PickerPerformanceSummary["ordersKpi"]["target"]["status"];
 }) {
   if (status === "NO_TARGET") {
-    return <Badge variant="muted">No target</Badge>;
+    return (
+      <Badge className="shrink-0 whitespace-nowrap" variant="muted">
+        No target
+      </Badge>
+    );
   }
 
   return (
     <Badge
       className={
         status === "IN_TARGET"
-          ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
-          : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
+          ? "shrink-0 whitespace-nowrap border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
+          : "shrink-0 whitespace-nowrap border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
       }
       variant="outline"
     >

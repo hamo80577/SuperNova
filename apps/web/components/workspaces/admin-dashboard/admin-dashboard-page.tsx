@@ -24,7 +24,6 @@ import {
   getAdminDashboardDateRange,
   getFilteredBranchOptions,
   getNextBranchIdForChain,
-  getScopeLabel,
   type AdminDashboardBranchOption,
   type AdminDashboardRangeKey
 } from "./admin-dashboard-utils";
@@ -134,8 +133,6 @@ export function AdminDashboardPage() {
 
       {state.status === "ready" ? (
         <AdminDashboardContent
-          selectedChainId={selectedChainId}
-          selectedVendorId={selectedVendorId}
           summary={state.data}
         />
       ) : state.status === "error" ? (
@@ -151,16 +148,10 @@ export function AdminDashboardPage() {
 }
 
 function AdminDashboardContent({
-  selectedChainId,
-  selectedVendorId,
   summary
 }: {
-  selectedChainId: string | undefined;
-  selectedVendorId: string | undefined;
   summary: AdminPerformanceSummary;
 }) {
-  const scopeLabel = getScopeLabel(selectedChainId, selectedVendorId);
-
   return (
     <>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
@@ -173,17 +164,14 @@ function AdminDashboardContent({
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <AdminAreaManagersRankingTable
           ranking={summary.areaManagersRanking}
-          scopeLabel={scopeLabel}
         />
         <AdminChampsRankingTable
           ranking={summary.champsRanking}
-          scopeLabel={scopeLabel}
         />
       </div>
 
       <AdminDashboardBranchesTable
         ranking={summary.branchesRanking}
-        scopeLabel={scopeLabel}
       />
 
       <AdminDashboardTopPickersTable topPickers={summary.topPickers} />

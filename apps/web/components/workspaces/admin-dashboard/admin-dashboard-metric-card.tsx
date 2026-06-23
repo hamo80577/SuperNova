@@ -1,29 +1,28 @@
 "use client";
 
 import {
-  AlertTriangle,
-  CheckCircle2,
   Clock3,
   Info,
   ShieldCheck,
   ShoppingBag,
-  Target,
-  TrendingUp,
-  UserX
+  Target
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type PointerEvent, type ReactNode } from "react";
 
-import type {
-  AdminPerformanceStatus,
-  AdminPerformanceSummary
-} from "@/lib/api/admin-performance";
+import type { AdminPerformanceSummary } from "@/lib/api/admin-performance";
 import { cn } from "@/lib/utils";
+import { getNearestDashboardPointIndex } from "@/components/workspaces/dashboard-ui/dashboard-chart-utils";
+import {
+  DashboardCard,
+  DashboardEmptyState,
+  DashboardPerformanceStatusBadge,
+  DashboardSectionHeader,
+  DashboardUnavailableState
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
 import {
   formatNumber,
   formatPercent,
   formatShortDate,
-  statusLabels,
-  statusToneClass,
   targetBadgeMeta
 } from "./admin-dashboard-utils";
 
@@ -34,16 +33,7 @@ export function AdminDashboardCard({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={cn(
-        "min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
-        className
-      )}
-    >
-      {children}
-    </section>
-  );
+  return <DashboardCard className={className}>{children}</DashboardCard>;
 }
 
 export function AdminSectionHeader({
@@ -56,74 +46,24 @@ export function AdminSectionHeader({
   title: string;
 }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3 border-b border-[color:var(--sn-border)] px-4 py-3 sm:px-5">
-      <div className="min-w-0">
-        <h2 className="text-base font-semibold text-[color:var(--sn-ink)]">
-          {title}
-        </h2>
-        {eyebrow ? (
-          <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
-            {eyebrow}
-          </p>
-        ) : null}
-      </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
-    </div>
-  );
-}
-
-export function AdminInfoPill({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[color:var(--sn-border)] bg-[#fbf9f5] px-2.5 text-xs font-semibold text-[color:var(--sn-muted)]">
-      <Info className="h-3.5 w-3.5" />
-      {children}
-    </span>
+    <DashboardSectionHeader action={action} eyebrow={eyebrow} title={title} />
   );
 }
 
 export function AdminPerformanceStatusBadge({
   status
 }: {
-  status: AdminPerformanceStatus;
+  status: Parameters<typeof DashboardPerformanceStatusBadge>[0]["status"];
 }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
-        statusToneClass(status)
-      )}
-    >
-      {statusLabels[status]}
-    </span>
-  );
+  return <DashboardPerformanceStatusBadge status={status} />;
 }
 
 export function AdminSectionUnavailable({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-[112px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] p-4 text-center">
-      <div className="grid justify-items-center gap-2">
-        <AlertTriangle className="h-5 w-5 text-[color:var(--sn-muted)]" />
-        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
-          {message}
-        </p>
-      </div>
-    </div>
-  );
+  return <DashboardUnavailableState message={message} />;
 }
 
 export function AdminSectionEmptyState({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-[112px] place-items-center p-4 text-center">
-      <div className="grid justify-items-center gap-2">
-        <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
-          <Info className="h-4 w-4" />
-        </span>
-        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
-          {message}
-        </p>
-      </div>
-    </div>
-  );
+  return <DashboardEmptyState message={message} />;
 }
 
 export function UhoPerformanceCard({
@@ -152,19 +92,20 @@ export function UhoPerformanceCard({
         <div className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-[minmax(0,0.62fr)_minmax(220px,1fr)] md:items-center">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-end gap-3">
-                <p className="sn-num text-[44px] leading-none text-primary sm:text-[48px]">
-                  {formatPercent(ordersKpi.unhealthyRate)}
-                </p>
-                <AdminTargetBadge status={ordersKpi.target?.status} />
-              </div>
-              <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-[color:var(--sn-body)]">
-                <Target className="h-4 w-4 text-primary" />
-                Target:{" "}
-                {ordersKpi.target?.configured
-                  ? `<= ${formatPercent(ordersKpi.target.unhealthyRateTarget)}`
-                  : "No target"}
+              <p className="sn-num text-[42px] leading-none text-[color:var(--sn-ink)]">
+                {formatPercent(ordersKpi.unhealthyRate)}
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <AdminTargetBadge status={ordersKpi.target?.status} />
+                <span className="text-xs font-medium text-[color:var(--sn-muted)]">
+                  Target:{" "}
+                  {ordersKpi.target?.configured
+                    ? `<= ${formatPercent(
+                        ordersKpi.target.unhealthyRateTarget
+                      )}`
+                    : "No target"}
+                </span>
+              </div>
             </div>
 
             {trend.length ? (
@@ -188,7 +129,7 @@ export function UhoPerformanceCard({
               value={formatNumber(ordersKpi.totalOrders)}
             />
             <MetricFootnote
-              icon={<TrendingUp className="h-4 w-4" />}
+              icon={<Target className="h-4 w-4" />}
               label="UHO Count"
               value={formatNumber(ordersKpi.unhealthyOrders)}
             />
@@ -240,48 +181,43 @@ export function AttendanceHealthCard({
         <div className="grid gap-4">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
             <div className="min-w-0">
-              <p className="sn-num text-[44px] leading-none text-primary sm:text-[48px]">
+              <p className="sn-num text-[42px] leading-none text-[color:var(--sn-ink)]">
                 {formatPercent(attendance.attendanceHealthRate)}
               </p>
-              <p className="mt-2 text-xs font-medium text-[color:var(--sn-muted)]">
-                Issue shifts:{" "}
-                <span className="font-semibold text-[color:var(--sn-danger)]">
-                  {formatNumber(attendance.issueShifts)}
-                </span>
+              <p className="mt-3 text-sm text-[color:var(--sn-muted)]">
+                Clean shifts
+              </p>
+              <p className="mt-1 text-lg font-semibold text-[color:var(--sn-ink)]">
+                {formatNumber(attendance.cleanShifts)} /{" "}
+                {formatNumber(attendance.totalShifts)}
+              </p>
+              <p className="mt-1 text-xs font-medium text-[color:var(--sn-muted)]">
+                {formatIssueShiftCount(attendance.issueShifts)} ·{" "}
+                {formatNumber(attendance.totalShiftErrors)} total errors
               </p>
             </div>
-
-            <div className="grid grid-cols-2 divide-x divide-[color:var(--sn-border)] rounded-xl border border-[color:var(--sn-border)] bg-[#fffaf6] px-3 py-2">
-              <MetricContext
-                label="Clean Shifts"
-                value={formatNumber(attendance.cleanShifts)}
-              />
-              <MetricContext
-                label="Total Shifts"
-                value={formatNumber(attendance.totalShifts)}
-              />
-            </div>
+            <AttendanceDonut value={attendance.attendanceHealthRate} />
           </div>
 
           <div className="grid grid-cols-4 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-3">
             <IssueMetric
-              icon={<Clock3 className="h-4 w-4" />}
               label="Late"
+              tone="orange"
               value={attendance.lateCount}
             />
             <IssueMetric
-              icon={<UserX className="h-4 w-4" />}
               label="Absent"
+              tone="red"
               value={attendance.absentCount}
             />
             <IssueMetric
-              icon={<AlertTriangle className="h-4 w-4" />}
               label="Under 8"
+              tone="orange"
               value={attendance.under8Count}
             />
             <IssueMetric
-              icon={<ShieldCheck className="h-4 w-4" />}
               label="Over 15"
+              tone="red"
               value={attendance.over15Count}
             />
           </div>
@@ -318,11 +254,10 @@ function AdminTargetBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold",
+        "inline-flex h-7 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold leading-none",
         meta.className
       )}
     >
-      <CheckCircle2 className="h-3.5 w-3.5" />
       {meta.label}
     </span>
   );
@@ -352,37 +287,52 @@ function MetricFootnote({
   );
 }
 
-function MetricContext({ label, value }: { label: string; value: string }) {
+function formatIssueShiftCount(value: number | undefined) {
+  const safeValue = value ?? 0;
+  return `${formatNumber(safeValue)} ${
+    safeValue === 1 ? "issue shift" : "issue shifts"
+  }`;
+}
+
+function IssueMetric({
+  label,
+  tone,
+  value
+}: {
+  label: string;
+  tone: "orange" | "red";
+  value: number | undefined;
+}) {
   return (
     <div className="min-w-0 px-3 first:pl-0 last:pr-0">
-      <p className="truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
-        {label}
-      </p>
-      <p className="sn-mono mt-1 text-sm font-semibold text-[color:var(--sn-ink)] sm:text-base">
-        {value}
+      <p className="truncate text-xs text-[color:var(--sn-muted)]">{label}</p>
+      <p
+        className={cn(
+          "sn-num mt-1 text-lg",
+          tone === "red" ? "text-[color:var(--sn-danger)]" : "text-primary"
+        )}
+      >
+        {formatNumber(value)}
       </p>
     </div>
   );
 }
 
-function IssueMetric({
-  icon,
-  label,
-  value
-}: {
-  icon: ReactNode;
-  label: string;
-  value: number | undefined;
-}) {
+function AttendanceDonut({ value }: { value: number | null | undefined }) {
+  const percent = Math.max(0, Math.min(100, value ?? 0));
+
   return (
-    <div className="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3">
-      <p className="flex min-w-0 items-center gap-1.5 text-[10px] text-[color:var(--sn-muted)] sm:text-xs">
-        {icon}
-        <span className="truncate">{label}</span>
-      </p>
-      <p className="sn-num mt-1 text-sm text-[color:var(--sn-ink)] sm:text-lg">
-        {formatNumber(value)}
-      </p>
+    <div
+      aria-label={`Attendance health ${formatPercent(value)}`}
+      className="relative grid h-[104px] w-[104px] place-items-center rounded-full"
+      role="img"
+      style={{
+        background: `conic-gradient(var(--sn-success) ${percent * 3.6}deg, #f1ece4 0deg)`
+      }}
+    >
+      <div className="grid h-[66px] w-[66px] place-items-center rounded-full bg-white text-[color:var(--sn-success)] shadow-inner">
+        <ShieldCheck className="h-6 w-6" />
+      </div>
     </div>
   );
 }
@@ -398,6 +348,7 @@ function AdminSparkline({
   points: Array<{ date: string; value: number | null | undefined }>;
   target?: number | null;
 }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const chartWidth = 320;
   const chartHeight = 132;
   const paddingX = 14;
@@ -438,6 +389,12 @@ function AdminSparkline({
         y: number;
       } => Boolean(point)
     );
+  const activePoint =
+    activeIndex === null
+      ? null
+      : plottedPoints.find((point) => point.index === activeIndex) ?? null;
+  const tooltipPoint =
+    activePoint ?? plottedPoints[plottedPoints.length - 1] ?? null;
   const linePath = plottedPoints
     .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
@@ -446,12 +403,29 @@ function AdminSparkline({
       ? null
       : paddingY + plotHeight - (Math.min(target, yMax) / yMax) * plotHeight;
 
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setActiveIndex(
+      getNearestDashboardPointIndex({
+        chartWidth,
+        pointerClientX: event.clientX,
+        points: plottedPoints,
+        svgLeft: bounds.left,
+        svgWidth: bounds.width
+      })
+    );
+  }
+
   return (
-    <div className="relative min-h-[132px] rounded-xl bg-[#fff7f0] px-2 py-1">
+    <div className="relative min-h-[132px] rounded-xl bg-[#fffaf6] px-2 py-1">
       <svg
         aria-label={ariaLabel}
         className="h-[120px] w-full touch-pan-y"
+        onBlur={() => setActiveIndex(null)}
+        onPointerLeave={() => setActiveIndex(null)}
+        onPointerMove={handlePointerMove}
         role="img"
+        tabIndex={0}
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
       >
         <line
@@ -484,22 +458,35 @@ function AdminSparkline({
             strokeWidth="3"
           />
         ) : null}
+        {activePoint ? (
+          <line
+            stroke={color}
+            strokeOpacity="0.25"
+            strokeWidth="1"
+            x1={activePoint.x}
+            x2={activePoint.x}
+            y1={paddingY}
+            y2={chartHeight - paddingY}
+          />
+        ) : null}
         {plottedPoints.map((point) => (
           <circle
             cx={point.x}
             cy={point.y}
             fill="white"
             key={`${point.date}-${point.index}`}
-            r="3.3"
+            r={activePoint?.index === point.index ? 4.8 : 3.3}
             stroke={color}
-            strokeWidth="2"
+            strokeWidth={activePoint?.index === point.index ? 2.6 : 2}
           />
         ))}
       </svg>
-      {plottedPoints.length ? (
-        <p className="absolute right-3 top-2 rounded-lg border border-[color:var(--sn-border)] bg-white/90 px-2 py-1 text-[11px] font-semibold text-[color:var(--sn-muted)]">
-          {formatShortDate(plottedPoints[plottedPoints.length - 1].date)} ·{" "}
-          {formatPercent(plottedPoints[plottedPoints.length - 1].value)}
+      {tooltipPoint ? (
+        <p className="pointer-events-none absolute right-3 top-2 z-10 rounded-lg border border-[color:var(--sn-border)] bg-white/95 px-2 py-1 text-[11px] font-semibold text-[color:var(--sn-ink)] shadow-[0_6px_18px_rgba(65,21,23,0.08)]">
+          <span className="text-[color:var(--sn-muted)]">
+            {formatShortDate(tooltipPoint.date)}
+          </span>{" "}
+          {formatPercent(tooltipPoint.value)}
         </p>
       ) : null}
     </div>

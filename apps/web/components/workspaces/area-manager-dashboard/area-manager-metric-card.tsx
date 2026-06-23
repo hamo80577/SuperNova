@@ -1,16 +1,20 @@
 "use client";
 
-import { AlertTriangle, Inbox, Info, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useState, type PointerEvent, type ReactNode } from "react";
 
-import type { AreaManagerPerformanceStatus } from "@/lib/api/area-manager-performance";
 import { cn } from "@/lib/utils";
+import {
+  DashboardCard,
+  DashboardEmptyState,
+  DashboardPerformanceStatusBadge,
+  DashboardSectionHeader,
+  DashboardUnavailableState
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
 import {
   formatNumber,
   formatPercent,
   formatShortDate,
-  statusLabels,
-  statusToneClass,
   targetBadgeMeta
 } from "./area-manager-dashboard-utils";
 
@@ -21,16 +25,7 @@ export function AreaManagerCard({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={cn(
-        "min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
-        className
-      )}
-    >
-      {children}
-    </section>
-  );
+  return <DashboardCard className={className}>{children}</DashboardCard>;
 }
 
 export function CardTitle({
@@ -62,65 +57,24 @@ export function SectionHeader({
   title: string;
 }) {
   return (
-    <div className="flex min-w-0 items-start justify-between gap-3 border-b border-[color:var(--sn-border)] px-4 py-3 sm:px-5">
-      <CardTitle eyebrow={eyebrow} title={title} />
-      {action ? <div className="shrink-0">{action}</div> : null}
-    </div>
+    <DashboardSectionHeader action={action} eyebrow={eyebrow} title={title} />
   );
 }
 
 export function SectionUnavailable({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-[112px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] p-4 text-center">
-      <div className="grid justify-items-center gap-2">
-        <AlertTriangle className="h-5 w-5 text-[color:var(--sn-muted)]" />
-        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
-          {message}
-        </p>
-      </div>
-    </div>
-  );
+  return <DashboardUnavailableState message={message} />;
 }
 
 export function SectionEmptyState({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-[112px] place-items-center p-4 text-center">
-      <div className="grid justify-items-center gap-2">
-        <span className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]">
-          <Inbox className="h-4 w-4" />
-        </span>
-        <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
-          {message}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export function InfoPill({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-[color:var(--sn-border)] bg-[#fbf9f5] px-2.5 text-xs font-semibold text-[color:var(--sn-muted)]">
-      <Info className="h-3.5 w-3.5" />
-      {children}
-    </span>
-  );
+  return <DashboardEmptyState message={message} />;
 }
 
 export function PerformanceStatusBadge({
   status
 }: {
-  status: AreaManagerPerformanceStatus;
+  status: Parameters<typeof DashboardPerformanceStatusBadge>[0]["status"];
 }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
-        statusToneClass(status)
-      )}
-    >
-      {statusLabels[status]}
-    </span>
-  );
+  return <DashboardPerformanceStatusBadge status={status} />;
 }
 
 export function TargetBadge({
@@ -133,7 +87,7 @@ export function TargetBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
+        "inline-flex h-7 shrink-0 items-center justify-center whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold leading-none",
         meta.className
       )}
     >

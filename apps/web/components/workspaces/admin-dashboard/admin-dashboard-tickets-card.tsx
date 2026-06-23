@@ -89,10 +89,10 @@ function TicketMetric({
 }) {
   return (
     <div className="min-w-0 rounded-xl border border-[color:var(--sn-border)] bg-[#fffaf6] p-3">
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <span className={ticketIconClassName(tone)}>{icon}</span>
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-medium text-[color:var(--sn-muted)]">
+          <p className="text-[11px] font-medium leading-4 text-[color:var(--sn-muted)]">
             {label}
           </p>
           <p className="sn-num mt-1 text-lg text-[color:var(--sn-ink)]">

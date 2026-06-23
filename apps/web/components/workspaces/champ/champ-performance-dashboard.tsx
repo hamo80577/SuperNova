@@ -7,7 +7,6 @@ import {
   Clock3,
   FileMinus,
   Info,
-  Medal,
   MoreHorizontal,
   Minus,
   Repeat2,
@@ -16,7 +15,6 @@ import {
   SlidersHorizontal,
   Store,
   Target,
-  Trophy,
   UserPlus,
   Users,
   X
@@ -38,6 +36,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ui/modal-portal";
 import { Select } from "@/components/ui/select";
+import {
+  DashboardCard,
+  DashboardMetricGrid,
+  DashboardMetricItem,
+  DashboardPerformanceStatusBadge,
+  DashboardRankMark,
+  DashboardSectionFooter,
+  DashboardSectionHeader,
+  DashboardUnavailableState
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
 import type { RequestSummary } from "@/lib/api/requests";
 import {
   type ChampBranchDetail,
@@ -62,14 +70,6 @@ const champRangeOptions = [
 ] as const;
 
 type ChampRangeKey = (typeof champRangeOptions)[number]["key"];
-
-const pickerStatusLabels: Record<ChampPickerPerformanceRow["status"], string> = {
-  IN_TARGET: "In Target",
-  WATCH: "Watch",
-  NEEDS_ACTION: "Needs Action",
-  LOW_VOLUME: "Low Volume",
-  NO_KPI: "No KPI"
-};
 
 const requestActionLabels = {
   newHire: "New Hire",
@@ -826,16 +826,8 @@ function BranchRankingCard({ summary }: { summary: ChampPerformanceSummary }) {
         />
       ) : (
         <div className="grid gap-3">
-          <RankTile
-            icon={<Trophy className="h-5 w-5" />}
-            label="Rank in Chain"
-            rank={ranking.chain}
-          />
-          <RankTile
-            icon={<Medal className="h-5 w-5" />}
-            label="Rank in All Branches"
-            rank={ranking.allBranches}
-          />
+          <RankTile label="Rank in Chain" rank={ranking.chain} />
+          <RankTile label="Rank in All Branches" rank={ranking.allBranches} />
           <p className="flex items-center gap-2 text-xs text-[color:var(--sn-muted)]">
             <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--sn-sunken)]" />
             Ranking is based on UHO% + order volume
@@ -1037,16 +1029,7 @@ function ChampCard({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={cn(
-        "min-w-0 rounded-[16px] border border-[color:var(--sn-border)] bg-white shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]",
-        className
-      )}
-    >
-      {children}
-    </section>
-  );
+  return <DashboardCard className={className}>{children}</DashboardCard>;
 }
 
 function PanelHeader({
@@ -1058,25 +1041,20 @@ function PanelHeader({
   actionLabel?: string;
   title: string;
 }) {
+  const action =
+    actionHref && actionLabel ? (
+      <Link
+        className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
+        href={actionHref}
+        prefetch
+      >
+        {actionLabel}
+        <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
+    ) : undefined;
+
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[color:var(--sn-border)] px-4 py-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <h2 className="truncate text-base font-semibold text-[color:var(--sn-ink)]">
-          {title}
-        </h2>
-        <Info className="h-3.5 w-3.5 shrink-0 text-[color:var(--sn-muted)]" />
-      </div>
-      {actionHref && actionLabel ? (
-        <Link
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
-          href={actionHref}
-          prefetch
-        >
-          {actionLabel}
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      ) : null}
-    </div>
+    <DashboardSectionHeader action={action} title={title} />
   );
 }
 
@@ -1089,20 +1067,20 @@ function PanelFooter({
   actionLabel?: string;
   label: string;
 }) {
+  const action =
+    actionHref && actionLabel ? (
+      <Link
+        className="inline-flex items-center gap-1 font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
+        href={actionHref}
+        prefetch
+      >
+        {actionLabel}
+        <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
+    ) : undefined;
+
   return (
-    <div className="flex flex-col gap-2 border-t border-[color:var(--sn-border)] px-4 py-3 text-xs text-[color:var(--sn-muted)] sm:flex-row sm:items-center sm:justify-between">
-      <span>{label}</span>
-      {actionHref && actionLabel ? (
-        <Link
-          className="inline-flex items-center gap-1 font-semibold text-primary hover:text-[color:var(--tlb-orange-900)]"
-          href={actionHref}
-          prefetch
-        >
-          {actionLabel}
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      ) : null}
-    </div>
+    <DashboardSectionFooter action={action}>{label}</DashboardSectionFooter>
   );
 }
 
@@ -1153,11 +1131,9 @@ function IssueMetric({
 }
 
 function RankTile({
-  icon,
   label,
   rank
 }: {
-  icon: ReactNode;
   label: string;
   rank?: ChampBranchRankSummary;
 }) {
@@ -1176,9 +1152,7 @@ function RankTile({
           </p>
         ) : null}
       </div>
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-[#fff3eb] text-primary">
-        {icon}
-      </span>
+      <DashboardRankMark rank={rank?.rank} />
     </div>
   );
 }
@@ -1190,59 +1164,7 @@ function PickerRankMark({
   compact?: boolean;
   rank: number | null;
 }) {
-  if (!rank) {
-    return (
-      <span
-        className={cn(
-          "sn-mono inline-grid place-items-center rounded-full bg-[color:var(--sn-sunken)] font-semibold text-[color:var(--sn-muted)]",
-          compact ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm"
-        )}
-      >
-        -
-      </span>
-    );
-  }
-
-  if (rank <= 3) {
-    const tone =
-      rank === 1
-        ? "bg-[#fff3c7] text-[#bd7a00] ring-[#f0bf39]"
-        : rank === 2
-          ? "bg-[#eef2f5] text-[#66737f] ring-[#c8d0d8]"
-          : "bg-[#ffe3d2] text-[#b65c2b] ring-[#e0a071]";
-
-    return (
-      <span
-        aria-label={`Rank ${rank}`}
-        className={cn(
-          "relative inline-grid shrink-0 place-items-center rounded-full ring-1",
-          tone,
-          compact ? "h-8 w-8" : "h-9 w-9"
-        )}
-      >
-        <Medal
-          className={compact ? "h-4.5 w-4.5" : "h-5 w-5"}
-          fill="currentColor"
-          strokeWidth={1.8}
-        />
-        <span className="sn-mono absolute -bottom-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full bg-white px-1 text-[10px] font-bold leading-none shadow-sm">
-          {rank}
-        </span>
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-label={`Rank ${rank}`}
-      className={cn(
-        "sn-mono inline-grid shrink-0 place-items-center rounded-full bg-white font-semibold text-[color:var(--sn-ink)] ring-1 ring-[color:var(--sn-border)]",
-        compact ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm"
-      )}
-    >
-      {rank}
-    </span>
-  );
+  return <DashboardRankMark compact={compact} rank={rank} />;
 }
 
 function PickerIdentity({
@@ -1302,7 +1224,7 @@ function PickerMobileCard({
         </div>
         <PickerStatusBadge status={row.status} />
       </div>
-      <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+      <DashboardMetricGrid className="mt-3" columns={4}>
         <CompactMetric label="Orders" value={formatNumber(row.totalOrders)} />
         <CompactMetric label="UHO" value={formatPercent(row.unhealthyRate)} />
         <CompactMetric
@@ -1310,22 +1232,13 @@ function PickerMobileCard({
           value={formatPercent(row.attendanceHealthRate)}
         />
         <CompactMetric label="Issues" value={formatNumber(row.totalShiftErrors)} />
-      </div>
+      </DashboardMetricGrid>
     </article>
   );
 }
 
 function CompactMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-lg bg-[#fbf9f5] px-2 py-2">
-      <p className="truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
-        {label}
-      </p>
-      <p className="sn-mono mt-1 truncate text-xs font-bold text-[color:var(--sn-ink)]">
-        {value}
-      </p>
-    </div>
-  );
+  return <DashboardMetricItem label={label} value={value} />;
 }
 
 function AttendanceDonut({ value }: { value: number | null }) {
@@ -1508,16 +1421,21 @@ function TargetBadge({
   status: NonNullable<ChampPerformanceSummary["ordersKpi"]["target"]>["status"];
 }) {
   if (status === "NO_TARGET") {
-    return <Badge variant="muted">No Target</Badge>;
+    return (
+      <Badge className="shrink-0 whitespace-nowrap" variant="muted">
+        No Target
+      </Badge>
+    );
   }
 
   return (
     <Badge
-      className={
+      className={cn(
+        "shrink-0 whitespace-nowrap",
         status === "IN_TARGET"
           ? "border-[oklch(0.8_0.09_150)] bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]"
           : "border-[oklch(0.82_0.09_27)] bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]"
-      }
+      )}
       variant="outline"
     >
       {status === "IN_TARGET" ? "In Target" : "Out of Target"}
@@ -1530,35 +1448,11 @@ function PickerStatusBadge({
 }: {
   status: ChampPickerPerformanceRow["status"];
 }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 items-center rounded-lg px-2.5 text-[11px] font-semibold",
-        status === "IN_TARGET" &&
-          "bg-[oklch(0.95_0.04_150)] text-[oklch(0.43_0.14_150)]",
-        status === "WATCH" &&
-          "bg-[oklch(0.95_0.05_80)] text-[oklch(0.5_0.12_70)]",
-        status === "NEEDS_ACTION" &&
-          "bg-[oklch(0.96_0.04_27)] text-[oklch(0.52_0.18_27)]",
-        status === "LOW_VOLUME" &&
-          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]",
-        status === "NO_KPI" &&
-          "bg-[color:var(--sn-sunken)] text-[color:var(--sn-muted)]"
-      )}
-    >
-      {pickerStatusLabels[status]}
-    </span>
-  );
+  return <DashboardPerformanceStatusBadge status={status} />;
 }
 
 function SectionUnavailable({ message }: { message: string }) {
-  return (
-    <div className="grid min-h-[132px] place-items-center rounded-xl border border-dashed border-[color:var(--sn-border)] bg-[#fbf9f5] p-4 text-center">
-      <p className="max-w-sm text-sm leading-6 text-[color:var(--sn-muted)]">
-        {message}
-      </p>
-    </div>
-  );
+  return <DashboardUnavailableState message={message} />;
 }
 
 function ChampDashboardSkeleton() {

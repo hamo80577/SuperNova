@@ -5,6 +5,7 @@ import {
   getAdminDashboardDateRange,
   getFilteredBranchOptions,
   getNextBranchIdForChain,
+  getVisibleRankingRows,
   getScopeLabel,
   statusLabels
 } from "./admin-dashboard-utils";
@@ -124,6 +125,18 @@ function testStatusLabelsAndRangeOptions() {
   );
 }
 
+function testVisibleRankingRowsLimit() {
+  const rows = Array.from({ length: 12 }, (_, index) => ({
+    rank: index + 1
+  }));
+
+  assert.deepEqual(
+    getVisibleRankingRows(rows, 10).map((row) => row.rank),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  );
+  assert.equal(rows.length, 12);
+}
+
 testThisMonthRange();
 testYesterdayRange();
 testLastWeekRange();
@@ -132,5 +145,6 @@ testBranchOptionsFilterByChain();
 testIncompatibleBranchResetsWhenChainChanges();
 testScopeLabel();
 testStatusLabelsAndRangeOptions();
+testVisibleRankingRowsLimit();
 
 console.log("admin dashboard utils tests passed");

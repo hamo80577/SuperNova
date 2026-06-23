@@ -8,14 +8,20 @@ import type {
   AdminPerformanceSummary
 } from "@/lib/api/admin-performance";
 import {
+  DashboardMetricGrid,
+  DashboardMetricItem,
+  DashboardRankMark,
+  DashboardSectionFooter
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
+import {
   formatNumber,
   formatPercent,
+  getVisibleRankingRows,
   healthToneClass,
   uhoToneClass
 } from "./admin-dashboard-utils";
 import {
   AdminDashboardCard,
-  AdminInfoPill,
   AdminPerformanceStatusBadge,
   AdminSectionEmptyState,
   AdminSectionHeader,
@@ -23,16 +29,15 @@ import {
 } from "./admin-dashboard-metric-card";
 
 export function AdminDashboardBranchesTable({
-  ranking,
-  scopeLabel
+  ranking
 }: {
   ranking: AdminPerformanceSummary["branchesRanking"];
-  scopeLabel: string;
 }) {
+  const visibleRows = getVisibleRankingRows(ranking.rows, 10);
+
   return (
     <AdminDashboardCard className="overflow-hidden">
       <AdminSectionHeader
-        action={<AdminInfoPill>{scopeLabel} · UHO only</AdminInfoPill>}
         eyebrow="Branch performance by confirmed Orders KPI and scoped attendance"
         title="Branches Ranking"
       />
@@ -43,7 +48,7 @@ export function AdminDashboardBranchesTable({
             message={ranking.reason ?? "Branch ranking is unavailable."}
           />
         </div>
-      ) : ranking.rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <AdminSectionEmptyState
           message="No Branch ranking rows for this period."
         />
@@ -65,7 +70,7 @@ export function AdminDashboardBranchesTable({
                 </tr>
               </thead>
               <tbody>
-                {ranking.rows.map((row) => (
+                {visibleRows.map((row) => (
                   <BranchDesktopRow key={row.vendorId} row={row} />
                 ))}
               </tbody>
@@ -73,15 +78,15 @@ export function AdminDashboardBranchesTable({
           </div>
 
           <div className="grid gap-2 p-3 xl:hidden">
-            {ranking.rows.map((row) => (
+            {visibleRows.map((row) => (
               <BranchMobileRow key={row.vendorId} row={row} />
             ))}
           </div>
 
-          <div className="border-t border-[color:var(--sn-border)] px-4 py-2.5 text-xs text-[color:var(--sn-muted)]">
-            Showing {formatNumber(ranking.rows.length)} of{" "}
+          <DashboardSectionFooter>
+            Showing top {formatNumber(visibleRows.length)} of{" "}
             {formatNumber(ranking.totalRows)} Branches
-          </div>
+          </DashboardSectionFooter>
         </>
       )}
     </AdminDashboardCard>
@@ -91,7 +96,9 @@ export function AdminDashboardBranchesTable({
 function BranchDesktopRow({ row }: { row: AdminBranchRankRow }) {
   return (
     <tr>
-      <td className="sn-mono font-semibold">{row.rank}</td>
+      <td>
+        <DashboardRankMark compact rank={row.rank} />
+      </td>
       <td>
         <p className="max-w-[220px] truncate font-semibold text-[color:var(--sn-ink)]">
           {row.vendorName}
@@ -121,9 +128,7 @@ function BranchMobileRow({ row }: { row: AdminBranchRankRow }) {
     <article className="grid min-w-0 gap-3 rounded-xl border border-[color:var(--sn-border)] bg-white p-3">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="sn-mono grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] text-sm font-semibold text-[color:var(--sn-muted)]">
-            {row.rank}
-          </span>
+          <DashboardRankMark rank={row.rank} />
           <div className="min-w-0">
             <h3 className="break-words text-sm font-semibold leading-5 text-[color:var(--sn-ink)]">
               {row.vendorName}
@@ -137,7 +142,7 @@ function BranchMobileRow({ row }: { row: AdminBranchRankRow }) {
         <AdminPerformanceStatusBadge status={row.status} />
       </div>
 
-      <div className="grid grid-cols-4 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-2">
+      <DashboardMetricGrid columns={4}>
         <MobileMetric
           icon={<Users className="h-3 w-3" />}
           label="Pickers"
@@ -149,7 +154,7 @@ function BranchMobileRow({ row }: { row: AdminBranchRankRow }) {
           label="Att."
           value={formatPercent(row.attendanceHealthRate)}
         />
-      </div>
+      </DashboardMetricGrid>
 
       <p className="text-[11px] leading-5 text-[color:var(--sn-muted)]">
         Champ: {row.champName ?? "Not assigned"}
@@ -167,15 +172,5 @@ function MobileMetric({
   label: string;
   value: string;
 }) {
-  return (
-    <div className="min-w-0 px-2 first:pl-0 last:pr-0">
-      <p className="flex items-center gap-1 truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
-        {icon}
-        {label}
-      </p>
-      <p className="sn-mono mt-0.5 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
-        {value}
-      </p>
-    </div>
-  );
+  return <DashboardMetricItem icon={icon} label={label} value={value} />;
 }

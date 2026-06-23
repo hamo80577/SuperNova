@@ -107,6 +107,10 @@ export function getScopeLabel(chainId?: string, vendorId?: string) {
   return "Global";
 }
 
+export function getVisibleRankingRows<T>(rows: T[], limit: number) {
+  return rows.slice(0, limit);
+}
+
 export function formatDateRangeLabel(dateFrom: string, dateTo: string) {
   return `${formatShortDate(dateFrom)} - ${formatShortDate(dateTo)}`;
 }

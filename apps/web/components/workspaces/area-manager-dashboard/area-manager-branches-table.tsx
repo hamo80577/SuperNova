@@ -5,6 +5,11 @@ import type { ReactNode } from "react";
 
 import type { AreaManagerPerformanceSummary } from "@/lib/api/area-manager-performance";
 import {
+  DashboardMetricGrid,
+  DashboardMetricItem,
+  DashboardSectionFooter
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
+import {
   formatNumber,
   formatPercent,
   healthToneClass,
@@ -123,7 +128,7 @@ export function AreaManagerBranchesTable({
                   <PerformanceStatusBadge status={row.status} />
                 </div>
 
-                <div className="grid grid-cols-4 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-2">
+                <DashboardMetricGrid columns={4}>
                   <MobileMetric
                     label="Orders"
                     value={formatNumber(row.totalOrders)}
@@ -141,7 +146,7 @@ export function AreaManagerBranchesTable({
                     label="Att."
                     value={formatPercent(row.attendanceHealthRate)}
                   />
-                </div>
+                </DashboardMetricGrid>
 
                 {row.reasonLabels.length ? (
                   <p className="text-[11px] leading-5 text-[color:var(--sn-muted)]">
@@ -172,23 +177,9 @@ function MobileMetric({
   label: string;
   value: string;
 }) {
-  return (
-    <div className="min-w-0 px-2 first:pl-0 last:pr-0">
-      <p className="flex items-center gap-1 truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
-        {icon}
-        {label}
-      </p>
-      <p className="sn-mono mt-0.5 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
-        {value}
-      </p>
-    </div>
-  );
+  return <DashboardMetricItem icon={icon} label={label} value={value} />;
 }
 
 function TableFooter({ label }: { label: string }) {
-  return (
-    <div className="border-t border-[color:var(--sn-border)] px-4 py-2.5 text-xs text-[color:var(--sn-muted)]">
-      {label}
-    </div>
-  );
+  return <DashboardSectionFooter>{label}</DashboardSectionFooter>;
 }

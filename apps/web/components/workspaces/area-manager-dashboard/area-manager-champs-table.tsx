@@ -5,6 +5,11 @@ import type { ReactNode } from "react";
 
 import type { AreaManagerPerformanceSummary } from "@/lib/api/area-manager-performance";
 import {
+  DashboardMetricGrid,
+  DashboardMetricItem,
+  DashboardSectionFooter
+} from "@/components/workspaces/dashboard-ui/dashboard-primitives";
+import {
   formatNumber,
   formatPercent,
   healthToneClass,
@@ -126,7 +131,7 @@ export function AreaManagerChampsTable({
                   <PerformanceStatusBadge status={row.status} />
                 </div>
 
-                <div className="grid grid-cols-4 divide-x divide-[color:var(--sn-border)] border-t border-[color:var(--sn-border)] pt-2">
+                <DashboardMetricGrid columns={4}>
                   <MobileMetric
                     icon={<Store className="h-3 w-3" />}
                     label="Branches"
@@ -145,7 +150,7 @@ export function AreaManagerChampsTable({
                     label="Att."
                     value={formatPercent(row.attendanceHealthRate)}
                   />
-                </div>
+                </DashboardMetricGrid>
 
                 <div className="flex min-w-0 items-center justify-between gap-3">
                   <p className="sn-mono text-xs font-semibold text-[color:var(--sn-body)]">
@@ -161,10 +166,10 @@ export function AreaManagerChampsTable({
             ))}
           </div>
 
-          <div className="border-t border-[color:var(--sn-border)] px-4 py-2.5 text-xs text-[color:var(--sn-muted)]">
+          <DashboardSectionFooter>
             Showing {formatNumber(rows.length)} of{" "}
             {formatNumber(champsPerformance.totalRows)} champs
-          </div>
+          </DashboardSectionFooter>
         </>
       )}
     </AreaManagerCard>
@@ -180,15 +185,5 @@ function MobileMetric({
   label: string;
   value: string;
 }) {
-  return (
-    <div className="min-w-0 px-2 first:pl-0 last:pr-0">
-      <p className="flex items-center gap-1 truncate text-[10px] font-medium text-[color:var(--sn-muted)]">
-        {icon}
-        {label}
-      </p>
-      <p className="sn-mono mt-0.5 truncate text-sm font-semibold text-[color:var(--sn-ink)]">
-        {value}
-      </p>
-    </div>
-  );
+  return <DashboardMetricItem icon={icon} label={label} value={value} />;
 }
