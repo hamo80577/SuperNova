@@ -2,7 +2,7 @@
 
 SuperNova is a Talabat-style Partner Workforce Operations System.
 
-It manages partner workforce operations through:
+It manages real partner workforce operations through:
 
 ```text
 Assignments + Requests + Approvals + Role-based Workspaces
@@ -12,53 +12,24 @@ It is not a generic HR ERP.
 
 ## Current Status
 
-The MVP workflow foundation exists, but the project is now in planning reset mode for the next workstream.
+Current mode: official product development and production hardening.
 
-A previous branch/workstream result was rejected and must not be merged or continued blindly.
+The product foundation is mostly built. Future work should harden, polish, and extend the official product in small scoped slices. Do not revive old one-off plans or broad branches as product authority.
 
-Current goal:
-
-```text
-Re-plan the next product direction from a clean main-based branch before implementation.
-```
-
-No new large module should be implemented until the plan is re-approved.
-
-## Current Baseline
-
-Implemented product areas include:
+## Core Workflows
 
 - Authentication and protected role workspaces.
-- Chains and Vendors/Branches.
-- Picker, Champ, and Area Manager assignment hierarchy.
-- Request and approval engine.
+- Organization setup for Chains and Vendors/Branches.
+- Users and operational profiles.
+- Assignment source-of-truth records.
 - New Hire workflow.
-- Picker Profile Completion workflow.
+- Picker Profile Completion.
 - Resignation / Offboarding workflow.
 - Transfer workflow.
-- Admin controls.
-- Reports.
+- Requests and Approvals.
 - Notifications and audit logs.
+- Reports and admin controls.
 - Access-control foundation.
-
-## Product Model
-
-```text
-Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
-```
-
-Important rules:
-
-- Do not store `managerId`, `vendorId`, or `chainId` on `User` as source of truth.
-- Operational context comes from assignment tables.
-- Sensitive lifecycle actions are workflow-based.
-- No direct manual Picker creation, transfer, archive, or active assignment change.
-
-Correct lifecycle pattern:
-
-```text
-Request -> Approval -> System applies change
-```
 
 ## Stack
 
@@ -67,11 +38,11 @@ Frontend: Next.js + TypeScript + Tailwind CSS + shadcn/ui
 Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
-Architecture: modular monolith
+Architecture: Modular monolith
 Deployment: Docker Compose / VPS when deployment work is requested
 ```
 
-Do not introduce microservices.
+Do not introduce microservices unless the product owner explicitly approves that architecture change.
 
 ## Repository Shape
 
@@ -84,25 +55,14 @@ supernova/
     shared/
   prisma/
   docs/
+  scripts/
   AGENTS.md
   README.md
 ```
 
-## Active Planning Rule
-
-Before starting the next workstream:
-
-1. Review the current repo baseline.
-2. Define the business problem.
-3. Decide whether the next workstream is UI/UX polish, reporting, attendance planning, integration, or another scoped product area.
-4. Write a short plan.
-5. Execute one small phase/page/module at a time.
-
-Do not restart old implementation phases automatically.
-
 ## Local Development
 
-Typical local flow:
+Typical local setup:
 
 ```powershell
 npm install
@@ -123,19 +83,26 @@ Health: http://localhost:4000/api/health
 Login: http://localhost:3000/login
 ```
 
-Never commit local `.env` files or secrets.
+Windows convenience runner:
 
-## Documentation Map
+```powershell
+.\Start-SuperNova.bat
+```
+
+The runner performs local checks, starts the dev process tree, and writes logs under `logs/`. It does not replace source documentation or committed environment examples.
+
+## Documentation
 
 - [Agent Rules](./AGENTS.md)
+- [Product Brief](./docs/00_PRODUCT_BRIEF.md)
+- [Domain and Workflows](./docs/01_DOMAIN_AND_WORKFLOWS.md)
+- [Architecture and Data](./docs/02_ARCHITECTURE_AND_DATA.md)
+- [Access Control and Security](./docs/03_ACCESS_CONTROL_AND_SECURITY.md)
+- [UI/UX and Design System](./docs/04_UI_UX_AND_DESIGN_SYSTEM.md)
+- [Agent Workflow](./docs/05_AGENT_WORKFLOW.md)
+- [Current Status and Roadmap](./docs/06_CURRENT_STATUS_AND_ROADMAP.md)
 - [Repo Index](./docs/REPO_INDEX.md)
-- [Project Operating System](./docs/00_PROJECT_OPERATING_SYSTEM.md)
-- [Planning Reset](./docs/PLANNING_RESET.md)
 
-## Known Technical Debt
+## Safety
 
-- Some large services should be split carefully later.
-- Automated test coverage is limited.
-- Production deployment strategy is not finalized.
-- UI/UX still needs page-by-page production polish.
-- The next workstream must be re-planned before implementation.
+Never commit local `.env` files, real tokens, real passwords, temporary passwords in notifications, password hashes, JWT secrets, or database dumps with personal data.

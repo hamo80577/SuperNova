@@ -1,6 +1,6 @@
-# AGENTS.md — SuperNova Operating Rules
+# AGENTS.md - SuperNova Operating Rules
 
-## Mission
+## Product Identity
 
 SuperNova is a Talabat-style Partner Workforce Operations System, not a generic HR ERP.
 
@@ -14,19 +14,9 @@ Build for real operations: safe workflows, clean UX, auditable actions, and role
 
 ## Current Mode
 
-The project is in planning reset mode.
+Current mode: official product development and production hardening.
 
-Do not continue old rejected branches or previous implementation plans unless the product owner explicitly re-approves them.
-
-Before any new feature work:
-
-```text
-1. Inspect the repo.
-2. Summarize current behavior.
-3. Identify the real product problem.
-4. Propose a small scoped plan.
-5. Wait for the approved direction inside the current task.
-```
+The product foundation is mostly built. Future work must improve, harden, and extend the official product in small scoped slices. Do not continue old one-off plans, prompts, or branches unless the product owner explicitly re-approves the direction inside the current task.
 
 ## Stack
 
@@ -35,11 +25,11 @@ Frontend: Next.js + TypeScript + Tailwind CSS + shadcn/ui
 Backend: NestJS + TypeScript
 Database: PostgreSQL
 ORM: Prisma
-Architecture: modular monolith
+Architecture: Modular monolith
 Deployment target: Docker Compose / VPS when deployment work is requested
 ```
 
-Do not introduce microservices.
+Do not introduce microservices unless explicitly approved.
 
 ## Domain Rules
 
@@ -49,7 +39,17 @@ Hierarchy:
 Picker -> Vendor/Branch -> Champ -> Chain -> Area Manager
 ```
 
-Source of truth:
+Roles:
+
+```text
+PICKER
+CHAMP
+AREA_MANAGER
+ADMIN
+SUPER_ADMIN
+```
+
+Assignment source of truth:
 
 ```text
 PickerBranchAssignment
@@ -67,6 +67,8 @@ User.vendorId
 User.chainId
 ```
 
+`User.role` remains the persona/workspace role. `AccessRole` and `UserAccessRoleAssignment` are additive permission surfaces, not replacements for operational assignments or workspace identity.
+
 ## Workflow Safety
 
 Sensitive lifecycle changes must follow:
@@ -75,27 +77,46 @@ Sensitive lifecycle changes must follow:
 Request -> Approval -> System applies change
 ```
 
-No direct manual Picker creation, transfer, archive/deactivation, or active assignment changes unless a new scoped rule is explicitly approved.
+No direct manual Picker creation, transfer, archive/deactivation, active assignment changes, or sensitive lifecycle changes unless a scoped product rule explicitly approves the exception.
 
-## UI/UX Rules
+## Access Control
+
+Frontend hiding is not security.
+
+Backend must enforce:
+
+```text
+Authentication
+Role perimeter
+Permission checks
+Operational scope validation
+Entity/request state validation
+Audit logging for sensitive actions
+```
+
+Permission checks must not bypass service-level workflow rules, assignment-table scope, approval ownership, request state, or audit requirements.
+
+## UI/UX Standards
 
 Work page by page.
 
 Design first for mobile widths:
 
 ```text
-360px–430px
+360px-430px
 ```
 
-Use clean cards, tables, badges, forms, step indicators, and clear operational copy. Avoid toy dashboards, fake data, random SaaS templates, clutter, and horizontal overflow.
+Use clean cards, tables, badges, forms, dialogs, tabs, steppers/timelines, empty states, and clear operational copy. Avoid fake dashboards, fake data, random SaaS templates, clutter, decorative noise, and horizontal overflow.
 
 ## Scope Guardrails
 
-Do not add unless explicitly requested:
+Do not add or present these as current product scope unless explicitly requested:
 
 ```text
 Payroll
-Salary deductions
+Salary calculations
+Payroll deductions
+Attendance penalty automation
 GPS
 Live tracking
 Order integration
@@ -104,10 +125,46 @@ Accounting
 POS
 Generic ERP modules
 Biometric attendance
+Live punch-in / punch-out app
 Microservices
 ```
 
+Existing attendance, Orders KPI, deduction, and HR sync code must remain scoped operational/reporting surfaces. Do not expand them into the forbidden areas above without approval.
+
 ## Codex / Agent Work Contract
+
+Before implementation work:
+
+```text
+1. Inspect the repo.
+2. Summarize current behavior.
+3. Identify the real product problem.
+4. Propose a short scoped plan.
+5. Keep changes inside the approved scope.
+```
+
+Run relevant checks and never claim a check passed unless it actually ran.
+
+Common checks:
+
+```powershell
+npm run prisma:validate
+npm run prisma:generate
+npm run typecheck
+npm run lint
+npm run build
+```
+
+For documentation-only work, run at minimum:
+
+```powershell
+git status --short
+git diff --check
+```
+
+If package scripts are unaffected, say explicitly that code checks were not run because the change was documentation-only.
+
+## Final Response Format
 
 Every implementation response must include:
 
@@ -122,16 +179,14 @@ Completion Status
 Next Recommendation
 ```
 
-Run relevant checks and never claim a check passed unless it actually ran.
+Use only these completion statuses:
 
-Common checks:
-
-```powershell
-npm run prisma:validate
-npm run prisma:generate
-npm run typecheck
-npm run lint
-npm run build
+```text
+Complete
+Complete with known risks
+Blocked
+Partially complete
+Rejected / needs correction
 ```
 
 ## Security
