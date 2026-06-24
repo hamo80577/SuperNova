@@ -56,7 +56,9 @@ export function applyFixedNewHireBranch(
       targetRole: NewHireTargetRole;
       sourceChainId: string;
       sourceVendorId: string;
-      nameEn: string;
+      firstNameEn: string;
+      secondNameEn: string;
+      thirdNameEn: string;
       nameAr: string;
       phoneNumber: string;
       nationalId: string;

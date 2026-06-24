@@ -12,6 +12,11 @@ import { requestsApi, type NewHireLookupResponse, type NewHireTargetRole, type R
 import { cn } from "@/lib/utils";
 import { SelectedContextCard } from "./new-hire-branch-context";
 import { NewHireLookupResultCard, PreviousUserCard } from "./new-hire-lookup";
+import {
+  getMissingEnglishNamePart,
+  toStructuredEnglishNamePayload,
+  type StructuredEnglishNameField
+} from "./new-hire-name-fields";
 import { NewHireFormSection } from "./new-hire-section";
 import { applyFixedNewHireBranch, getAllowedNewHireTargetRoles, getNewHireSubmitLabel, isActiveNewHireEntity, isBlockingNewHireDecision, isValidEgyptNationalId, isValidEgyptPhone, toNewHireChainOption, toNewHireVendorOption, uniqueNewHireChains } from "./new-hire-utils";
 import { Field } from "../../shared/request-field";
@@ -43,7 +48,9 @@ export function NewHireRequestForm({
     targetRole: initialTargetRole,
     sourceChainId: "",
     sourceVendorId: "",
-    nameEn: "",
+    firstNameEn: "",
+    secondNameEn: "",
+    thirdNameEn: "",
     nameAr: "",
     phoneNumber: "",
     nationalId: "",
@@ -312,7 +319,9 @@ export function NewHireRequestForm({
   useEffect(() => {
     onDirtyChange?.(
       Boolean(
-        form.nameEn.trim() ||
+        form.firstNameEn.trim() ||
+          form.secondNameEn.trim() ||
+          form.thirdNameEn.trim() ||
           form.nameAr.trim() ||
           form.phoneNumber.trim() ||
           form.nationalId.trim() ||
@@ -328,13 +337,15 @@ export function NewHireRequestForm({
     form.address,
     form.actualJoiningDate,
     form.dateOfBirth,
+    form.firstNameEn,
     form.gender,
     form.nameAr,
-    form.nameEn,
     form.nationalId,
     form.notes,
     form.phoneNumber,
+    form.secondNameEn,
     form.shopperId,
+    form.thirdNameEn,
     onDirtyChange
   ]);
 
@@ -402,6 +413,11 @@ export function NewHireRequestForm({
   const blockingCandidate = lookupCandidates.find((candidate) =>
     isBlockingNewHireDecision(candidate.decision)
   );
+  const missingEnglishNamePart = getMissingEnglishNamePart({
+    firstNameEn: form.firstNameEn,
+    secondNameEn: form.secondNameEn,
+    thirdNameEn: form.thirdNameEn
+  });
   const canShowCandidateForm = lookupStatus === "CLEAR";
   const canSubmit =
     !isPending &&
@@ -410,7 +426,7 @@ export function NewHireRequestForm({
     isNationalIdValid &&
     (lookupStatus === "CLEAR" || lookupStatus === "REHIRE_AVAILABLE") &&
     !blockingCandidate &&
-    (lookupStatus !== "CLEAR" || Boolean(form.nameEn.trim())) &&
+    (lookupStatus !== "CLEAR" || !missingEnglishNamePart) &&
     (lookupStatus !== "REHIRE_AVAILABLE" || Boolean(selectedRehireUserId)) &&
     (form.targetRole !== "PICKER" || Boolean(form.actualJoiningDate)) &&
     (!requiresCreatorShopperId || Boolean(form.shopperId.trim()));
@@ -524,8 +540,8 @@ export function NewHireRequestForm({
       setError(blockingCandidate.reason ?? "This candidate cannot be hired.");
       return;
     }
-    if (lookupStatus === "CLEAR" && !form.nameEn.trim()) {
-      setError("English name is required for a new user.");
+    if (lookupStatus === "CLEAR" && missingEnglishNamePart) {
+      setError(`${englishNamePartLabel(missingEnglishNamePart)} is required.`);
       return;
     }
     if (form.targetRole === "PICKER" && !form.actualJoiningDate) {
@@ -540,6 +556,14 @@ export function NewHireRequestForm({
     startTransition(async () => {
       setError(null);
       try {
+        const englishNamePayload =
+          lookupStatus === "CLEAR"
+            ? toStructuredEnglishNamePayload({
+                firstNameEn: form.firstNameEn,
+                secondNameEn: form.secondNameEn,
+                thirdNameEn: form.thirdNameEn
+              })
+            : {};
         const created = await requestsApi.createNewHire({
           targetRole: form.targetRole,
           sourceVendorId: isBranchTarget ? form.sourceVendorId : undefined,
@@ -550,8 +574,9 @@ export function NewHireRequestForm({
             lookupStatus === "REHIRE_AVAILABLE"
               ? selectedRehireUserId || undefined
               : undefined,
-          nameEn: lookupStatus === "CLEAR" ? form.nameEn || undefined : undefined,
-          nameAr: lookupStatus === "CLEAR" ? form.nameAr || undefined : undefined,
+          ...englishNamePayload,
+          nameAr:
+            lookupStatus === "CLEAR" ? form.nameAr.trim() || undefined : undefined,
           phoneNumber: form.phoneNumber,
           nationalId: form.nationalId,
           actualJoiningDate:
@@ -559,8 +584,8 @@ export function NewHireRequestForm({
           dateOfBirth:
             lookupStatus === "CLEAR" ? form.dateOfBirth || undefined : undefined,
           gender: lookupStatus === "CLEAR" ? form.gender : undefined,
-          address: lookupStatus === "CLEAR" ? form.address || undefined : undefined,
-          notes: form.notes || undefined,
+          address: lookupStatus === "CLEAR" ? form.address.trim() || undefined : undefined,
+          notes: form.notes.trim() || undefined,
           shopperId: requiresCreatorShopperId ? form.shopperId.trim() : undefined
         });
         onCreated(created);
@@ -782,15 +807,33 @@ export function NewHireRequestForm({
       {canShowCandidateForm ? (
         <>
           <NewHireFormSection description="Core profile fields for the requested user." title="Identity">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Name English">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="First English name">
                 <Input
                   className="h-11 rounded-xl"
-                  onChange={(event) => updateField("nameEn", event.target.value)}
+                  onChange={(event) => updateField("firstNameEn", event.target.value)}
                   required
-                  value={form.nameEn}
+                  value={form.firstNameEn}
                 />
               </Field>
+              <Field label="Second English name">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => updateField("secondNameEn", event.target.value)}
+                  required
+                  value={form.secondNameEn}
+                />
+              </Field>
+              <Field label="Third English name">
+                <Input
+                  className="h-11 rounded-xl"
+                  onChange={(event) => updateField("thirdNameEn", event.target.value)}
+                  required
+                  value={form.thirdNameEn}
+                />
+              </Field>
+            </div>
+            <div className="mt-3 grid gap-3">
               <Field label="Name Arabic">
                 <Input
                   className="h-11 rounded-xl"
@@ -878,4 +921,10 @@ export function NewHireRequestForm({
       </div>
     </form>
   );
+}
+
+function englishNamePartLabel(field: StructuredEnglishNameField) {
+  if (field === "firstNameEn") return "First English name";
+  if (field === "secondNameEn") return "Second English name";
+  return "Third English name";
 }

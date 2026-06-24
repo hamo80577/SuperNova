@@ -448,7 +448,19 @@ export function parseNewHirePayload(payload: unknown) {
     nameEn:
       typeof candidatePayload.nameEn === "string"
         ? candidatePayload.nameEn
-        : "Not available",
+        : buildNewHireDisplayName(candidatePayload) ?? "Not available",
+    firstNameEn:
+      typeof candidatePayload.firstNameEn === "string"
+        ? candidatePayload.firstNameEn
+        : undefined,
+    secondNameEn:
+      typeof candidatePayload.secondNameEn === "string"
+        ? candidatePayload.secondNameEn
+        : undefined,
+    thirdNameEn:
+      typeof candidatePayload.thirdNameEn === "string"
+        ? candidatePayload.thirdNameEn
+        : undefined,
     nameAr:
       typeof candidatePayload.nameAr === "string" ? candidatePayload.nameAr : undefined,
     nationalId:
@@ -530,6 +542,20 @@ export function parseNewHireTargetRole(value: unknown): NewHireTargetRole {
   return value === "CHAMP" || value === "AREA_MANAGER" || value === "PICKER"
     ? value
     : "PICKER";
+}
+
+function buildNewHireDisplayName(candidatePayload: Record<string, unknown>) {
+  const parts = [
+    candidatePayload.firstNameEn,
+    candidatePayload.secondNameEn,
+    candidatePayload.thirdNameEn
+  ];
+
+  if (parts.every((part) => typeof part === "string" && part.trim())) {
+    return parts.map((part) => String(part).trim()).join(" ");
+  }
+
+  return null;
 }
 
 export function parseTransferPayload(payload: unknown) {

@@ -108,7 +108,11 @@ async function main() {
       const service = createService(createMockConfig({ enabled: false }));
       const result = await service.sendToHrSheet({
         eventType: "NEW_HIRE",
-        payload: { fullNameEnglish: "Picker One" }
+        payload: {
+          firstNameEnglish: "Picker",
+          secondNameEnglish: "",
+          thirdNameEnglish: "One"
+        }
       });
 
       assert.deepEqual(result, {
@@ -140,7 +144,11 @@ async function main() {
           secret: "super-secret-value"
         })
       );
-      const payload = { fullNameEnglish: "Picker One" };
+      const payload = {
+        firstNameEnglish: "Picker",
+        secondNameEnglish: "",
+        thirdNameEnglish: "One"
+      };
       const result = await service.sendToHrSheet({
         eventType: "NEW_HIRE",
         payload
@@ -258,7 +266,11 @@ async function main() {
       );
       const result = await service.sendToHrSheet({
         eventType: "REHIRE",
-        payload: { fullNameEnglish: "Picker One" }
+        payload: {
+          firstNameEnglish: "Picker",
+          secondNameEnglish: "",
+          thirdNameEnglish: "One"
+        }
       });
 
       assertFailed(result, /Invalid HR sync response JSON/);
@@ -281,7 +293,11 @@ async function main() {
       );
       const result = await service.sendToHrSheet({
         eventType: "NEW_HIRE",
-        payload: { fullNameEnglish: "Picker One" }
+        payload: {
+          firstNameEnglish: "Picker",
+          secondNameEnglish: "",
+          thirdNameEnglish: "One"
+        }
       });
 
       assertFailed(result, /network down/);
@@ -305,7 +321,11 @@ async function main() {
       );
       const result = await service.sendToHrSheet({
         eventType: "NEW_HIRE",
-        payload: { fullNameEnglish: "Picker One" }
+        payload: {
+          firstNameEnglish: "Picker",
+          secondNameEnglish: "",
+          thirdNameEnglish: "One"
+        }
       });
 
       assertFailed(result, /timed out|aborted/i);

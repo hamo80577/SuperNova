@@ -94,7 +94,9 @@ function hrSyncLog(
     status,
     payloadSnapshot: {
       secret: "must-not-leak",
-      fullNameEnglish: "Picker One"
+      firstNameEnglish: "Picker",
+      secondNameEnglish: "",
+      thirdNameEnglish: "One"
     },
     responseSnapshot: {
       raw: "must-not-leak"

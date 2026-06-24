@@ -35,7 +35,9 @@ export class HrSyncService {
     return {
       finalizerDisplayName: input.finalizerDisplayName,
       requestType: "New Hire",
-      fullNameEnglish: input.fullNameEnglish,
+      firstNameEnglish: input.firstNameEnglish,
+      secondNameEnglish: input.secondNameEnglish,
+      thirdNameEnglish: input.thirdNameEnglish,
       nationalId: input.nationalId,
       phoneNumber: input.phoneNumber,
       actualJoiningDate: input.actualJoiningDate,

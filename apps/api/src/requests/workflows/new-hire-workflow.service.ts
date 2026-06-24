@@ -33,6 +33,7 @@ import {
 } from "./new-hire-workflow.policy";
 import { NewHireApprovalService } from "./new-hire-approval.service";
 import { NewHireCandidateService } from "./new-hire-candidate.service";
+import { normalizeNewHireEnglishNameParts } from "./new-hire-english-name";
 import { NewHireFinalizationService } from "./new-hire-finalization.service";
 import { NewHireRequestCreationService } from "./new-hire-request-creation.service";
 import type { BranchNewHireContext, RequestContext } from "./new-hire-workflow.types";
@@ -309,7 +310,9 @@ export class NewHireWorkflowService {
     dto: CreateNewHireRequestDto,
     targetRole: NewHireTargetRole
   ) {
-    const nameEn = dto.nameEn?.trim();
+    const englishName = normalizeNewHireEnglishNameParts(dto);
+    const legacyNameEn = dto.nameEn?.trim();
+    const nameEn = englishName?.nameEn ?? legacyNameEn;
     const nameAr = dto.nameAr?.trim();
     const address = dto.address?.trim();
     const notes = dto.notes?.trim();
@@ -331,11 +334,20 @@ export class NewHireWorkflowService {
             )
           : undefined;
 
-    if (!nameEn && !nameAr && !isRehire) {
-      throw new BadRequestException("Candidate English or Arabic name is required.");
+    if (!englishName && !isRehire) {
+      throw new BadRequestException(
+        "Candidate first, second, and third English names are required."
+      );
     }
 
     return {
+      ...(englishName
+        ? {
+            firstNameEn: englishName.firstNameEn,
+            secondNameEn: englishName.secondNameEn,
+            thirdNameEn: englishName.thirdNameEn
+          }
+        : {}),
       ...(nameEn ? { nameEn } : {}),
       ...(nameAr ? { nameAr } : {}),
       phoneNumber: this.applyPolicyValidation(() =>

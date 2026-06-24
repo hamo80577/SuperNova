@@ -177,6 +177,9 @@ export interface CreateNewHirePayload {
   sourceChainId?: string;
   chainIds?: string[];
   rehireUserId?: string;
+  firstNameEn?: string;
+  secondNameEn?: string;
+  thirdNameEn?: string;
   nameEn?: string;
   nameAr?: string;
   phoneNumber: string;

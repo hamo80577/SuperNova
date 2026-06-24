@@ -7,7 +7,9 @@ import {
 
 export type PickerNewHireHrSyncInput = Readonly<{
   finalizerDisplayName: string;
-  fullNameEnglish: string;
+  firstNameEnglish: string;
+  secondNameEnglish: string;
+  thirdNameEnglish: string;
   nationalId: string;
   phoneNumber: string;
   actualJoiningDate: string;
@@ -17,7 +19,9 @@ export type PickerNewHireHrSyncInput = Readonly<{
 export type PickerNewHireHrSyncPayload = Readonly<{
   finalizerDisplayName: string;
   requestType: "New Hire";
-  fullNameEnglish: string;
+  firstNameEnglish: string;
+  secondNameEnglish: string;
+  thirdNameEnglish: string;
   nationalId: string;
   phoneNumber: string;
   actualJoiningDate: string;

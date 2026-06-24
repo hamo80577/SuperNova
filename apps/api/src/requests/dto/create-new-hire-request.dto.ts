@@ -36,6 +36,21 @@ export class CreateNewHireRequestDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
+  firstNameEn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  secondNameEn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  thirdNameEn?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(160)
   nameEn?: string;
 

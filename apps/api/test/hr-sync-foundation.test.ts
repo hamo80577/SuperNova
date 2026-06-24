@@ -98,7 +98,9 @@ function createMockConfig() {
 
 const newHireInput: PickerNewHireHrSyncInput = {
   finalizerDisplayName: "Admin Finalizer",
-  fullNameEnglish: "Picker One",
+  firstNameEnglish: "Picker",
+  secondNameEnglish: "Middle",
+  thirdNameEnglish: "One",
   nationalId: "29801011234567",
   phoneNumber: "01012345678",
   actualJoiningDate: "2026-06-01",
@@ -120,7 +122,9 @@ async function main() {
   assert.deepEqual(service.buildPickerNewHirePayload(newHireInput), {
     finalizerDisplayName: "Admin Finalizer",
     requestType: "New Hire",
-    fullNameEnglish: "Picker One",
+    firstNameEnglish: "Picker",
+    secondNameEnglish: "Middle",
+    thirdNameEnglish: "One",
     nationalId: "29801011234567",
     phoneNumber: "01012345678",
     actualJoiningDate: "2026-06-01",
@@ -132,7 +136,9 @@ async function main() {
   assert.deepEqual(service.buildPickerRehirePayload(newHireInput), {
     finalizerDisplayName: "Admin Finalizer",
     requestType: "Rehire",
-    fullNameEnglish: "Picker One",
+    firstNameEnglish: "Picker",
+    secondNameEnglish: "Middle",
+    thirdNameEnglish: "One",
     nationalId: "29801011234567",
     phoneNumber: "01012345678",
     actualJoiningDate: "2026-06-01",

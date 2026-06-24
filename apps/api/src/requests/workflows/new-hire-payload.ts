@@ -106,6 +106,18 @@ export function parseNewHirePayload(payload: Prisma.JsonValue): NewHirePayload {
     targetRole,
     mode: storedMode,
     candidate: {
+      firstNameEn:
+        typeof candidatePayload.firstNameEn === "string"
+          ? candidatePayload.firstNameEn
+          : undefined,
+      secondNameEn:
+        typeof candidatePayload.secondNameEn === "string"
+          ? candidatePayload.secondNameEn
+          : undefined,
+      thirdNameEn:
+        typeof candidatePayload.thirdNameEn === "string"
+          ? candidatePayload.thirdNameEn
+          : undefined,
       nameEn:
         typeof candidatePayload.nameEn === "string"
           ? candidatePayload.nameEn

@@ -203,13 +203,31 @@ function newHireRequest(
   overrides: Record<string, unknown> = {}
 ) {
   const isAreaManager = targetRole === UserRole.AREA_MANAGER;
+  const englishName =
+    targetRole === UserRole.PICKER
+      ? {
+          firstNameEn: "Picker",
+          secondNameEn: "Middle",
+          thirdNameEn: "One"
+        }
+      : targetRole === UserRole.CHAMP
+        ? {
+            firstNameEn: "Champ",
+            secondNameEn: "Middle",
+            thirdNameEn: "One"
+          }
+        : {
+            firstNameEn: "Area",
+            secondNameEn: "Manager",
+            thirdNameEn: "One"
+          };
   const candidate = {
-    nameEn:
-      targetRole === UserRole.PICKER
-        ? "Picker One"
-        : targetRole === UserRole.CHAMP
-          ? "Champ One"
-          : "Area Manager One",
+    ...englishName,
+    nameEn: [
+      englishName.firstNameEn,
+      englishName.secondNameEn,
+      englishName.thirdNameEn
+    ].join(" "),
     phoneNumber: "01012345678",
     nationalId: "12345678901234",
     address: "Cairo",
@@ -678,6 +696,30 @@ async function run() {
         ?.input.payload.actualJoiningDate,
       "2026-06-01"
     );
+    assert.deepEqual(
+      {
+        firstNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.firstNameEnglish,
+        secondNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.secondNameEnglish,
+        thirdNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.thirdNameEnglish
+      },
+      {
+        firstNameEnglish: "Picker",
+        secondNameEnglish: "Middle",
+        thirdNameEnglish: "One"
+      }
+    );
+    assert.equal(
+      "fullNameEnglish" in
+        harness.hrSync.calls.find((call) => call.method === "sendToHrSheet")
+          ?.input.payload,
+      false
+    );
     assert.equal(
       harness.hrSync.calls.some((call) => call.inTransaction),
       false,
@@ -697,6 +739,13 @@ async function run() {
     });
     const request = newHireRequest(UserRole.PICKER, {
       mode: "REHIRE",
+      candidate: {
+        phoneNumber: "01012345678",
+        nationalId: "12345678901234",
+        address: "Cairo",
+        gender: Gender.UNSPECIFIED,
+        actualJoiningDate: "2026-06-01"
+      },
       rehire: {
         userId: rehireUser.id,
         matchedBy: ["phoneNumber"],
@@ -722,6 +771,24 @@ async function run() {
       harness.hrSync.calls.find((call) => call.method === "sendToHrSheet")
         ?.input.eventType,
       "REHIRE"
+    );
+    assert.deepEqual(
+      {
+        firstNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.firstNameEnglish,
+        secondNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.secondNameEnglish,
+        thirdNameEnglish: harness.hrSync.calls.find(
+          (call) => call.method === "sendToHrSheet"
+        )?.input.payload.thirdNameEnglish
+      },
+      {
+        firstNameEnglish: "Picker",
+        secondNameEnglish: "One",
+        thirdNameEnglish: ""
+      }
     );
   }
 

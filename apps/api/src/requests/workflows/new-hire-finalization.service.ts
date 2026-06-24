@@ -39,6 +39,7 @@ import {
 } from "../request-includes";
 import { toRequestSummary } from "../request-response.utils";
 import { NewHireCandidateService } from "./new-hire-candidate.service";
+import { toHrSyncEnglishNameParts } from "./new-hire-english-name";
 import { parseNewHirePayload } from "./new-hire-payload";
 import {
   PASSWORD_HASH_ROUNDS,
@@ -473,10 +474,13 @@ export class NewHireFinalizationService {
       : HrSyncWorkflowType.PICKER_NEW_HIRE;
     const eventType: HrSyncEventType = isRehire ? "REHIRE" : "NEW_HIRE";
     const actualJoiningDate = payload.candidate.actualJoiningDate?.trim();
+    const englishNameParts = toHrSyncEnglishNameParts(
+      payload.candidate,
+      finalizedUser.nameEn ?? payload.candidate.nameEn ?? "New Picker"
+    );
     const baseInput = {
       finalizerDisplayName: this.finalizerDisplayName(context.actor),
-      fullNameEnglish:
-        finalizedUser.nameEn ?? payload.candidate.nameEn ?? "New Picker",
+      ...englishNameParts,
       nationalId: finalizedUser.nationalId ?? payload.candidate.nationalId,
       phoneNumber: finalizedUser.phoneNumber ?? payload.candidate.phoneNumber,
       homeAddress: finalizedUser.address ?? payload.candidate.address ?? ""
@@ -848,8 +852,8 @@ export class NewHireFinalizationService {
     return {
       nameEn:
         candidate.nameEn ??
-        candidate.nameAr ??
         existingUser?.nameEn ??
+        candidate.nameAr ??
         this.defaultNameForRole(targetRole),
       nameAr: candidate.nameAr ?? existingUser?.nameAr ?? null,
       phoneNumber: candidate.phoneNumber,

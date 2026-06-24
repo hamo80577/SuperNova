@@ -56,6 +56,9 @@ export type NewHirePayload = {
   targetRole: NewHireTargetRole;
   mode: NewHireMode;
   candidate: {
+    firstNameEn?: string;
+    secondNameEn?: string;
+    thirdNameEn?: string;
     nameEn?: string;
     nameAr?: string;
     phoneNumber: string;

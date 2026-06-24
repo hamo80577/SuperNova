@@ -196,7 +196,9 @@ async function assertAreaManagerPickerNewHireCapturesShopperId() {
         {
           targetRole: UserRole.PICKER,
           sourceVendorId: "vendor-1",
-          nameEn: "New Picker",
+          firstNameEn: "New",
+          secondNameEn: "Middle",
+          thirdNameEn: "Picker",
           phoneNumber,
           nationalId,
           actualJoiningDate: "2026-06-01"
@@ -210,7 +212,9 @@ async function assertAreaManagerPickerNewHireCapturesShopperId() {
     {
       targetRole: UserRole.PICKER,
       sourceVendorId: "vendor-1",
-      nameEn: "New Picker",
+      firstNameEn: "New",
+      secondNameEn: "Middle",
+      thirdNameEn: "Picker",
       phoneNumber,
       nationalId,
       actualJoiningDate: "2026-06-01",
@@ -220,6 +224,92 @@ async function assertAreaManagerPickerNewHireCapturesShopperId() {
   );
 
   assert.equal(capturedBranchContext.areaManagerCapturedShopperId, "SHOP_789");
+}
+
+async function assertNewHireStoresStructuredEnglishName() {
+  const sourceVendor = {
+    id: "vendor-1",
+    vendorName: "Branch One",
+    vendorCode: "B1",
+    status: VendorStatus.ACTIVE,
+    chainId: "chain-1",
+    chain: {
+      id: "chain-1",
+      chainName: "Chain One",
+      chainCode: "C1",
+      status: ChainStatus.ACTIVE
+    }
+  };
+  let capturedCandidate: any = null;
+  const workflow = new NewHireWorkflowService(
+    {
+      vendor: {
+        findUnique: async () => sourceVendor
+      },
+      vendorChampAssignment: {
+        findFirst: async () => null
+      }
+    } as any,
+    {
+      validateNewHireCandidateForCreate: async (candidate: any) => ({
+        rehireUser: null,
+        matchedBy: []
+      })
+    } as any,
+    {} as any,
+    {
+      createBranchNewHire: async (candidate: any) => {
+        capturedCandidate = candidate;
+        return { id: "picker-request" };
+      }
+    } as any,
+    {} as any,
+    {
+      resolveAreaManagerStep: async () => ({
+        step: ApprovalStep.AREA_MANAGER_APPROVAL,
+        approverRole: UserRole.AREA_MANAGER,
+        approverId: "area-manager-1",
+        chainId: "chain-1"
+      })
+    } as any
+  );
+
+  await workflow.createNewHire(
+    {
+      targetRole: UserRole.PICKER,
+      sourceVendorId: "vendor-1",
+      firstNameEn: " Picker ",
+      secondNameEn: " Middle ",
+      thirdNameEn: " One ",
+      phoneNumber,
+      nationalId,
+      actualJoiningDate: "2026-06-01"
+    },
+    { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+  );
+
+  assert.equal(capturedCandidate.firstNameEn, "Picker");
+  assert.equal(capturedCandidate.secondNameEn, "Middle");
+  assert.equal(capturedCandidate.thirdNameEn, "One");
+  assert.equal(capturedCandidate.nameEn, "Picker Middle One");
+
+  await assert.rejects(
+    () =>
+      workflow.createNewHire(
+        {
+          targetRole: UserRole.PICKER,
+          sourceVendorId: "vendor-1",
+          firstNameEn: "Picker",
+          secondNameEn: "",
+          thirdNameEn: "One",
+          phoneNumber,
+          nationalId,
+          actualJoiningDate: "2026-06-01"
+        },
+        { actor: { id: "admin-1", role: UserRole.ADMIN } as any }
+      ),
+    /Candidate first, second, and third English names are required/
+  );
 }
 
 async function assertAreaManagerNewHireDoesNotRequireChainContext() {
@@ -256,7 +346,9 @@ async function assertAreaManagerNewHireDoesNotRequireChainContext() {
   const created = await workflow.createNewHire(
     {
       targetRole: UserRole.AREA_MANAGER,
-      nameEn: "New Area Manager",
+      firstNameEn: "New",
+      secondNameEn: "Area",
+      thirdNameEn: "Manager",
       phoneNumber,
       nationalId
     },
@@ -322,7 +414,9 @@ async function assertPickerNewHireRequiresActualJoiningDate() {
         {
           targetRole: UserRole.PICKER,
           sourceVendorId: "vendor-1",
-          nameEn: "New Picker",
+          firstNameEn: "New",
+          secondNameEn: "Middle",
+          thirdNameEn: "Picker",
           phoneNumber,
           nationalId
         },
@@ -335,7 +429,9 @@ async function assertPickerNewHireRequiresActualJoiningDate() {
     {
       targetRole: UserRole.PICKER,
       sourceVendorId: "vendor-1",
-      nameEn: "New Picker",
+      firstNameEn: "New",
+      secondNameEn: "Middle",
+      thirdNameEn: "Picker",
       phoneNumber,
       nationalId,
       actualJoiningDate: "2026-06-01"
@@ -428,6 +524,7 @@ async function run() {
   await assertCreateRehireWithoutEditableNames(UserRole.PICKER);
   await assertCreateRehireWithoutEditableNames(UserRole.CHAMP);
   await assertAreaManagerPickerNewHireCapturesShopperId();
+  await assertNewHireStoresStructuredEnglishName();
   await assertAreaManagerNewHireDoesNotRequireChainContext();
   await assertPickerNewHireRequiresActualJoiningDate();
   await assertPickerRehireRequiresActualJoiningDate();

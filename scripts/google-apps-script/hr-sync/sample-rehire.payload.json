@@ -4,7 +4,9 @@
   "payload": {
     "finalizerDisplayName": "Admin User",
     "requestType": "Rehire",
-    "fullNameEnglish": "Test Picker",
+    "firstNameEnglish": "Test",
+    "secondNameEnglish": "Middle",
+    "thirdNameEnglish": "Picker",
     "nationalId": "30001011234567",
     "phoneNumber": "01000000000",
     "actualJoiningDate": "2026-05-23",
