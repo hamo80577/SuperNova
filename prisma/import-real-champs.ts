@@ -42,11 +42,11 @@ type CsvRow = {
   resignationDate: Date | null;
 };
 
-type CanonicalPicker = CsvRow & {
+type CanonicalChamp = CsvRow & {
   duplicateSourceLines: number[];
 };
 
-type PreparedActivePicker = CanonicalPicker & {
+type PreparedActiveChamp = CanonicalChamp & {
   temporaryPassword: string;
   passwordHash: string;
   temporaryPasswordCiphertext: string;
@@ -60,7 +60,7 @@ type ImportOptions = {
 
 async function main() {
   const options = getOptions(process.argv.slice(2));
-  const parsed = await parsePickerCsv(options.filePath);
+  const parsed = await parseChampCsv(options.filePath);
   const deduped = dedupeRows(parsed.validRows);
   const vendorCodes = [
     ...new Set(
@@ -83,7 +83,7 @@ async function main() {
     );
   }
 
-  await assertNoNonPickerUniqueConflicts(deduped.canonicalRows);
+  await assertNoNonChampUniqueConflicts(deduped.canonicalRows);
 
   const activeRows = deduped.canonicalRows.filter((row) => row.isActive);
   const inactiveRows = deduped.canonicalRows.filter((row) => !row.isActive);
@@ -105,8 +105,8 @@ async function main() {
     canonicalRows: deduped.canonicalRows.length,
     duplicateRowsRemoved: deduped.duplicateRowsRemoved,
     duplicateGroups: deduped.duplicateGroups,
-    activePickers: activeRows.length,
-    inactivePickers: inactiveRows.length,
+    activeChamps: activeRows.length,
+    inactiveChamps: inactiveRows.length,
     activeVendorCodes: vendorCodes.length,
     matchedVendorCodes: vendors.length
   };
@@ -122,7 +122,7 @@ async function main() {
     `DISABLED-${randomBytes(24).toString("base64url")}`,
     PASSWORD_HASH_ROUNDS
   );
-  const preparedActiveRows: PreparedActivePicker[] = [];
+  const preparedActiveRows: PreparedActiveChamp[] = [];
 
   for (const row of activeRows) {
     const temporaryPassword = generateTemporaryPassword();
@@ -141,7 +141,7 @@ async function main() {
 
   await prisma.$transaction(
     async (tx) => {
-      await deleteExistingPickerData(tx);
+      await deleteExistingChampData(tx);
 
       for (const row of preparedActiveRows) {
         const vendor = vendorByCode.get(row.vendorCode ?? "");
@@ -149,9 +149,9 @@ async function main() {
           throw new Error(`Missing Branch for vendorCode ${row.vendorCode}.`);
         }
 
-        const picker = await tx.user.create({
+        const champ = await tx.user.create({
           data: {
-            role: UserRole.PICKER,
+            role: UserRole.CHAMP,
             nameEn: row.nameEn,
             nameAr: row.nameAr,
             phoneNumber: row.phoneNumber,
@@ -174,9 +174,9 @@ async function main() {
           select: { id: true }
         });
 
-        await tx.pickerBranchAssignment.create({
+        await tx.vendorChampAssignment.create({
           data: {
-            pickerId: picker.id,
+            champId: champ.id,
             vendorId: vendor.id,
             status: AssignmentStatus.ACTIVE,
             startDate: row.joiningDate ?? importedAt
@@ -187,7 +187,7 @@ async function main() {
       for (const row of inactiveRows) {
         await tx.user.create({
           data: {
-            role: UserRole.PICKER,
+            role: UserRole.CHAMP,
             nameEn: row.nameEn,
             nameAr: row.nameAr,
             phoneNumber: row.phoneNumber,
@@ -214,7 +214,7 @@ async function main() {
     { timeout: 120_000 }
   );
 
-  console.log(`Import completed. Active Picker handoff report: ${reportPath}`);
+  console.log(`Import completed. Active Champ handoff report: ${reportPath}`);
 }
 
 function getOptions(args: string[]): ImportOptions {
@@ -222,10 +222,10 @@ function getOptions(args: string[]): ImportOptions {
   const filePath =
     fileArgIndex >= 0
       ? args[fileArgIndex + 1]
-      : "C:\\Users\\hp\\Downloads\\Crispy - All In One_KPIs UHO_Table - supernova.csv";
+      : undefined;
 
   if (!filePath) {
-    throw new Error("Missing --file value.");
+    throw new Error("Missing --file argument. Usage: npx tsx prisma/import-real-champs.ts --file <path>");
   }
 
   return {
@@ -234,7 +234,7 @@ function getOptions(args: string[]): ImportOptions {
   };
 }
 
-async function parsePickerCsv(filePath: string) {
+async function parseChampCsv(filePath: string) {
   const rows = parseCsv(await readFile(filePath, "utf8"));
   const dataRows = rows.slice(1);
   const validRows: CsvRow[] = [];
@@ -253,7 +253,7 @@ async function parsePickerCsv(filePath: string) {
       continue;
     }
 
-    if (role !== "picker") {
+    if (role !== "champ") {
       continue;
     }
 
@@ -369,7 +369,7 @@ function dedupeRows(rows: CsvRow[]) {
     groups.set(root, [...(groups.get(root) ?? []), row]);
   });
 
-  const canonicalRows: CanonicalPicker[] = [];
+  const canonicalRows: CanonicalChamp[] = [];
   let duplicateRowsRemoved = 0;
   let duplicateGroups = 0;
 
@@ -427,7 +427,7 @@ function uniqueKeys(row: CsvRow) {
     .map(([key, value]) => `${key}:${value}`);
 }
 
-function assertCanonicalRowsAreUnique(rows: CanonicalPicker[]) {
+function assertCanonicalRowsAreUnique(rows: CanonicalChamp[]) {
   for (const field of ["phoneNumber", "nationalId", "shopperId", "ibsId"] as const) {
     const seen = new Map<string, number>();
     for (const row of rows) {
@@ -446,7 +446,7 @@ function assertCanonicalRowsAreUnique(rows: CanonicalPicker[]) {
   }
 }
 
-async function assertNoNonPickerUniqueConflicts(rows: CanonicalPicker[]) {
+async function assertNoNonChampUniqueConflicts(rows: CanonicalChamp[]) {
   const phoneNumbers = collectUnique(rows.map((row) => row.phoneNumber));
   const nationalIds = collectUnique(rows.map((row) => row.nationalId));
   const shopperIds = collectUnique(rows.map((row) => row.shopperId));
@@ -454,7 +454,7 @@ async function assertNoNonPickerUniqueConflicts(rows: CanonicalPicker[]) {
 
   const conflicts = await prisma.user.findMany({
     where: {
-      role: { not: UserRole.PICKER },
+      role: { not: UserRole.CHAMP },
       OR: [
         { phoneNumber: { in: phoneNumbers } },
         { nationalId: { in: nationalIds } },
@@ -474,103 +474,91 @@ async function assertNoNonPickerUniqueConflicts(rows: CanonicalPicker[]) {
 
   if (conflicts.length) {
     throw new Error(
-      `Import blocked. CSV conflicts with non-Picker users: ${JSON.stringify(
+      `Import blocked. CSV conflicts with non-Champ users: ${JSON.stringify(
         conflicts.slice(0, 10)
       )}`
     );
   }
 }
 
-async function deleteExistingPickerData(
-  tx: Prisma.TransactionClient
-) {
-  const existingPickers = await tx.user.findMany({
-    where: { role: UserRole.PICKER },
+async function deleteExistingChampData(tx: Prisma.TransactionClient) {
+  const existingChamps = await tx.user.findMany({
+    where: { role: UserRole.CHAMP },
     select: { id: true }
   });
-  const pickerIds = existingPickers.map((picker) => picker.id);
+  const champIds = existingChamps.map((champ) => champ.id);
 
-  if (!pickerIds.length) {
+  if (!champIds.length) {
     return;
   }
 
   const existingRequests = await tx.request.findMany({
     where: {
       OR: [
-        { createdById: { in: pickerIds } },
-        { targetUserId: { in: pickerIds } }
+        { createdById: { in: champIds } },
+        { targetUserId: { in: champIds } }
       ]
     },
     select: { id: true }
   });
   const requestIds = existingRequests.map((request) => request.id);
-  const existingApprovals = requestIds.length
-    ? await tx.requestApproval.findMany({
-        where: { requestId: { in: requestIds } },
-        select: { id: true }
-      })
-    : [];
-  const approvalIds = existingApprovals.map((approval) => approval.id);
-  const existingAssignments = await tx.pickerBranchAssignment.findMany({
-    where: {
-      OR: [
-        { pickerId: { in: pickerIds } },
-        { createdByRequestId: { in: requestIds } }
-      ]
-    },
+
+  const existingAssignments = await tx.vendorChampAssignment.findMany({
+    where: { champId: { in: champIds } },
     select: { id: true }
   });
   const assignmentIds = existingAssignments.map((assignment) => assignment.id);
 
-  await deleteRelatedNotifications(tx, pickerIds, requestIds);
+  await deleteRelatedNotifications(tx, champIds, requestIds);
 
   await tx.auditLog.deleteMany({
     where: {
       OR: [
-        { actorUserId: { in: pickerIds } },
-        { entityType: "User", entityId: { in: pickerIds } },
+        { actorUserId: { in: champIds } },
+        { entityType: "User", entityId: { in: champIds } },
         { entityType: "Request", entityId: { in: requestIds } },
-        { entityType: "RequestApproval", entityId: { in: approvalIds } },
-        { entityType: "PickerBranchAssignment", entityId: { in: assignmentIds } }
+        { entityType: "VendorChampAssignment", entityId: { in: assignmentIds } }
       ]
     }
   });
 
-  await tx.pickerBranchAssignment.deleteMany({
+  await tx.vendorChampAssignment.deleteMany({
     where: { id: { in: assignmentIds } }
   });
+  // Cascades RequestApproval deletion for Champ-created/targeted requests.
+  // RequestApprovals where Champ was approver are handled by onDelete: SetNull.
   await tx.request.deleteMany({ where: { id: { in: requestIds } } });
-  await tx.user.deleteMany({ where: { id: { in: pickerIds } } });
+  await tx.user.deleteMany({ where: { id: { in: champIds } } });
 }
 
 async function deleteRelatedNotifications(
   tx: Prisma.TransactionClient,
-  pickerIds: string[],
+  champIds: string[],
   requestIds: string[]
 ) {
-  await tx.notification.deleteMany({ where: { userId: { in: pickerIds } } });
+  await tx.notification.deleteMany({ where: { userId: { in: champIds } } });
 
-  if (!pickerIds.length && !requestIds.length) {
+  if (!champIds.length && !requestIds.length) {
     return;
   }
 
   const requestIdList = requestIds.length
     ? Prisma.sql`OR payload->>'requestId' IN (${Prisma.join(requestIds)})`
     : Prisma.empty;
-  const pickerIdList = pickerIds.length
-    ? Prisma.sql`OR payload->>'pickerId' IN (${Prisma.join(pickerIds)})`
+  const champIdList = champIds.length
+    ? Prisma.sql`OR payload->>'champId' IN (${Prisma.join(champIds)})`
     : Prisma.empty;
 
   await tx.$executeRaw`
     DELETE FROM "Notification"
     WHERE FALSE
     ${requestIdList}
-    ${pickerIdList}
+    ${champIdList}
   `;
 }
 
 async function writeImportReport(
-  activeRows: PreparedActivePicker[],
+  activeRows: PreparedActiveChamp[],
   vendorByCode: Map<string, { vendorName: string; vendorCode: string }>,
   importedAt: Date
 ) {
@@ -580,7 +568,7 @@ async function writeImportReport(
     .replace(/[-:]/g, "")
     .replace(/\..+/, "")
     .replace("T", "-");
-  const reportPath = path.join(REPORT_DIR, `picker-import-${timestamp}.csv`);
+  const reportPath = path.join(REPORT_DIR, `champ-import-${timestamp}.csv`);
   const lines = [
     [
       "nameEn",
@@ -620,10 +608,7 @@ async function writeImportReport(
   return reportPath;
 }
 
-function printSummary(
-  summary: Record<string, number>,
-  dryRun: boolean
-) {
+function printSummary(summary: Record<string, number>, dryRun: boolean) {
   console.log(dryRun ? "Dry run summary:" : "Import summary:");
   for (const [key, value] of Object.entries(summary)) {
     console.log(`${key}: ${value}`);
@@ -656,7 +641,7 @@ function getEncryptionKey() {
 
   if (!configuredKey) {
     throw new Error(
-      "TEMP_PASSWORD_ENCRYPTION_KEY or JWT_SECRET must be set before importing Pickers."
+      "TEMP_PASSWORD_ENCRYPTION_KEY or JWT_SECRET must be set before importing Champs."
     );
   }
 

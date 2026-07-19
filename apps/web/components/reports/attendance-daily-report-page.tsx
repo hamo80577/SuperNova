@@ -1747,10 +1747,10 @@ function performanceMetricForView(
       total
     },
     all: {
-      count: rates.all.count,
-      delta: rates.all.delta,
+      count: analytics.shiftQuality.counts.cleanShifts.value,
+      delta: analytics.shiftQuality.cleanShiftRate.delta,
       label: "Attend rate",
-      percentage: rates.all.percentage,
+      percentage: analytics.shiftQuality.cleanShiftRate.value,
       total
     },
     lateOver15: {

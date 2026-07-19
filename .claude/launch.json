@@ -7,6 +7,20 @@
       "runtimeArgs": ["run", "dev", "--workspace", "@supernova/web"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "@supernova/api"],
+      "port": 4000,
+      "autoPort": false
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:worker"],
+      "port": 4001,
+      "autoPort": true
     }
   ]
 }
