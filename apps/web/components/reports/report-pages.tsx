@@ -2,366 +2,253 @@
 
 import {
   AlertCircle,
-  Archive,
   BarChart3,
   CalendarDays,
-  ClipboardList,
   FileSpreadsheet,
-  GitBranch,
   Inbox,
-  ShieldCheck,
-  Store,
-  UploadCloud,
-  Users
+  LineChart,
+  type LucideIcon
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  DetailPanelSkeleton,
-  StatsCardSkeleton
-} from "@/components/ui/skeleton";
+import { DetailPanelSkeleton, StatsCardSkeleton } from "@/components/ui/skeleton";
 import {
   reportsApi,
   type AdminReportsOverview,
   type AreaManagerReportsOverview,
-  type ChampReportsOverview,
-  type CountBreakdownItem
+  type ChampReportsOverview
 } from "@/lib/api/reports";
+import { cn } from "@/lib/utils";
 
 type AsyncState<T> =
   | { status: "loading"; data?: never; error?: never }
   | { status: "error"; error: string; data?: never }
   | { status: "ready"; data: T; error?: never };
 
+type ReportsHubVariant = "admin" | "area-manager" | "champ";
+type ReportsOverview =
+  | AdminReportsOverview
+  | AreaManagerReportsOverview
+  | ChampReportsOverview;
+
+interface ReportCardDefinition {
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  meta: Array<{ label: string; value: ReactNode }>;
+  status: string;
+  title: string;
+}
+
+const hubCopy: Record<
+  ReportsHubVariant,
+  {
+    badge: string;
+    description: string;
+    scope: string;
+    title: string;
+  }
+> = {
+  admin: {
+    badge: "System reports",
+    description:
+      "Choose a read-only report, then open the full workspace when you need filters, tables, and deeper analysis.",
+    scope: "System-wide",
+    title: "Reports"
+  },
+  "area-manager": {
+    badge: "Scoped reports",
+    description:
+      "Choose a report scoped to the Chains and Branches assigned to your workspace.",
+    scope: "Assigned Chains",
+    title: "Reports"
+  },
+  champ: {
+    badge: "Branch reports",
+    description:
+      "Choose a report scoped to the Branches and Pickers assigned to your workspace.",
+    scope: "Assigned Branches",
+    title: "Reports"
+  }
+};
+
+const basePathByVariant: Record<ReportsHubVariant, string> = {
+  admin: "/admin",
+  "area-manager": "/area-manager",
+  champ: "/champ"
+};
+
 export function AdminReportsPage() {
   const state = useReportData(reportsApi.adminOverview);
 
-  return (
-    <ReportShell
-      badge="System-wide reports"
-      description="Operational counts across Chains, Branches, assignments, requests, profile completion, archive state, and open actions."
-      title="Admin Reports"
-    >
-      <StateView state={state}>
-        {(data) => <AdminReportContent data={data} />}
-      </StateView>
-    </ReportShell>
-  );
+  return <ReportsHub state={state} variant="admin" />;
 }
 
 export function AreaManagerReportsPage() {
   const state = useReportData(reportsApi.areaManagerOverview);
 
-  return (
-    <ReportShell
-      badge="Scoped Chain reports"
-      description="Counts are limited to active Chains assigned to you through Chain Area Manager assignments."
-      title="Area Manager Reports"
-    >
-      <StateView state={state}>
-        {(data) => <AreaManagerReportContent data={data} />}
-      </StateView>
-    </ReportShell>
-  );
+  return <ReportsHub state={state} variant="area-manager" />;
 }
 
 export function ChampReportsPage() {
   const state = useReportData(reportsApi.champOverview);
 
-  return (
-    <ReportShell
-      badge="Branch-scoped reports"
-      description="Counts are limited to Branches assigned to you through active Vendor Champ assignments."
-      title="Champ Reports"
-    >
-      <StateView state={state}>
-        {(data) => <ChampReportContent data={data} />}
-      </StateView>
-    </ReportShell>
-  );
+  return <ReportsHub state={state} variant="champ" />;
 }
 
-function AdminReportContent({ data }: { data: AdminReportsOverview }) {
-  return (
-    <ReportGrid>
-      <MetricCard icon={GitBranch} label="Active Chains" value={data.cards.activeChains} />
-      <MetricCard icon={Store} label="Active Branches" value={data.cards.activeVendors} />
-      <MetricCard icon={Users} label="Active Pickers" value={data.cards.activePickers} />
-      <MetricCard
-        icon={ShieldCheck}
-        label="Pending Admin final actions"
-        value={data.cards.pendingAdminFinalActions}
-      />
-
-      <BreakdownCard
-        items={data.breakdowns.usersByRole}
-        title="Workforce by Role"
-      />
-      <BreakdownCard
-        items={data.breakdowns.usersByAccountStatus}
-        title="Users by Account Status"
-      />
-      <BreakdownCard
-        items={data.breakdowns.usersByEmploymentStatus}
-        title="Users by Employment Status"
-      />
-      <BreakdownCard
-        items={data.breakdowns.requestsByStatus}
-        title="Requests by Status"
-      />
-      <BreakdownCard
-        items={data.breakdowns.requestsByType}
-        title="Requests by Type"
-      />
-      <BreakdownCard
-        items={data.breakdowns.profileCompletion}
-        title="Profile Completion"
-      />
-
-      <InfoCard title="Archive & Block Summary">
-        <Definition label="Archived/deactivated Pickers" value={data.cards.archivedDeactivatedPickers} />
-        <Definition label="Temporary block" value={data.breakdowns.archiveBlockSummary.temporaryBlock} />
-        <Definition label="Permanent block" value={data.breakdowns.archiveBlockSummary.permanentBlock} />
-        <Definition label="No block among archived" value={data.breakdowns.archiveBlockSummary.noBlockAmongArchived} />
-        <Link
-          className={buttonVariants({ size: "sm", variant: "outline" })}
-          href="/admin/archived-users"
-          prefetch
-        >
-          Open archived users
-        </Link>
-      </InfoCard>
-
-      <InfoCard title="Open Actions Summary">
-        <Definition label="Pending approvals" value={data.cards.pendingApprovals} />
-        <Definition label="Pending Admin final actions" value={data.cards.pendingAdminFinalActions} />
-        <Link
-          className={buttonVariants({ size: "sm", variant: "outline" })}
-          href="/tickets"
-          prefetch
-        >
-          Open pending actions
-        </Link>
-      </InfoCard>
-
-      <InfoCard title="Attendance Report">
-        <Definition label="Scope" value="Picker daily rows" />
-        <Definition label="Source" value="Active confirmed batches" />
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/reports/attendance"
-            prefetch
-          >
-            <CalendarDays className="mr-2 h-4 w-4" />
-            Daily report
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/attendance/imports"
-            prefetch
-          >
-            <UploadCloud className="mr-2 h-4 w-4" />
-            Import console
-          </Link>
-        </div>
-      </InfoCard>
-
-      <InfoCard title="Orders KPI Report">
-        <Definition label="Scope" value="Chain, vendor, and picker KPI rows" />
-        <Definition label="Source" value="Confirmed Orders KPI daily records" />
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/reports/orders-kpi"
-            prefetch
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Performance report
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/admin/imports/orders-kpi"
-            prefetch
-          >
-            <UploadCloud className="mr-2 h-4 w-4" />
-            Import console
-          </Link>
-        </div>
-      </InfoCard>
-
-      <SimpleTable
-        columns={["Chain", "Code", "Active Pickers"]}
-        rows={data.tables.topChainsByActivePickerCount.map((item) => [
-          item.chain.chainName,
-          item.chain.chainCode,
-          item.activePickerCount
-        ])}
-        title="Top Chains by Active Picker Count"
-      />
-      <SimpleTable
-        columns={["Branch", "Chain", "Active Pickers"]}
-        rows={data.tables.topVendorsByActivePickerCount.map((item) => [
-          item.vendor?.vendorName ?? "Unknown Branch",
-          item.vendor?.chain?.chainName ?? "Unknown Chain",
-          item.activePickerCount
-        ])}
-        title="Top Branches by Active Picker Count"
-      />
-    </ReportGrid>
-  );
-}
-
-function AreaManagerReportContent({
-  data
+function ReportsHub({
+  state,
+  variant
 }: {
-  data: AreaManagerReportsOverview;
+  state: AsyncState<ReportsOverview>;
+  variant: ReportsHubVariant;
 }) {
+  const copy = hubCopy[variant];
+
   return (
-    <ReportGrid>
-      <InfoCard title="Operational Reports">
-        <Definition label="Scope" value="Your assigned chains" />
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/area-manager/reports/attendance"
-            prefetch
-          >
-            <CalendarDays className="mr-2 h-4 w-4" />
-            Attendance report
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/area-manager/reports/orders-kpi"
-            prefetch
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Orders KPI report
-          </Link>
+    <div className="grid gap-5">
+      <section className="rounded-lg border bg-card p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <Badge variant="outline">{copy.badge}</Badge>
+            <h1 className="mt-3 text-xl font-semibold">{copy.title}</h1>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {copy.description}
+            </p>
+          </div>
+          <BarChart3 className="h-6 w-6 text-primary" />
         </div>
-      </InfoCard>
+      </section>
 
-      <MetricCard icon={GitBranch} label="Assigned Chains" value={data.cards.chains} />
-      <MetricCard icon={Store} label="Branches in scope" value={data.cards.vendors} />
-      <MetricCard icon={Users} label="Active Pickers" value={data.cards.activePickers} />
-      <MetricCard icon={ShieldCheck} label="Pending approvals" value={data.cards.pendingApprovals} />
-
-      <BreakdownCard
-        items={data.breakdowns.requestsByStatus}
-        title="Requests in My Chains"
-      />
-      <BreakdownCard
-        items={data.breakdowns.requestsByType}
-        title="Request Types in Scope"
-      />
-      <BreakdownCard
-        items={data.breakdowns.profileCompletion}
-        title="Picker Profile Completion"
-      />
-      <BreakdownCard
-        items={data.breakdowns.archiveBlockSummary}
-        title="Archive/Block in Scope"
-      />
-
-      <SimpleTable
-        columns={["Chain", "Branches", "Active Pickers", "Active Champs"]}
-        rows={data.tables.chains.map((item) => [
-          item.chain.chainName,
-          item.vendorCount,
-          item.activePickerCount,
-          item.activeChampCount
-        ])}
-        title="Workforce by Chain"
-      />
-      <SimpleTable
-        columns={["Branch", "Chain", "Active Pickers", "Active Champs"]}
-        rows={data.tables.vendors.map((item) => [
-          item.vendor.vendorName,
-          item.chain.chainName,
-          item.activePickerCount,
-          item.activeChampCount
-        ])}
-        title="Workforce by Branch"
-      />
-    </ReportGrid>
+      <StateView state={state}>
+        {(data) => (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {buildReportCards(variant, data).map((report) => (
+              <ReportPreviewCard key={report.href} report={report} />
+            ))}
+          </section>
+        )}
+      </StateView>
+    </div>
   );
 }
 
-function ChampReportContent({ data }: { data: ChampReportsOverview }) {
+function ReportPreviewCard({ report }: { report: ReportCardDefinition }) {
+  const Icon = report.icon;
+
   return (
-    <ReportGrid>
-      <InfoCard title="Operational Reports">
-        <Definition label="Scope" value="Your assigned branches" />
-        <div className="flex flex-wrap gap-2">
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/champ/reports/attendance"
-            prefetch
+    <article className="flex min-h-[260px] flex-col rounded-lg border bg-card p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
+        </span>
+        <Badge variant="muted">{report.status}</Badge>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <h2 className="text-base font-semibold">{report.title}</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {report.description}
+        </p>
+      </div>
+
+      <dl className="mt-4 grid gap-2 border-t pt-4">
+        {report.meta.map((item) => (
+          <div
+            className="flex items-center justify-between gap-3 text-sm"
+            key={item.label}
           >
-            <CalendarDays className="mr-2 h-4 w-4" />
-            Attendance report
-          </Link>
-          <Link
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-            href="/champ/reports/orders-kpi"
-            prefetch
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Orders KPI report
-          </Link>
-        </div>
-      </InfoCard>
+            <dt className="text-muted-foreground">{item.label}</dt>
+            <dd className="max-w-[55%] truncate text-right font-medium">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
 
-      <MetricCard icon={Store} label="Assigned Branches" value={data.cards.assignedBranches} />
-      <MetricCard icon={Users} label="Active Pickers" value={data.cards.activePickers} />
-      <MetricCard
-        icon={ClipboardList}
-        label="Open submitted requests"
-        value={data.cards.openSubmittedRequests}
-      />
-      <MetricCard icon={Archive} label="Completed outcomes" value={data.cards.completedOutcomes} />
-
-      <BreakdownCard
-        items={data.breakdowns.profileCompletion}
-        title="Picker Profile Completion"
-      />
-      <BreakdownCard
-        items={data.breakdowns.requestsByStatus}
-        title="My Submitted Requests"
-      />
-      <BreakdownCard
-        items={data.breakdowns.requestsByType}
-        title="My Request Types"
-      />
-      <InfoCard title="Workflow Outcomes">
-        <Definition
-          label="New Hires completed"
-          value={data.breakdowns.workflowOutcomes.newHiresCompleted}
-        />
-        <Definition
-          label="Transfers completed"
-          value={data.breakdowns.workflowOutcomes.transfersCompleted}
-        />
-        <Definition
-          label="Resignations completed"
-          value={data.breakdowns.workflowOutcomes.offboardingCompleted}
-        />
-      </InfoCard>
-
-      <SimpleTable
-        columns={["Branch", "Chain", "Active Pickers"]}
-        rows={data.tables.branches.map((item) => [
-          item.vendor.vendorName,
-          item.chain.chainName,
-          item.activePickerCount
-        ])}
-        title="Picker Counts by Branch"
-      />
-    </ReportGrid>
+      <Link
+        className={cn(
+          buttonVariants({ size: "sm", variant: "outline" }),
+          "mt-auto w-full justify-center"
+        )}
+        href={report.href}
+        prefetch
+      >
+        See more
+      </Link>
+    </article>
   );
+}
+
+function buildReportCards(
+  variant: ReportsHubVariant,
+  data: ReportsOverview
+): ReportCardDefinition[] {
+  const basePath = basePathByVariant[variant];
+  const scope = hubCopy[variant].scope;
+  const activePickers = getActivePickers(data);
+  const branchCount = getBranchCount(variant, data);
+
+  return [
+    {
+      description:
+        "Performance report for Orders KPI records with Chain, Branch, and Picker views.",
+      href: `${basePath}/reports/orders-kpi`,
+      icon: FileSpreadsheet,
+      meta: [
+        { label: "Scope", value: scope },
+        { label: "Rows", value: "Confirmed KPI records" },
+        { label: "Views", value: "Chain / Branch / Picker" }
+      ],
+      status: "Live",
+      title: "Performance"
+    },
+    {
+      description:
+        "Daily attendance report for Picker rows, calculated status, lateness, leave, and work hours.",
+      href: `${basePath}/reports/attendance`,
+      icon: CalendarDays,
+      meta: [
+        { label: "Scope", value: scope },
+        { label: "Rows", value: "Confirmed attendance" },
+        { label: "Active Pickers", value: activePickers }
+      ],
+      status: "Live",
+      title: "Attendance"
+    },
+    {
+      description:
+        "Read-only operational analysis that combines workforce scope, requests, and report readiness.",
+      href: `${basePath}/reports/operations-analysis`,
+      icon: LineChart,
+      meta: [
+        { label: "Scope", value: scope },
+        { label: "Branches", value: branchCount },
+        { label: "Mode", value: "Analysis only" }
+      ],
+      status: "Next",
+      title: "Operations Analysis"
+    }
+  ];
+}
+
+function getActivePickers(data: ReportsOverview) {
+  return "activePickers" in data.cards ? data.cards.activePickers : 0;
+}
+
+function getBranchCount(variant: ReportsHubVariant, data: ReportsOverview) {
+  if (variant === "admin") {
+    return (data as AdminReportsOverview).cards.activeVendors;
+  }
+
+  if (variant === "area-manager") {
+    return (data as AreaManagerReportsOverview).cards.vendors;
+  }
+
+  return (data as ChampReportsOverview).cards.assignedBranches;
 }
 
 function useReportData<T>(loader: () => Promise<T>) {
@@ -398,36 +285,6 @@ function useReportData<T>(loader: () => Promise<T>) {
   return state;
 }
 
-function ReportShell({
-  badge,
-  children,
-  description,
-  title
-}: {
-  badge: string;
-  children: ReactNode;
-  description: string;
-  title: string;
-}) {
-  return (
-    <div className="grid gap-5">
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <Badge variant="outline">{badge}</Badge>
-            <h1 className="mt-3 text-xl font-semibold">{title}</h1>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {description}
-            </p>
-          </div>
-          <BarChart3 className="h-6 w-6 text-primary" />
-        </div>
-      </section>
-      {children}
-    </div>
-  );
-}
-
 function StateView<T>({
   children,
   state
@@ -439,7 +296,7 @@ function StateView<T>({
     return (
       <div
         aria-busy="true"
-        aria-label="Loading operational counts"
+        aria-label="Loading report previews"
         className="grid gap-4 lg:grid-cols-4"
         role="status"
       >
@@ -465,139 +322,11 @@ function StateView<T>({
   return <>{children(state.data)}</>;
 }
 
-function ReportGrid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-4 lg:grid-cols-4">{children}</div>;
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value
-}: {
-  icon: typeof Users;
-  label: string;
-  value: number | string;
-}) {
+export function EmptyReportState({ message }: { message: string }) {
   return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm">
-      <Icon className="h-5 w-5 text-primary" />
-      <p className="mt-4 text-2xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-    </section>
-  );
-}
-
-function BreakdownCard({
-  items,
-  title
-}: {
-  items: CountBreakdownItem[];
-  title: string;
-}) {
-  return (
-    <InfoCard title={title}>
-      {items.some((item) => item.count > 0) ? (
-        items.map((item) => (
-          <Definition
-            key={item.key}
-            label={formatEnum(item.key)}
-            value={<StatusCount value={item.count} />}
-          />
-        ))
-      ) : (
-        <EmptyInline message="No counts available yet." />
-      )}
-    </InfoCard>
-  );
-}
-
-function InfoCard({ children, title }: { children: ReactNode; title: string }) {
-  return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-2">
-      <h2 className="text-base font-semibold">{title}</h2>
-      <div className="mt-4 grid gap-3">{children}</div>
-    </section>
-  );
-}
-
-function SimpleTable({
-  columns,
-  rows,
-  title
-}: {
-  columns: string[];
-  rows: Array<Array<ReactNode>>;
-  title: string;
-}) {
-  return (
-    <section className="rounded-lg border bg-card p-5 shadow-sm lg:col-span-2">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {rows.length ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] text-left text-sm">
-            <thead className="border-b text-xs uppercase text-muted-foreground">
-              <tr>
-                {columns.map((column) => (
-                  <th className="py-3 pr-4" key={column}>
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr className="border-b last:border-0" key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <td className="py-3 pr-4" key={cellIndex}>
-                      {cell}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState message="No rows available for this report." />
-      )}
-    </section>
-  );
-}
-
-function Definition({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-b-0 last:pb-0">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
-    </div>
-  );
-}
-
-function StatusCount({ value }: { value: number }) {
-  return (
-    <Badge variant={value > 0 ? "default" : "outline"}>
-      <span className="tabular-nums">{value}</span>
-    </Badge>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="mt-4 grid place-items-center rounded-md border bg-background p-6 text-center">
+    <div className="grid place-items-center rounded-lg border bg-background p-6 text-center">
       <Inbox className="mb-3 h-7 w-7 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
-}
-
-function EmptyInline({ message }: { message: string }) {
-  return <p className="text-sm leading-6 text-muted-foreground">{message}</p>;
-}
-
-function formatEnum(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

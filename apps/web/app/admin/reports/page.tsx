@@ -5,8 +5,8 @@ export default function AdminReportsRoute() {
   return (
     <DashboardFrame
       allowedRoles={["ADMIN", "SUPER_ADMIN"]}
-      description="System-wide operational counts."
-      title="Admin Reports"
+      description="Reports available for the Admin workspace."
+      title="Reports"
     >
       <AdminReportsPage />
     </DashboardFrame>

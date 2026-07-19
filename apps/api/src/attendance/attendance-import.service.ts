@@ -98,7 +98,7 @@ type AttendanceLocationPreviewEnrichment = {
   rowsByReportedLocationCode: AttendanceReportedLocationSummary[];
 };
 
-const ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS = 60_000;
+export const ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS = 180_000;
 
 @Injectable()
 export class AttendanceImportService {

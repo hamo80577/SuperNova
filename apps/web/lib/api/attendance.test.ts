@@ -221,6 +221,25 @@ const assert = {
       totalPages: 1,
       totalRows: 0
     },
+    userSummaries: [
+      {
+        absentShifts: 1,
+        attendanceRate: 80,
+        cleanShifts: 8,
+        expectedShifts: 10,
+        identifierValue: "SHOPPER-001",
+        joiningDate: "2026-05-01",
+        lateShifts: 1,
+        missingShifts: 0,
+        nonCleanShifts: 2,
+        over15HoursShifts: 0,
+        personName: "Aya Picker",
+        personRole: "PICKER",
+        totalShifts: 10,
+        under8HoursShifts: 0,
+        userId: "user-1"
+      }
+    ],
     periodMonth: "2026-05",
     rows: [],
     summary: {

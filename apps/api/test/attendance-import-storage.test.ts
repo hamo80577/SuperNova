@@ -17,7 +17,10 @@ import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import ExcelJS from "exceljs";
 
 import { AttendanceCalculationService } from "../src/attendance/attendance-calculation.service";
-import { AttendanceImportService } from "../src/attendance/attendance-import.service";
+import {
+  ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS,
+  AttendanceImportService
+} from "../src/attendance/attendance-import.service";
 import { AttendanceParserService } from "../src/attendance/attendance-parser.service";
 import { AttendanceUserLookupService } from "../src/attendance/attendance-user-lookup.service";
 import { AttendanceValidatorService } from "../src/attendance/attendance-validator.service";
@@ -517,6 +520,9 @@ async function main() {
     assert.equal(store.batches[0]?.rowCount, 2);
     assert.equal(store.batches[0]?.egyptRows, 1);
     assert.equal(store.batches[0]?.excludedNonEgyptRows, 1);
+    assert.deepEqual(store.transactionOptions[0], {
+      timeout: ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS
+    });
     assert.equal(store.issues.length, 1);
     assert.equal(store.issues[0]?.["issueCode"], AttendanceIssueCode.NON_EGYPT_ROW);
     assert.equal(store.auditRows[0]?.["action"], "ATTENDANCE_IMPORT_PREVIEW_CREATED");
@@ -1042,7 +1048,10 @@ async function main() {
     await previewRows([baseRow()], { prisma });
 
     assert.equal(store.transactionOptions.length, 1);
-    assert.equal(store.transactionOptions[0]?.["timeout"], 60_000);
+    assert.equal(
+      store.transactionOptions[0]?.["timeout"],
+      ATTENDANCE_IMPORT_PREVIEW_TRANSACTION_TIMEOUT_MS
+    );
   }
 
   {

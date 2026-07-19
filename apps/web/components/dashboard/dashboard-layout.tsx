@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
@@ -12,6 +14,7 @@ import {
 
 import { useAuth } from "@/components/auth/auth-provider";
 import { approvalsApi } from "@/lib/api/approvals";
+import type { UserRole } from "@/lib/auth/types";
 import {
   notificationsApi,
   type NotificationItem
@@ -75,6 +78,10 @@ export function DashboardLayout({
   const notificationGroups = useMemo(
     () => sortNotificationGroups(groupNotifications(notificationItems)).slice(0, 5),
     [notificationItems]
+  );
+  const breadcrumbs = useMemo(
+    () => buildDashboardBreadcrumbs(pathname, title, user?.role ?? "ADMIN"),
+    [pathname, title, user?.role]
   );
 
   const loadNotificationPreview = useCallback(async () => {
@@ -294,6 +301,7 @@ export function DashboardLayout({
               ref={contentRef}
             >
               <div className="px-4 pb-24 pt-[104px] sm:px-5 sm:pt-[108px] lg:px-6 lg:pb-6 lg:pt-7">
+                <DashboardBreadcrumbs items={breadcrumbs} />
                 {showPageTitle ? (
                   <div className="mb-4 hidden lg:block">
                     <h1 className="sn-h1" style={{ fontSize: 22 }}>
@@ -316,4 +324,161 @@ export function DashboardLayout({
       </div>
     </main>
   );
+}
+
+interface BreadcrumbItem {
+  href?: string;
+  label: string;
+}
+
+const workspaceBreadcrumbs: Record<
+  string,
+  { dashboardHref: string; label: string }
+> = {
+  admin: { dashboardHref: "/admin/dashboard", label: "Admin" },
+  "area-manager": {
+    dashboardHref: "/area-manager/dashboard",
+    label: "Area Manager"
+  },
+  champ: { dashboardHref: "/champ/dashboard", label: "Champ" },
+  picker: { dashboardHref: "/picker/dashboard", label: "Picker" }
+};
+
+const segmentLabels: Record<string, string> = {
+  "annual-leave": "Annual Leave",
+  "archived-users": "Archived Users",
+  attendance: "Attendance",
+  branches: "Branches",
+  deductions: "Deductions",
+  dashboard: "Dashboard",
+  historical: "Historical",
+  imports: "Imports",
+  notifications: "Notifications",
+  "operations-analysis": "Operations Analysis",
+  organization: "Organization",
+  "orders-kpi": "Performance",
+  "orders-kpi-targets": "Orders KPI Targets",
+  reports: "Reports",
+  settings: "Settings",
+  tickets: "Tickets",
+  users: "Users"
+};
+
+function DashboardBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="mb-3 min-w-0 overflow-x-auto pb-1 text-xs text-muted-foreground"
+    >
+      <ol className="flex min-w-max items-center gap-1">
+        {items.map((item, index) => {
+          const isLast = index === items.length - 1;
+
+          return (
+            <li className="flex items-center gap-1" key={`${item.label}-${index}`}>
+              {isLast || !item.href ? (
+                <span
+                  aria-current={isLast ? "page" : undefined}
+                  className={cn(
+                    "font-medium",
+                    isLast ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {item.label}
+                </span>
+              ) : (
+                <Link
+                  className="font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  href={item.href}
+                  prefetch
+                >
+                  {item.label}
+                </Link>
+              )}
+              {!isLast ? (
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+function buildDashboardBreadcrumbs(
+  pathname: string,
+  title: string,
+  fallbackRole: UserRole
+): BreadcrumbItem[] {
+  const segments = pathname.split("?")[0]?.split("/").filter(Boolean) ?? [];
+
+  if (!segments.length) {
+    return [];
+  }
+
+  const workspace = workspaceBreadcrumbs[segments[0]];
+  const fallbackDashboardHref = dashboardHrefForRole(fallbackRole);
+  const items: BreadcrumbItem[] = [];
+  const segmentStart = workspace ? 1 : 0;
+
+  items.push({
+    href: workspace?.dashboardHref ?? fallbackDashboardHref,
+    label: workspace?.label ?? "Dashboard"
+  });
+
+  segments.slice(segmentStart).forEach((segment, relativeIndex, tail) => {
+    const segmentIndex = segmentStart + relativeIndex;
+    const isLast = relativeIndex === tail.length - 1;
+    const href = `/${segments.slice(0, segmentIndex + 1).join("/")}`;
+
+    items.push({
+      href: isLast ? undefined : href,
+      label: isLast ? labelForLastSegment(segment, title) : labelForSegment(segment)
+    });
+  });
+
+  return removeDuplicateBreadcrumbLabels(items);
+}
+
+function labelForLastSegment(segment: string, title: string) {
+  if (segmentLabels[segment]) {
+    return segmentLabels[segment];
+  }
+
+  return title || labelForSegment(segment);
+}
+
+function labelForSegment(segment: string) {
+  return (
+    segmentLabels[segment] ??
+    segment
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  );
+}
+
+function dashboardHrefForRole(role: UserRole) {
+  if (role === "AREA_MANAGER") {
+    return "/area-manager/dashboard";
+  }
+
+  if (role === "CHAMP") {
+    return "/champ/dashboard";
+  }
+
+  if (role === "PICKER") {
+    return "/picker/dashboard";
+  }
+
+  return "/admin/dashboard";
+}
+
+function removeDuplicateBreadcrumbLabels(items: BreadcrumbItem[]) {
+  return items.filter((item, index) => item.label !== items[index - 1]?.label);
 }

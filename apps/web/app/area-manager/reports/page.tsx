@@ -5,8 +5,8 @@ export default function AreaManagerReportsRoute() {
   return (
     <DashboardFrame
       allowedRoles={["AREA_MANAGER"]}
-      description="Chain-scoped operational counts."
-      title="Area Manager Reports"
+      description="Reports available for your assigned Chain scope."
+      title="Reports"
     >
       <AreaManagerReportsPage />
     </DashboardFrame>

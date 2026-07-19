@@ -5,8 +5,8 @@ export default function ChampReportsRoute() {
   return (
     <DashboardFrame
       allowedRoles={["CHAMP"]}
-      description="Branch-scoped operational counts."
-      title="Champ Reports"
+      description="Reports available for your assigned Branch scope."
+      title="Reports"
     >
       <ChampReportsPage />
     </DashboardFrame>

@@ -16,6 +16,16 @@ Current mode: official product development and production hardening.
 
 The product foundation is mostly built. Future work should harden, polish, and extend the official product in small scoped slices. Do not revive old one-off plans or broad branches as product authority.
 
+## Change Safety
+
+SuperNova is now a large product surface. Treat every change as potentially cross-cutting until the repo proves otherwise:
+
+- Inspect the existing code path, types, API contract, and neighboring pages before editing.
+- Keep implementation slices small and inside the requested product boundary.
+- Reuse real backend data and existing service contracts; do not add fake UI data to unblock screens.
+- After each implementation task, run targeted tests plus typecheck/lint for the touched apps when available.
+- Before commit or delivery, review the diff for unrelated churn and likely regressions in shared components, report pages, auth, role scope, workflows, imports, and dashboards.
+
 ## Core Workflows
 
 - Authentication and protected role workspaces.

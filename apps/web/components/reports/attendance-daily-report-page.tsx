@@ -41,6 +41,7 @@ import {
   type AttendanceDailyReportRow,
   type AttendanceDailyReportSortBy,
   type AttendanceDailyReportSortDirection,
+  type AttendanceDailyReportUserSummary,
   type AttendanceMetricDelta,
   type AttendancePersonRole,
   type AttendanceSegmentMetric
@@ -64,6 +65,17 @@ type AsyncState<T> =
 type PerformanceView = "all" | "onTime" | "lateOver15" | "absent" | "onLeave";
 type AttendanceStatusFilter = AttendanceCalculatedStatus | "";
 type AttendanceRoleFilter = AttendancePersonRole | "";
+type UserSummarySortKey =
+  | "absentShifts"
+  | "attendanceRate"
+  | "cleanShifts"
+  | "lateShifts"
+  | "missingShifts"
+  | "name"
+  | "nonCleanShifts"
+  | "over15HoursShifts"
+  | "totalShifts"
+  | "under8HoursShifts";
 type ChartTone =
   | "clean"
   | "error"
@@ -100,32 +112,19 @@ export type AttendanceReportWorkspaceVariant = "admin" | "area-manager" | "champ
 const workspaceCopy: Record<
   AttendanceReportWorkspaceVariant,
   {
-    description: string;
-    scopeNote: string;
     showImportShortcut: boolean;
     title: string;
   }
 > = {
   admin: {
-    description: "Track picker attendance and manage daily records.",
-    scopeNote:
-      "Source Chain and Branch are imported attendance-file labels for reporting filters only. Operational access remains controlled by backend permissions.",
     showImportShortcut: true,
     title: "Attendance"
   },
   "area-manager": {
-    description:
-      "Read-only attendance scoped to reported Chains from attendance imports.",
-    scopeNote:
-      "This report is scoped by reported Chain context stored from the attendance file. Chain and Branch filters are imported reporting labels, not assignment-controlled hierarchy.",
     showImportShortcut: false,
     title: "Attendance"
   },
   champ: {
-    description:
-      "Read-only attendance scoped to reported Branches from attendance imports.",
-    scopeNote:
-      "This report is scoped by reported Branch context stored from the attendance file. Chain and Branch filters are imported reporting labels, not assignment-controlled hierarchy.",
     showImportShortcut: false,
     title: "Attendance"
   }
@@ -163,6 +162,10 @@ export function AttendanceDailyReportPage({
   const [searchDraft, setSearchDraft] = useState(initialFilters.search);
   const [performanceView, setPerformanceView] =
     useState<PerformanceView>("all");
+  const [userSummarySort, setUserSummarySort] = useState<{
+    direction: AttendanceDailyReportSortDirection;
+    key: UserSummarySortKey;
+  }>({ direction: "desc", key: "attendanceRate" });
   const [dateError, setDateError] = useState<string | null>(null);
   const [state, setState] = useState<AsyncState<AttendanceDailyReportResponse>>({
     status: "loading"
@@ -294,12 +297,6 @@ export function AttendanceDailyReportPage({
             <h1 className="text-2xl font-semibold tracking-normal text-[color:var(--sn-ink)]">
               {copy.title}
             </h1>
-            <p className="mt-1 text-sm text-[color:var(--sn-muted)]">
-              {copy.description}
-            </p>
-            <p className="mt-2 max-w-3xl text-xs leading-5 text-[color:var(--sn-muted)]">
-              {copy.scopeNote}
-            </p>
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -390,6 +387,11 @@ export function AttendanceDailyReportPage({
                 onFilterChange={applyListFilters}
                 rows={data.rows}
                 pagination={data.pagination}
+              />
+              <UserAttendanceSummaryTable
+                onSortChange={setUserSummarySort}
+                rows={data.userSummaries}
+                sort={userSummarySort}
               />
             </>
           )}
@@ -573,6 +575,246 @@ function PerformanceCard({
       </div>
       <div className="flex min-h-[20rem] flex-1 items-center justify-center">
         <ArcGauge metric={selected} view={view} />
+      </div>
+    </section>
+  );
+}
+
+function UserAttendanceSummaryTable({
+  onSortChange,
+  rows,
+  sort
+}: {
+  onSortChange: (sort: {
+    direction: AttendanceDailyReportSortDirection;
+    key: UserSummarySortKey;
+  }) => void;
+  rows: AttendanceDailyReportUserSummary[];
+  sort: {
+    direction: AttendanceDailyReportSortDirection;
+    key: UserSummarySortKey;
+  };
+}) {
+  const [page, setPage] = useState(1);
+  const sortedRows = useMemo(
+    () => sortUserSummaries(rows, sort),
+    [rows, sort]
+  );
+  const pageSize = 10;
+  const totalPages = Math.max(Math.ceil(sortedRows.length / pageSize), 1);
+  const safePage = Math.min(page, totalPages);
+  const pageRows = sortedRows.slice(
+    (safePage - 1) * pageSize,
+    safePage * pageSize
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows, sort.direction, sort.key]);
+
+  function changeSort(key: UserSummarySortKey) {
+    onSortChange({
+      direction:
+        sort.key === key && sort.direction === "desc" ? "asc" : "desc",
+      key
+    });
+  }
+
+  return (
+    <section className="min-w-0 rounded-2xl border border-[color:var(--sn-border)] bg-[color:var(--sn-card)] p-4 shadow-[0_1px_2px_rgba(65,21,23,0.05),0_4px_16px_rgba(65,21,23,0.06)]">
+      <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <CardTitle icon={UsersRound} title="User Attendance Summary" />
+        <p className="text-sm font-medium text-[color:var(--sn-muted)]">
+          {rows.length.toLocaleString()} users
+        </p>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-[color:var(--sn-border)]">
+        <div className="hidden overflow-x-auto xl:block">
+          <table className="w-full min-w-[1120px] text-left text-sm">
+            <thead className="bg-[color:var(--sn-sunken)] text-xs font-medium text-[color:var(--sn-muted)]">
+              <tr>
+                <SortableUserSummaryHeader
+                  label="User"
+                  onClick={() => changeSort("name")}
+                  selected={sort.key === "name"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Total"
+                  onClick={() => changeSort("totalShifts")}
+                  selected={sort.key === "totalShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Missing Shifts"
+                  onClick={() => changeSort("missingShifts")}
+                  selected={sort.key === "missingShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Clean Shift"
+                  onClick={() => changeSort("cleanShifts")}
+                  selected={sort.key === "cleanShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Absent"
+                  onClick={() => changeSort("absentShifts")}
+                  selected={sort.key === "absentShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Late >15"
+                  onClick={() => changeSort("lateShifts")}
+                  selected={sort.key === "lateShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Under 8h"
+                  onClick={() => changeSort("under8HoursShifts")}
+                  selected={sort.key === "under8HoursShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Over 15h"
+                  onClick={() => changeSort("over15HoursShifts")}
+                  selected={sort.key === "over15HoursShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Non-clean"
+                  onClick={() => changeSort("nonCleanShifts")}
+                  selected={sort.key === "nonCleanShifts"}
+                  sortDirection={sort.direction}
+                />
+                <SortableUserSummaryHeader
+                  align="right"
+                  label="Attendance Rate"
+                  onClick={() => changeSort("attendanceRate")}
+                  selected={sort.key === "attendanceRate"}
+                  sortDirection={sort.direction}
+                />
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.length ? (
+                pageRows.map((row) => (
+                  <tr
+                    className="border-t border-[color:var(--sn-border)]"
+                    key={row.userId}
+                  >
+                    <TableCell>
+                      <UserSummaryNameCell row={row} />
+                    </TableCell>
+                    <NumericTableCell value={row.totalShifts} />
+                    <td className="px-4 py-3 text-right align-middle">
+                      <MissingShiftCell row={row} />
+                    </td>
+                    <NumericTableCell value={row.cleanShifts} />
+                    <NumericTableCell value={row.absentShifts} tone="danger" />
+                    <NumericTableCell value={row.lateShifts} tone="warning" />
+                    <NumericTableCell
+                      value={row.under8HoursShifts}
+                      tone="warning"
+                    />
+                    <NumericTableCell
+                      value={row.over15HoursShifts}
+                      tone="warning"
+                    />
+                    <NumericTableCell value={row.nonCleanShifts} tone="danger" />
+                    <td className="px-4 py-3 text-right align-middle font-semibold tabular-nums text-[color:var(--sn-ink)]">
+                      {formatNumber(row.attendanceRate)}%
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    className="px-4 py-10 text-center text-sm text-[color:var(--sn-muted)]"
+                    colSpan={10}
+                  >
+                    No user attendance summary is available for the selected filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid gap-3 p-3 xl:hidden">
+          <div className="grid grid-cols-2 gap-2">
+            <MobileSortButton
+              label="Attendance Rate"
+              onClick={() => changeSort("attendanceRate")}
+              selected={sort.key === "attendanceRate"}
+            />
+            <MobileSortButton
+              label="Non-clean"
+              onClick={() => changeSort("nonCleanShifts")}
+              selected={sort.key === "nonCleanShifts"}
+            />
+            <MobileSortButton
+              label="Missing"
+              onClick={() => changeSort("missingShifts")}
+              selected={sort.key === "missingShifts"}
+            />
+          </div>
+          {pageRows.length ? (
+            pageRows.map((row) => (
+              <article
+                className="grid gap-3 rounded-xl border border-[color:var(--sn-border)] bg-[color:var(--sn-sunken)] p-3"
+                key={row.userId}
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <UserSummaryNameCell row={row} />
+                  <span className="rounded-lg bg-[color:var(--sn-card)] px-2.5 py-1 text-sm font-semibold tabular-nums text-[color:var(--sn-ink)]">
+                    {formatNumber(row.attendanceRate)}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                  <Definition label="Clean" value={row.cleanShifts} />
+                  <Definition
+                    label="Missing"
+                    value={<MissingShiftCell compact row={row} />}
+                  />
+                  <Definition label="Absent" value={row.absentShifts} />
+                  <Definition label="Late >15" value={row.lateShifts} />
+                  <Definition label="Non-clean" value={row.nonCleanShifts} />
+                  <Definition label="Under 8h" value={row.under8HoursShifts} />
+                  <Definition label="Over 15h" value={row.over15HoursShifts} />
+                  <Definition label="Total" value={row.totalShifts} />
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="py-8 text-center text-sm text-[color:var(--sn-muted)]">
+              No user attendance summary is available for the selected filters.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <p className="text-sm font-medium text-[color:var(--sn-body)]">
+          Showing {pageRows.length ? (safePage - 1) * pageSize + 1 : 0}-
+          {Math.min(safePage * pageSize, sortedRows.length)} of{" "}
+          {sortedRows.length.toLocaleString()} users
+        </p>
+        <PaginationControls
+          onPageChange={setPage}
+          page={safePage}
+          totalPages={totalPages}
+        />
+        <p className="text-sm text-[color:var(--sn-muted)]">10 per page</p>
       </div>
     </section>
   );
@@ -887,13 +1129,6 @@ function ReportFilterBar({
           Clear
         </Button>
       </div>
-      <p className="min-w-0 text-xs leading-5 text-[color:var(--sn-muted)] xl:col-span-3">
-        Chain and Branch filters use reported labels mapped from the attendance
-        file fields <span className="font-mono text-[11px]">reportedChainId</span>{" "}
-        and <span className="font-mono text-[11px]">reportedLocation</span>. They
-        are read-only reporting dimensions, not assignment-controlled hierarchy,
-        authorization, or operational source of truth.
-      </p>
     </section>
   );
 }
@@ -1466,6 +1701,13 @@ function PaginationControls({
   totalPages: number;
 }) {
   const pages = paginationPages(page, totalPages);
+  function changePage(nextPage: number) {
+    const scrollTop = window.scrollY;
+
+    onPageChange(nextPage);
+    window.requestAnimationFrame(() => window.scrollTo(0, scrollTop));
+    window.setTimeout(() => window.scrollTo(0, scrollTop), 50);
+  }
 
   return (
     <div className="flex items-center justify-center gap-2">
@@ -1473,7 +1715,7 @@ function PaginationControls({
         aria-label="First page"
         className="h-10 w-10 rounded-xl p-0"
         disabled={page <= 1}
-        onClick={() => onPageChange(1)}
+        onClick={() => changePage(1)}
         type="button"
         variant="ghost"
       >
@@ -1483,22 +1725,26 @@ function PaginationControls({
         aria-label="Previous page"
         className="h-10 w-10 rounded-xl p-0"
         disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
+        onClick={() => changePage(page - 1)}
         type="button"
         variant="ghost"
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      {pages.map((item) =>
+      {pages.map((item, index) =>
         item === "ellipsis" ? (
-          <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--sn-border)] text-[color:var(--sn-muted)]" key={item}>
+          <span
+            aria-hidden="true"
+            className="grid h-10 w-5 place-items-center text-[color:var(--sn-muted)]"
+            key={`ellipsis-${index}`}
+          >
             ...
           </span>
         ) : (
           <Button
             className="h-10 w-10 rounded-xl p-0"
             key={item}
-            onClick={() => onPageChange(item)}
+            onClick={() => changePage(item)}
             type="button"
             variant={item === page ? "default" : "outline"}
           >
@@ -1510,7 +1756,7 @@ function PaginationControls({
         aria-label="Next page"
         className="h-10 w-10 rounded-xl p-0"
         disabled={page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
+        onClick={() => changePage(page + 1)}
         type="button"
         variant="ghost"
       >
@@ -1520,13 +1766,162 @@ function PaginationControls({
         aria-label="Last page"
         className="h-10 w-10 rounded-xl p-0"
         disabled={page >= totalPages}
-        onClick={() => onPageChange(totalPages)}
+        onClick={() => changePage(totalPages)}
         type="button"
         variant="ghost"
       >
         <ChevronsRight className="h-4 w-4" />
       </Button>
     </div>
+  );
+}
+
+function SortableUserSummaryHeader({
+  align = "left",
+  label,
+  onClick,
+  selected,
+  sortDirection
+}: {
+  align?: "left" | "right";
+  label: string;
+  onClick: () => void;
+  selected: boolean;
+  sortDirection: AttendanceDailyReportSortDirection;
+}) {
+  return (
+    <th
+      aria-sort={
+        selected
+          ? sortDirection === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+      className="px-4 py-3"
+    >
+      <button
+        className={cn(
+          "inline-flex w-full items-center gap-1.5 rounded-lg text-xs font-semibold transition-colors hover:text-[color:var(--sn-ink)]",
+          align === "right" ? "justify-end text-right" : "justify-start text-left",
+          selected ? "text-[color:var(--sn-ink)]" : "text-[color:var(--sn-muted)]"
+        )}
+        onClick={onClick}
+        type="button"
+      >
+        {label}
+        <ArrowUpDown className="h-3.5 w-3.5 shrink-0" />
+      </button>
+    </th>
+  );
+}
+
+function MobileSortButton({
+  label,
+  onClick,
+  selected
+}: {
+  label: string;
+  onClick: () => void;
+  selected: boolean;
+}) {
+  return (
+    <Button
+      className="h-10 rounded-xl"
+      onClick={onClick}
+      type="button"
+      variant={selected ? "default" : "outline"}
+    >
+      <ArrowUpDown className="mr-2 h-4 w-4" />
+      {label}
+    </Button>
+  );
+}
+
+function UserSummaryNameCell({
+  row
+}: {
+  row: AttendanceDailyReportUserSummary;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--sn-ink)] text-xs font-semibold text-white">
+        {initials(row.personName)}
+      </span>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <TruncatedText
+            className="font-medium text-[color:var(--sn-ink)]"
+            value={row.personName}
+          />
+          <RoleBadge personRole={row.personRole} />
+        </div>
+        <p className="mt-0.5 text-xs text-[color:var(--sn-muted)]">
+          {row.identifierValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function NumericTableCell({
+  tone,
+  value
+}: {
+  tone?: "danger" | "warning";
+  value: number;
+}) {
+  return (
+    <td
+      className={cn(
+        "px-4 py-3 text-right align-middle font-medium tabular-nums",
+        tone === "danger"
+          ? "text-[oklch(0.55_0.19_27)]"
+          : tone === "warning"
+            ? "text-[oklch(0.62_0.13_70)]"
+            : "text-[color:var(--sn-body)]"
+      )}
+    >
+      {value.toLocaleString()}
+    </td>
+  );
+}
+
+function MissingShiftCell({
+  compact = false,
+  row
+}: {
+  compact?: boolean;
+  row: AttendanceDailyReportUserSummary;
+}) {
+  if (row.missingShifts === null || row.expectedShifts === null) {
+    return (
+      <span
+        className="font-medium tabular-nums text-[color:var(--sn-muted)]"
+        title="Missing shifts are calculated only for active users who are not resigned and have a joining date."
+      >
+        -
+      </span>
+    );
+  }
+
+  const title = `Expected ${row.expectedShifts.toLocaleString()} shifts from ${
+    row.joiningDate ?? "selected range"
+  }; uploaded shifts ${row.totalShifts.toLocaleString()}.`;
+
+  return (
+    <span
+      className={cn(
+        "font-semibold tabular-nums",
+        row.missingShifts > 0
+          ? "text-[oklch(0.55_0.19_27)]"
+          : "text-[color:var(--sn-body)]",
+        compact ? "text-sm" : "text-right"
+      )}
+      title={title}
+    >
+      {row.missingShifts.toLocaleString()}
+    </span>
   );
 }
 
@@ -1866,17 +2261,101 @@ function rowStatus(row: AttendanceDailyReportRow) {
 }
 
 function paginationPages(page: number, totalPages: number) {
-  if (totalPages <= 5) {
+  if (totalPages <= 8) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
 
-  const pages = new Set([1, page, page + 1, totalPages]);
+  const windowSize = 5;
+  let start = Math.max(2, page - 2);
+  let end = Math.min(totalPages - 1, page + 2);
+
+  if (page <= 4) {
+    start = 2;
+    end = Math.min(totalPages - 1, windowSize + 1);
+  }
+  if (page >= totalPages - 3) {
+    start = Math.max(2, totalPages - windowSize);
+    end = totalPages - 1;
+  }
+
+  const pages = new Set([1, totalPages]);
+  for (let item = start; item <= end; item += 1) {
+    pages.add(item);
+  }
+
   return Array.from(pages)
-    .filter((item) => item >= 1 && item <= totalPages)
     .sort((left, right) => left - right)
     .flatMap((item, index, list) =>
       index > 0 && item - list[index - 1] > 1 ? ["ellipsis" as const, item] : [item]
     );
+}
+
+function sortUserSummaries(
+  rows: AttendanceDailyReportUserSummary[],
+  sort: {
+    direction: AttendanceDailyReportSortDirection;
+    key: UserSummarySortKey;
+  }
+) {
+  return [...rows].sort((left, right) => {
+    const nullOrdering = compareNullableUserSummaryValues(left, right, sort.key);
+
+    if (nullOrdering !== 0) {
+      return nullOrdering;
+    }
+
+    const comparison = compareUserSummary(left, right, sort.key);
+
+    if (comparison !== 0) {
+      return sort.direction === "asc" ? comparison : -comparison;
+    }
+
+    return (
+      left.personName.localeCompare(right.personName) ||
+      left.identifierValue.localeCompare(right.identifierValue)
+    );
+  });
+}
+
+function compareNullableUserSummaryValues(
+  left: AttendanceDailyReportUserSummary,
+  right: AttendanceDailyReportUserSummary,
+  key: UserSummarySortKey
+) {
+  if (key !== "missingShifts") {
+    return 0;
+  }
+
+  if (left.missingShifts === null && right.missingShifts === null) {
+    return 0;
+  }
+  if (left.missingShifts === null) {
+    return 1;
+  }
+  if (right.missingShifts === null) {
+    return -1;
+  }
+
+  return 0;
+}
+
+function compareUserSummary(
+  left: AttendanceDailyReportUserSummary,
+  right: AttendanceDailyReportUserSummary,
+  key: UserSummarySortKey
+) {
+  if (key === "name") {
+    return (
+      left.personName.localeCompare(right.personName) ||
+      left.identifierValue.localeCompare(right.identifierValue)
+    );
+  }
+
+  if (key === "missingShifts") {
+    return (left.missingShifts ?? 0) - (right.missingShifts ?? 0);
+  }
+
+  return left[key] - right[key];
 }
 
 function createInitialFilters(): AttendanceDailyReportFilters {

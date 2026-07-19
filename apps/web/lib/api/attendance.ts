@@ -58,6 +58,7 @@ export interface AttendanceDailyReportResponse {
   filterOptions: AttendanceDailyReportFilterOptions;
   pagination: AttendanceDailyReportPagination;
   summary: AttendanceDailyReportSummary;
+  userSummaries: AttendanceDailyReportUserSummary[];
   rows: AttendanceDailyReportRow[];
 }
 
@@ -200,6 +201,24 @@ export interface AttendanceDailyReportSummary {
   over15HoursCount: number;
   totalRawLateMins: number;
   totalChargeableLateMins: number;
+}
+
+export interface AttendanceDailyReportUserSummary {
+  userId: string;
+  personName: string;
+  personRole: AttendancePersonRole;
+  identifierValue: string;
+  joiningDate: string | null;
+  expectedShifts: number | null;
+  missingShifts: number | null;
+  totalShifts: number;
+  cleanShifts: number;
+  nonCleanShifts: number;
+  absentShifts: number;
+  lateShifts: number;
+  under8HoursShifts: number;
+  over15HoursShifts: number;
+  attendanceRate: number;
 }
 
 export type AttendancePersonRole = "PICKER" | "CHAMP";

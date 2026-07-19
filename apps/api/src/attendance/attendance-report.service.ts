@@ -5,10 +5,12 @@ import {
   Injectable
 } from "@nestjs/common";
 import {
+  AccountStatus,
   AssignmentStatus,
   AttendanceCalculatedStatus,
   AttendanceImportBatchStatus,
   AttendancePersonRole,
+  EmploymentStatus,
   Prisma,
   UserRole
 } from "@prisma/client";
@@ -22,6 +24,7 @@ import type {
   AttendanceDailyReportResponse,
   AttendanceDailyReportRow,
   AttendanceDailyReportSummary,
+  AttendanceDailyReportUserSummary,
   AttendanceMetricDelta
 } from "./attendance-report.types";
 
@@ -77,6 +80,9 @@ const dailyFilterOptionSelect = {
 
 const dailySummarySelect = {
   userId: true,
+  personNameSnapshot: true,
+  personRole: true,
+  identifierValue: true,
   calculatedStatus: true,
   rawLateMins: true,
   chargeableLateMins: true,
@@ -85,7 +91,15 @@ const dailySummarySelect = {
   isOnLeave: true,
   isOffDay: true,
   isUnder8Hours: true,
-  isOver15Hours: true
+  isOver15Hours: true,
+  user: {
+    select: {
+      accountStatus: true,
+      employmentStatus: true,
+      joiningDate: true,
+      resignationDate: true
+    }
+  }
 } satisfies Prisma.AttendanceDailyRecordSelect;
 
 type AttendanceDailyReportRecord = Prisma.AttendanceDailyRecordGetPayload<{
@@ -108,6 +122,15 @@ type AttendanceDailyReportScope =
   | { kind: "PICKER"; userId: string }
   | { kind: "REPORTED_CHAINS"; chainIds: string[] }
   | { kind: "CHAMP_SCOPED"; vendorIds: string[]; champUserId: string };
+
+type AttendanceDailyUserSummaryAccumulator = Omit<
+  AttendanceDailyReportUserSummary,
+  "attendanceRate" | "expectedShifts" | "missingShifts"
+> & {
+  accountStatus: AccountStatus;
+  employmentStatus: EmploymentStatus;
+  resignationDate: string | null;
+};
 
 @Injectable()
 export class AttendanceReportService {
@@ -148,6 +171,7 @@ export class AttendanceReportService {
           totalPages: 0
         },
         summary: emptySummary(),
+        userSummaries: [],
         rows: []
       };
     }
@@ -267,6 +291,10 @@ export class AttendanceReportService {
         totalPages: Math.ceil(totalRows / pagination.pageSize)
       },
       summary: summarizeDailyRecords(currentAnalyticsRecords),
+      userSummaries: summarizeDailyRecordsByUser(
+        currentAnalyticsRecords,
+        analyticsRange
+      ),
       rows: rows.map(toDailyReportRow)
     };
   }
@@ -1141,6 +1169,144 @@ function summarizeDailyRecords(
 
     return summary;
   }, emptySummary());
+}
+
+function summarizeDailyRecordsByUser(
+  records: AttendanceDailySummaryRecord[],
+  range: AttendanceDailyReportAnalytics["range"]
+): AttendanceDailyReportUserSummary[] {
+  const summaries = new Map<
+    string,
+    AttendanceDailyUserSummaryAccumulator
+  >();
+
+  for (const record of records) {
+    const current =
+      summaries.get(record.userId) ??
+      {
+        absentShifts: 0,
+        accountStatus: record.user.accountStatus,
+        cleanShifts: 0,
+        employmentStatus: record.user.employmentStatus,
+        identifierValue: record.identifierValue,
+        joiningDate: formatDateOnlyOrNull(record.user.joiningDate),
+        lateShifts: 0,
+        nonCleanShifts: 0,
+        over15HoursShifts: 0,
+        personName: record.personNameSnapshot,
+        personRole: record.personRole,
+        resignationDate: formatDateOnlyOrNull(record.user.resignationDate),
+        totalShifts: 0,
+        under8HoursShifts: 0,
+        userId: record.userId
+      };
+    current.joiningDate =
+      current.joiningDate ?? formatDateOnlyOrNull(record.user.joiningDate);
+    current.resignationDate =
+      current.resignationDate ?? formatDateOnlyOrNull(record.user.resignationDate);
+    const isAbsent =
+      record.calculatedStatus === AttendanceCalculatedStatus.ABSENT;
+    const isLate = (record.rawLateMins ?? 0) > 15;
+    const isNonClean =
+      isAbsent || isLate || record.isUnder8Hours || record.isOver15Hours;
+
+    current.totalShifts += 1;
+
+    if (isAbsent) {
+      current.absentShifts += 1;
+    }
+    if (isLate) {
+      current.lateShifts += 1;
+    }
+    if (record.isUnder8Hours) {
+      current.under8HoursShifts += 1;
+    }
+    if (record.isOver15Hours) {
+      current.over15HoursShifts += 1;
+    }
+    if (isNonClean) {
+      current.nonCleanShifts += 1;
+    } else {
+      current.cleanShifts += 1;
+    }
+
+    summaries.set(record.userId, current);
+  }
+
+  return Array.from(summaries.values())
+    .map((summary) => {
+      const missingShiftMetrics = calculateMissingShiftMetrics(
+        summary,
+        range,
+        summary.totalShifts
+      );
+
+      return {
+        absentShifts: summary.absentShifts,
+        attendanceRate: percentage(summary.cleanShifts, summary.totalShifts),
+        cleanShifts: summary.cleanShifts,
+        expectedShifts: missingShiftMetrics.expectedShifts,
+        identifierValue: summary.identifierValue,
+        joiningDate: summary.joiningDate,
+        lateShifts: summary.lateShifts,
+        missingShifts: missingShiftMetrics.missingShifts,
+        nonCleanShifts: summary.nonCleanShifts,
+        over15HoursShifts: summary.over15HoursShifts,
+        personName: summary.personName,
+        personRole: summary.personRole,
+        totalShifts: summary.totalShifts,
+        under8HoursShifts: summary.under8HoursShifts,
+        userId: summary.userId
+      };
+    })
+    .sort(
+      (left, right) =>
+        left.personName.localeCompare(right.personName) ||
+        left.identifierValue.localeCompare(right.identifierValue)
+    );
+}
+
+function calculateMissingShiftMetrics(
+  userSummary: Pick<
+    AttendanceDailyUserSummaryAccumulator,
+    "accountStatus" | "employmentStatus" | "joiningDate" | "resignationDate"
+  >,
+  range: AttendanceDailyReportAnalytics["range"],
+  totalShifts: number
+): Pick<
+  AttendanceDailyReportUserSummary,
+  "expectedShifts" | "missingShifts"
+> {
+  if (
+    !userSummary.joiningDate ||
+    userSummary.accountStatus !== AccountStatus.ACTIVE ||
+    userSummary.employmentStatus !== EmploymentStatus.ACTIVE ||
+    userSummary.resignationDate
+  ) {
+    return {
+      expectedShifts: null,
+      missingShifts: null
+    };
+  }
+
+  const rangeStart = parseDateOnly(range.dateFrom, "dateFrom");
+  const rangeEnd = parseDateOnly(range.dateTo, "dateTo");
+  const joinDate = parseDateOnly(userSummary.joiningDate, "joiningDate");
+  const effectiveStart = joinDate > rangeStart ? joinDate : rangeStart;
+
+  if (effectiveStart > rangeEnd) {
+    return {
+      expectedShifts: 0,
+      missingShifts: 0
+    };
+  }
+
+  const expectedShifts = differenceInDays(effectiveStart, rangeEnd) + 1;
+
+  return {
+    expectedShifts,
+    missingShifts: Math.max(expectedShifts - totalShifts, 0)
+  };
 }
 
 function emptySummary(): AttendanceDailyReportSummary {

@@ -94,9 +94,11 @@ Look for:
 When reviewing a diff:
 - inspect git status
 - inspect git diff
+- treat SuperNova as a large product surface where one shared change can break another workspace
 - compare with requested scope
 - identify unrelated changes
 - identify behavior changes
+- check affected shared API contracts, shared UI components, role-scoped pages, reports, imports, dashboards, and workflow services
 - verify checks actually ran
 - flag hardcoded fixes
 - flag workflow/access-control regressions

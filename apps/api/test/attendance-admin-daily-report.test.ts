@@ -9,6 +9,7 @@ import {
   AttendanceLateBucket,
   AttendanceLeaveType,
   AttendanceLocationMappingStatus,
+  AttendancePersonRole,
   EmploymentStatus,
   ProfileStatus,
   UserRole
@@ -330,6 +331,90 @@ async function run() {
       totalChargeableLateMins: 55
     });
     assert.deepEqual(
+      result.userSummaries.map((summary) => ({
+        absentShifts: summary.absentShifts,
+        attendanceRate: summary.attendanceRate,
+        cleanShifts: summary.cleanShifts,
+        lateShifts: summary.lateShifts,
+        nonCleanShifts: summary.nonCleanShifts,
+        over15HoursShifts: summary.over15HoursShifts,
+        personName: summary.personName,
+        totalShifts: summary.totalShifts,
+        under8HoursShifts: summary.under8HoursShifts
+      })),
+      [
+        {
+          absentShifts: 0,
+          attendanceRate: 100,
+          cleanShifts: 1,
+          lateShifts: 0,
+          nonCleanShifts: 0,
+          over15HoursShifts: 0,
+          personName: "Aya Picker",
+          totalShifts: 1,
+          under8HoursShifts: 0
+        },
+        {
+          absentShifts: 0,
+          attendanceRate: 0,
+          cleanShifts: 0,
+          lateShifts: 1,
+          nonCleanShifts: 1,
+          over15HoursShifts: 0,
+          personName: "Bassem Picker",
+          totalShifts: 1,
+          under8HoursShifts: 1
+        },
+        {
+          absentShifts: 0,
+          attendanceRate: 0,
+          cleanShifts: 0,
+          lateShifts: 1,
+          nonCleanShifts: 1,
+          over15HoursShifts: 1,
+          personName: "Carla Picker",
+          totalShifts: 1,
+          under8HoursShifts: 0
+        },
+        {
+          absentShifts: 1,
+          attendanceRate: 0,
+          cleanShifts: 0,
+          lateShifts: 0,
+          nonCleanShifts: 1,
+          over15HoursShifts: 0,
+          personName: "Dina Picker",
+          totalShifts: 1,
+          under8HoursShifts: 0
+        },
+        {
+          absentShifts: 0,
+          attendanceRate: 100,
+          cleanShifts: 1,
+          lateShifts: 0,
+          nonCleanShifts: 0,
+          over15HoursShifts: 0,
+          personName: "Eman Picker",
+          totalShifts: 1,
+          under8HoursShifts: 0
+        },
+        {
+          absentShifts: 0,
+          attendanceRate: 100,
+          cleanShifts: 1,
+          lateShifts: 0,
+          nonCleanShifts: 0,
+          over15HoursShifts: 0,
+          personName: "Fady Picker",
+          totalShifts: 1,
+          under8HoursShifts: 0
+        }
+      ]
+    );
+    assert.equal(result.userSummaries[0]?.joiningDate, "2026-05-01");
+    assert.equal(result.userSummaries[0]?.expectedShifts, 6);
+    assert.equal(result.userSummaries[0]?.missingShifts, 5);
+    assert.deepEqual(
       result.rows.map((row) => row.id),
       ["r-1", "r-2", "r-3", "r-4", "r-5", "r-6"]
     );
@@ -539,6 +624,72 @@ async function run() {
     assert.equal(result.analytics.pickerCount, 2);
     assert.equal(result.analytics.attendanceRate.totalShifts, 3);
     assert.equal(result.analytics.attendanceRate.attendCount, 3);
+    const ayaSummary = result.userSummaries.find(
+      (summary) => summary.identifierValue === "SHOPPER-001"
+    );
+    assert.equal(ayaSummary?.expectedShifts, 2);
+    assert.equal(ayaSummary?.missingShifts, 0);
+  }
+
+  {
+    const newHireRows = Array.from({ length: 15 }, (_, index) =>
+      dailyRow({
+        id: `new-hire-${index + 1}`,
+        importBatchId: "active-may",
+        shiftDate: `2026-05-${String(index + 15).padStart(2, "0")}`,
+        shopperId: "SHOPPER-007",
+        pickerNameSnapshot: "Ghada Picker",
+        userId: "user-SHOPPER-007",
+        user: activeAttendanceUser({ joiningDate: date("2026-05-15") })
+      })
+    );
+    const { prisma } = createPrismaMock(newHireRows);
+    const service = createAdminReportService(prisma);
+    const result = await service.getDailyReport({
+      periodMonth: "2026-05",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-30"
+    });
+    const newHireSummary = result.userSummaries.find(
+      (summary) => summary.identifierValue === "SHOPPER-007"
+    );
+
+    assert.equal(newHireSummary?.joiningDate, "2026-05-15");
+    assert.equal(newHireSummary?.totalShifts, 15);
+    assert.equal(newHireSummary?.expectedShifts, 16);
+    assert.equal(newHireSummary?.missingShifts, 1);
+  }
+
+  {
+    const resignedPickerRows = Array.from({ length: 15 }, (_, index) =>
+      dailyRow({
+        id: `resigned-picker-${index + 1}`,
+        importBatchId: "active-may",
+        shiftDate: `2026-05-${String(index + 1).padStart(2, "0")}`,
+        shopperId: "SHOPPER-008",
+        pickerNameSnapshot: "Hany Picker",
+        userId: "user-SHOPPER-008",
+        user: {
+          accountStatus: AccountStatus.ARCHIVED,
+          employmentStatus: EmploymentStatus.RESIGNED,
+          joiningDate: date("2026-05-01"),
+          resignationDate: date("2026-05-15")
+        }
+      })
+    );
+    const { prisma } = createPrismaMock(resignedPickerRows);
+    const service = createAdminReportService(prisma);
+    const result = await service.getDailyReport({
+      periodMonth: "2026-05",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-30"
+    });
+    const resignedSummary = result.userSummaries.find(
+      (summary) => summary.identifierValue === "SHOPPER-008"
+    );
+
+    assert.equal(resignedSummary?.expectedShifts, null);
+    assert.equal(resignedSummary?.missingShifts, null);
   }
 
   {
@@ -567,6 +718,7 @@ async function run() {
     assert.equal(result.periodMonth, "2026-06");
     assert.equal(result.activeBatchId, null);
     assert.deepEqual(result.rows, []);
+    assert.deepEqual(result.userSummaries, []);
     assert.equal(result.summary.totalRows, 0);
   }
 
@@ -885,9 +1037,11 @@ function dailyRow(
     periodMonth: "2026-05",
     shiftDate: date(shiftDate),
     shopperId: "SHOPPER-001",
+    personRole: AttendancePersonRole.PICKER,
     userId: `user-${overrides.shopperId ?? "SHOPPER-001"}`,
     pickerNameSnapshot: "Picker One",
     sourceDesignation: "Picker",
+    user: activeAttendanceUser({ joiningDate: date("2026-05-01") }),
     sourceSubDivision,
     sourceLocation,
     reportedVendorId,
@@ -1076,6 +1230,18 @@ function dateTime(value: string) {
   return new Date(value);
 }
 
+function activeAttendanceUser(
+  overrides: Partial<DailyRow["user"]> = {}
+): DailyRow["user"] {
+  return {
+    accountStatus: AccountStatus.ACTIVE,
+    employmentStatus: EmploymentStatus.ACTIVE,
+    joiningDate: date("2026-05-01"),
+    resignationDate: null,
+    ...overrides
+  };
+}
+
 type DailyRow = {
   id: string;
   importBatchId: string;
@@ -1086,6 +1252,13 @@ type DailyRow = {
   userId: string;
   pickerNameSnapshot: string;
   personNameSnapshot: string;
+  personRole: AttendancePersonRole;
+  user: {
+    accountStatus: AccountStatus;
+    employmentStatus: EmploymentStatus;
+    joiningDate: Date | null;
+    resignationDate: Date | null;
+  };
   sourceDesignation: string | null;
   sourceSubDivision: string | null;
   sourceLocation: string | null;

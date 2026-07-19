@@ -567,9 +567,17 @@ function dailyRow(
     periodMonth: "2026-05",
     shiftDate: date(shiftDate),
     shopperId: "SHOPPER-001",
+    identifierValue: overrides.identifierValue ?? overrides.shopperId ?? "SHOPPER-001",
     personRole: AttendancePersonRole.PICKER,
     userId: "picker-1",
+    user: {
+      accountStatus: AccountStatus.ACTIVE,
+      employmentStatus: EmploymentStatus.ACTIVE,
+      joiningDate: date("2026-05-01"),
+      resignationDate: null
+    },
     pickerNameSnapshot: "Picker One",
+    personNameSnapshot: overrides.personNameSnapshot ?? overrides.pickerNameSnapshot ?? "Picker One",
     sourceDesignation: "Picker",
     sourceSubDivision: "Imported Chain A",
     sourceLocation: "Imported Branch A",
@@ -708,9 +716,17 @@ type DailyRow = {
   periodMonth: string;
   shiftDate: Date;
   shopperId: string | null;
+  identifierValue: string;
   personRole: AttendancePersonRole;
   userId: string;
+  user: {
+    accountStatus: AccountStatus;
+    employmentStatus: EmploymentStatus;
+    joiningDate: Date | null;
+    resignationDate: Date | null;
+  };
   pickerNameSnapshot: string;
+  personNameSnapshot: string;
   sourceDesignation: string | null;
   sourceSubDivision: string | null;
   sourceLocation: string | null;

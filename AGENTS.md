@@ -143,6 +143,16 @@ Before implementation work:
 5. Keep changes inside the approved scope.
 ```
 
+SuperNova is a large operational system. After every task, agents must treat regressions as the main risk:
+
+```text
+1. Review the diff before delivery.
+2. Check whether shared contracts, shared components, role-scoped pages, workflows, imports, dashboards, or reports were affected.
+3. Run the relevant targeted tests and app-level typecheck/lint when code changed.
+4. Do not claim visual, runtime, or integration verification unless it actually ran.
+5. Do not commit unrelated dirty worktree changes unless they are part of the active requested slice.
+```
+
 Run relevant checks and never claim a check passed unless it actually ran.
 
 Common checks:
