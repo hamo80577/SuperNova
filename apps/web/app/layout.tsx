@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { APP_NAME } from "@supernova/shared";
 
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { DashboardRouteShell } from "@/components/dashboard/dashboard-route-shell";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { AppLoadingProvider } from "@/components/ui/app-loading-provider";
 
@@ -31,7 +32,9 @@ export default function RootLayout({
         />
         <AppLoadingProvider>
           <AuthProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              <DashboardRouteShell>{children}</DashboardRouteShell>
+            </ThemeProvider>
           </AuthProvider>
         </AppLoadingProvider>
       </body>

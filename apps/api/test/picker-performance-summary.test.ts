@@ -70,6 +70,7 @@ const users = [
   user("picker-low"),
   user("picker-chain"),
   user("picker-team"),
+  user("picker-import-issue"),
   user("champ-1", UserRole.CHAMP),
   user("area-manager-1", UserRole.AREA_MANAGER)
 ];
@@ -117,7 +118,8 @@ const assignments = [
   { id: "pa-2", pickerId: "picker-2", vendorId: "vendor-a" },
   { id: "pa-low", pickerId: "picker-low", vendorId: "vendor-a" },
   { id: "pa-chain", pickerId: "picker-chain", vendorId: "vendor-b" },
-  { id: "pa-team", pickerId: "picker-team", vendorId: "vendor-c" }
+  { id: "pa-team", pickerId: "picker-team", vendorId: "vendor-c" },
+  { id: "pa-import-issue", pickerId: "picker-import-issue", vendorId: "vendor-a" }
 ].map((assignment) => ({
   ...assignment,
   status: AssignmentStatus.ACTIVE,
@@ -156,7 +158,11 @@ const attendanceRecords = [
   attendance("picker-2", "2026-06-01", { isOnTime: true }),
   attendance("picker-2", "2026-06-02", { isOnTime: true }),
   attendance("picker-chain", "2026-06-01", { isLate: true, lateBucket: "LATE_1" }),
-  attendance("picker-team", "2026-06-01", { isOnTime: true })
+  attendance("picker-team", "2026-06-01", { isOnTime: true }),
+  attendance("picker-import-issue", "2026-06-01", {
+    isOnTime: true,
+    issuesCount: 4
+  })
 ];
 
 const deductionCases = [
@@ -507,6 +513,25 @@ async function testAttendanceHealthUsesCleanShiftRateAndCountsMultiIssueShiftOnc
   });
 }
 
+async function testAttendanceImportIssuesDoNotCountAsShiftHealthErrors() {
+  const service = createService();
+  const summary = await service.getPickerPerformanceSummary("picker-import-issue", {
+    dateFrom,
+    dateTo
+  });
+
+  assert.equal(summary.attendance.available, true);
+  assert.equal(summary.attendance.totalShifts, 1);
+  assert.equal(summary.attendance.cleanShifts, 1);
+  assert.equal(summary.attendance.issueShifts, 0);
+  assert.equal(summary.attendance.attendanceHealthRate, 100);
+  assert.equal(summary.attendance.totalShiftErrors, 0);
+  assert.equal(summary.attendance.lateCount, 0);
+  assert.equal(summary.attendance.absentCount, 0);
+  assert.equal(summary.attendance.under8Count, 0);
+  assert.equal(summary.attendance.over15Count, 0);
+}
+
 async function testRankingIsVolumeAwareAndServerScoped() {
   const service = createService();
   const summary = await service.getPickerPerformanceSummary("picker-1", {
@@ -554,6 +579,7 @@ async function main() {
   await testControllerIsPickerOnly();
   await testSummaryUsesAssignmentContextAndOwnMetrics();
   await testAttendanceHealthUsesCleanShiftRateAndCountsMultiIssueShiftOnce();
+  await testAttendanceImportIssuesDoNotCountAsShiftHealthErrors();
   await testRankingIsVolumeAwareAndServerScoped();
   await testLowVolumePickerIsNotRanked();
   await testPendingDeductionsRemainHiddenFromPickerSummary();

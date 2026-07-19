@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { Badge } from "@/components/ui/badge";
 import type { UserRole } from "@/lib/auth/types";
 import { DashboardLayout } from "./dashboard-layout";
+import { useDashboardRouteShell } from "./dashboard-route-context";
 import { dashboardCopy } from "./dashboard-shell-utils";
 import { roleNavigation } from "./role-nav";
 
@@ -52,6 +53,12 @@ export function DashboardFrame({
   showPageTitle?: boolean;
   title: string;
 }) {
+  const renderedByRouteShell = useDashboardRouteShell();
+
+  if (renderedByRouteShell) {
+    return <>{children}</>;
+  }
+
   return (
     <ProtectedRoute allowedRoles={allowedRoles}>
       <DashboardLayout

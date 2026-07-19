@@ -5,6 +5,7 @@ coverage
 .turbo
 !.env.example
 apps/*/.next
+apps/*/.next-stale-*
 apps/*/dist
 packages/*/dist
 prisma/generated
@@ -14,5 +15,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
+output/demo-data/*.csv
+output/demo-data/*.xlsx
 .DS_Store
 Thumbs.db

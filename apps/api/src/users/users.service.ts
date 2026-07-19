@@ -1771,7 +1771,7 @@ export class UsersService {
     let total = 0;
 
     if (role === "PICKER" || role === "ALL") {
-      total += await this.countLifecycleRequestsForRole(
+      total += await this.countPickerMovement(
         UserRole.PICKER,
         query,
         period,
@@ -1783,7 +1783,7 @@ export class UsersService {
       (role === "CHAMP" || role === "ALL") &&
       query.includeChampWorkforce !== false
     ) {
-      total += await this.countLifecycleRequestsForRole(
+      total += await this.countChampMovement(
         UserRole.CHAMP,
         query,
         period,
@@ -1795,7 +1795,7 @@ export class UsersService {
       (role === "MANAGEMENT" || role === "ALL") &&
       query.includeManagementWorkforce !== false
     ) {
-      total += await this.countLifecycleRequestsForRole(
+      total += await this.countAreaManagerMovement(
         UserRole.AREA_MANAGER,
         query,
         period,
@@ -1816,36 +1816,95 @@ export class UsersService {
     return total;
   }
 
-  private async countLifecycleRequestsForRole(
-    role: Extract<UserRole, "PICKER" | "CHAMP" | "AREA_MANAGER">,
+  private async countPickerMovement(
+    role: Extract<UserRole, "PICKER">,
     query: ScopedWorkforceSummaryQuery,
     period: WorkforcePeriod,
     type: WorkforceMovementRequestType
   ) {
-    const scopeWhere = this.buildLifecycleRequestScopeWhere(role, query);
+    const rows = await this.prisma.pickerBranchAssignment.findMany({
+      where: {
+        AND: [
+          this.buildPickerAssignmentMovementWhere(query, period),
+          { picker: this.buildWorkforceMovementUserWhere(role, period, type) }
+        ]
+      },
+      select: { pickerId: true },
+      distinct: ["pickerId"]
+    });
 
-    if (!scopeWhere) {
+    return new Set(rows.map((row) => row.pickerId)).size;
+  }
+
+  private async countChampMovement(
+    role: Extract<UserRole, "CHAMP">,
+    query: ScopedWorkforceSummaryQuery,
+    period: WorkforcePeriod,
+    type: WorkforceMovementRequestType
+  ) {
+    const rows = await this.prisma.vendorChampAssignment.findMany({
+      where: {
+        AND: [
+          this.buildChampAssignmentMovementWhere(query, period),
+          { champ: this.buildWorkforceMovementUserWhere(role, period, type) }
+        ]
+      },
+      select: { champId: true },
+      distinct: ["champId"]
+    });
+
+    return new Set(rows.map((row) => row.champId)).size;
+  }
+
+  private async countAreaManagerMovement(
+    role: Extract<UserRole, "AREA_MANAGER">,
+    query: ScopedWorkforceSummaryQuery,
+    period: WorkforcePeriod,
+    type: WorkforceMovementRequestType
+  ) {
+    const where = this.buildAreaManagerAssignmentMovementWhere(query, period);
+
+    if (!where) {
       return 0;
     }
 
-    return this.prisma.request.count({
+    const rows = await this.prisma.chainAreaManagerAssignment.findMany({
       where: {
         AND: [
+          where,
           {
-            type,
-            status: RequestStatus.COMPLETED,
-            completedAt: {
+            areaManager: this.buildWorkforceMovementUserWhere(role, period, type)
+          }
+        ]
+      },
+      select: { areaManagerId: true },
+      distinct: ["areaManagerId"]
+    });
+
+    return new Set(rows.map((row) => row.areaManagerId)).size;
+  }
+
+  private buildWorkforceMovementUserWhere(
+    role: Extract<UserRole, "PICKER" | "CHAMP" | "AREA_MANAGER">,
+    period: WorkforcePeriod,
+    type: WorkforceMovementRequestType
+  ): Prisma.UserWhereInput {
+    return {
+      role,
+      ...(type === RequestType.NEW_HIRE
+        ? {
+            joiningDate: {
               gte: period.from,
               lte: period.to
-            },
-            targetUser: {
-              is: { role }
             }
-          },
-          scopeWhere
-        ]
-      }
-    });
+          }
+        : {
+            resignationDate: {
+              gte: period.from,
+              lte: period.to
+            }
+          })
+    };
   }
 
   private async countAdminManagementHeadcountAt(asOf: Date) {
@@ -2007,6 +2066,134 @@ export class UsersService {
     return { AND: and };
   }
 
+  private buildPickerAssignmentMovementWhere(
+    query: ScopedWorkforceSummaryQuery,
+    period: WorkforcePeriod
+  ): Prisma.PickerBranchAssignmentWhereInput {
+    const and: Prisma.PickerBranchAssignmentWhereInput[] = [
+      this.buildAssignmentOverlapsPeriodWhere(period)
+    ];
+
+    if (query.chainId) {
+      and.push({ vendor: { chainId: query.chainId } });
+    }
+
+    if (query.scopeChainIds) {
+      and.push({ vendor: { chainId: { in: query.scopeChainIds } } });
+    }
+
+    if (query.vendorId) {
+      and.push({ vendorId: query.vendorId });
+    }
+
+    if (query.scopeVendorIds) {
+      and.push({ vendorId: { in: query.scopeVendorIds } });
+    }
+
+    if (query.areaManagerId) {
+      and.push({
+        vendor: {
+          chain: {
+            areaManagerAssignments: {
+              some: {
+                areaManagerId: query.areaManagerId,
+                ...this.buildAssignmentOverlapsPeriodWhere(period)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (query.champId) {
+      and.push({
+        vendor: {
+          champAssignments: {
+            some: {
+              champId: query.champId,
+              ...this.buildAssignmentOverlapsPeriodWhere(period)
+            }
+          }
+        }
+      });
+    }
+
+    return { AND: and };
+  }
+
+  private buildChampAssignmentMovementWhere(
+    query: ScopedWorkforceSummaryQuery,
+    period: WorkforcePeriod
+  ): Prisma.VendorChampAssignmentWhereInput {
+    const and: Prisma.VendorChampAssignmentWhereInput[] = [
+      this.buildAssignmentOverlapsPeriodWhere(period)
+    ];
+
+    if (query.chainId) {
+      and.push({ vendor: { chainId: query.chainId } });
+    }
+
+    if (query.scopeChainIds) {
+      and.push({ vendor: { chainId: { in: query.scopeChainIds } } });
+    }
+
+    if (query.vendorId) {
+      and.push({ vendorId: query.vendorId });
+    }
+
+    if (query.scopeVendorIds) {
+      and.push({ vendorId: { in: query.scopeVendorIds } });
+    }
+
+    if (query.areaManagerId) {
+      and.push({
+        vendor: {
+          chain: {
+            areaManagerAssignments: {
+              some: {
+                areaManagerId: query.areaManagerId,
+                ...this.buildAssignmentOverlapsPeriodWhere(period)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    if (query.champId) {
+      and.push({ champId: query.champId });
+    }
+
+    return { AND: and };
+  }
+
+  private buildAreaManagerAssignmentMovementWhere(
+    query: ScopedWorkforceSummaryQuery,
+    period: WorkforcePeriod
+  ): Prisma.ChainAreaManagerAssignmentWhereInput | null {
+    if (query.vendorId || query.champId) {
+      return null;
+    }
+
+    const and: Prisma.ChainAreaManagerAssignmentWhereInput[] = [
+      this.buildAssignmentOverlapsPeriodWhere(period)
+    ];
+
+    if (query.chainId) {
+      and.push({ chainId: query.chainId });
+    }
+
+    if (query.scopeChainIds) {
+      and.push({ chainId: { in: query.scopeChainIds } });
+    }
+
+    if (query.areaManagerId) {
+      and.push({ areaManagerId: query.areaManagerId });
+    }
+
+    return { AND: and };
+  }
+
   private buildAreaManagerAssignmentSnapshotWhere(
     query: ScopedWorkforceSummaryQuery,
     asOf: Date
@@ -2034,161 +2221,17 @@ export class UsersService {
     return { AND: and };
   }
 
-  private buildLifecycleRequestScopeWhere(
-    role: Extract<UserRole, "PICKER" | "CHAMP" | "AREA_MANAGER">,
-    query: ScopedWorkforceSummaryQuery
-  ): Prisma.RequestWhereInput | null {
-    if (role === UserRole.AREA_MANAGER && (query.vendorId || query.champId)) {
-      return null;
-    }
-
-    const and: Prisma.RequestWhereInput[] = [];
-
-    if (query.chainId) {
-      and.push(this.buildRequestChainScopeWhere([query.chainId]));
-    }
-
-    if (query.scopeChainIds) {
-      and.push(this.buildRequestChainScopeWhere(query.scopeChainIds));
-    }
-
-    if (query.vendorId) {
-      and.push(this.buildRequestVendorScopeWhere([query.vendorId]));
-    }
-
-    if (query.scopeVendorIds) {
-      and.push(this.buildRequestVendorScopeWhere(query.scopeVendorIds));
-    }
-
-    if (query.areaManagerId) {
-      if (role === UserRole.AREA_MANAGER) {
-        and.push({ targetUserId: query.areaManagerId });
-      } else {
-        and.push({
-          OR: [
-            {
-              sourceChain: {
-                is: {
-                  areaManagerAssignments: {
-                    some: {
-                      areaManagerId: query.areaManagerId,
-                      status: AssignmentStatus.ACTIVE
-                    }
-                  }
-                }
-              }
-            },
-            {
-              destinationChain: {
-                is: {
-                  areaManagerAssignments: {
-                    some: {
-                      areaManagerId: query.areaManagerId,
-                      status: AssignmentStatus.ACTIVE
-                    }
-                  }
-                }
-              }
-            },
-            {
-              sourceVendor: {
-                is: {
-                  chain: {
-                    areaManagerAssignments: {
-                      some: {
-                        areaManagerId: query.areaManagerId,
-                        status: AssignmentStatus.ACTIVE
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            {
-              destinationVendor: {
-                is: {
-                  chain: {
-                    areaManagerAssignments: {
-                      some: {
-                        areaManagerId: query.areaManagerId,
-                        status: AssignmentStatus.ACTIVE
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          ]
-        });
-      }
-    }
-
-    if (query.champId) {
-      if (role === UserRole.CHAMP) {
-        and.push({ targetUserId: query.champId });
-      } else {
-        and.push({
-          OR: [
-            {
-              sourceVendor: {
-                is: {
-                  champAssignments: {
-                    some: {
-                      champId: query.champId,
-                      status: AssignmentStatus.ACTIVE
-                    }
-                  }
-                }
-              }
-            },
-            {
-              destinationVendor: {
-                is: {
-                  champAssignments: {
-                    some: {
-                      champId: query.champId,
-                      status: AssignmentStatus.ACTIVE
-                    }
-                  }
-                }
-              }
-            }
-          ]
-        });
-      }
-    }
-
-    return and.length ? { AND: and } : {};
-  }
-
-  private buildRequestChainScopeWhere(
-    chainIds: string[]
-  ): Prisma.RequestWhereInput {
-    return {
-      OR: [
-        { sourceChainId: { in: chainIds } },
-        { destinationChainId: { in: chainIds } },
-        { sourceVendor: { is: { chainId: { in: chainIds } } } },
-        { destinationVendor: { is: { chainId: { in: chainIds } } } }
-      ]
-    };
-  }
-
-  private buildRequestVendorScopeWhere(
-    vendorIds: string[]
-  ): Prisma.RequestWhereInput {
-    return {
-      OR: [
-        { sourceVendorId: { in: vendorIds } },
-        { destinationVendorId: { in: vendorIds } }
-      ]
-    };
-  }
-
   private buildAssignmentActiveAtWhere(asOf: Date) {
     return {
       startDate: { lte: asOf },
       OR: [{ endDate: null }, { endDate: { gt: asOf } }]
+    };
+  }
+
+  private buildAssignmentOverlapsPeriodWhere(period: WorkforcePeriod) {
+    return {
+      startDate: { lte: period.to },
+      OR: [{ endDate: null }, { endDate: { gte: period.from } }]
     };
   }
 

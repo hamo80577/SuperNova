@@ -74,6 +74,7 @@ export function DashboardLayout({
   const [activeNotificationAction, setActiveNotificationAction] = useState<
     string | null
   >(null);
+  const previousPathnameRef = useRef(pathname);
   const userInitials = getUserInitials(user?.nameEn);
   const notificationGroups = useMemo(
     () => sortNotificationGroups(groupNotifications(notificationItems)).slice(0, 5),
@@ -163,6 +164,14 @@ export function DashboardLayout({
     [loadNotificationPreview, markGroupRead]
   );
 
+  const closeNavigationAfterPageChange = useCallback(() => {
+    window.localStorage.setItem("supernova-sidebar-collapsed", "true");
+    setIsMobileNavOpen(false);
+    setIsCollapsed(true);
+    setIsUserMenuOpen(false);
+    setIsNotificationsOpen(false);
+  }, []);
+
   useEffect(() => {
     const stored = window.localStorage.getItem("supernova-sidebar-collapsed");
     if (stored) {
@@ -207,6 +216,15 @@ export function DashboardLayout({
     setIsScrolled(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (previousPathnameRef.current === pathname) {
+      return;
+    }
+
+    previousPathnameRef.current = pathname;
+    closeNavigationAfterPageChange();
+  }, [closeNavigationAfterPageChange, pathname]);
+
   const updateScrolled = useCallback(() => {
     setIsScrolled((contentRef.current?.scrollTop ?? window.scrollY) > 8);
   }, []);
@@ -223,6 +241,7 @@ export function DashboardLayout({
             void logout();
           }}
           onToggleCollapsed={() => setIsCollapsed((current) => !current)}
+          onNavigate={closeNavigationAfterPageChange}
           onToggleUserMenu={() => {
             setIsUserMenuOpen((current) => !current);
             setIsNotificationsOpen(false);
@@ -239,6 +258,7 @@ export function DashboardLayout({
         <MobileDashboardNavDrawer
           navSections={navSections}
           onClose={() => setIsMobileNavOpen(false)}
+          onNavigate={closeNavigationAfterPageChange}
           open={isMobileNavOpen}
           pathname={pathname}
           unreadCount={unreadNotificationCount}

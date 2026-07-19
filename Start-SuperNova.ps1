@@ -220,7 +220,7 @@ function Get-RedisService {
 }
 
 function Get-RedisExecutable {
-  $commandNames = @("redis-server", "memurai.exe", "memurai")
+  $commandNames = @("redis-server")
 
   foreach ($commandName in $commandNames) {
     $command = Get-Command $commandName -ErrorAction SilentlyContinue
@@ -230,19 +230,54 @@ function Get-RedisExecutable {
     }
   }
 
+  $redisWindowsExecutable = Get-ChildItem `
+    -Path (Join-Path $env:LOCALAPPDATA "Temp\supernova-open-site") `
+    -Recurse `
+    -File `
+    -Filter "redis-server.exe" `
+    -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
   $candidatePaths = @(
     (Join-Path $env:ProgramFiles "Redis\redis-server.exe"),
+    $(if ($redisWindowsExecutable) { $redisWindowsExecutable.FullName }),
     (Join-Path $env:ProgramFiles "Memurai\memurai.exe"),
     (Join-Path $env:LOCALAPPDATA "Temp\supernova-open-site\memurai_pkg\tools\memurai.exe")
   )
 
   foreach ($candidatePath in $candidatePaths) {
+    if ([string]::IsNullOrWhiteSpace($candidatePath)) {
+      continue
+    }
+
     if (Test-Path -LiteralPath $candidatePath) {
       return $candidatePath
     }
   }
 
   return $null
+}
+
+function Start-RedisExecutable {
+  param([Parameter(Mandatory = $true)][string]$ExecutablePath)
+
+  $argumentList = @("--port", "6379")
+  $workingDirectory = $repoRoot
+
+  if ((Split-Path -Leaf $ExecutablePath) -ieq "redis-server.exe") {
+    $redisDataPath = Join-Path $env:LOCALAPPDATA "Temp\supernova-open-site\redis-data"
+    Ensure-Directory $redisDataPath
+    $argumentList = @("--port", "6379", "--dir", $redisDataPath)
+    $workingDirectory = $redisDataPath
+  }
+
+  Start-Process `
+    -FilePath $ExecutablePath `
+    -ArgumentList $argumentList `
+    -WorkingDirectory $workingDirectory `
+    -WindowStyle Hidden |
+    Out-Null
 }
 
 function Wait-ForPostgreSql {
@@ -398,7 +433,7 @@ function Confirm-Redis {
 
   if ($redisExecutable) {
     Write-Status "RUN" ("Starting Redis-compatible executable: {0}" -f $redisExecutable) Cyan
-    Start-Process -FilePath $redisExecutable -ArgumentList @("--port", "6379") -WindowStyle Hidden | Out-Null
+    Start-RedisExecutable -ExecutablePath $redisExecutable
 
     if (Wait-ForRedis) {
       Write-Status "OK" "Redis-compatible server started and responded to PING on localhost:6379" Green
@@ -554,12 +589,17 @@ function Stop-DevProcess {
 }
 
 function Read-DevControlCommand {
-  if (-not [Console]::KeyAvailable) {
+  try {
+    if (-not [Console]::KeyAvailable) {
+      return $null
+    }
+
+    $key = [Console]::ReadKey($true)
+    return $key.KeyChar.ToString().ToUpperInvariant()
+  }
+  catch [System.InvalidOperationException] {
     return $null
   }
-
-  $key = [Console]::ReadKey($true)
-  return $key.KeyChar.ToString().ToUpperInvariant()
 }
 
 function Start-DevControlLoop {

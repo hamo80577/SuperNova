@@ -13,6 +13,11 @@ import {
   type RequestType
 } from "@/lib/api/requests";
 import type { UserRole } from "@/lib/auth/types";
+import {
+  RequestQuickActions,
+  RequestQuickDecisionDialog,
+  type QuickApprovalDecision
+} from "../actions/request-quick-actions";
 import { RequestDetailModal } from "../detail/request-detail-modal";
 import { getAllowedNewHireTargetRoles } from "../forms/new-hire/new-hire-utils";
 import { NewRequestMenu } from "../forms/new-request-menu";
@@ -102,6 +107,8 @@ export function RequestOperationsCenter({
   const [newRequestDraft, setNewRequestDraft] = useState<NewRequestDraft | null>(
     null
   );
+  const [quickDecision, setQuickDecision] =
+    useState<QuickApprovalDecision | null>(null);
 
   const requestId = searchParams.get("requestId");
   const canCreateLifecycleRequest = user?.role !== "PICKER";
@@ -310,11 +317,11 @@ export function RequestOperationsCenter({
                   <th>Status</th>
                   <th>Created by</th>
                   <th>Age</th>
-                  <th aria-label="Open" />
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleRequests.map(({ request }) => (
+                {visibleRequests.map(({ approval, request }) => (
                   <tr
                     className="cursor-pointer"
                     key={request.id}
@@ -364,11 +371,11 @@ export function RequestOperationsCenter({
                     <td className="sn-mono" style={{ color: "var(--sn-muted)" }}>
                       {compactAge(request.createdAt)}
                     </td>
-                    <td>
-                      <SnIcon
-                        name="chevR"
-                        size={14}
-                        style={{ color: "var(--sn-faint)" }}
+                    <td className="text-right">
+                      <RequestQuickActions
+                        approval={approval}
+                        onDecision={setQuickDecision}
+                        onOpenDetails={() => openRequest(request.id)}
                       />
                     </td>
                   </tr>
@@ -379,15 +386,22 @@ export function RequestOperationsCenter({
 
           {/* Mobile cards */}
           <div className="grid gap-2 lg:hidden">
-            {visibleRequests.map(({ request }) => (
-              <button
-                className="sn-card grid gap-1.5 p-3 text-left"
+            {visibleRequests.map(({ actionRequired, approval, request }) => (
+              <article
+                className="sn-card grid cursor-pointer gap-2 p-3 text-left transition hover:border-[#FFD8BD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--tlb-orange)]"
                 key={request.id}
                 onClick={() => openRequest(request.id)}
-                type="button"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openRequest(request.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
                     <SnTypeChip type={request.type} />
                     <span className="sn-mono text-[10.5px] text-[color:var(--sn-faint)]">
                       {shortId(request.id)}
@@ -396,31 +410,51 @@ export function RequestOperationsCenter({
                   <SnStatusBadge status={request.status} />
                 </div>
                 <div className="grid gap-0">
-                  <span className="font-semibold text-[color:var(--sn-ink)]">
+                  <span className="truncate font-semibold text-[color:var(--sn-ink)]">
                     {targetName(request)}{" "}
                     <span className="font-normal text-[color:var(--sn-muted)]">
                       · {targetRoleLabel(request)}
                     </span>
                   </span>
-                  <span className="text-[11.5px] text-[color:var(--sn-muted)]">
+                  <span className="truncate text-[11.5px] text-[color:var(--sn-muted)]">
                     {branchLabel(request)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between border-t border-[color:var(--sn-border)] pt-1.5">
-                  <span className="text-[11px] text-[color:var(--sn-muted)]">
+                <div className="flex items-center justify-between gap-2 border-t border-[color:var(--sn-border)] pt-1.5">
+                  <span className="min-w-0 truncate text-[11px] text-[color:var(--sn-muted)]">
                     {request.createdBy.nameEn} · {roleLabel(request.createdBy.role)}
                   </span>
-                  <span className="sn-mono text-[11px] text-[color:var(--sn-faint)]">
+                  <span className="sn-mono shrink-0 text-[11px] text-[color:var(--sn-faint)]">
                     {compactAge(request.createdAt)}
                   </span>
                 </div>
-              </button>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[11px] font-medium text-[color:var(--sn-muted)]">
+                    {actionRequired ? "Action required" : "Review ticket"}
+                  </span>
+                  <RequestQuickActions
+                    approval={approval}
+                    className="max-w-[260px]"
+                    isMobile
+                    onDecision={setQuickDecision}
+                    onOpenDetails={() => openRequest(request.id)}
+                  />
+                </div>
+              </article>
             ))}
           </div>
         </>
       ) : (
         <EmptyState message="No request cards match the current view." />
       )}
+
+      {quickDecision ? (
+        <RequestQuickDecisionDialog
+          decision={quickDecision}
+          onChanged={loadOperations}
+          onClose={() => setQuickDecision(null)}
+        />
+      ) : null}
 
       {requestId ? (
         <RequestDetailModal

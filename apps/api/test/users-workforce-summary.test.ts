@@ -6,8 +6,6 @@ import {
   AssignmentStatus,
   EmploymentStatus,
   ProfileStatus,
-  RequestStatus,
-  RequestType,
   UserRole
 } from "@prisma/client";
 import { plainToInstance } from "class-transformer";
@@ -55,7 +53,6 @@ function serviceHarness(options: {
   areaManagerScopedChampIds?: string[];
   champScopeBranches?: Array<{ vendorId: string; chainId: string }>;
   vendors?: Array<{ id: string; chainId: string }>;
-  requestCounts?: number[];
   userCounts?: number[];
 }) {
   const assignmentFindCalls: AssignmentFindCall[] = [];
@@ -69,7 +66,6 @@ function serviceHarness(options: {
   ];
   const champScopeBranches = [...(options.champScopeBranches ?? [])];
   const vendors = [...(options.vendors ?? [])];
-  const requestCounts = [...(options.requestCounts ?? [])];
   const userCounts = [...(options.userCounts ?? [])];
 
   const prisma = {
@@ -129,12 +125,7 @@ function serviceHarness(options: {
         return match ? { id: match.id } : null;
       }
     },
-    request: {
-      count: async (args: { where: unknown }) => {
-        countCalls.push({ model: "request", args });
-        return requestCounts.shift() ?? 0;
-      }
-    },
+    request: {},
     user: {
       count: async (args: { where: unknown }) => {
         countCalls.push({ model: "user", args });
@@ -173,9 +164,10 @@ async function run() {
     const harness = serviceHarness({
       pickerSnapshots: [
         ["picker-1", "picker-2", "picker-2"],
-        ["picker-1", "picker-2", "picker-3", "picker-4"]
-      ],
-      requestCounts: [3, 1]
+        ["picker-1", "picker-2", "picker-3", "picker-4"],
+        ["picker-2", "picker-3", "picker-4"],
+        ["picker-1"]
+      ]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -199,8 +191,8 @@ async function run() {
     assert.equal(summary.netMovement, 2);
     assert.equal(summary.period.label, "This month");
 
-    assert.equal(harness.assignmentFindCalls.length, 2);
-    assert.equal(harness.countCalls.length, 2);
+    assert.equal(harness.assignmentFindCalls.length, 4);
+    assert.equal(harness.countCalls.length, 0);
 
     const assignmentWhere = serialized(harness.assignmentFindCalls[0].args.where);
     assert.match(assignmentWhere, /chain-1/);
@@ -210,24 +202,21 @@ async function run() {
     assert.match(assignmentWhere, /startDate/);
     assert.match(assignmentWhere, /endDate/);
 
-    const requestWhere = serialized(harness.countCalls[0].args.where);
-    assert.match(requestWhere, new RegExp(RequestType.NEW_HIRE));
-    assert.match(requestWhere, new RegExp(RequestStatus.COMPLETED));
-    assert.match(requestWhere, new RegExp(UserRole.PICKER));
-    assert.match(requestWhere, /completedAt/);
-    assert.match(requestWhere, /sourceChainId/);
-    assert.match(requestWhere, /sourceVendorId/);
-    assert.match(requestWhere, /chain-1/);
-    assert.match(requestWhere, /vendor-1/);
+    const movementWhere = serialized(harness.assignmentFindCalls[2].args.where);
+    assert.match(movementWhere, new RegExp(UserRole.PICKER));
+    assert.match(movementWhere, /joiningDate/);
+    assert.match(movementWhere, /chain-1/);
+    assert.match(movementWhere, /vendor-1/);
   }
 
   {
     const harness = serviceHarness({
       areaManagerSnapshots: [
         ["area-manager-1", "area-manager-1", "area-manager-2"],
-        ["area-manager-1"]
-      ],
-      requestCounts: [1, 2]
+        ["area-manager-1"],
+        ["area-manager-1"],
+        ["area-manager-1", "area-manager-2"]
+      ]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -257,13 +246,20 @@ async function run() {
     assert.match(areaManagerWhere, /chain-1/);
     assert.match(areaManagerWhere, /startDate/);
     assert.match(areaManagerWhere, /endDate/);
+    const movementWhere = serialized(harness.assignmentFindCalls[2].args.where);
+    assert.match(movementWhere, new RegExp(UserRole.AREA_MANAGER));
+    assert.match(movementWhere, /joiningDate/);
   }
 
   {
     const harness = serviceHarness({
-      areaManagerSnapshots: [["area-manager-1"], ["area-manager-1"]],
-      requestCounts: [1, 0],
-      userCounts: [2, 3, 1, 1]
+      areaManagerSnapshots: [
+        ["area-manager-1"],
+        ["area-manager-1"],
+        [],
+        []
+      ],
+      userCounts: [2, 3, 2, 1]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -297,8 +293,12 @@ async function run() {
     const areaManager = actor(UserRole.AREA_MANAGER, "area-manager-1");
     const harness = serviceHarness({
       areaManagerScopeChainIds: ["chain-1"],
-      pickerSnapshots: [["picker-1"], ["picker-1", "picker-2"]],
-      requestCounts: [2, 1]
+      pickerSnapshots: [
+        ["picker-1"],
+        ["picker-1", "picker-2"],
+        ["picker-1", "picker-2"],
+        ["picker-1"]
+      ]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -319,9 +319,9 @@ async function run() {
     );
     assert.match(pickerWhere, /chain-1/);
 
-    const requestWhere = serialized(harness.countCalls[0].args.where);
-    assert.match(requestWhere, new RegExp(RequestStatus.COMPLETED));
-    assert.match(requestWhere, /chain-1/);
+    const movementWhere = serialized(harness.assignmentFindCalls[4].args.where);
+    assert.match(movementWhere, /resignationDate/);
+    assert.match(movementWhere, /chain-1/);
   }
 
   {
@@ -358,8 +358,7 @@ async function run() {
     const areaManager = actor(UserRole.AREA_MANAGER, "area-manager-1");
     const harness = serviceHarness({
       areaManagerScopeChainIds: ["chain-1"],
-      champSnapshots: [["champ-1"], ["champ-1", "champ-2"]],
-      requestCounts: [1, 0]
+      champSnapshots: [["champ-1"], ["champ-1", "champ-2"], ["champ-1"], []]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -383,8 +382,7 @@ async function run() {
     const champ = actor(UserRole.CHAMP, "champ-1");
     const harness = serviceHarness({
       champScopeBranches: [{ vendorId: "vendor-1", chainId: "chain-1" }],
-      pickerSnapshots: [["picker-1"], ["picker-1", "picker-2"]],
-      requestCounts: [1, 0]
+      pickerSnapshots: [["picker-1"], ["picker-1", "picker-2"], ["picker-1"], []]
     });
 
     const summary = await harness.service.getWorkforceSummary(
@@ -403,8 +401,9 @@ async function run() {
     );
     assert.match(pickerWhere, /vendor-1/);
 
-    const requestWhere = serialized(harness.countCalls[0].args.where);
-    assert.match(requestWhere, /vendor-1/);
+    const movementWhere = serialized(harness.assignmentFindCalls[4].args.where);
+    assert.match(movementWhere, /resignationDate/);
+    assert.match(movementWhere, /vendor-1/);
   }
 
   {

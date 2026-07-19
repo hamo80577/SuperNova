@@ -1374,8 +1374,7 @@ function isIssueShift(record: AttendanceSummaryRecord) {
     isAbsentShift(record) ||
     isLateShift(record) ||
     record.isUnder8Hours ||
-    record.isOver15Hours ||
-    record.issuesCount > 0
+    record.isOver15Hours
   );
 }
 

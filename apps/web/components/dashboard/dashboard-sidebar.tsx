@@ -34,6 +34,7 @@ type AccountMenuProps = {
 export function DashboardSidebar({
   collapsed,
   navSections,
+  onNavigate,
   onToggleCollapsed,
   pathname,
   unreadCount = 0,
@@ -48,6 +49,7 @@ export function DashboardSidebar({
 }: {
   collapsed: boolean;
   navSections: DashboardNavSection[];
+  onNavigate?: () => void;
   onToggleCollapsed: () => void;
   pathname: string;
   unreadCount?: number;
@@ -66,6 +68,7 @@ export function DashboardSidebar({
       <DashboardNav
         collapsed={collapsed}
         navSections={navSections}
+        onNavigate={onNavigate}
         pathname={pathname}
         unreadCount={unreadCount}
       />
@@ -100,6 +103,7 @@ export function DashboardSidebar({
 export function MobileDashboardNavDrawer({
   navSections,
   onClose,
+  onNavigate = onClose,
   open,
   pathname,
   unreadCount = 0,
@@ -109,6 +113,7 @@ export function MobileDashboardNavDrawer({
 }: {
   navSections: DashboardNavSection[];
   onClose: () => void;
+  onNavigate?: () => void;
   open: boolean;
   pathname: string;
   unreadCount?: number;
@@ -144,7 +149,7 @@ export function MobileDashboardNavDrawer({
         <DashboardNav
           collapsed={false}
           navSections={navSections}
-          onNavigate={onClose}
+          onNavigate={onNavigate}
           pathname={pathname}
           unreadCount={unreadCount}
         />

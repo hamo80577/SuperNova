@@ -1,0 +1,81 @@
+{
+  "versionNumber": 1,
+  "actions": [
+    {
+      "code": "ATTITUDE",
+      "name": "Attitude",
+      "description": "Attitude and behavior violations.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.5, "label": "0.5 days" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" },
+        { "occurrenceNumber": 3, "penaltyType": "LIFECYCLE_REVIEW_REQUIRED", "label": "Lifecycle review required" }
+      ]
+    },
+    {
+      "code": "UNIFORM",
+      "name": "Uniform",
+      "description": "Uniform compliance violations.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.25, "label": "0.25 days" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.5, "label": "0.5 days" },
+        { "occurrenceNumber": 3, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" },
+        { "occurrenceNumber": 4, "penaltyType": "LIFECYCLE_REVIEW_REQUIRED", "label": "Lifecycle review required" }
+      ]
+    },
+    {
+      "code": "APPEARANCE",
+      "name": "Appearance",
+      "description": "Personal appearance violations.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.5, "label": "0.5 days" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" },
+        { "occurrenceNumber": 3, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 2, "label": "2 days" },
+        { "occurrenceNumber": 4, "penaltyType": "LIFECYCLE_REVIEW_REQUIRED", "label": "Lifecycle review required" }
+      ]
+    },
+    {
+      "code": "MANUAL_AVAILABILITY",
+      "name": "Manual Availability",
+      "description": "Manual availability misuse.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "WARNING", "label": "Warning" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.25, "label": "0.25 days" },
+        { "occurrenceNumber": 3, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.5, "label": "0.5 days" },
+        { "occurrenceNumber": 4, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" },
+        { "occurrenceNumber": 5, "appliesFromOccurrence": 5, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 2, "label": "2 days" }
+      ]
+    },
+    {
+      "code": "ABSENT_WITHOUT_PERMISSION",
+      "name": "Absent without Permission",
+      "description": "Absence without prior permission.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 2, "label": "2 days" },
+        { "occurrenceNumber": 3, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 3, "label": "3 days" },
+        { "occurrenceNumber": 4, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 3, "label": "3 days" },
+        { "occurrenceNumber": 5, "appliesFromOccurrence": 5, "penaltyType": "LIFECYCLE_REVIEW_REQUIRED", "label": "Lifecycle review required" }
+      ]
+    },
+    {
+      "code": "PREPARED_ORDERS_NOT_SIGNED",
+      "name": "Prepared Orders not signed/known",
+      "description": "Prepared orders left unsigned or unaccounted for.",
+      "rules": [
+        { "occurrenceNumber": 1, "appliesFromOccurrence": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" }
+      ]
+    },
+    {
+      "code": "CHECKIN_FACE_NOT_VISIBLE",
+      "name": "Check-in Face Not Visible",
+      "description": "Check-in photo does not show the face clearly.",
+      "rules": [
+        { "occurrenceNumber": 1, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.1, "label": "0.1 days" },
+        { "occurrenceNumber": 2, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.25, "label": "0.25 days" },
+        { "occurrenceNumber": 3, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.5, "label": "0.5 days" },
+        { "occurrenceNumber": 4, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 0.75, "label": "0.75 days" },
+        { "occurrenceNumber": 5, "appliesFromOccurrence": 5, "penaltyType": "DEDUCTION_DAYS", "deductionDays": 1, "label": "1 day" }
+      ]
+    }
+  ]
+}
